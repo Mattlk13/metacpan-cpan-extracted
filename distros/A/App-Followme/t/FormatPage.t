@@ -1,12 +1,11 @@
 #!/usr/bin/env perl
 use strict;
 
-use Cwd;
 use IO::File;
 use File::Path qw(rmtree);
 use File::Spec::Functions qw(catdir catfile rel2abs splitdir);
 
-use Test::More tests => 29;
+use Test::More tests => 33;
 
 #----------------------------------------------------------------------
 # Change the modification date of a file
@@ -39,7 +38,7 @@ require App::Followme::FormatPage;
 
 my $test_dir = catdir(@path, 'test');
 
-rmtree($test_dir);
+rmtree($test_dir) if -e $test_dir;
 mkdir $test_dir or die $!;
 chmod 0755, $test_dir;
 
@@ -48,14 +47,17 @@ mkdir $sub_dir or die $!;
 chmod 0755, $sub_dir;
 
 chdir $test_dir or die $!;
-$test_dir = cwd();
 
 my %configuration = ();
 
 #----------------------------------------------------------------------
 # Create object
 
-my $up = App::Followme::FormatPage->new();
+my %configuration = (top_directory => $test_dir,
+                     base_directory => $test_dir,
+                    );
+
+my $up = App::Followme::FormatPage->new(%configuration);
 
 isa_ok($up, "App::Followme::FormatPage"); # test 1
 can_ok($up, qw(new run)); # test 2
@@ -165,7 +167,6 @@ do {
                );
 
     my $page = join("\n", @page) . "\n";
-    my $up = App::Followme::FormatPage->new;
     my $blocks = $up->parse_page($page);
 
     my $ok_blocks = {
@@ -205,7 +206,6 @@ do {
     $page =~ s/block/section/g;
 
     my $prototype_path = {folder => 1};
-    my $up = App::Followme::FormatPage->new;
     my $output = $up->update_page($page, $prototype, $prototype_path);
     my @output = split(/\n/, $output);
 
@@ -246,8 +246,6 @@ do {
 </html>
 EOQ
 
-    my $up = App::Followme::FormatPage->new(%configuration);
-
 	my $sec = 80;
     foreach my $dir (('sub', '')) {
         foreach my $count (qw(four three two one)) {
@@ -274,12 +272,11 @@ EOQ
 # Test get prototype path
 
 do {
-    my $up = App::Followme::FormatPage->new(%configuration);
     my $bottom = catfile($test_dir, 'sub');
     chdir($bottom) or die $!;
-    $bottom = cwd();
 
-    my $prototype_path = $up->get_prototype_path('one.html');
+    my $filename = catfile($bottom, 'one.html');
+    my $prototype_path = $up->get_prototype_path($filename);
 
     is_deeply($prototype_path, {sub => 1}, 'Get prototype path'); # test 13
 };
@@ -288,37 +285,34 @@ do {
 # Test run
 
 do {
-    chdir ($test_dir) or die $!;
-    $test_dir = cwd();
-    my $up = App::Followme::FormatPage->new(%configuration);
-
     foreach my $dir (('sub', '')) {
         my $path = $dir ? catfile($test_dir, $dir) : $test_dir;
         chdir($path) or die $!;
-        $path = cwd();
 
-        $up->run($path);
+        $up->run($path, $test_dir);
         foreach my $count (qw(two one)) {
-            my $filename = "$count.html";
+            my $filename = catfile($path, "$count.html");
             my $input = fio_read_page($filename);
 
+            ok(length($input) > 0, "Read $filename"); # test 14, 19, 24, 29
+
             like($input, qr(Page $count),
-               "Format block in $dir/$count"); # test 14, 18, 22, 26
+               "Format block in $dir/$count"); # test 15, 20, 25, 30
 
             like($input, qr(top link),
-               "Format prototype $dir/$count"); # test 15, 19, 23 27
+               "Format prototype $dir/$count"); # test 16, 21, 26 31
 
             if ($dir) {
                 like($input, qr(section nav in sub --),
-                   "Format section tag in $dir/$count"); # test 24, 28
+                   "Format section tag in $dir/$count"); # test 17, 22
                 like($input, qr(link one),
-                   "Format folder block $dir/$count"); # test 25, 29
+                   "Format folder block $dir/$count"); # test 18, 23
 
             } else {
                 like($input, qr(section nav --),
-                   "Format section tag in $dir/$count"); # test 16, 20
+                   "Format section tag in $dir/$count"); # test 27, 32
                 like($input, qr(link $count),
-                   "Format folder block in $dir/$count"); # test 17, 23
+                   "Format folder block in $dir/$count"); # test 28, 33
             }
         }
     }

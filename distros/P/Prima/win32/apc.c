@@ -52,7 +52,6 @@ apc_application_begin_paint_info( Handle self)
 	return ok;
 }
 
-
 Bool
 apc_application_create( Handle self)
 {
@@ -67,17 +66,17 @@ apc_application_create( Handle self)
 	while ( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE));
 
 	if ( !( h = CreateWindowExW( 0, L"GenericApp", &wnull, 0, 0, 0, 0, 0,
-			nil, nil, guts. instance, nil))) apiErrRet;
+			NULL, NULL, guts. instance, NULL))) apiErrRet;
 	sys handle = h;
 	sys parent = sys owner = HWND_DESKTOP;
 	SetWindowLongPtr( sys handle, GWLP_USERDATA, self);
 	PostMessage( sys handle, WM_PRIMA_CREATE, 0, 0);
 	sys className = WC_APPLICATION;
-	// if ( !SetTimer( h, TID_USERMAX, 100, nil)) apiErr;
+	// if ( !SetTimer( h, TID_USERMAX, 100, NULL)) apiErr;
 	GetClientRect( h, &r);
 	if ( !( var handle = ( Handle) CreateWindowExW( 0,  L"Generic", &wnull, WS_VISIBLE | WS_CHILD | WS_CLIPCHILDREN,
-		0, 0, r. right - r. left, r. bottom - r. top, h, nil,
-		guts. instance, nil))) apiErrRet;
+		0, 0, r. right - r. left, r. bottom - r. top, h, NULL,
+		guts. instance, NULL))) apiErrRet;
 	SetWindowLongPtr(( HWND) var handle, GWLP_USERDATA, self);
 	apt_set( aptEnabled);
 	sys lastSize = apc_application_get_size( self);
@@ -105,6 +104,7 @@ apc_application_destroy( Handle self)
 	}
 	PostThreadMessage( guts. mainThreadId, WM_TERMINATE, 0, 0);
 	PostQuitMessage(0);
+	application = NULL_HANDLE;
 	return true;
 }
 
@@ -118,8 +118,8 @@ apc_application_end_paint( Handle self)
 	dc_free();
 	apt_clear( aptWinPS);
 	apt_clear( aptCompatiblePS);
-	sys pal = nil;
-	sys ps = nil;
+	sys pal = NULL;
+	sys ps = NULL;
 	return true;
 }
 
@@ -156,7 +156,7 @@ apc_application_get_bitmap( Handle self, Handle image, int x, int y, int xLen, i
 	HDC dc, dc2;
 	XLOGPALETTE lpg;
 	HPALETTE hp, hp2, hp3;
-	if ( image == nilHandle) apcErrRet( errInvParams);
+	if ( image == NULL_HANDLE) apcErrRet( errInvParams);
 	dobjCheck( image) false;
 
 
@@ -211,11 +211,11 @@ hwnd_to_view( HWND win)
 	Handle h;
 	LONG_PTR ll;
 	if (( !win) || ( !IsWindow( win)))
-		return nilHandle;
-	if ( GetWindowThreadProcessId( win, nil) != guts. mainThreadId)
-		return nilHandle;
+		return NULL_HANDLE;
+	if ( GetWindowThreadProcessId( win, NULL) != guts. mainThreadId)
+		return NULL_HANDLE;
 	h = GetWindowLongPtr( win, GWLP_USERDATA);
-	if ( !h) return nilHandle;
+	if ( !h) return NULL_HANDLE;
 	ll = GetWindowLongPtr( win, GWLP_WNDPROC);
 	if (
 		( ll == ( LONG_PTR) generic_view_handler) ||
@@ -225,7 +225,7 @@ hwnd_to_view( HWND win)
 
 	if ( SendMessage( win, WM_HASMATE, 0, ( LPARAM) &h) == (LRESULT) HASMATE_MAGIC)
 		return h;
-	return nilHandle;
+	return NULL_HANDLE;
 }
 
 
@@ -432,6 +432,7 @@ process_msg( MSG * msg)
 	case WM_LBUTTONDOWN:  musClk. emsg = WM_LBUTTONUP; goto MUS1;
 	case WM_MBUTTONDOWN:  musClk. emsg = WM_MBUTTONUP; goto MUS1;
 	case WM_RBUTTONDOWN:  musClk. emsg = WM_RBUTTONUP; goto MUS1;
+	case WM_XBUTTONDOWN:  musClk. emsg = WM_XBUTTONUP; goto MUS1;
 	MUS1:
 		musClk. pending = 1;
 		musClk. msg     = *msg;
@@ -440,6 +441,7 @@ process_msg( MSG * msg)
 	case WM_LBUTTONUP:   musClk. msg. message = WM_LMOUSECLICK; goto MUS2;
 	case WM_MBUTTONUP:   musClk. msg. message = WM_MMOUSECLICK; goto MUS2;
 	case WM_RBUTTONUP:   musClk. msg. message = WM_RMOUSECLICK; goto MUS2;
+	case WM_XBUTTONUP:   musClk. msg. message = WM_XMOUSECLICK; goto MUS2;
 	MUS2:
 		if ( musClk. pending &&
 			( musClk. emsg         == msg-> message) &&
@@ -482,7 +484,7 @@ process_msg( MSG * msg)
 
 			if ( guts. files. count == 0) return true;
 
-			list_first_that( &guts. files, files_rehash, nil);
+			list_first_that( &guts. files, files_rehash, NULL);
 			for ( i = 0; i < guts. files. count; i++) {
 				Handle self = guts. files. items[i];
 				if ( PFile( self)-> eventMask & feRead)
@@ -493,7 +495,7 @@ process_msg( MSG * msg)
 			PostMessage( NULL, WM_FILE, 0, 0);
 		} else {
 			int i;
-			Handle self = nilHandle;
+			Handle self = NULL_HANDLE;
 			for ( i = 0; i < guts. files. count; i++)
 				if (( guts. files. items[i] == ( Handle) msg-> lParam) &&
 					( PFile(guts. files. items[i])-> eventMask & msg-> wParam)) {
@@ -528,9 +530,9 @@ apc_application_go( Handle self)
 	MSG msg;
 	objCheck false;
 
-	while ( GetMessage( &msg, NULL, 0, 0) && process_msg( &msg));
-
-	if ( application) Object_destroy( application);
+	guts. application_stop_signal = false;
+	while ( !guts. application_stop_signal && GetMessage( &msg, NULL, 0, 0) && process_msg( &msg));
+	guts. application_stop_signal = false;
 	return true;
 }
 
@@ -543,7 +545,7 @@ HWND_lock( Bool lock)
 	}
 	else
 	{
-		if ( --guts. appLock == 0) return LockWindowUpdate( nil);
+		if ( --guts. appLock == 0) return LockWindowUpdate( NULL);
 	}
 	return true;
 }
@@ -561,6 +563,14 @@ apc_application_unlock( Handle self)
 }
 
 Bool
+apc_application_stop( Handle self)
+{
+	if ( application == NULL_HANDLE ) return false;
+	guts. application_stop_signal = true;
+	return true;
+}
+
+Bool
 apc_application_sync( void)
 {
 	return true;
@@ -571,14 +581,15 @@ apc_application_yield(Bool wait_for_event)
 {
 	MSG msg;
 	Bool got_events = false;
-	while ( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE)) {
+	guts. application_stop_signal = false;
+	while ( !guts. application_stop_signal && PeekMessage( &msg, NULL, 0, 0, PM_REMOVE)) {
 		got_events = true;
 		if ( !process_msg( &msg)) {
 			PostThreadMessage( guts. mainThreadId, appDead ? WM_QUIT : WM_TERMINATE, 0, 0);
 			return false;
 		}
 	}
-	if ( application && wait_for_event && !got_events ) {
+	if ( application && wait_for_event && !got_events && !guts. application_stop_signal) {
 		Event ev;
 		ev. cmd = cmIdle;
 		CComponent( application)-> message( application, &ev);
@@ -587,7 +598,8 @@ apc_application_yield(Bool wait_for_event)
 			process_msg( &msg);
 		}
 	}
-	return application != nilHandle;
+	guts. application_stop_signal = false;
+	return application != NULL_HANDLE;
 }
 
 Handle
@@ -597,7 +609,7 @@ apc_application_get_widget_from_point( Handle self, Point point)
 	POINT pt;
 	HWND  p;
 
-	objCheck nilHandle;
+	objCheck NULL_HANDLE;
 	pt.x = point. x;
 	pt.y = sys lastSize. y - point. y - 1;
 	p    =  WindowFromPoint( pt);
@@ -609,9 +621,9 @@ apc_application_get_widget_from_point( Handle self, Point point)
 	} else
 		p = ChildWindowFromPointEx( HWND_DESKTOP, pt, CWP_SKIPINVISIBLE);
 
-	if ( !p) return nilHandle;
+	if ( !p) return NULL_HANDLE;
 	if ( !( tid = GetWindowThreadProcessId( p, &pid))) apiErr;
-	if ( tid != guts. mainThreadId) return nilHandle;
+	if ( tid != guts. mainThreadId) return NULL_HANDLE;
 	return ( Handle) GetWindowLongPtr( p, GWLP_USERDATA);
 }
 
@@ -638,10 +650,10 @@ apc_component_destroy( Handle self)
 	PComponent    c = ( PComponent) self;
 	PDrawableData d = ( PDrawableData) c-> sysData;
 	objCheck false;
-	var handle = nilHandle;
-	if ( d == nil) return false;
+	var handle = NULL_HANDLE;
+	if ( d == NULL) return false;
 	free( d);
-	c-> sysData = nil;
+	c-> sysData = NULL;
 	return true;
 }
 
@@ -750,12 +762,20 @@ apc_message( Handle self, PEvent ev, Bool post)
 	case cmMouseUp:
 		if ( ev-> pos. button & mbMiddle) msg = WM_MBUTTONUP; else
 		if ( ev-> pos. button & mbRight)  msg = WM_RBUTTONUP; else
-		msg = WM_LBUTTONUP;
+		if ( ev-> pos. button & mbLeft)   msg = WM_XBUTTONUP; else
+		{
+			msg  = WM_XBUTTONUP;
+			mp1s = MAKEWPARAM(0, (ev-> pos. button & mb4) ? XBUTTON1 : XBUTTON2);
+		}
 		goto general;
 	case cmMouseDown:
 		if ( ev-> pos. button & mbMiddle) msg = WM_MBUTTONDOWN; else
 		if ( ev-> pos. button & mbRight)  msg = WM_RBUTTONDOWN; else
-		msg = WM_LBUTTONDOWN;
+		if ( ev-> pos. button & mbLeft)   msg = WM_LBUTTONDOWN; else
+		{
+			msg = WM_XBUTTONDOWN;
+			mp1s = MAKEWPARAM(0, (ev-> pos. button & mb4) ? XBUTTON1 : XBUTTON2);
+		}
 		goto general;
 	case cmMouseWheel:
 		msg  = WM_MOUSEWHEEL;
@@ -765,12 +785,20 @@ apc_message( Handle self, PEvent ev, Bool post)
 		if ( ev-> pos. dblclk) {
 			if ( ev-> pos. button & mbMiddle) msg = WM_MBUTTONDBLCLK; else
 			if ( ev-> pos. button & mbRight)  msg = WM_RBUTTONDBLCLK; else
-			msg = WM_LBUTTONDBLCLK;
+			if ( ev-> pos. button & mbLeft)   msg = WM_LBUTTONDBLCLK; else
+			{
+				msg = WM_XBUTTONDBLCLK;
+				mp1s = MAKEWPARAM(0, (ev-> pos. button & mb4) ? XBUTTON1 : XBUTTON2);
+			}
 		} else {
 			Event newEvent = *ev;
 			if ( ev-> pos. button & mbMiddle) msg = WM_MMOUSECLICK; else
 			if ( ev-> pos. button & mbRight)  msg = WM_RMOUSECLICK; else
-			msg = WM_LMOUSECLICK;
+			if ( ev-> pos. button & mbLeft)   msg = WM_LMOUSECLICK; else
+			{
+				msg = WM_XMOUSECLICK;
+				mp1s = MAKEWPARAM(0, (ev-> pos. button & mb4) ? XBUTTON1 : XBUTTON2);
+			}
 			newEvent. cmd = cmMouseDown;
 			apc_message( self, &newEvent, post);
 			newEvent. cmd = cmMouseUp;
@@ -793,7 +821,7 @@ apc_message( Handle self, PEvent ev, Bool post)
 				PostMessage( 0, WM_KEYPACKET, 0, ( LPARAM) kp);
 			}
 		} else {
-			BYTE * mod = nil;
+			BYTE * mod = NULL;
 			Bool wui = PApplication(application)-> wantUnicodeInput;
 			if (( GetKeyState( VK_MENU) < 0) ^ (( ev-> pos. mod & kmAlt) != 0))
 				mod = mod_select( ev-> pos. mod);
@@ -900,45 +928,54 @@ apc_message( Handle self, PEvent ev, Bool post)
 	return true;
 }
 
-/* convert explorer-string format (asciiz,asciiz,...,0) into
-	backslash-escaped string. spaces and backslashes are escaped */
+/* Convert explorer-string format (asciiz,asciiz,...,0) into
+backslash-escaped string. 
+Spaces and backslashes are escaped */
 static char *
-duplicate_zz_string( const char * c)
+duplicate_zz_string( const WCHAR * c)
 {
 	int sz = 1;
-	char * d = ( char *) c, * ret;
+	WCHAR * d = ( WCHAR *) c;
+	WCHAR buf[20480];
+
 	while ( d[0] || d[1]) {
-		if ( *d == ' ' || *d == '\\') sz++;
+		if ( *d == L' ' || *d == L'\\') sz++;
 		sz++;
 		d++;
 	}
-	if ( !( ret = d = malloc( sz))) return nil;
+
+	d = buf;
 	while ( c[0] || c[1]) {
 		if ( !*c) {
-			*d++ = ' ';
+			*d++ = L' ';
 			c++;
 			continue;
 		}
-		if ( *c == ' ' || *c == '\\')
-			*d++ = '\\';
+		if ( *c == L' ' || *c == L'\\')
+			*d++ = L'\\';
 		*d++ = *c++;
 	}
 	*d++ = 0;
-	return ret;
+
+	return alloc_wchar_to_utf8(buf, &sz);
 }
 
 /* performs non-standard windows open file function */
 static char *
 win32_openfile( const char * params)
 {
-	static OPENFILENAME o;
+	static OPENFILENAMEW o;
 	static Bool initialized = false;
-	static char filter[2048] = "";
-	static char defext[32] = "";
-	static char directory[2048] = "";
-	static char title[256] = "";
-	static char filters[20480];
+	static WCHAR filter[2048]    = L"";
+	static WCHAR defext[32]      = L"";
+	static WCHAR directory[2048] = L"";
+	static WCHAR title[256]      = L"";
+	static WCHAR filters[20480];
 
+#define UTF8COPY(dst) {\
+	MultiByteToWideChar(CP_UTF8, 0, params, -1, dst, sizeof(dst)/sizeof(WCHAR));\
+	dst[sizeof(dst)/sizeof(WCHAR) - 1] = 0;\
+}
 	if ( !initialized) {
 		memset( &o, 0, sizeof(o));
 		o. lStructSize = sizeof(o);
@@ -953,11 +990,11 @@ win32_openfile( const char * params)
 			o. lpstrFilter = NULL;
 		} else {
 			/* copy \0\0-terminated string */
-			char * fb = filters;
-			int fbsz = 20477;
-			while (( params[0] || params[1]) && fbsz--)
-				*fb++ = *params++;
-			*fb = *params;
+			const char *p = params;
+			int paramsz = 2, fsz = sizeof(filters)/sizeof(WCHAR);
+			while ( p[0] || p[1]) p++, paramsz++;
+			MultiByteToWideChar(CP_UTF8, 0, params, paramsz, filters, fsz);
+			filters[fsz - 1] = filters[fsz - 2] = 0;
 			o. lpstrFilter = filters;
 		}
 	} else if ( strncmp( params, "directory", 9) == 0) {
@@ -967,18 +1004,18 @@ win32_openfile( const char * params)
 			if ( strcmp( params, "NULL") == 0) {
 				o. lpstrInitialDir = NULL;
 			} else {
-				strncpy( directory, params, 2047);
+				UTF8COPY(directory);
 				o. lpstrInitialDir = directory;
 			}
 		} else {
-			return duplicate_string( directory);
+			return alloc_wchar_to_utf8( directory, NULL);
 		}
 	} else if ( strncmp( params, "title=", 6) == 0) {
 		params += 6;
 		if ( strcmp( params, "NULL") == 0) {
 			o. lpstrTitle = NULL;
 		} else {
-			strncpy( title, params, 255);
+			UTF8COPY(title);
 			o. lpstrTitle = title;
 		}
 	} else if ( strncmp( params, "defext=", 7) == 0) {
@@ -986,7 +1023,7 @@ win32_openfile( const char * params)
 		if ( strcmp( params, "NULL") == 0) {
 			o. lpstrDefExt = NULL;
 		} else {
-			strncpy( defext, params, 31);
+			UTF8COPY(defext);
 			o. lpstrDefExt = defext;
 		}
 	} else if ( strncmp( params, "filter=", 7) == 0) {
@@ -996,7 +1033,7 @@ win32_openfile( const char * params)
 		} else if ( strcmp( params, "DEFAULT") == 0) {
 			o. lpstrCustomFilter = filter;
 		} else {
-			strncpy( filter, params, 2047);
+			UTF8COPY(filter);
 			o. lpstrCustomFilter = filter;
 		}
 	} else if ( strncmp( params, "filterindex", 11) == 0) {
@@ -1046,16 +1083,18 @@ win32_openfile( const char * params)
 			params = cp + 1;
 			if ( !pp) break;
 		}
-	} else if (( strncmp( params, "open", 4) == 0) ||
-				( strncmp( params, "save", 4) == 0)) {
+	} else if (
+		( strncmp( params, "open", 4) == 0) ||
+		( strncmp( params, "save", 4) == 0)
+	) {
 		Bool ret;
-		char filename[20480] = "";
+		WCHAR filename[20480] = L"";
 
 		guts. focSysDialog = 1;
 		o. lpstrFile = filename;
 		ret = (strncmp( params, "open", 4) == 0) ?
-			GetOpenFileName( &o) :
-			GetSaveFileName( &o);
+			GetOpenFileNameW( &o) :
+			GetSaveFileNameW( &o);
 		if ( ret == 0) {
 			DWORD error;
 			error = CommDlgExtendedError();
@@ -1069,14 +1108,14 @@ win32_openfile( const char * params)
 		}
 		guts. focSysDialog = 0;
 		if ( !ret) return 0;
-		strncpy( directory, o. lpstrFile, o. nFileOffset);
+		wcsncpy( directory, o. lpstrFile, o. nFileOffset);
 		if ( o. Flags & OFN_ALLOWMULTISELECT) {
 			if ( o. Flags & OFN_EXPLORER)
 				return duplicate_zz_string( o. lpstrFile + o. nFileOffset );
 			else
-				return duplicate_string( o. lpstrFile + o. nFileOffset );
+				return alloc_wchar_to_utf8( o. lpstrFile + o. nFileOffset, NULL );
 		}
-		return duplicate_string( o. lpstrFile);
+		return alloc_wchar_to_utf8( o. lpstrFile, NULL);
 	} else {
 		warn("win32.OpenFile: Unknown function %s", params);
 	}
@@ -1109,9 +1148,9 @@ apc_system_action( const char * params)
 			DWORD valSize = MAX_PATH, valType = REG_SZ, res;
 			char buf[ MAX_PATH] = "";
 			RegOpenKeyEx( HKEY_CLASSES_ROOT, "http\\shell\\open\\command", 0, KEY_READ, &k);
-			res = RegQueryValueEx( k, nil, nil, &valType, ( LPBYTE)buf, &valSize);
+			res = RegQueryValueEx( k, NULL, NULL, &valType, ( LPBYTE)buf, &valSize);
 			RegCloseKey( k);
-			if ( res != ERROR_SUCCESS) return nil;
+			if ( res != ERROR_SUCCESS) return NULL;
 			return duplicate_string( buf);
 		}
 		break;

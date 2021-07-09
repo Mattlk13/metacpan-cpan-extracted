@@ -1,23 +1,40 @@
-use utf8;
 package Test2::Harness::UI::Schema;
-
-# Created by DBIx::Class::Schema::Loader
-# DO NOT MODIFY THE FIRST PART OF THIS FILE
-
+use utf8;
 use strict;
 use warnings;
+use Carp qw/confess/;
+
+our $VERSION = '0.000068';
 
 use base 'DBIx::Class::Schema';
 
+confess "You must first load a Test2::Harness::UI::Schema::NAME module"
+    unless $Test2::Harness::UI::Schema::LOADED;
+
+BEGIN {
+    $INC{'Test2/Harness/UI/Schema/Result/Coverage.pm'} = 1;
+    package    #
+        Test2::Harness::UI::Schema::Result::Coverage;
+    @Test2::Harness::UI::Schema::Result::Coverage::ISA = ('DBIx::Class::Core');
+    __PACKAGE__->table("coverage");
+}
+
 __PACKAGE__->load_namespaces;
 
+require Test2::Harness::UI::Schema::Result::ApiKey;
+require Test2::Harness::UI::Schema::Result::Email;
+require Test2::Harness::UI::Schema::Result::EmailVerificationCode;
+require Test2::Harness::UI::Schema::Result::Event;
+require Test2::Harness::UI::Schema::Result::Job;
+require Test2::Harness::UI::Schema::Result::LogFile;
+require Test2::Harness::UI::Schema::Result::Permission;
+require Test2::Harness::UI::Schema::Result::PrimaryEmail;
+require Test2::Harness::UI::Schema::Result::Project;
+require Test2::Harness::UI::Schema::Result::Run;
+require Test2::Harness::UI::Schema::Result::SessionHost;
+require Test2::Harness::UI::Schema::Result::Session;
+require Test2::Harness::UI::Schema::Result::User;
 
-# Created by DBIx::Class::Schema::Loader v0.07048 @ 2018-02-02 15:01:36
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:yHwMZID2mykj7TNRoqEZAA
-
-our $VERSION = '0.000028';
-
-# You can replace this text with custom code or comments, and it will be preserved on regeneration
 1;
 
 __END__

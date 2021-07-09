@@ -1,5 +1,68 @@
 Revision history for Mojolicious application Slovo
 
+2021.06.16
+    * Fixed failing tests with Mojolicious::Plugin::OpenAPI 4.04.
+    * Upgraded to Mojolicious::Plugin::OpenAPI 4.04.
+
+2021.06.06
+    * Updated progress in the documentation.
+    * Allow commands from the Mojolicious::Command::Author::generate namespace
+      to be listed and executed by Slovo on the command-line. Added tests.
+    * Added README.pod to the distribution.
+    * Fixed missing hidden field for permissions when creating a page.
+
+2021.05.21
+    * Fix canonical URL when it can contain a double slash.
+
+2021.05.15
+    * Added initial OpenGraph support.
+    * Optimised _around_execute in Slovo::Controller::Role::Stranica to do as
+      little as possible when serving cached content.
+
+2021.02.20
+    * Renamed configuration section `plugins` to `load_plugins` so it does not
+      clash with the same feature in Mojolicious 9.0. Kept the feature as Slovo's
+      one is more flexible. Slovo is compatible with Mojolicious 9.0.
+    * Added `mojo` subfolder to the mod_rewrite rule for public/ in the
+      .htaccess file template so we can put static files like jquery/jquery.js
+      there and they will be served directly by Apache.
+    * Made scrollbar-width wider in Slovo::Themes::Malka.
+    * Upgraded to Mojolicious 9.02.
+
+2021.02.01
+    * We now require minimum version of Perl 5.26 to remove from our code
+      `no warnings "experimental::lexical_subs";`. Respectively we explicitly
+      require at least ExtUtils::MakeMaker 7.24.
+    * Since Perl 5.26 "the lexical_subs feature has no effect; all Perl code
+      can use lexical (private) subroutines, regardless of what feature
+      declarations are in scope." So we replaced `use feature qw(lexical_subs
+      unicode_strings);` with `use feature ':5.26';`. We just use the whole
+      feature bundle now.
+    * Changed behavior of Slovo::Command::Author::inflate and improved its
+      documentation. The different types of files are now prefixed with
+      `templates/` and `public/` only if they are inflated into the
+      $app->home directory.
+    * Improved lib/Slovo.pm's POD.
+    * Database migration is not automatic any more. From now on one must run
+      `bin/slovo eval 'app->dbx->migrations->migrate'`.
+    * Added new `BEFORE UPDATE` SQL triggers that check if pid!=id and if the
+      parent record is a directory, and throw an SQL statement error.
+    * Added meta tags for 'author', 'description' and 'keywords' in
+      partials/_head.html.ep with default content from the respective row in
+      table celini.
+
+2021.01.11
+    * Happy new year!
+    * Fixed a bug in Slovo::Controller::Role::Stranica::page_id_options(...)
+      which caused unpleasant recursion in site menu when the root page is
+      edited and saved. Root page was being set with pid=id, but it should
+      always have pid=0.
+    * Moved templates from themes/malka to lib/Slovo/Themes/Malka.pm.
+    * Deleted existing default templates for the "site" part of the templates.
+      Now Slovo::Themes::Malka is the default theme for the site.
+    * Implemented Slovo::Command::Author::inflate.
+
+
 2020.12.22
     * Added new lightweight theme, named "malka". Using
       https://github.com/necolas/normalize.css and

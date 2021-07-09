@@ -1,8 +1,16 @@
-package Dist::Zilla::Plugin::MetaNoIndex 6.017;
+package Dist::Zilla::Plugin::MetaNoIndex 6.023;
 # ABSTRACT: Stop CPAN from indexing stuff
 
 use Moose;
 with 'Dist::Zilla::Role::MetaProvider';
+
+# BEGIN BOILERPLATE
+use v5.20.0;
+use warnings;
+use utf8;
+no feature 'switch';
+use experimental qw(postderef postderef_qq); # This experiment gets mainlined.
+# END BOILERPLATE
 
 use namespace::autoclean;
 
@@ -131,7 +139,7 @@ Dist::Zilla::Plugin::MetaNoIndex - Stop CPAN from indexing stuff
 
 =head1 VERSION
 
-version 6.017
+version 6.023
 
 =head1 SYNOPSIS
 
@@ -155,6 +163,18 @@ want indexed. This is useful if you build test classes or example classes
 that are used for those purposes only, and are not part of the distribution.
 It does this by adding a C<no_index> block to your F<META.json> (or
 F<META.yml>) file in your distribution.
+
+=head1 PERL VERSION
+
+This module should work on any version of perl still receiving updates from
+the Perl 5 Porters.  This means it should work on any version of perl released
+in the last two to three years.  (That is, if the most recently released
+version is v5.40, then this module should work on both v5.40 and v5.38.)
+
+Although it may work on older versions of perl, no guarantee is made that the
+minimum required version will not be increased.  The version may be increased
+for any reason, and there is no promise that patches will be accepted to lower
+the minimum required perl.
 
 =head1 ATTRIBUTES
 
@@ -199,11 +219,11 @@ Dist::Zilla roles: L<MetaProvider|Dist::Zilla::Role::MetaProvider>.
 
 =head1 AUTHOR
 
-Ricardo SIGNES 😏 <rjbs@cpan.org>
+Ricardo SIGNES 😏 <rjbs@semiotic.systems>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Ricardo SIGNES.
+This software is copyright (c) 2021 by Ricardo SIGNES.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

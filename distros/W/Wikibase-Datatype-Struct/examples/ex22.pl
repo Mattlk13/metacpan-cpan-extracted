@@ -3,44 +3,41 @@
 use strict;
 use warnings;
 
-use Wikibase::Datatype::Struct::Value::Time qw(struct2obj);
+use Wikibase::Datatype::Struct::Snak qw(struct2obj);
 
-# Time structure.
+# Item structure.
 my $struct_hr = {
-        'type' => 'time',
-        'value' => {
-                'after' => 0,
-                'before' => 0,
-                'calendarmodel' => 'http://test.wikidata.org/entity/Q1985727',
-                'precision' => 10,
-                'time' => '+2020-09-01T00:00:00Z',
-                'timezone' => 0,
+        'datatype' => 'wikibase-item',
+        'datavalue' => {
+                'type' => 'wikibase-entityid',
+                'value' => {
+                        'entity-type' => 'item',
+                        'id' => 'Q5',
+                        'numeric-id' => 5,
+                },
         },
+        'property' => 'P31',
+        'snaktype' => 'value',
 };
 
 # Get object.
 my $obj = struct2obj($struct_hr);
 
-# Get calendar model.
-my $calendarmodel = $obj->calendarmodel;
-
-# Get precision.
-my $precision = $obj->precision;
-
-# Get type.
-my $type = $obj->type;
-
 # Get value.
-my $value = $obj->value;
+my $datavalue = $obj->datavalue->value;
+
+# Get datatype.
+my $datatype = $obj->datatype;
+
+# Get property.
+my $property = $obj->property;
 
 # Print out.
-print "Calendar model: $calendarmodel\n";
-print "Precision: $precision\n";
-print "Type: $type\n";
-print "Value: $value\n";
+print "Property: $property\n";
+print "Type: $datatype\n";
+print "Value: $datavalue\n";
 
 # Output:
-# Calendar model: Q1985727
-# Precision: 10
-# Type: time
-# Value: +2020-09-01T00:00:00Z
+# Property: P31
+# Type: wikibase-item
+# Value: Q5

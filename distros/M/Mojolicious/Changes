@@ -1,4 +1,147 @@
 
+9.19  2021-06-01
+  - This release contains fixes for security issues, everybody should upgrade!
+  - Swiched from HMAC-SHA1 to HMAC-SHA256 for signed cookies. Note that this means that all sessions will be reset.
+  - Improved signed cookie based sessions to pad short values, to make it harder to brute force attack the application
+    secret. (jberger)
+
+9.18  2021-05-09
+  - Remove Font Awesome from distribution.
+
+9.17  2021-04-12
+  - Deprecated ?format=* parameter in favor of ?_format=* for content negotiation in Mojolicious::Renderer.
+
+9.16  2021-04-08
+  - Added support for format inheritance.
+  - Improved Mojo::Server::CGI with support for before_server_start hook.
+
+9.15  2021-03-30
+  - Improved form generator in Mojo::UserAgent::Transactor to allow custom Content-Disposition headers.
+
+9.14  2021-03-23
+  - Added EXPERIMENTAL support for :text pseudo-class to Mojo::DOM::CSS.
+
+9.13  2021-03-22
+  - Improved request_id attribute in Mojo::Message::Request to be a little more unique.
+  - Fixed Mojolicious::Plugin::Mount to share the logger of the host application.
+
+9.12  2021-03-21
+  - Improved mojo script startup time slightly with a Mojo::HelloWorld optimization.
+  - Improved design of built-in templates.
+
+9.11  2021-03-20
+  - This release contains fixes for security issues, everybody should upgrade!
+  - Disabled format detection by default to fix vulnerabilities in many Mojolicious applications. That means some of
+    your routes that previously matched "/foo" and "/foo.json", will only match "/foo" after upgrading. From now on you
+    will have to explicitly declare the formats your routes are allowed to handle.
+      # /foo
+      # /foo.html
+      # /foo.json
+      $r->get('/foo')->to('bar#yada');
+    becomes
+      $r->get('/foo' => [format => ['html', 'json']])->to('bar#yada', format => undef);
+    And if you are certain that your application is not vulnerable, you also have the option to re-enable format
+    detection for a route and all its nested routes. Due to the high risk of vulnerabilities, this feature is going to
+    be removed again in a future release however.
+      my $active = $r->any([format => 1]);
+      $active->get('/foo')->to('Test#first');
+      $active->put('/bar')->to('Test#second');
+  - Improved built-in templates not to show embedded apps in the stash snapshot.
+  - Improved built-in development not found page to include tooltips with the compiled regular expressions for each
+    route.
+  - Improved Mojo::UserAgent to include "Content-Length: 0" with non-GET requests for better compatibility with broken
+    web servers.
+
+9.10  2021-03-14
+  - Fixed top-level --help and -h options in Mojolicious::Commands.
+
+9.09  2021-03-13
+  - Added comma_separated filter to Mojolicious::Validator.
+  - Fixed built-in templates to be a bit more responsive.
+  - Fixed filter list handling in Mojolicious::Validator::Validation.
+
+9.08  2021-03-12
+  - Fixed a bug in Test::Mojo where Test::Mojo->new($app) would not work correctly.
+
+9.07  2021-03-11
+  - Improved config override feature to work for Mojolicious::Lite applications.
+  - Improved Mojo::UserAgent performance slightly by not including unnecessary "Content-Length: 0" request headers.
+
+9.03  2021-03-05
+  - Fixed a bug in Mojo::Transaction::WebSocket where finish event handlers would not always get the same number of
+    arguments passed.
+
+9.02  2021-02-17
+  - Fixed finally method in Mojo::Promise to deal correctly with promises returned by the handler.
+  - Improved Mojo::Server::Daemon to include random ports in the "Web application available at ..." message.
+
+9.01  2021-02-16
+  - Added EXPERIMENTAL color attribute to Mojo::Log.
+  - Added EXPERIMENTAL MOJO_LOG_COLOR environment variable to Mojo::Log.
+  - Fixed Windows support of network_contains function in Mojo::Util. (jberger)
+
+9.0  2021-02-14
+  - Code name "Waffle", this is a major release.
+  - Added support for deployment specific plugins.
+  - Removed Mojo::IOLoop::Delay.
+  - Removed hidden attribute from Mojolicious::Routes.
+  - Removed hide and is_hidden methods from Mojolicious::Routes.
+  - Removed deprecated success method from Mojo::Transaction.
+  - Removed deprecated detour, over, route and via methods from Mojolicious::Routes::Route.
+  - Removed deprecated local_address method from Mojo::UserAgent.
+  - Removed deprecated tls_ciphers, tls_protocols, tls_verify and tls_version options from Mojo::IOLoop::TLS.
+  - Removed deprecated local_address option from Mojo::IOLoop::Client.
+  - Removed deprecated config stash value.
+  - Changed Mojo::Log to join mutiple log messages with a whitespace instead of a newline.
+  - Added is_reserved method to Mojolicious::Routes::Route.
+  - Improved Mojolicious::Routes to disallow the use of reserved stash values, such as "/:action", in route patterns.
+  - Improved Mojolicious::Routes to throw exceptions for missing controllers.
+  - Improved Mojolicious::Routes to throw exceptions for routes with controllers but without action.
+  - Improved Mojolicious::Routes to disallow namespace without controller for routing.
+  - Improved Mojolicious::Routes to die if auto rendering failed.
+  - Improved render method in Mojolicious::Controller to die if no response could be rendered.
+  - Improved reply->static helper to die if the requested file does not exist.
+  - Improved contextual logging feature in Mojo::Log not to concatenate log messages and context.
+  - Improved all_text method in Mojo::DOM to exclude "<script>" and "<style>" from text extraction in HTML documents.
+  - Improved error messages in config plugins to be more consistent.
+
+8.73  2021-02-05
+  - Removed finally keyword from check function in Mojo::Exception.
+  - Changed arguments of check function in Mojo::Exception to be easier to use with Perl 5.34 try/catch.
+  - Removed experimental status from preload_namespaces attribute in Mojolicious.
+  - Removed experimental status from any, map, timer and timeout methods in Mojo::Promise.
+  - Removed experimental status from extname method in Mojo::File.
+  - Removed experimental status from warmup method in Mojolicious.
+  - Removed experimental status from load_classes function in Mojo::Loader.
+  - Removed experimental status from Mojo::DynamicMethods. Still summons old gods, use at your own risk!
+  - Removed experimental status from before_command hook in Mojolicious.
+  - Added silent attribute to Mojo::Server::Morbo.
+
+8.72  2021-01-26
+  - Deprecated Mojo::UserAgent::local_address in favor of Mojo::UserAgent::socket_options.
+  - Deprecated local_address option of connect method in Mojo::IOLoop::Client in favor of socket_options.
+  - Deprecated tls_protocols option of connect method in Mojo::IOLoop::Client in favor of tls_options.
+  - Deprecated tls_verify option of connect method in Mojo::IOLoop::Client in favor of tls_options.
+  - Deprecated tls_protocols option of negotiate method in Mojo::IOLoop::TLS in favor of tls_options.
+  - Deprecated tls_ciphers option of negotiate method in Mojo::IOLoop::TLS in favor of tls_options.
+  - Deprecated tls_verify option of negotiate method in Mojo::IOLoop::TLS in favor of tls_options.
+  - Deprecated tls_version option of negotiate method in Mojo::IOLoop::TLS in favor of tls_options.
+  - Deprecated tls_ciphers option of listen method in Mojo::IOLoop::Server in favor of tls_options.
+  - Deprecated tls_verify option of listen method in Mojo::IOLoop::Server in favor of tls_options.
+  - Deprecated tls_version option of listen method in Mojo::IOLoop::Server in favor of tls_options.
+  - Added support for trusted reverse proxies. (jberger)
+  - Added network_contains function to Mojo::Util. (jberger)
+  - Added trusted_proxies attribute to Mojo::Server and Mojo::Message::Request. (jberger)
+  - Added socket_options method to Mojo::UserAgent.
+  - Added build_server method to Mojolicious::Command::daemon and Mojolicious::Command::prefork. (jberger)
+  - Added trusted_proxies option to Hynotoad. (jberger)
+  - Added socket_options and tls_options options to connect method in Mojo::IOLoop::Client.
+  - Added tls_options option to negotiate method in Mojo::IOLoop::TLS.
+
+8.71  2021-01-17
+  - Added EXPERIMENTAL freeze option to reset method in Mojo::IOLoop.
+  - Improved Mojo::IOLoop::Subprocess not to close connections after fork.
+
 8.70  2020-12-29
   - Fixed top-level help command in Mojolicious::Commands. (schelcj)
 
@@ -227,7 +370,7 @@
 8.21  2019-07-13
   - Undeprecated Mojo::Exception::verbose.
   - Added support for MOJO_EXCEPTION_VERBOSE environment variable.
-  - Improved built in templates to use the same stack trace format as Mojo::Exception.
+  - Improved built-in templates to use the same stack trace format as Mojo::Exception.
 
 8.20  2019-07-08
   - Improved check function in Mojo::Exception to match regular expressions against stringified exception objects too.
@@ -326,7 +469,7 @@
     demand. So expensive code for debugging can be deactivated easily in production.
   - Improved Mojo::Log to use the time format "2018-11-08 14:25:5.76027" and to include the process id in log messages.
   - Improved Mojolicious performance by up to 10% with more efficient logging.
-  - Fixed a problem with the built in templates where an image was missing.
+  - Fixed a problem with the built-in templates where an image was missing.
 
 8.05  2018-10-25
   - Deprecated Mojolicious::Plugin::PODRenderer in favor of alternatives from CPAN.
@@ -474,7 +617,7 @@
 
 7.81  2018-05-21
   - Added request_id attribute to Mojo::Message::Request.
-  - Improved all built in templates to contain a comment with their request id.
+  - Improved all built-in templates to contain a comment with their request id.
   - Improved some log messages to contain a request id.
 
 7.80  2018-05-20

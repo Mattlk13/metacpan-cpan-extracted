@@ -969,7 +969,7 @@ NYTP_write_attribute_nv(NYTP_file ofile, const char *key,
                             size_t key_len, NV value)
 {
     char buffer[NV_DIG+20]; /* see Perl_sv_2pv_flags */
-    const size_t len = my_snprintf(buffer, sizeof(buffer), "%"NVgf, value);
+    const size_t len = my_snprintf(buffer, sizeof(buffer), "%" NVgf, value);
 
     return NYTP_write_attribute_string(ofile, key, key_len, buffer, len);
 }
@@ -989,7 +989,7 @@ NYTP_write_option_iv(NYTP_file ofile, const char *key, IV value)
 {
     /* 3: 1 for rounding errors, 1 for the sign, 1 for the '\0'  */
     char buffer[(int)(sizeof (IV) * CHAR_BIT * LOG_2_OVER_LOG_10 + 3)];
-    const size_t len = my_snprintf(buffer, sizeof(buffer), "%"IVdf, value);
+    const size_t len = my_snprintf(buffer, sizeof(buffer), "%" IVdf, value);
 
     return NYTP_write_option_pv(ofile, key, buffer, len);
 }
@@ -1244,9 +1244,6 @@ NYTP_write_sub_info(NYTP_file ofile, U32 fid,
         return retval;
 
     total += retval = output_u32(ofile, last_line);
-    if (retval < 1)
-        return retval;
-
     if (retval < 1)
         return retval;
 

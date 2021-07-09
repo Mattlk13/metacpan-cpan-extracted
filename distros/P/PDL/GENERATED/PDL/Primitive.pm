@@ -4,8 +4,8 @@
 #
 package PDL::Primitive;
 
-@EXPORT_OK  = qw( PDL::PP inner PDL::PP outer  matmult PDL::PP matmult PDL::PP innerwt PDL::PP inner2 PDL::PP inner2d PDL::PP inner2t PDL::PP crossp PDL::PP norm PDL::PP indadd PDL::PP conv1d PDL::PP in  uniq  uniqind  uniqvec PDL::PP hclip PDL::PP lclip  clip PDL::PP clip PDL::PP wtstat PDL::PP statsover  stats PDL::PP histogram PDL::PP whistogram PDL::PP histogram2d PDL::PP whistogram2d PDL::PP fibonacci PDL::PP append PDL::PP axisvalues PDL::PP random PDL::PP randsym  grandom  vsearch PDL::PP vsearch_sample PDL::PP vsearch_insert_leftmost PDL::PP vsearch_insert_rightmost PDL::PP vsearch_match PDL::PP vsearch_bin_inclusive PDL::PP vsearch_bin_exclusive PDL::PP interpolate  interpol  interpND  one2nd PDL::PP which PDL::PP which_both  where  whereND  whichND  setops  intersect );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP inner PDL::PP outer  matmult PDL::PP matmult PDL::PP innerwt PDL::PP inner2 PDL::PP inner2d PDL::PP inner2t PDL::PP crossp PDL::PP norm PDL::PP indadd PDL::PP conv1d PDL::PP in  uniq  uniqind  uniqvec PDL::PP hclip PDL::PP lclip  clip PDL::PP clip PDL::PP wtstat PDL::PP statsover  stats PDL::PP histogram PDL::PP whistogram PDL::PP histogram2d PDL::PP whistogram2d PDL::PP fibonacci PDL::PP append PDL::PP axisvalues PDL::PP random PDL::PP randsym  grandom  vsearch PDL::PP vsearch_sample PDL::PP vsearch_insert_leftmost PDL::PP vsearch_insert_rightmost PDL::PP vsearch_match PDL::PP vsearch_bin_inclusive PDL::PP vsearch_bin_exclusive PDL::PP interpolate  interpol  interpND  one2nd PDL::PP which PDL::PP which_both  where  whereND  whichND  setops  intersect );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::Primitive ;
 
@@ -25,6 +25,15 @@ use DynaLoader;
 use PDL::Slices;
 use Carp;
 
+{ package PDL;
+  use overload (
+    'x' => sub {
+      PDL::Primitive::matmult(@_[0,1], my $foo=$_[0]->null());
+      $foo;
+    },
+  );
+}
+
 =head1 NAME
 
 PDL::Primitive - primitive operations for pdl
@@ -34,8 +43,8 @@ PDL::Primitive - primitive operations for pdl
 This module provides some primitive and useful functions defined
 using PDL::PP and able to use the new indexing tricks.
 
-See L<PDL::Indexing|PDL::Indexing> for how to use indices creatively.
-For explanation of the signature format, see L<PDL::PP|PDL::PP>.
+See L<PDL::Indexing> for how to use indices creatively.
+For explanation of the signature format, see L<PDL::PP>.
 
 =head1 SYNOPSIS
 
@@ -124,7 +133,7 @@ operator but this function is provided for convenience.
 =for bad
 
 outer processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -209,7 +218,7 @@ matrix-multiply them:
 INTERNALS
 
 The mechanics of the multiplication are carried out by the
-L<matmult|/matmult> method.
+L</matmult> method.
 
 =cut
 
@@ -236,14 +245,14 @@ but for large matrices that breaks CPU cache and is slow.  Instead,
 matmult calculates its result in 32x32x32 tiles, to keep the memory
 footprint within cache as long as possible on most modern CPUs.
 
-For usage, see L<x|/x>, a description of the overloaded 'x' operator
+For usage, see L</x>, a description of the overloaded 'x' operator
 
 
 
 =for bad
 
-matmult ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+matmult ignores the bad-value flag of the input ndarrays.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -295,7 +304,7 @@ Weighted (i.e. triple) inner product
 =for bad
 
 innerwt processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -333,7 +342,7 @@ very wasteful. Instead, you should use a temporary for C<b*c>.
 =for bad
 
 inner2 processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -370,7 +379,7 @@ Equivalent to
 =for bad
 
 inner2d processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -399,7 +408,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 Efficient Triple matrix product C<a*b*c>
 
 Efficiency comes from by using the temporary C<tmp>. This operation only
-scales as C<N**3> whereas threading using L<inner2|/inner2> would scale
+scales as C<N**3> whereas threading using L</inner2> would scale
 as C<N**4>.
 
 The reason for having this routine is that you do not need to
@@ -415,7 +424,7 @@ closures at some point.
 =for bad
 
 inner2t processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -456,7 +465,7 @@ orthogonal to C<$x> and C<$y>
 =for bad
 
 crossp does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -485,7 +494,7 @@ Normalises a vector to unit Euclidean length
 =for bad
 
 norm processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -571,8 +580,8 @@ The routine barfs if any of the indices are bad.
 
 1D convolution along first dimension
 
-The m-th element of the discrete convolution of an input piddle
-C<$a> of size C<$M>, and a kernel piddle C<$kern> of size C<$P>, is
+The m-th element of the discrete convolution of an input ndarray
+C<$a> of size C<$M>, and a kernel ndarray C<$kern> of size C<$P>, is
 calculated as
 
                               n = ($P-1)/2
@@ -622,8 +631,8 @@ unless special care is taken.
 
 =for bad
 
-conv1d ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+conv1d ignores the bad-value flag of the input ndarrays.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -684,7 +693,7 @@ and is generally faster.
 =for bad
 
 in does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -703,7 +712,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-return all unique elements of a piddle
+return all unique elements of an ndarray
 
 The unique elements are returned in ascending order.
 
@@ -716,18 +725,13 @@ The unique elements are returned in ascending order.
   [-1 2 4 6 nan]   # NaN value is returned at end
 
 Note: The returned pdl is 1D; any structure of the input
-piddle is lost.  C<NaN> values are never compare equal to
+ndarray is lost.  C<NaN> values are never compare equal to
 any other values, even themselves.  As a result, they are
 always unique. C<uniq> returns the NaN values at the end
-of the result piddle.  This follows the Matlab usage.
+of the result ndarray.  This follows the Matlab usage.
 
-See L<uniqind|uniqind> if you need the indices of the unique
+See L</uniqind> if you need the indices of the unique
 elements rather than the values.
-
-=cut
-
-
-
 
 =for bad
 
@@ -739,9 +743,6 @@ Bad values are not considered unique by uniq and are ignored.
  [0 3 6 9]
 
 =cut
-
-
-
 
 *uniq = \&PDL::uniq;
 # return unique elements of array
@@ -771,7 +772,7 @@ sub PDL::uniq {
 
 =for ref
 
-Return the indices of all unique elements of a piddle
+Return the indices of all unique elements of an ndarray
 The order is in the order of the values to be consistent
 with uniq. C<NaN> values never compare equal with any
 other value and so are always unique.  This follows the
@@ -787,24 +788,16 @@ Matlab usage.
 
 
 Note: The returned pdl is 1D; any structure of the input
-piddle is lost.
+ndarray is lost.
 
-See L<uniq|uniq> if you want the unique values instead of the
+See L</uniq> if you want the unique values instead of the
 indices.
-
-=cut
-
-
-
 
 =for bad
 
 Bad values are not considered unique by uniqind and are ignored.
 
 =cut
-
-
-
 
 *uniqind = \&PDL::uniqind;
 # return unique elements of array
@@ -846,7 +839,7 @@ sub PDL::uniqind {
 
 Return all unique vectors out of a collection
 
-  NOTE: If any vectors in the input piddle have NaN values
+  NOTE: If any vectors in the input ndarray have NaN values
   they are returned at the end of the non-NaN ones.  This is
   because, by definition, NaN values never compare equal with
   any other value.
@@ -861,28 +854,19 @@ higher dimensions are taken to run across vectors. The return
 value is always 2D; any structure of the input PDL (beyond using
 the 0th dimension for vector index) is lost.
 
-See also L<uniq|uniq> for a unique list of scalars; and
+See also L</uniq> for a unique list of scalars; and
 L<qsortvec|PDL::Ufunc/qsortvec> for sorting a list of vectors
 lexicographcally.
 
-=cut
-
-
-
-
 =for bad
 
-If a vector contains all bad values, it is ignored as in L<uniq|uniq>.
+If a vector contains all bad values, it is ignored as in L</uniq>.
 If some of the values are good, it is treated as a normal vector. For
 example, [1 2 BAD] and [BAD 2 3] could be returned, but [BAD BAD BAD]
 could not.  Vectors containing BAD values will be returned after any
 non-NaN and non-BAD containing vectors, followed by the NaN vectors.
 
-
 =cut
-
-
-
 
 sub PDL::uniqvec {
 
@@ -896,7 +880,7 @@ sub PDL::uniqvec {
 
    my $ngood = null;
    $ngood = $pdl2d->ones->sumover;
-   $ngood = $pdl2d->ngoodover if  ($PDL::Bad::Status && $pdl->badflag);  # number of good values each vector
+   $ngood = $pdl2d->ngoodover if $pdl->badflag;  # number of good values each vector
    my $ngood2 = null;
    $ngood2 = $ngood->where($ngood);                                      # number of good values with no all-BADs
 
@@ -920,7 +904,7 @@ sub PDL::uniqvec {
    $srt = $presrt->qsortvec->mv(0,-1);                                   # BADs are sorted by qsortvec
    my $srtdice = $srt;
    my $somebad = null;
-   if  ($PDL::Bad::Status && $srt->badflag) {
+   if ($srt->badflag) {
       $srtdice = $srt->dice($srt->mv(0,-1)->nbadover->not->which);
       $somebad = $srt->dice($srt->mv(0,-1)->nbadover->which);
    }
@@ -958,7 +942,7 @@ clip (threshold) C<$a> by C<$b> (C<$b> is upper bound)
 =for bad
 
 hclip processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -996,7 +980,7 @@ clip (threshold) C<$a> by C<$b> (C<$b> is lower bound)
 =for bad
 
 lclip processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1024,23 +1008,18 @@ sub PDL::lclip {
 
 =for ref
 
-Clip (threshold) a piddle by (optional) upper or lower bounds.
+Clip (threshold) an ndarray by (optional) upper or lower bounds.
 
 =for usage
 
  $y = $x->clip(0,3);
  $c = $x->clip(undef, $x);
 
-=cut
-
-
-
-
 =for bad
 
 clip handles bad values since it is just a
-wrapper around L<hclip|/hclip> and
-L<lclip|/lclip>.
+wrapper around L</hclip> and
+L</lclip>.
 
 =cut
 
@@ -1063,7 +1042,7 @@ info not available
 =for bad
 
 clip processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1163,14 +1142,14 @@ have its bad flag set if the output contains any bad data.
 
 =for ref
 
-Calculate useful statistics over a dimension of a piddle
+Calculate useful statistics over a dimension of an ndarray
 
 =for usage
 
-  ($mean,$prms,$median,$min,$max,$adev,$rms) = statsover($piddle, $weights);
+  ($mean,$prms,$median,$min,$max,$adev,$rms) = statsover($ndarray, $weights);
 
 This utility function calculates various useful
-quantities of a piddle. These are:
+quantities of an ndarray. These are:
 
 =over 3
 
@@ -1212,8 +1191,8 @@ variance)
 This operator is a projection operator so the calculation
 will take place over the final dimension. Thus if the input
 is N-dimensional each returned value will be N-1 dimensional,
-to calculate the statistics for the entire piddle either
-use C<clump(-1)> directly on the piddle or call C<stats>.
+to calculate the statistics for the entire ndarray either
+use C<clump(-1)> directly on the ndarray or call C<stats>.
 
 
 
@@ -1262,11 +1241,11 @@ sub PDL::statsover {
 
 =for ref
 
-Calculates useful statistics on a piddle
+Calculates useful statistics on an ndarray
 
 =for usage
 
- ($mean,$prms,$median,$min,$max,$adev,$rms) = stats($piddle,[$weights]);
+ ($mean,$prms,$median,$min,$max,$adev,$rms) = stats($ndarray,[$weights]);
 
 This utility calculates all the most useful quantities in one call.
 It works the same way as L</statsover>, except that the quantities are
@@ -1274,19 +1253,12 @@ calculated considering the entire input PDL as a single sample, rather
 than as a collection of rows. See L</statsover> for definitions of the
 returned quantities.
 
-=cut
-
-
-
-
 =for bad
 
 Bad values are handled; if all input values are bad, then all of the output
 values are flagged bad.
 
 =cut
-
-
 
 *stats	  = \&PDL::stats;
 sub PDL::stats {
@@ -1325,7 +1297,7 @@ Calculates a histogram for given stepsize and minimum.
 =for usage
 
  $h = histogram($data, $step, $min, $numbins);
- $hist = zeroes $numbins;  # Put histogram in existing piddle.
+ $hist = zeroes $numbins;  # Put histogram in existing ndarray.
  histogram($data, $hist, $step, $min, $numbins);
 
 The histogram will contain C<$numbins> bins starting from C<$min>, each
@@ -1352,7 +1324,7 @@ For a higher-level interface, see L<hist|PDL::Basic/hist>.
 =for bad
 
 histogram processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1382,7 +1354,7 @@ Calculates a histogram from weighted data for given stepsize and minimum.
 =for usage
 
  $h = whistogram($data, $weights, $step, $min, $numbins);
- $hist = zeroes $numbins;  # Put histogram in existing piddle.
+ $hist = zeroes $numbins;  # Put histogram in existing ndarray.
  whistogram($data, $weights, $hist, $step, $min, $numbins);
 
 The histogram will contain C<$numbins> bins starting from C<$min>, each
@@ -1406,7 +1378,7 @@ you want.
 =for bad
 
 whistogram processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1438,7 +1410,7 @@ Calculates a 2d histogram.
 
  $h = histogram2d($datax, $datay, $stepx, $minx,
        $nbinx, $stepy, $miny, $nbiny);
- $hist = zeroes $nbinx, $nbiny;  # Put histogram in existing piddle.
+ $hist = zeroes $nbinx, $nbiny;  # Put histogram in existing ndarray.
  histogram2d($datax, $datay, $hist, $stepx, $minx,
        $nbinx, $stepy, $miny, $nbiny);
 
@@ -1465,7 +1437,7 @@ upper limit is put in the last bin.
 =for bad
 
 histogram2d processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1497,7 +1469,7 @@ Calculates a 2d histogram from weighted data.
 
  $h = whistogram2d($datax, $datay, $weights,
        $stepx, $minx, $nbinx, $stepy, $miny, $nbiny);
- $hist = zeroes $nbinx, $nbiny;  # Put histogram in existing piddle.
+ $hist = zeroes $nbinx, $nbiny;  # Put histogram in existing ndarray.
  whistogram2d($datax, $datay, $weights, $hist,
        $stepx, $minx, $nbinx, $stepy, $miny, $nbiny);
 
@@ -1525,7 +1497,7 @@ upper limit is put in the last bin.
 =for bad
 
 whistogram2d processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1554,7 +1526,7 @@ Constructor - a vector with Fibonacci's sequence
 =for bad
 
 fibonacci does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1586,22 +1558,22 @@ sub PDL::fibonacci{
 
 =for ref
 
-append two piddles by concatenating along their first dimensions
+append two ndarrays by concatenating along their first dimensions
 
 =for example
 
  $x = ones(2,4,7);
  $y = sequence 5;
- $c = $x->append($y);  # size of $c is now (7,4,7) (a jumbo-piddle ;)
+ $c = $x->append($y);  # size of $c is now (7,4,7) (a jumbo-ndarray ;)
 
-C<append> appends two piddles along their first dimensions. The rest of the
+C<append> appends two ndarrays along their first dimensions. The rest of the
 dimensions must be compatible in the threading sense. The resulting
 size of the first dimension is the sum of the sizes of the first dimensions
-of the two argument piddles - i.e. C<n + m>.
+of the two argument ndarrays - i.e. C<n + m>.
 
-Similar functions include L<glue|/glue> (below), which can append more
-than two piddles along an arbitrary dimension, and
-L<cat|PDL::Core/cat>, which can append more than two piddles that all
+Similar functions include L</glue> (below), which can append more
+than two ndarrays along an arbitrary dimension, and
+L<cat|PDL::Core/cat>, which can append more than two ndarrays that all
 have the same sized dimensions.
 
 
@@ -1609,7 +1581,7 @@ have the same sized dimensions.
 =for bad
 
 append does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1633,7 +1605,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 =for ref
 
 Glue two or more PDLs together along an arbitrary dimension
-(N-D L<append|append>).
+(N-D L</append>).
 
 Sticks $x, $y, and all following arguments together along the
 specified dimension.  All other dimensions must be compatible in the
@@ -1652,12 +1624,12 @@ then it is taken as a dimension along which to glue everything else,
 so you can say C<$cube = PDL::glue(3,@image_list);> if you like.
 
 C<glue> is implemented in pdl, using a combination of L<xchg|PDL::Slices/xchg> and
-L<append|append>.  It should probably be updated (one day) to a pure PP
+L</append>.  It should probably be updated (one day) to a pure PP
 function.
 
-Similar functions include L<append|/append> (above), which appends
-only two piddles along their first dimension, and
-L<cat|PDL::Core/cat>, which can append more than two piddles that all
+Similar functions include L</append> (above), which appends
+only two ndarrays along their first dimension, and
+L<cat|PDL::Core/cat>, which can append more than two ndarrays that all
 have the same sized dimensions.
 
 =cut
@@ -1728,7 +1700,7 @@ and alters its argument.
 =for bad
 
 axisvalues does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1747,7 +1719,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-Constructor which returns piddle of random numbers
+Constructor which returns ndarray of random numbers
 
 =for usage
 
@@ -1769,7 +1741,7 @@ documentation.
 
 =for ref
 
-Constructor which returns piddle of random numbers
+Constructor which returns ndarray of random numbers
 
 =for usage
 
@@ -1779,7 +1751,7 @@ Constructor which returns piddle of random numbers
 etc (see L<zeroes|PDL::Core/zeroes>).
 
 This is the uniform distribution between 0 and 1 (excluding both 0 and
-1, cf L<random|/random>). The arguments are the same as C<zeroes> (q.v.) -
+1, cf L</random>). The arguments are the same as C<zeroes> (q.v.) -
 i.e. one can specify dimensions, types or give a template.
 
 You can use the perl function L<srand|perlfunc/srand> to seed the random
@@ -1819,7 +1791,7 @@ sub PDL::randsym {
 
 =for ref
 
-Constructor which returns piddle of Gaussian random numbers
+Constructor which returns ndarray of Gaussian random numbers
 
 =for usage
 
@@ -1859,15 +1831,15 @@ sub PDL::grandom {
 
 =for ref
 
-Efficiently search for values in a sorted piddle, returning indices.
+Efficiently search for values in a sorted ndarray, returning indices.
 
 =for usage
 
   $idx = vsearch( $vals, $x, [\%options] );
   vsearch( $vals, $x, $idx, [\%options ] );
 
-B<vsearch> performs a binary search in the ordered piddle C<$x>,
-for the values from C<$vals> piddle, returning indices into C<$x>.
+B<vsearch> performs a binary search in the ordered ndarray C<$x>,
+for the values from C<$vals> ndarray, returning indices into C<$x>.
 What is a "match", and the meaning of the returned indices, are determined
 by the options.
 
@@ -1884,12 +1856,12 @@ within a distribution.
 =item C<insert_leftmost>
 
 invoke L<B<vsearch_insert_leftmost>|/vsearch_insert_leftmost>, returning the left-most possible
-insertion point which still leaves the piddle sorted.
+insertion point which still leaves the ndarray sorted.
 
 =item C<insert_rightmost>
 
 invoke L<B<vsearch_insert_rightmost>|/vsearch_insert_rightmost>, returning the right-most possible
-insertion point which still leaves the piddle sorted.
+insertion point which still leaves the ndarray sorted.
 
 =item C<match>
 
@@ -2552,9 +2524,9 @@ search if you like. For out of bounds values it just does a linear
 extrapolation and sets the corresponding element of C<$err> to 1,
 which is otherwise 0.
 
-See also L<interpol|/interpol>, which uses the same routine,
+See also L</interpol>, which uses the same routine,
 differing only in the handling of extrapolation - an error message
-is printed rather than returning an error piddle.
+is printed rather than returning an error ndarray.
 
 
 
@@ -2588,7 +2560,7 @@ routine for 1D linear interpolation
 
  $yi = interpol($xi, $x, $y)
 
-C<interpol> uses the same search method as L<interpolate|/interpolate>,
+C<interpol> uses the same search method as L</interpolate>,
 hence C<$x> must be I<strictly> ordered (either increasing or decreasing).
 The difference occurs in the handling of out-of-bounds values; here
 an error message is printed.
@@ -2621,7 +2593,7 @@ sub interpol ($$$;$) {
 
 =for ref
 
-Interpolate values from an N-D piddle, with switchable method
+Interpolate values from an N-D ndarray, with switchable method
 
 =for example
 
@@ -2771,7 +2743,7 @@ sub PDL::interpND {
     my $out = ($out0 * $samp)->sumover; # ith, sth
 
     # Work around BAD-not-being-contagious bug in PDL <= 2.6 bad handling code  --CED 3-April-2013
-    if($PDL::Bad::Status and $source->badflag) {
+    if ($source->badflag) {
 	my $baddies = $samp->isbad->orover;
 	$out = $out->setbadif($baddies);
     }
@@ -2869,19 +2841,19 @@ sub PDL::interpND {
 
 =for ref
 
-Converts a one dimensional index piddle to a set of ND coordinates
+Converts a one dimensional index ndarray to a set of ND coordinates
 
 =for usage
 
  @coords=one2nd($x, $indices)
 
-returns an array of piddles containing the ND indexes corresponding to
+returns an array of ndarrays containing the ND indexes corresponding to
 the one dimensional list indices. The indices are assumed to
 correspond to array C<$x> clumped using C<clump(-1)>. This routine is
-used in the old vector form of L<whichND|/whichND>, but is useful on
+used in the old vector form of L</whichND>, but is useful on
 its own occasionally.
 
-Returned piddles have the L<indx|PDL::Core/indx> datatype.  C<$indices> can have
+Returned ndarrays have the L<indx|PDL::Core/indx> datatype.  C<$indices> can have
 values larger than C<< $x->nelem >> but negative values in C<$indices>
 will not give the answer you expect.
 
@@ -2934,26 +2906,26 @@ Returns indices of non-zero values from a 1-D PDL
 returns a pdl with indices for all those elements that are nonzero in
 the mask. Note that the returned indices will be 1D. If you feed in a
 multidimensional mask, it will be flattened before the indices are
-calculated.  See also L<whichND|/whichND> for multidimensional masks.
+calculated.  See also L</whichND> for multidimensional masks.
 
-If you want to index into the original mask or a similar piddle
+If you want to index into the original mask or a similar ndarray
 with output from C<which>, remember to flatten it before calling index:
 
   $data = random 5, 5;
   $idx = which $data > 0.5; # $idx is now 1D
   $bigsum = $data->flat->index($idx)->sum;  # flatten before indexing
 
-Compare also L<where|/where> for similar functionality.
+Compare also L</where> for similar functionality.
 
 SEE ALSO:
 
-L<which_both|/which_both> returns separately the indices of both
+L</which_both> returns separately the indices of both
 zero and nonzero values in the mask.
 
-L<where|/where> returns associated values from a data PDL, rather than
+L</where> returns associated values from a data PDL, rather than
 indices into the mask PDL.
 
-L<whichND|/whichND> returns N-D indices into a multidimensional PDL.
+L</whichND> returns N-D indices into a multidimensional PDL.
 
 =for example
 
@@ -2967,7 +2939,7 @@ L<whichND|/whichND> returns N-D indices into a multidimensional PDL.
 =for bad
 
 which processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -3005,7 +2977,7 @@ Returns indices of zero and nonzero values in a mask PDL
 
  ($i, $c_i) = which_both($mask);
 
-This works just as L<which|/which>, but the complement of C<$i> will be in
+This works just as L</which>, but the complement of C<$i> will be in
 C<$c_i>.
 
 =for example
@@ -3021,7 +2993,7 @@ C<$c_i>.
 =for bad
 
 which_both processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -3050,16 +3022,16 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 Use a mask to select values from one or more data PDLs
 
-C<where> accepts one or more data piddles and a mask piddle.  It
-returns a list of output piddles, corresponding to the input data
-piddles.  Each output piddle is a 1-dimensional list of values in its
-corresponding data piddle. The values are drawn from locations where
+C<where> accepts one or more data ndarrays and a mask ndarray.  It
+returns a list of output ndarrays, corresponding to the input data
+ndarrays.  Each output ndarray is a 1-dimensional list of values in its
+corresponding data ndarray. The values are drawn from locations where
 the mask is nonzero.
 
 The output PDLs are still connected to the original data PDLs, for the
 purpose of dataflow.
 
-C<where> combines the functionality of L<which|/which> and L<index|PDL::Slices/index>
+C<where> combines the functionality of L</which> and L<index|PDL::Slices/index>
 into a single operation.
 
 BUGS:
@@ -3075,7 +3047,7 @@ that is compared to an N-dimensional mask.  Use C<whereND> for that.
  $i .= -5;  # Set those elements (of $x) to -5. Together, these
             # commands clamp $x to a maximum of -5.
 
-It is also possible to use the same mask for several piddles with
+It is also possible to use the same mask for several ndarrays with
 the same call:
 
  ($i,$j,$k) = where($x,$y,$z, $x+5>0);
@@ -3119,9 +3091,9 @@ sub PDL::where {
 
 C<where> with support for ND masks and threading
 
-C<whereND> accepts one or more data piddles and a
-mask piddle.  It returns a list of output piddles,
-corresponding to the input data piddles.  The values
+C<whereND> accepts one or more data ndarrays and a
+mask ndarray.  It returns a list of output ndarrays,
+corresponding to the input data ndarrays.  The values
 are drawn from locations where the mask is nonzero.
 
 C<whereND> differs from C<where> in that the mask
@@ -3242,9 +3214,9 @@ list context whichND expressions can be replaced with:
 
 SEE ALSO:
 
-L<which|/which> finds coordinates of nonzero values in a 1-D mask.
+L</which> finds coordinates of nonzero values in a 1-D mask.
 
-L<where|/where> extracts values from a data PDL that are associated
+L</where> extracts values from a data PDL that are associated
 with nonzero values in a mask PDL.
 
 =for example
@@ -3274,7 +3246,7 @@ sub PDL::whichND {
       # if $PDL::whichND does not contain 'l' or 'L', fall through to scalar context
   }
 
-  # Scalar context: generate an N-D index piddle
+  # Scalar context: generate an N-D index ndarray
 
   unless($mask->nelem) {
       return PDL::new_from_specification('PDL',indx,$mask->ndims,0);
@@ -3347,7 +3319,7 @@ in set operation terms.
 
 The resulting vector will contain the intersection of C<$x> and C<$y>, so
 the elements that are in both C<$x> and C<$y>. Note that for convenience
-this operation is also aliased to L<intersect|intersect>.
+this operation is also aliased to L</intersect>.
 
 =back
 
@@ -3407,7 +3379,7 @@ Finally find all odd squares:
 Another common occurrence is to want to get all objects that are
 in C<$x> and in the complement of C<$y>. But it is almost always best
 to create the complement explicitly since the universe that both are
-taken from is not known. Thus use L<which_both|which_both> if possible
+taken from is not known. Thus use L</which_both> if possible
 to keep track of complements.
 
 If this is impossible the best approach is to make a temporary:
@@ -3497,13 +3469,13 @@ sub PDL::setops {
 
 =for ref
 
-Calculate the intersection of two piddles
+Calculate the intersection of two ndarrays
 
 =for usage
 
    Usage: $set = intersect($x, $y);
 
-This routine is merely a simple interface to L<setops|setops>. See
+This routine is merely a simple interface to L</setops>. See
 that for more information
 
 =for example

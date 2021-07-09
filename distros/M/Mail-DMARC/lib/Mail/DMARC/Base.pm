@@ -1,7 +1,8 @@
 package Mail::DMARC::Base;
-our $VERSION = '1.20200214';
+our $VERSION = '1.20210427';
 use strict;
 use warnings;
+use 5.10.0;
 
 use Carp;
 use Config::Tiny;
@@ -22,6 +23,19 @@ sub new {
         config_file => 'mail-dmarc.ini',
         @args,       # this may override config_file
     }, $class;
+}
+
+my $_fake_time;
+sub time { ## no critic
+    # Ability to return a fake time for testing
+    my ( $self ) = @_;
+    my $time = defined $Mail::DMARC::Base::_fake_time ? $Mail::DMARC::Base::_fake_time : time;
+    return $time;
+}
+sub set_fake_time {
+    my ( $self, $time ) = @_;
+    $Mail::DMARC::Base::_fake_time = $time;
+    return;
 }
 
 sub config {
@@ -46,7 +60,7 @@ sub get_sharefile {
 
 sub get_config {
     my $self = shift;
-    my $file = shift || $self->{config_file} or croak;
+    my $file = shift || $ENV{MAIL_DMARC_CONFIG_FILE} || $self->{config_file} or croak;
     return Config::Tiny->read($file) if -r $file;  # fully qualified
     foreach my $d ($self->get_prefix('etc')) {
         next                              if !-d $d;
@@ -313,7 +327,7 @@ Mail::DMARC::Base - DMARC utility functions
 
 =head1 VERSION
 
-version 1.20200214
+version 1.20210427
 
 =head1 METHODS
 
@@ -373,7 +387,7 @@ Marc Bradshaw <marc@marcbradshaw.net>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Matt Simerson.
+This software is copyright (c) 2021 by Matt Simerson.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

@@ -1,5 +1,15 @@
 Revision history for Perl module PerlPowerTools
 
+1.025 2021-06-16T05:50:50Z
+	* Fix sleep do not do its work twice (GitHub #97)
+
+1.024 2021-03-19T19:22:31Z
+	* bin/sort again handles the special filename '-' (for stdin)
+	GitHub #95.
+
+1.023 2021-02-10T06:23:32Z
+	* A fix for `grep -v` from Ed Avis (#69)
+
 1.022 2021-01-11T06:59:31Z
 	* Remove the make program and its dependencies, which recently 
 	became much heavier. Strawberry Perl comes with gmake and it's

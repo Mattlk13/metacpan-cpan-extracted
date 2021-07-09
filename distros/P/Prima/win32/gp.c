@@ -49,65 +49,44 @@ apc_gp_done( Handle self)
 	if ( sys linePatternLen  > sizeof(sys linePattern)) free( sys linePattern);
 	font_free( sys fontResource, false);
 	if ( sys p256) free( sys p256);
-	sys bm = nil;
-	sys pal = nil;
-	sys ps = nil;
-	sys bm = nil;
-	sys p256 = nil;
-	sys fontResource = nil;
-	sys linePattern = nil;
+	sys bm = NULL;
+	sys pal = NULL;
+	sys ps = NULL;
+	sys bm = NULL;
+	sys p256 = NULL;
+	sys fontResource = NULL;
+	sys linePattern = NULL;
 	return true;
 }
 
-void
-adjust_line_end( int  x1, int  y1, int * x2, int * y2, Bool forth)
-{
-	if ( forth) {
-		if ( x1 == *x2)
-			( y1 < *y2) ? ( *y2)++ : ( *y2)--;
-		else if ( y1 == *y2)
-			( x1 < *x2) ? ( *x2)++ : ( *x2)--;
-		else
-		{
-			//     Zinc Application Framework - W_GDIDSP.CPP COPYRIGHT (C) 1990-1998
-			long tan = ( *y2 - y1) * 1000L / ( *x2 - x1);
-			if ( tan < 1000 && tan > -1000) {
-				int dx = *x2 - x1;
-				( dx > 0) ? dx++ : dx--;
-				*x2 = x1 + dx;
-				*y2 = (int)( y1 + dx * tan / 1000L);
-			} else {
-				int dy = *y2 - y1;
-				( dy > 0) ? dy++ : dy--;
-				*x2 = (int)( x1 + dy * 1000L / tan);
-				*y2 = y1 + dy;
-			}
-			// eo Zinc
-		}
-	} else {
-		if ( x1 == *x2)
-			( y1 < *y2) ? ( *y2)-- : ( *y2)++;
-		else if ( y1 == *y2)
-			( x1 < *x2) ? ( *x2)-- : ( *x2)++;
-		else
-		{
-			//     Zinc Application Framework - W_GDIDSP.CPP COPYRIGHT (C) 1990-1998
-			long tan = ( *y2 - y1) * 1000L / ( *x2 - x1);
-			if ( tan < 1000 && tan > -1000) {
-				int dx = *x2 - x1;
-				( dx > 0) ? dx-- : dx++;
-				*x2 = x1 + dx;
-				*y2 = (int)( y1 + dx * tan / 1000L);
-			} else {
-				int dy = *y2 - y1;
-				( dy > 0) ? dy-- : dy++;
-				*x2 = (int)( x1 + dy * 1000L / tan);
-				*y2 = y1 + dy;
-			}
-			// eo Zinc
-		}
-	}
-}
+#define ADJUST_LINE_END_DEF(typ)                 \
+void                                             \
+adjust_line_end_##typ                            \
+( typ x1, typ y1, typ *x2, typ *y2)              \
+{                                                \
+	if ( x1 == *x2)                                \
+		( y1 < *y2) ? ( *y2)++ : ( *y2)--;           \
+	else if ( y1 == *y2)                           \
+		( x1 < *x2) ? ( *x2)++ : ( *x2)--;           \
+	else                                           \
+	{                                              \
+		long tan = ( *y2 - y1) * 1000L / ( *x2 - x1);\
+		if ( tan < 1000 && tan > -1000) {            \
+			typ dx = *x2 - x1;                         \
+			( dx > 0) ? dx++ : dx--;                   \
+			*x2 = x1 + dx;                             \
+			*y2 = (typ)( y1 + dx * tan / 1000L);       \
+		} else {                                     \
+			typ dy = *y2 - y1;                         \
+			( dy > 0) ? dy++ : dy--;                   \
+			*x2 = (typ)( x1 + dy * 1000L / tan);       \
+			*y2 = y1 + dy;                             \
+		}                                            \
+	}                                              \
+}                                                \
+
+ADJUST_LINE_END_DEF(int);
+ADJUST_LINE_END_DEF(LONG);
 
 static Bool
 gp_Arc(
@@ -121,8 +100,8 @@ gp_Arc(
 		HGDIOBJ old;
 
 		old = SelectObject( sys ps, CreatePen( PS_SOLID, 1, sys stylus. brush. lb. lbColor));
-		adjust_line_end( nXRadial1, nYRadial1, &nXRadial2, &nYRadial2, true);
-		MoveToEx( sys ps, nXRadial1, nYRadial1, nil);
+		adjust_line_end_int( nXRadial1, nYRadial1, &nXRadial2, &nYRadial2);
+		MoveToEx( sys ps, nXRadial1, nYRadial1, NULL);
 		ret = LineTo( sys ps, nXRadial2, nYRadial2);
 		DeleteObject(SelectObject( sys ps, old) );
 		return ret;
@@ -156,8 +135,8 @@ gp_Chord(
 		}
 
 		old = SelectObject( sys ps, CreatePen( PS_SOLID, 1, sys stylus. brush. lb. lbColor));
-		adjust_line_end( nXRadial1, nYRadial1, &nXRadial2, &nYRadial2, true);
-		MoveToEx( sys ps, nXRadial1, nYRadial1, nil);
+		adjust_line_end_int( nXRadial1, nYRadial1, &nXRadial2, &nYRadial2);
+		MoveToEx( sys ps, nXRadial1, nYRadial1, NULL);
 		ret = LineTo( sys ps, nXRadial2, nYRadial2);
 		DeleteObject(SelectObject( sys ps, old) );
 		return ret;
@@ -185,12 +164,12 @@ gp_Pie(
 		old = SelectObject( sys ps, CreatePen( PS_SOLID, 1, sys stylus. brush. lb. lbColor));
 		cx  = ( nLeftRect + nRightRect ) / 2;
 		cy  = ( nTopRect  + nBottomRect ) / 2;
-		adjust_line_end( cx, cy, &nXRadial1, &nYRadial1, true);
+		adjust_line_end_int( cx, cy, &nXRadial1, &nYRadial1);
 		if ( filled ) {
 			if ( nXRadial2 > cx ) nXRadial1 = nXRadial2;
 			if ( nYRadial2 > cy ) nYRadial1 = nYRadial2;
 		}
-		MoveToEx( sys ps, cx, cy, nil);
+		MoveToEx( sys ps, cx, cy, NULL);
 		ret = LineTo( sys ps, nXRadial1, nYRadial1);
 		DeleteObject(SelectObject( sys ps, old) );
 		return ret;
@@ -274,9 +253,10 @@ apc_gp_bars( Handle self, int nr, Rect *rr)
 	int i, y = sys lastSize. y;
 	STYLUS_USE_BRUSH( ps);
 	for ( i = 0; i < nr; i++, rr++) {
-		check_swap( rr->left, rr->right);
-		check_swap( rr->bottom, rr->top);
-		if ( !( ok = Rectangle( ps, rr->left, y - rr->top - 1, rr->left + 2, y - rr->bottom + 1))) {
+    Rect xr = *rr;
+		check_swap( xr.left, xr.right);
+		check_swap( xr.bottom, xr.top);
+		if ( !( ok = Rectangle( ps, xr.left, y - xr.top - 1, xr.left + 2, y - xr.bottom + 1))) {
 			apiErr;
 			break;
 		}
@@ -349,6 +329,18 @@ EXIT:
 }}
 
 Bool
+apc_gp_can_draw_alpha( Handle self)
+{
+	objCheck false;
+	if ( is_apt(aptDeviceBitmap))
+		return ((PDeviceBitmap)self)->type != dbtBitmap;
+	else if ( is_apt( aptImage ))
+		return ((PImage)self)-> type != imBW;
+	else
+		return true;
+}
+
+Bool
 apc_gp_clear( Handle self, int x1, int y1, int x2, int y2)
 {objCheck false;{
 	Bool     ok = true;
@@ -405,20 +397,31 @@ Bool
 apc_gp_draw_poly( Handle self, int numPts, Point * points)
 {objCheck false;{
 	int i, dy = sys lastSize. y;
-	for ( i = 0; i < numPts; i++)  points[ i]. y = dy - points[ i]. y - 1;
-	if ( points[ 0]. x != points[ numPts - 1].x || points[ 0]. y != points[ numPts - 1].y)
-		adjust_line_end( points[ numPts - 2].x, points[ numPts - 2].y, &points[ numPts - 1].x, &points[ numPts - 1].y, true);
+  POINT *p;
+  Bool ok;
+
+	if ((p = malloc( sizeof(POINT) * numPts)) == NULL)
+		return false;
+
+	for ( i = 0; i < numPts; i++)  {
+    p[i]. x = points[i]. x;
+    p[i]. y = dy - points[i]. y - 1;
+  }
+	if ( p[0]. x != p[numPts - 1].x || p[0]. y != p[numPts - 1].y)
+		adjust_line_end_LONG( p[numPts - 2].x, p[numPts - 2].y, &p[numPts - 1].x, &p[numPts - 1].y);
 
 	if (EMULATE_OPAQUE_LINE) {
 		STYLUS_USE_OPAQUE_LINE;
-		Polyline( sys ps, ( POINT*) points, numPts);
+		Polyline( sys ps, p, numPts);
 		STYLUS_RESTORE_OPAQUE_LINE;
 	}
 
 	STYLUS_USE_PEN( sys ps);
-	if ( !Polyline( sys ps, ( POINT*) points, numPts)) apiErrRet;
+	if ( !(ok = Polyline( sys ps, p, numPts))) apiErr;
 
-	return true;
+  free(p);
+
+	return ok;
 }}
 
 Bool
@@ -426,25 +429,35 @@ apc_gp_draw_poly2( Handle self, int numPts, Point * points)
 {objCheck false;{
 	Bool ok = true;
 	int i, dy = sys lastSize. y;
-	DWORD * pts = ( DWORD *) malloc( sizeof( DWORD) * numPts);
+	DWORD * pts;
+  POINT * p;
+
+  pts = ( DWORD *) malloc( sizeof( DWORD) * numPts);
 	if ( !pts) return false;
+	p = malloc( sizeof(POINT) * numPts);
+  if ( !p ) {
+    free(pts);
+    return false;
+  }
 
 	for ( i = 0; i < numPts; i++)  {
-		points[ i]. y = dy - points[ i]. y - 1;
+		p[i]. x = points[i]. x;
+		p[i]. y = dy - points[i]. y - 1;
 		pts[ i] = 2;
 		if ( i & 1)
-			adjust_line_end( points[ i - 1].x, points[ i - 1].y, &points[ i].x, &points[ i].y, true);
+			adjust_line_end_LONG( p[i - 1].x, p[i - 1].y, &p[i].x, &p[i].y);
 	}
 
 	if (EMULATE_OPAQUE_LINE) {
 		STYLUS_USE_OPAQUE_LINE;
-		PolyPolyline( sys ps, ( POINT*) points, pts, numPts/2);
+		PolyPolyline( sys ps, p, pts, numPts/2);
 		STYLUS_RESTORE_OPAQUE_LINE;
 	}
 
 	STYLUS_USE_PEN( sys ps);
-	if ( !( ok = PolyPolyline( sys ps, ( POINT*) points, pts, numPts/2))) apiErr;
+	if ( !( ok = PolyPolyline( sys ps, p, pts, numPts/2))) apiErr;
 	free( pts);
+	free( p);
 	return ok;
 }}
 
@@ -550,18 +563,25 @@ apc_gp_fill_poly( Handle self, int numPts, Point * points)
 {Bool ok = true; objCheck false;{
 	HDC     ps = sys ps;
 	int i,  dy = sys lastSize. y;
+  POINT *p;
 
-	for ( i = 0; i < numPts; i++) points[ i]. y = dy - points[ i]. y - 1;
+  if ((p = malloc( sizeof(POINT) * numPts)) == NULL)
+		return false;
+
+	for ( i = 0; i < numPts; i++)  {
+    p[i]. x = points[i]. x;
+    p[i]. y = dy - points[i]. y - 1;
+  }
 
 	if (( sys psFillMode & fmOverlay) == 0) {
 		HGDIOBJ old = SelectObject( ps, hPenHollow);
 		STYLUS_USE_BRUSH( ps);
-		if ( !( ok = Polygon( ps, ( POINT *) points, numPts))) apiErr;
+		if ( !( ok = Polygon( ps, p, numPts))) apiErr;
 		SelectObject( ps, old);
 	} else if ( !stylus_complex( &sys stylus, ps)) {
 		HPEN old = SelectObject( ps, CreatePen( PS_SOLID, 1, sys stylus. brush. lb. lbColor));
 		STYLUS_USE_BRUSH( ps);
-		if ( !( ok = Polygon( ps, ( POINT *) points, numPts))) apiErr;
+		if ( !( ok = Polygon( ps, p, numPts))) apiErr;
 		DeleteObject( SelectObject( ps, old));
 	} else {
 		int dx    = sys lastSize. x;
@@ -575,17 +595,20 @@ apc_gp_fill_poly( Handle self, int numPts, Point * points)
 		trans. x = dx;
 		trans. y = dy;
 		for ( i = 0; i < numPts; i++)  {
-			if ( points[ i]. x > bound. x) bound. x = points[ i]. x;
-			if ( points[ i]. y > bound. y) bound. y = points[ i]. y;
-			if ( points[ i] .x < trans. x) trans. x = points[ i]. x;
-			if ( points[ i] .y < trans. y) trans. y = points[ i]. y;
+			if ( p[ i]. x > bound. x) bound. x = p[ i]. x;
+			if ( p[ i]. y > bound. y) bound. y = p[ i]. y;
+			if ( p[ i] .x < trans. x) trans. x = p[ i]. x;
+			if ( p[ i] .y < trans. y) trans. y = p[ i]. y;
 		}
-		if (( trans. x == dx) || ( trans. y == dy)) return false;
+		if (( trans. x == dx) || ( trans. y == dy)) {
+      free(p);
+      return false;
+    }
 		if ( bound. x > dx) bound. x = dx;
 		if ( bound. y > dy) bound. y = dy;
 		for ( i = 0; i < numPts; i++)  {
-			points[ i]. x -= trans. x;
-			points[ i]. y -= trans. y;
+			p[ i]. x -= trans. x;
+			p[ i]. y -= trans. y;
 		}
 		bound. x -= trans. x - 1;
 		bound. y -= trans. y - 1;
@@ -594,6 +617,7 @@ apc_gp_fill_poly( Handle self, int numPts, Point * points)
 		if ( db) {
 			if ( !( ps = dc_alloc())) { // fact that if dest ps is memory dc, CCB will result mono-bitmap
 				dc_compat_free();
+        free(p);
 				return false;
 			}
 		}
@@ -601,15 +625,17 @@ apc_gp_fill_poly( Handle self, int numPts, Point * points)
 			apiErr;
 			if ( db) dc_free();
 			dc_compat_free();
+      free(p);
 			return false;
 		}
 		if ( db) {
 			dc_free();
 			ps = sys ps;
 		}
-		if ( !( bmMask = CreateBitmap( bound. x, bound. y, 1, 1, nil))) {
+		if ( !( bmMask = CreateBitmap( bound. x, bound. y, 1, 1, NULL))) {
 			apiErr;
 			dc_compat_free();
+      free(p);
 			return false;
 		}
 		bmJ = SelectObject( dc, bmSrc);
@@ -622,7 +648,7 @@ apc_gp_fill_poly( Handle self, int numPts, Point * points)
 		SetROP2( dc, R2_WHITE);
 		Rectangle( dc, 0, 0, bound. x, bound. y);
 		SetROP2( dc, R2_BLACK);
-		if ( !( ok = Polygon( dc, ( POINT *) points, numPts))) apiErr;
+		if ( !( ok = Polygon( dc, p, numPts))) apiErr;
 		SelectObject( dc, bmSrc);
 		if ( !( ok &= MaskBlt( ps, trans. x, trans. y, bound. x, bound. y, dc, 0, 0, bmMask, 0, 0,
 					MAKEROP4( 0x00AA0029, rop)))) apiErr;
@@ -631,6 +657,7 @@ apc_gp_fill_poly( Handle self, int numPts, Point * points)
 		DeleteObject( bmMask);
 		DeleteObject( bmSrc);
 	}
+  free(p);
 }return ok;}
 
 
@@ -712,20 +739,20 @@ apc_gp_line( Handle self, int x1, int y1, int x2, int y2)
 {objCheck false;{
 	HDC ps = sys ps;
 
-	adjust_line_end( x1, y1, &x2, &y2, true);
+	adjust_line_end_int( x1, y1, &x2, &y2);
 	y1 = sys lastSize. y - y1 - 1;
 	y2 = sys lastSize. y - y2 - 1;
 
 	if (EMULATE_OPAQUE_LINE) {
 		STYLUS_USE_OPAQUE_LINE;
-		MoveToEx( ps, x1, y1, nil);
+		MoveToEx( ps, x1, y1, NULL);
 		LineTo( ps, x2, y2);
 		STYLUS_RESTORE_OPAQUE_LINE;
 	}
 
 	STYLUS_USE_PEN( ps);
 
-	MoveToEx( ps, x1, y1, nil);
+	MoveToEx( ps, x1, y1, NULL);
 	if ( !LineTo( ps, x2, y2)) apiErrRet;
 
 	return true;
@@ -983,14 +1010,14 @@ apc_gp_get_physical_palette( Handle self, int * color)
 	PRGBColor r;
 
 	*color = 0;
-	objCheck nil;
+	objCheck NULL;
 
 	if (( GetDeviceCaps( sys ps, RASTERCAPS) & RC_PALETTE) == 0)
-		return nil;
+		return NULL;
 
 	nCol = GetDeviceCaps( sys ps, NUMCOLORS);
 	if ( nCol <= 0 || nCol > 256)
-		return nil;
+		return NULL;
 
 
 	if ( sys pal && ( nCol > 16)) {
@@ -1042,7 +1069,7 @@ apc_gp_get_physical_palette( Handle self, int * color)
 	}
 
 	r = ( PRGBColor) malloc( sizeof( RGBColor) * *color);
-	if ( !r) return nil;
+	if ( !r) return NULL;
 
 	for ( i = 0; i < *color; i++) {
 		r[i].r = lpGlob. palPalEntry[i]. peRed;
@@ -1129,7 +1156,7 @@ apc_gp_set_back_color( Handle self, Color color)
 			sys stylusFlags &=~ stbPen;
 			SelectObject( sys ps, sys stockPen);
 			DeleteObject( sys opaquePen );
-			sys opaquePen = nil;
+			sys opaquePen = NULL;
 		}
 	}
 	sys lbs[1] = clr;
@@ -1244,7 +1271,7 @@ apc_gp_set_font( Handle self, PFont font)
 FillPattern *
 apc_gp_get_fill_pattern( Handle self)
 {
-	objCheck nil;
+	objCheck NULL;
 	return sys ps ? &sys fillPattern : &sys fillPattern2;
 }
 
@@ -1361,7 +1388,7 @@ apc_gp_set_palette( Handle self)
 	objCheck false;
 	if ( sys p256) {
 		free( sys p256);
-		sys p256 = nil;
+		sys p256 = NULL;
 	}
 
 	pal = palette_create( self);
@@ -1407,7 +1434,7 @@ apc_gp_set_transform( Handle self, int x, int y)
 		sys transform. y = y;
 		return true;
 	}
-	if ( !SetViewportOrgEx( sys ps, x - sys transform2. x, - ( y + sys transform2. y), nil)) apiErr;
+	if ( !SetViewportOrgEx( sys ps, x - sys transform2. x, - ( y + sys transform2. y), NULL)) apiErr;
 	return true;
 }
 

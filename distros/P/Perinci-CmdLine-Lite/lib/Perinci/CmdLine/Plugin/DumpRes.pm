@@ -1,9 +1,9 @@
 package Perinci::CmdLine::Plugin::DumpRes;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-10-21'; # DATE
+our $DATE = '2021-06-23'; # DATE
 our $DIST = 'Perinci-CmdLine-Lite'; # DIST
-our $VERSION = '1.900'; # VERSION
+our $VERSION = '1.905'; # VERSION
 
 # IFUNBUILT
 # use strict;
@@ -45,15 +45,15 @@ Perinci::CmdLine::Plugin::DumpRes
 
 =head1 VERSION
 
-This document describes version 1.900 of Perinci::CmdLine::Plugin::DumpRes (from Perl distribution Perinci-CmdLine-Lite), released on 2020-10-21.
+This document describes version 1.905 of Perinci::CmdLine::Plugin::DumpRes (from Perl distribution Perinci-CmdLine-Lite), released on 2021-06-23.
 
 =head1 SYNOPSIS
 
-In the environment variable:
+To use, either specify in environment variable:
 
  PERINCI_CMDLINE_PLUGINS=-DumpRes
 
-In code instantiating L<Perinci::CmdLine>:
+or in code instantiating L<Perinci::CmdLine>:
 
  my $app = Perinci::CmdLine::Any->new(
      ...
@@ -83,7 +83,7 @@ Source repository is at L<https://github.com/perlancar/perl-Perinci-CmdLine-Lite
 
 =head1 BUGS
 
-Please report any bugs or feature requests on the bugtracker website L<https://rt.cpan.org/Public/Dist/Display.html?Name=Perinci-CmdLine-Lite>
+Please report any bugs or feature requests on the bugtracker website L<https://github.com/perlancar/perl-Perinci-CmdLine-Lite/issues>
 
 When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
@@ -95,7 +95,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2019, 2018, 2017, 2016, 2015, 2014 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

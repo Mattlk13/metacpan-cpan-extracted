@@ -25,7 +25,7 @@ use lib "$Bin/../../lib";
 use Google::Ads::GoogleAds::Client;
 use Google::Ads::GoogleAds::Utils::GoogleAdsHelper;
 use
-  Google::Ads::GoogleAds::V6::Services::GeoTargetConstantService::LocationNames;
+  Google::Ads::GoogleAds::V8::Services::GeoTargetConstantService::LocationNames;
 
 use Getopt::Long qw(:config auto_help);
 use Pod::Usage;
@@ -35,7 +35,7 @@ use Cwd qw(abs_path);
 # used by default.
 my $locale = "en";
 # A list of country codes can be referenced here:
-# https://developers.google.com/adwords/api/docs/appendix/geotargeting.
+# https://developers.google.com/google-ads/api/reference/data/geotargets.
 my $country_code = "FR";
 # The location names to get suggested geo target constants.
 my $location_names = ["Paris", "Quebec", "Spain", "Deutschland"];
@@ -45,10 +45,10 @@ sub get_geo_target_constants_by_names {
   my ($api_client, $location_names, $locale, $country_code) = @_;
 
   my $suggest_response = $api_client->GeoTargetConstantService()->suggest({
-      locale      => $locale,
-      countryCode => $country_code,
+      locale        => $locale,
+      countryCode   => $country_code,
       locationNames =>
-        Google::Ads::GoogleAds::V6::Services::GeoTargetConstantService::LocationNames
+        Google::Ads::GoogleAds::V8::Services::GeoTargetConstantService::LocationNames
         ->new({
           names => $location_names
         })});

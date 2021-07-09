@@ -20,6 +20,8 @@ if ( grep /\P{ASCII}/ => @ARGV ) {
 use base qw( Pg::Explain::From );
 use YAML;
 use Carp;
+use Pg::Explain::JIT;
+use Pg::Explain::Buffers;
 
 =head1 NAME
 
@@ -27,11 +29,11 @@ Pg::Explain::FromYAML - Parser for explains in YAML format
 
 =head1 VERSION
 
-Version 1.04
+Version 1.11
 
 =cut
 
-our $VERSION = '1.04';
+our $VERSION = '1.11';
 
 =head1 SYNOPSIS
 
@@ -53,14 +55,21 @@ sub parse_source {
     my $source = shift;
 
     # If this is plan from auto-explain
-    if ( $source =~ s{ \A (\s*) Query \s+ Text [^\n]* \n }{}xms ) {
-        my $prefix = $1;
+    if ( $source =~ s{ \A (\s*) Query \s+ Text : \s+ " ( [^\n]* ) " \s* \n }{}xms ) {
+        my ( $prefix, $query ) = ( $1, $2 );
 
         # Change prefix to two spaces in all lines
         $source =~ s{^$prefix}{  }gm;
 
         # Add - to first line (should be Plan:)
         $source =~ s{ \A \s \s }{- }xms;
+
+        $query =~ s/\\n/\n/g;
+        $query =~ s/\\r/\r/g;
+        $query =~ s/\\t/\t/g;
+        $query =~ s/\\(.)/$1/g;
+        $self->explain->query( $query );
+
     }
 
     unless ( $source =~ s{\A .*? ^ (\s*) ( - \s+ Plan: \s*\n )}{$1$2}xms ) {
@@ -76,6 +85,8 @@ sub parse_source {
 
     if ( $struct->{ 'Planning' } ) {
         $self->explain->planning_time( $struct->{ 'Planning' }->{ 'Planning Time' } );
+        my $buffers = Pg::Explain::Buffers->new( $struct->{ 'Planning' } );
+        $self->explain->planning_buffers( $buffers ) if $buffers;
     }
     elsif ( $struct->{ 'Planning Time' } ) {
         $self->explain->planning_time( $struct->{ 'Planning Time' } );
@@ -92,6 +103,7 @@ sub parse_source {
             $self->explain->add_trigger_time( $ts );
         }
     }
+    $self->explain->jit( Pg::Explain::JIT->new( 'struct' => $struct->{ 'JIT' } ) ) if $struct->{ 'JIT' };
 
     return $top_node;
 }
@@ -112,7 +124,7 @@ You can find documentation for this module with the perldoc command.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2008-2015 hubert depesz lubaczewski, all rights reserved.
+Copyright 2008-2021 hubert depesz lubaczewski, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

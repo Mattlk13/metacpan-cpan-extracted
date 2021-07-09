@@ -5,22 +5,22 @@ package UTF8::R2;
 #
 # http://search.cpan.org/dist/UTF8-R2/
 #
-# Copyright (c) 2019, 2020 INABA Hitoshi <ina@cpan.org> in a CPAN
+# Copyright (c) 2019, 2020, 2021 INABA Hitoshi <ina@cpan.org> in a CPAN
 ######################################################################
 
 use 5.00503;    # Universal Consensus 1998 for primetools
 # use 5.008001; # Lancaster Consensus 2013 for toolchains
 
-$VERSION = '0.12';
+$VERSION = '0.20';
 $VERSION = $VERSION;
 
 use strict;
-BEGIN { $INC{'warnings.pm'} = '' if $] < 5.006 }; use warnings; local $^W=1;
+BEGIN { $INC{'warnings.pm'} = '' if $] < 5.006 } use warnings; local $^W=1;
 use Symbol ();
 
 my %utf8_codepoint = (
 
-    # beautiful concept in young days
+    # beautiful concept in young days, however disabled 5-6 octets for safety
     # https://www.ietf.org/rfc/rfc2279.txt
     'RFC2279' => qr{(?>@{[join('', qw(
         [\x00-\x7F\x80-\xBF\xC0-\xC1\xF5-\xFF]       |
@@ -101,29 +101,39 @@ my $bare_w = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';
 # exports %mb
 sub import {
     my $self = shift @_;
-    if (defined($_[0]) and ($_[0] =~ /\A[0123456789]/)) {
-        if ($_[0] != $UTF8::R2::VERSION) {
+
+    # confirm version
+    if (defined($_[0]) and ($_[0] =~ /\A [0-9] /xms)) {
+        if ($_[0] ne $UTF8::R2::VERSION) {
             my($package,$filename,$line) = caller;
-            die "$filename requires UTF8::R2 $_[0], this is version $UTF8::R2::VERSION, stopped at $filename line $line.\n";
+            die "$filename requires @{[__PACKAGE__]} $_[0], however @{[__FILE__]} am only $UTF8::R2::VERSION, stopped at $filename line $line.\n";
         }
         shift @_;
     }
+
     for (@_) {
+
+        # export %mb
         if ($_ eq '%mb') {
             no strict qw(refs);
+            # tie my %mb, __PACKAGE__; # makes: Parentheses missing around "my" list
             tie my %mb, 'UTF8::R2';
             *{caller().'::mb'} = \%mb;
         }
+
+        # set script encoding
         elsif (defined $utf8_codepoint{$_}) {
             $x = $utf8_codepoint{$_};
         }
     }
-}
 
-#---------------------------------------------------------------------
-# shortcut of omitted $_
-sub _ {
-    @_ ? $_[0] : $_
+    # $^X($EXECUTABLE_NAME) for execute MBCS Perl script
+    $UTF8::R2::PERL = $^X;
+    $UTF8::R2::PERL = $UTF8::R2::PERL; # to avoid: Name "UTF8::R2::PERL" used only once: possible typo at ...
+
+    # original $0($PROGRAM_NAME)
+    $UTF8::R2::ORIG_PROGRAM_NAME = $0;
+    $UTF8::R2::ORIG_PROGRAM_NAME = $UTF8::R2::ORIG_PROGRAM_NAME; # to avoid: Name "UTF8::R2::ORIG_PROGRAM_NAME" used only once: possible typo at ...
 }
 
 #---------------------------------------------------------------------
@@ -132,13 +142,12 @@ sub confess {
     my $i = 0;
     my @confess = ();
     while (my($package,$filename,$line,$subroutine) = caller($i)) {
-        push @confess, "[$i] $filename($line) $package::$subroutine\n";
+        push @confess, "[$i] $filename($line) $subroutine\n";
         $i++;
     }
+    print STDERR "\n", @_, "\n";
     print STDERR CORE::reverse @confess;
-    print STDERR "\n";
-    print STDERR @_;
-    die "\n";
+    die;
 }
 
 #---------------------------------------------------------------------
@@ -157,75 +166,109 @@ sub UTF8::R2::chop (@) {
 #---------------------------------------------------------------------
 # chr() for UTF-8 codepoint string
 sub UTF8::R2::chr (;$) {
-    local $_ = &_;
-    if ($_ < 0) {
-        return pack 'C*', 0xEF, 0xBF, 0xBD; # Unicode Codepoint 'REPLACEMENT CHARACTER' (U+FFFD)
-    }
-    else {
-        my @octet = ();
-        do {
-            unshift @octet, ($_ % 0x100);
-            $_ = int($_ / 0x100);
-        } while ($_ > 0);
-        return pack 'C*', @octet;
-    }
+    my $number = @_ ? $_[0] : $_;
+
+# Negative values give the Unicode replacement character (chr(0xfffd)),
+# except under the bytes pragma, where the low eight bits of the value
+# (truncated to an integer) are used.
+
+    my @octet = ();
+    CORE::do {
+        unshift @octet, ($number % 0x100);
+        $number = int($number / 0x100);
+    } while ($number > 0);
+    return pack 'C*', @octet;
+}
+
+#---------------------------------------------------------------------
+# mb::do() like do(), mb.pm compatible
+sub UTF8::R2::do ($) {
+
+    # run as Perl script
+    return CORE::eval sprintf(<<'END', (caller)[0,2,1]);
+package %s;
+#line %s "%s"
+CORE::do "$_[0]";
+END
+}
+
+#---------------------------------------------------------------------
+# mb::eval() like eval(), mb.pm compatible
+sub UTF8::R2::eval (;$) {
+    local $_ = @_ ? $_[0] : $_;
+
+    # run as Perl script in caller package
+    return CORE::eval sprintf(<<'END', (caller)[0,2,1], $_);
+package %s;
+#line %s "%s"
+%s
+END
 }
 
 #---------------------------------------------------------------------
 # getc() for UTF-8 codepoint string
 sub UTF8::R2::getc (;*) {
     my $fh = @_ ? Symbol::qualify_to_ref($_[0],caller()) : \*STDIN;
-    my @octet = CORE::getc($fh);
-    if ($octet[0] =~ /\A[\xC2-\xDF]\z/) {
-        push @octet, CORE::getc($fh);
+    my $getc = CORE::getc $fh;
+    if ($getc =~ /\A [\xC2-\xDF] \z/xms) {
+        $getc .= CORE::getc $fh;
     }
-    elsif ($octet[0] =~ /\A[\xE0-\xEF]\z/) {
-        push @octet, CORE::getc($fh);
-        push @octet, CORE::getc($fh);
+    elsif ($getc =~ /\A [\xE0-\xEF] \z/xms) {
+        $getc .= CORE::getc $fh;
+        $getc .= CORE::getc $fh;
     }
-    elsif ($octet[0] =~ /\A[\xF0-\xF4]\z/) {
-        push @octet, CORE::getc($fh);
-        push @octet, CORE::getc($fh);
-        push @octet, CORE::getc($fh);
+    elsif ($getc =~ /\A [\xF0-\xF4] \z/xms) {
+        $getc .= CORE::getc $fh;
+        $getc .= CORE::getc $fh;
+        $getc .= CORE::getc $fh;
     }
-    return join '', @octet;
+    return $getc;
 }
 
 #---------------------------------------------------------------------
 # index() for UTF-8 codepoint string
 sub UTF8::R2::index ($$;$) {
-    if (@_ == 2) {
-        my $index = CORE::index $_[0], $_[1];
-        if ($index < 1) {
-            return $index;
-        }
-        else {
-            return UTF8::R2::length(CORE::substr $_[0], 0, $index);
-        }
+    my $index = 0;
+    if (@_ == 3) {
+        $index = CORE::index $_[0], $_[1], CORE::length(UTF8::R2::substr($_[0], 0, $_[2]));
     }
-    elsif (@_ == 3) {
-        my $index = CORE::index $_[0], $_[1], CORE::length(UTF8::R2::substr($_[0], 0, $_[2]));
-        if ($index < 1) {
-            return $index;
-        }
-        else {
-            return UTF8::R2::length(CORE::substr $_[0], 0, $index);
-        }
+    else {
+        $index = CORE::index $_[0], $_[1];
+    }
+    if ($index == -1) {
+        return -1;
+    }
+    else {
+        return UTF8::R2::length(CORE::substr $_[0], 0, $index);
+    }
+}
+
+#---------------------------------------------------------------------
+# JPerl like index() for UTF-8 codepoint string
+sub UTF8::R2::index_byte ($$;$) {
+    my $index = 0;
+    if (@_ == 3) {
+        return CORE::index $_[0], $_[1], CORE::length(UTF8::R2::substr($_[0], 0, $_[2]));
+    }
+    else {
+        return CORE::index $_[0], $_[1];
     }
 }
 
 #---------------------------------------------------------------------
 # universal lc() for UTF-8 codepoint string
 sub UTF8::R2::lc (;$) {
+    local $_ = @_ ? $_[0] : $_;
     #                          A a B b C c D d E e F f G g H h I i J j K k L l M m N n O o P p Q q R r S s T t U u V v W w X x Y y Z z
-    return join '', map { {qw( A a B b C c D d E e F f G g H h I i J j K k L l M m N n O o P p Q q R r S s T t U u V v W w X x Y y Z z )}->{$_}||$_ } (&_ =~ /\G$x/g);
+    return join '', map { {qw( A a B b C c D d E e F f G g H h I i J j K k L l M m N n O o P p Q q R r S s T t U u V v W w X x Y y Z z )}->{$_}||$_ } /\G$x/g;
     #                          A a B b C c D d E e F f G g H h I i J j K k L l M m N n O o P p Q q R r S s T t U u V v W w X x Y y Z z
 }
 
 #---------------------------------------------------------------------
 # universal lcfirst() for UTF-8 codepoint string
 sub UTF8::R2::lcfirst (;$) {
-    if (&_ =~ UTF8::R2::qr(qr/\A(.)(.*)\z/s)) {
+    local $_ = @_ ? $_[0] : $_;
+    if (/\A($x)(.*)\z/s) {
         return UTF8::R2::lc($1) . $2;
     }
     else {
@@ -236,14 +279,16 @@ sub UTF8::R2::lcfirst (;$) {
 #---------------------------------------------------------------------
 # length() for UTF-8 codepoint string
 sub UTF8::R2::length (;$) {
-    return scalar(() = &_ =~ /\G$x/g);
+    local $_ = @_ ? $_[0] : $_;
+    return scalar(() = /\G$x/g);
 }
 
 #---------------------------------------------------------------------
 # ord() for UTF-8 codepoint string
 sub UTF8::R2::ord (;$) {
+    local $_ = @_ ? $_[0] : $_;
     my $ord = 0;
-    if (&_ =~ /\A($x)/) {
+    if (/\A($x)/) {
         for my $octet (unpack 'C*', $1) {
             $ord = $ord * 0x100 + $octet;
         }
@@ -252,30 +297,9 @@ sub UTF8::R2::ord (;$) {
 }
 
 #---------------------------------------------------------------------
-# qr/ \x{Unicode} / for UTF-8 codepoint string
-sub _unicode_hex {
-    my($codepoint) = @_;
-
-    # \x{unicode_hex}
-    if ((my($unicode_by_hex) = $codepoint =~ /\A \\x \{ ([01234567890ABCDEFabcdef]+) \} \z/x)) {
-        my $unicode = hex $unicode_by_hex;
-        if (0) { }
-        elsif ($unicode <     0x80) { return pack('U0C*',                                                                   $unicode          ) }
-        elsif ($unicode <    0x800) { return pack('U0C*',                                            $unicode>>6     |0xC0, $unicode&0x3F|0x80) }
-        elsif ($unicode <  0x10000) { return pack('U0C*',                    $unicode>>12     |0xE0, $unicode>>6&0x3F|0x80, $unicode&0x3F|0x80) }
-        elsif ($unicode < 0x110000) { return pack('U0C*', $unicode>>18|0xF0, $unicode>>12&0x3F|0x80, $unicode>>6&0x3F|0x80, $unicode&0x3F|0x80) }
-        else { confess qq{@{[__FILE__]}: \\x{$unicode_by_hex} is out of Unicode (0 to 0x10FFFF)}; }
-    }
-    else {
-        return $codepoint;
-    }
-}
-
-#---------------------------------------------------------------------
 # qr/ [A-Z] / for UTF-8 codepoint string
-sub _list_all_by_hyphen {
-    my($a,$b) = map { _unicode_hex($_) } @_;
-
+sub list_all_by_hyphen_utf8_like {
+    my($a, $b) = @_;
     my @a = (undef, unpack 'C*', $a);
     my @b = (undef, unpack 'C*', $b);
 
@@ -403,159 +427,229 @@ $a[3] < 0xBF ?  sprintf(join('', qw(  \x%02x        \x%02x       [\x%02x-\xBF] [
 #---------------------------------------------------------------------
 # qr// for UTF-8 codepoint string
 sub UTF8::R2::qr ($) {
-    my $before_regex = $_[0];
-    my($package,$filename,$line) = caller;
 
     my $modifiers = '';
-    if (($modifiers) = $before_regex =~ /\A \( \? \^? (.*?) : /x) {
+    if (($modifiers) = $_[0] =~ /\A \( \? \^? (.*?) : /x) {
         $modifiers =~ s/-.*//;
     }
 
-    my @after_subregex = ();
-    while ($before_regex =~ s! \A
-        (?> \[ (?: \[:[^:]+?:\] | \\x\{[01234567890ABCDEFabcdef]+\} | \\c[\x00-\xFF] | (?>\\$x) | $x )+? \] ) |
-                                  \\x\{[01234567890ABCDEFabcdef]+\} | \\c[\x00-\xFF] | (?>\\$x) | $x
-    !!x) {
-        my $before_subregex = $&;
+    my @after = ();
+    while ($_[0] =~ s! \A (
+        (?> \[ (?: \[:[^:]+?:\] | \\x\{[0123456789ABCDEFabcdef]+\} | \\c[\x00-\xFF] | (?>\\$x) | $x )+? \] ) |
+                                  \\x\{[0123456789ABCDEFabcdef]+\} | \\c[\x00-\xFF] | (?>\\$x) | $x
+    ) !!x) {
+        my $before = $1;
 
         # [^...] or [...]
-        if (my($negative,$before_class) = $before_subregex =~ /\A \[ (\^?) ((?>\\$x|$x)+?) \] \z/x) {
-            my @before_subclass = $before_class =~ /\G (?: \[:.+?:\] | \\x\{[01234567890ABCDEFabcdef]+\} | (?>\\$x) | $x ) /xg;
+        if (my($negative,$class) = $before =~ /\A \[ (\^?) ((?>\\$x|$x)+?) \] \z/x) {
+            my @classmate = $class =~ /\G (?: \[:.+?:\] | \\x\{[0123456789ABCDEFabcdef]+\} | (?>\\$x) | $x ) /xg;
             my @sbcs = ();
-            my @mbcs = ();
+            my @xbcs = ();
 
-            for (my $i=0; $i <= $#before_subclass; ) {
-                my $before_subclass = $before_subclass[$i];
+            for (my $i=0; $i <= $#classmate; ) {
+                my $classmate = $classmate[$i];
 
                 # hyphen of [A-Z] or [^A-Z]
-                if (($i < $#before_subclass) and ($before_subclass[$i+1] eq '-')) {
-                    push @mbcs, _list_all_by_hyphen($before_subclass[$i], $before_subclass[$i+2]);
+                if (($i < $#classmate) and ($classmate[$i+1] eq '-')) {
+                    my $a = ($classmate[$i+0] =~ /\A \\x \{ ([0123456789ABCDEFabcdef]+) \} \z/x) ? UTF8::R2::chr(hex $1) : $classmate[$i+0];
+                    my $b = ($classmate[$i+2] =~ /\A \\x \{ ([0123456789ABCDEFabcdef]+) \} \z/x) ? UTF8::R2::chr(hex $1) : $classmate[$i+2];
+                    push @xbcs, list_all_by_hyphen_utf8_like($a, $b);
                     $i += 3;
                 }
 
                 # any "one"
                 else {
-                    $before_subclass = _unicode_hex($before_subclass);
-                    if (0) { }
+
+                    # \x{UTF8hex}
+                    if ($classmate =~ /\A \\x \{ ([0123456789ABCDEFabcdef]+) \} \z/x) {
+                        push @xbcs, UTF8::R2::chr(hex $1);
+                    }
 
                     # \any
-                    elsif ($before_subclass eq '\D'         ) { push @mbcs, "(?:(?![$bare_d])$x)"  }
-                    elsif ($before_subclass eq '\H'         ) { push @mbcs, "(?:(?![$bare_h])$x)"  }
-#                   elsif ($before_subclass eq '\N'         ) { push @mbcs, "(?:(?!\\n)$x)"        } # \N in a character class must be a named character: \N{...} in regex
-#                   elsif ($before_subclass eq '\R'         ) { push @mbcs, "(?>\\r\\n|[$bare_v])" } # Unrecognized escape \R in character class passed through in regex
-                    elsif ($before_subclass eq '\S'         ) { push @mbcs, "(?:(?![$bare_s])$x)"  }
-                    elsif ($before_subclass eq '\V'         ) { push @mbcs, "(?:(?![$bare_v])$x)"  }
-                    elsif ($before_subclass eq '\W'         ) { push @mbcs, "(?:(?![$bare_w])$x)"  }
-                    elsif ($before_subclass eq '\b'         ) { push @sbcs, $bare_b                }
-                    elsif ($before_subclass eq '\d'         ) { push @sbcs, $bare_d                }
-                    elsif ($before_subclass eq '\h'         ) { push @sbcs, $bare_h                }
-                    elsif ($before_subclass eq '\s'         ) { push @sbcs, $bare_s                }
-                    elsif ($before_subclass eq '\v'         ) { push @sbcs, $bare_v                }
-                    elsif ($before_subclass eq '\w'         ) { push @sbcs, $bare_w                }
+                    elsif ($classmate eq '\D'         ) { push @xbcs, "(?:(?![$bare_d])$x)"  }
+                    elsif ($classmate eq '\H'         ) { push @xbcs, "(?:(?![$bare_h])$x)"  }
+#                   elsif ($classmate eq '\N'         ) { push @xbcs, "(?:(?!\\n)$x)"        } # \N in a character class must be a named character: \N{...} in regex
+#                   elsif ($classmate eq '\R'         ) { push @xbcs, "(?>\\r\\n|[$bare_v])" } # Unrecognized escape \R in character class passed through in regex
+                    elsif ($classmate eq '\S'         ) { push @xbcs, "(?:(?![$bare_s])$x)"  }
+                    elsif ($classmate eq '\V'         ) { push @xbcs, "(?:(?![$bare_v])$x)"  }
+                    elsif ($classmate eq '\W'         ) { push @xbcs, "(?:(?![$bare_w])$x)"  }
+                    elsif ($classmate eq '\b'         ) { push @sbcs, $bare_b                }
+                    elsif ($classmate eq '\d'         ) { push @sbcs, $bare_d                }
+                    elsif ($classmate eq '\h'         ) { push @sbcs, $bare_h                }
+                    elsif ($classmate eq '\s'         ) { push @sbcs, $bare_s                }
+                    elsif ($classmate eq '\v'         ) { push @sbcs, $bare_v                }
+                    elsif ($classmate eq '\w'         ) { push @sbcs, $bare_w                }
 
                     # [:POSIX:]
-                    elsif ($before_subclass eq '[:alnum:]'  ) { push @sbcs, '\x30-\x39\x41-\x5A\x61-\x7A';                  }
-                    elsif ($before_subclass eq '[:alpha:]'  ) { push @sbcs, '\x41-\x5A\x61-\x7A';                           }
-                    elsif ($before_subclass eq '[:ascii:]'  ) { push @sbcs, '\x00-\x7F';                                    }
-                    elsif ($before_subclass eq '[:blank:]'  ) { push @sbcs, '\x09\x20';                                     }
-                    elsif ($before_subclass eq '[:cntrl:]'  ) { push @sbcs, '\x00-\x1F\x7F';                                }
-                    elsif ($before_subclass eq '[:digit:]'  ) { push @sbcs, '\x30-\x39';                                    }
-                    elsif ($before_subclass eq '[:graph:]'  ) { push @sbcs, '\x21-\x7F';                                    }
-                    elsif ($before_subclass eq '[:lower:]'  ) { push @sbcs, '\x61-\x7A';                                    } # /i modifier requires 'a' to 'z' literally
-                    elsif ($before_subclass eq '[:print:]'  ) { push @sbcs, '\x20-\x7F';                                    }
-                    elsif ($before_subclass eq '[:punct:]'  ) { push @sbcs, '\x21-\x2F\x3A-\x3F\x40\x5B-\x5F\x60\x7B-\x7E'; }
-                    elsif ($before_subclass eq '[:space:]'  ) { push @sbcs, '\s\x0B';                                       } # "\s" and vertical tab ("\cK")
-                    elsif ($before_subclass eq '[:upper:]'  ) { push @sbcs, '\x41-\x5A';                                    } # /i modifier requires 'A' to 'Z' literally
-                    elsif ($before_subclass eq '[:word:]'   ) { push @sbcs, '\x30-\x39\x41-\x5A\x5F\x61-\x7A';              }
-                    elsif ($before_subclass eq '[:xdigit:]' ) { push @sbcs, '\x30-\x39\x41-\x46\x61-\x66';                  }
+                    elsif ($classmate eq '[:alnum:]'  ) { push @sbcs, '\x30-\x39\x41-\x5A\x61-\x7A';                  }
+                    elsif ($classmate eq '[:alpha:]'  ) { push @sbcs, '\x41-\x5A\x61-\x7A';                           }
+                    elsif ($classmate eq '[:ascii:]'  ) { push @sbcs, '\x00-\x7F';                                    }
+                    elsif ($classmate eq '[:blank:]'  ) { push @sbcs, '\x09\x20';                                     }
+                    elsif ($classmate eq '[:cntrl:]'  ) { push @sbcs, '\x00-\x1F\x7F';                                }
+                    elsif ($classmate eq '[:digit:]'  ) { push @sbcs, '\x30-\x39';                                    }
+                    elsif ($classmate eq '[:graph:]'  ) { push @sbcs, '\x21-\x7F';                                    }
+                    elsif ($classmate eq '[:lower:]'  ) { push @sbcs, '\x61-\x7A';                                    } # /i modifier requires 'a' to 'z' literally
+                    elsif ($classmate eq '[:print:]'  ) { push @sbcs, '\x20-\x7F';                                    }
+                    elsif ($classmate eq '[:punct:]'  ) { push @sbcs, '\x21-\x2F\x3A-\x3F\x40\x5B-\x5F\x60\x7B-\x7E'; }
+                    elsif ($classmate eq '[:space:]'  ) { push @sbcs, '\s\x0B';                                       } # "\s" and vertical tab ("\cK")
+                    elsif ($classmate eq '[:upper:]'  ) { push @sbcs, '\x41-\x5A';                                    } # /i modifier requires 'A' to 'Z' literally
+                    elsif ($classmate eq '[:word:]'   ) { push @sbcs, '\x30-\x39\x41-\x5A\x5F\x61-\x7A';              }
+                    elsif ($classmate eq '[:xdigit:]' ) { push @sbcs, '\x30-\x39\x41-\x46\x61-\x66';                  }
 
                     # [:^POSIX:]
-                    elsif ($before_subclass eq '[:^alnum:]' ) { push @mbcs, "(?:(?![\\x30-\\x39\\x41-\\x5A\\x61-\\x7A])$x)";                      }
-                    elsif ($before_subclass eq '[:^alpha:]' ) { push @mbcs, "(?:(?![\\x41-\\x5A\\x61-\\x7A])$x)";                                 }
-                    elsif ($before_subclass eq '[:^ascii:]' ) { push @mbcs, "(?:(?![\\x00-\\x7F])$x)";                                            }
-                    elsif ($before_subclass eq '[:^blank:]' ) { push @mbcs, "(?:(?![\\x09\\x20])$x)";                                             }
-                    elsif ($before_subclass eq '[:^cntrl:]' ) { push @mbcs, "(?:(?![\\x00-\\x1F\\x7F])$x)";                                       }
-                    elsif ($before_subclass eq '[:^digit:]' ) { push @mbcs, "(?:(?![\\x30-\\x39])$x)";                                            }
-                    elsif ($before_subclass eq '[:^graph:]' ) { push @mbcs, "(?:(?![\\x21-\\x7F])$x)";                                            }
-                    elsif ($before_subclass eq '[:^lower:]' ) { push @mbcs, "(?:(?![\\x61-\\x7A])$x)";                                            } # /i modifier requires 'a' to 'z' literally
-                    elsif ($before_subclass eq '[:^print:]' ) { push @mbcs, "(?:(?![\\x20-\\x7F])$x)";                                            }
-                    elsif ($before_subclass eq '[:^punct:]' ) { push @mbcs, "(?:(?![\\x21-\\x2F\\x3A-\\x3F\\x40\\x5B-\\x5F\\x60\\x7B-\\x7E])$x)"; }
-                    elsif ($before_subclass eq '[:^space:]' ) { push @mbcs, "(?:(?![\\s\\x0B])$x)";                                               } # "\s" and vertical tab ("\cK")
-                    elsif ($before_subclass eq '[:^upper:]' ) { push @mbcs, "(?:(?![\\x41-\\x5A])$x)";                                            } # /i modifier requires 'A' to 'Z' literally
-                    elsif ($before_subclass eq '[:^word:]'  ) { push @mbcs, "(?:(?![\\x30-\\x39\\x41-\\x5A\\x5F\\x61-\\x7A])$x)";                 }
-                    elsif ($before_subclass eq '[:^xdigit:]') { push @mbcs, "(?:(?![\\x30-\\x39\\x41-\\x46\\x61-\\x66])$x)";                      }
+                    elsif ($classmate eq '[:^alnum:]' ) { push @xbcs, "(?:(?![\\x30-\\x39\\x41-\\x5A\\x61-\\x7A])$x)";                      }
+                    elsif ($classmate eq '[:^alpha:]' ) { push @xbcs, "(?:(?![\\x41-\\x5A\\x61-\\x7A])$x)";                                 }
+                    elsif ($classmate eq '[:^ascii:]' ) { push @xbcs, "(?:(?![\\x00-\\x7F])$x)";                                            }
+                    elsif ($classmate eq '[:^blank:]' ) { push @xbcs, "(?:(?![\\x09\\x20])$x)";                                             }
+                    elsif ($classmate eq '[:^cntrl:]' ) { push @xbcs, "(?:(?![\\x00-\\x1F\\x7F])$x)";                                       }
+                    elsif ($classmate eq '[:^digit:]' ) { push @xbcs, "(?:(?![\\x30-\\x39])$x)";                                            }
+                    elsif ($classmate eq '[:^graph:]' ) { push @xbcs, "(?:(?![\\x21-\\x7F])$x)";                                            }
+                    elsif ($classmate eq '[:^lower:]' ) { push @xbcs, "(?:(?![\\x61-\\x7A])$x)";                                            } # /i modifier requires 'a' to 'z' literally
+                    elsif ($classmate eq '[:^print:]' ) { push @xbcs, "(?:(?![\\x20-\\x7F])$x)";                                            }
+                    elsif ($classmate eq '[:^punct:]' ) { push @xbcs, "(?:(?![\\x21-\\x2F\\x3A-\\x3F\\x40\\x5B-\\x5F\\x60\\x7B-\\x7E])$x)"; }
+                    elsif ($classmate eq '[:^space:]' ) { push @xbcs, "(?:(?![\\s\\x0B])$x)";                                               } # "\s" and vertical tab ("\cK")
+                    elsif ($classmate eq '[:^upper:]' ) { push @xbcs, "(?:(?![\\x41-\\x5A])$x)";                                            } # /i modifier requires 'A' to 'Z' literally
+                    elsif ($classmate eq '[:^word:]'  ) { push @xbcs, "(?:(?![\\x30-\\x39\\x41-\\x5A\\x5F\\x61-\\x7A])$x)";                 }
+                    elsif ($classmate eq '[:^xdigit:]') { push @xbcs, "(?:(?![\\x30-\\x39\\x41-\\x46\\x61-\\x66])$x)";                      }
 
                     # other all
-                    elsif (CORE::length($before_subclass)==1) { push @sbcs, $before_subclass }
-                    else                                      { push @mbcs, $before_subclass }
+                    elsif (CORE::length($classmate)==1) { push @sbcs, $classmate }
+                    else                                { push @xbcs, $classmate }
                     $i += 1;
                 }
             }
 
             # [^...]
             if ($negative eq q[^]) {
-                push @after_subregex,
-                    ( @sbcs and  @mbcs) ? '(?:(?!' . join('|', @mbcs, '['.join('',@sbcs).']') . ")$x)" :
-                    (!@sbcs and  @mbcs) ? '(?:(?!' . join('|', @mbcs                        ) . ")$x)" :
-                    ( @sbcs and !@mbcs) ? '(?:(?!' .                  '['.join('',@sbcs).']'  . ")$x)" :
+                push @after,
+                    ( @sbcs and  @xbcs) ? '(?:(?!' . join('|', @xbcs, '['.join('',@sbcs).']') . ")$x)" :
+                    (!@sbcs and  @xbcs) ? '(?:(?!' . join('|', @xbcs                        ) . ")$x)" :
+                    ( @sbcs and !@xbcs) ? '(?:(?!' .                  '['.join('',@sbcs).']'  . ")$x)" :
                     '';
             }
 
             # [...] on Perl 5.006
             elsif ($] =~ /\A5\.006/) {
-                push @after_subregex,
-                    ( @sbcs and  @mbcs) ? '(?:'    . join('|', @mbcs, '['.join('',@sbcs).']') .    ')' :
-                    (!@sbcs and  @mbcs) ? '(?:'    . join('|', @mbcs                        ) .    ')' :
-                    ( @sbcs and !@mbcs) ?                             '['.join('',@sbcs).']'           :
+                push @after,
+                    ( @sbcs and  @xbcs) ? '(?:'    . join('|', @xbcs, '['.join('',@sbcs).']') .    ')' :
+                    (!@sbcs and  @xbcs) ? '(?:'    . join('|', @xbcs                        ) .    ')' :
+                    ( @sbcs and !@xbcs) ?                             '['.join('',@sbcs).']'           :
                     '';
             }
 
             # [...]
             else {
-                push @after_subregex,
-                    ( @sbcs and  @mbcs) ? '(?:(?=' . join('|', @mbcs, '['.join('',@sbcs).']') . ")$x)" :
-                    (!@sbcs and  @mbcs) ? '(?:(?=' . join('|', @mbcs                        ) . ")$x)" :
-                    ( @sbcs and !@mbcs) ?                             '['.join('',@sbcs).']'           :
+                push @after,
+                    ( @sbcs and  @xbcs) ? '(?:(?=' . join('|', @xbcs, '['.join('',@sbcs).']') . ")$x)" :
+                    (!@sbcs and  @xbcs) ? '(?:(?=' . join('|', @xbcs                        ) . ")$x)" :
+                    ( @sbcs and !@xbcs) ?                             '['.join('',@sbcs).']'           :
                     '';
             }
         }
 
         # \any or /./
-        elsif ($before_subregex eq '.' ) { push @after_subregex, ($modifiers =~ /s/) ? $x : "(?:(?!\\n)$x)"                    }
-        elsif ($before_subregex eq '\B') { push @after_subregex, "(?:(?<![$bare_w])(?![$bare_w])|(?<=[$bare_w])(?=[$bare_w]))" }
-        elsif ($before_subregex eq '\D') { push @after_subregex, "(?:(?![$bare_d])$x)"                                         }
-        elsif ($before_subregex eq '\H') { push @after_subregex, "(?:(?![$bare_h])$x)"                                         }
-        elsif ($before_subregex eq '\N') { push @after_subregex, "(?:(?!\\n)$x)"                                               }
-        elsif ($before_subregex eq '\R') { push @after_subregex, "(?>\\r\\n|[$bare_v])"                                        }
-        elsif ($before_subregex eq '\S') { push @after_subregex, "(?:(?![$bare_s])$x)"                                         }
-        elsif ($before_subregex eq '\V') { push @after_subregex, "(?:(?![$bare_v])$x)"                                         }
-        elsif ($before_subregex eq '\W') { push @after_subregex, "(?:(?![$bare_w])$x)"                                         }
-        elsif ($before_subregex eq '\b') { push @after_subregex, "(?:(?<![$bare_w])(?=[$bare_w])|(?<=[$bare_w])(?![$bare_w]))" }
-        elsif ($before_subregex eq '\d') { push @after_subregex, "[$bare_d]"                                                   }
-        elsif ($before_subregex eq '\h') { push @after_subregex, "[$bare_h]"                                                   }
-        elsif ($before_subregex eq '\s') { push @after_subregex, "[$bare_s]"                                                   }
-        elsif ($before_subregex eq '\v') { push @after_subregex, "[$bare_v]"                                                   }
-        elsif ($before_subregex eq '\w') { push @after_subregex, "[$bare_w]"                                                   }
+        elsif ($before eq '.' ) { push @after, ($modifiers =~ /s/) ? $x : "(?:(?!\\n)$x)"                    }
+        elsif ($before eq '\B') { push @after, "(?:(?<![$bare_w])(?![$bare_w])|(?<=[$bare_w])(?=[$bare_w]))" }
+        elsif ($before eq '\D') { push @after, "(?:(?![$bare_d])$x)"                                         }
+        elsif ($before eq '\H') { push @after, "(?:(?![$bare_h])$x)"                                         }
+        elsif ($before eq '\N') { push @after, "(?:(?!\\n)$x)"                                               }
+        elsif ($before eq '\R') { push @after, "(?>\\r\\n|[$bare_v])"                                        }
+        elsif ($before eq '\S') { push @after, "(?:(?![$bare_s])$x)"                                         }
+        elsif ($before eq '\V') { push @after, "(?:(?![$bare_v])$x)"                                         }
+        elsif ($before eq '\W') { push @after, "(?:(?![$bare_w])$x)"                                         }
+        elsif ($before eq '\b') { push @after, "(?:(?<![$bare_w])(?=[$bare_w])|(?<=[$bare_w])(?![$bare_w]))" }
+        elsif ($before eq '\d') { push @after, "[$bare_d]"                                                   }
+        elsif ($before eq '\h') { push @after, "[$bare_h]"                                                   }
+        elsif ($before eq '\s') { push @after, "[$bare_s]"                                                   }
+        elsif ($before eq '\v') { push @after, "[$bare_v]"                                                   }
+        elsif ($before eq '\w') { push @after, "[$bare_w]"                                                   }
 
         # quantifiers ? + * {n} {n,} {n,m}
-        elsif ($before_subregex =~ /\A[?+*{]\z/) {
-            if    (0)                                                      { }
-            elsif ($after_subregex[-1] =~ /\A \\c [\x00-\xFF]        \z/x) { } # \c) \c} \c] \cX
-            elsif ($after_subregex[-1] =~ /\A \\  [\x00-\xFF]        \z/x) { } # \) \} \] \" \0 \1 \D \E \F \G \H \K \L \N \Q \R \S \U \V \W \\ \a \d \e \f \h \l \n \r \s \t \u \v \w
-            elsif ($after_subregex[-1] =~ /\A     [\x00-\xFF]        \z/x) { } # (a) a{1} [a] a . \012 \x12 \o{12} \g{1}
-            elsif ($after_subregex[-1] =~ /       [\x00-\xFF] [)}\]] \z/x) { } # (any) any{1} [any]
-            else {                                                             # MBCS
-                $after_subregex[-1] = '(?:' . $after_subregex[-1] . ')';
+        elsif ($before =~ /\A[?+*{]\z/) {
+            if    (0)                                             { }
+            elsif ($after[-1] =~ /\A \\c [\x00-\xFF]        \z/x) { } # \c) \c} \c] \cX
+            elsif ($after[-1] =~ /\A \\  [\x00-\xFF]        \z/x) { } # \) \} \] \" \0 \1 \D \E \F \G \H \K \L \N \Q \R \S \U \V \W \\ \a \d \e \f \h \l \n \r \s \t \u \v \w
+            elsif ($after[-1] =~ /\A     [\x00-\xFF]        \z/x) { } # (a) a{1} [a] a . \012 \x12 \o{12} \g{1}
+            elsif ($after[-1] =~ /       [\x00-\xFF] [)}\]] \z/x) { } # (any) any{1} [any]
+            else {                                                    # XBCS
+                $after[-1] = '(?:' . $after[-1] . ')';
             }
-            push @after_subregex, $before_subregex;
+            push @after, $before;
+        }
+
+        # \x{UTF8hex}
+        elsif ($before =~ /\A \\x \{ ([0123456789ABCDEFabcdef]+) \} \z/x) {
+            push @after, UTF8::R2::chr(hex $1);
         }
 
         # else
-        else { push @after_subregex, _unicode_hex($before_subregex) }
+        else {
+            push @after, $before;
+        }
     }
 
-    my $after_regex = join '', @after_subregex;
-    return qr/$after_regex/;
+    my $after = join '', @after;
+    return qr/$after/;
+}
+
+#---------------------------------------------------------------------
+# mb::require() like require(), mb.pm compatible
+sub UTF8::R2::require (;$) {
+    local $_ = @_ ? $_[0] : $_;
+
+    # require perl version
+    if (/^[0-9]/) {
+        if ($] < $_) {
+            confess "Perl $_ required--this is only version $], stopped";
+        }
+        else {
+            undef $@;
+            return 1;
+        }
+    }
+
+    # require expr
+    else {
+
+        # find expr in @INC
+        my $file = $_;
+        if (($file =~ s{::}{/}g) or ($file !~ m{[\./\\]})) {
+            $file .= '.pm';
+        }
+        if (exists $INC{$file}) {
+            undef $@;
+            return 1 if $INC{$file};
+            confess "Compilation failed in require";
+        }
+        for my $prefix_file ($file, map { "$_/$file" } @INC) {
+            if (-f $prefix_file) {
+                $INC{$_} = $prefix_file;
+
+                # run as Perl script
+                # must use CORE::do to use <DATA>, because CORE::eval cannot do it.
+                local $@;
+                my $result = CORE::eval sprintf(<<'END', (caller)[0,2,1]);
+package %s;
+#line %s "%s"
+CORE::do "$prefix_file";
+END
+
+                # return result
+                if ($@) {
+                    $INC{$_} = undef;
+                    confess $@;
+                }
+                elsif (not $result) {
+                    delete $INC{$_};
+                    confess "$_ did not return true value";
+                }
+                else {
+                    return $result;
+                }
+            }
+        }
+        confess "Can't find $_ in \@INC";
+    }
 }
 
 #---------------------------------------------------------------------
@@ -586,23 +680,30 @@ sub UTF8::R2::reverse (@) {
 #---------------------------------------------------------------------
 # rindex() for UTF-8 codepoint string
 sub UTF8::R2::rindex ($$;$) {
-    if (@_ == 2) {
-        my $rindex = CORE::rindex $_[0], $_[1];
-        if ($rindex < 1) {
-            return $rindex;
-        }
-        else {
-            return UTF8::R2::length(CORE::substr $_[0], 0, $rindex);
-        }
+    my $rindex = 0;
+    if (@_ == 3) {
+        $rindex = CORE::rindex $_[0], $_[1], CORE::length(UTF8::R2::substr($_[0], 0, $_[2]));
     }
-    elsif (@_ == 3) {
-        my $rindex = CORE::rindex $_[0], $_[1], CORE::length(UTF8::R2::substr($_[0], 0, $_[2]));
-        if ($rindex < 1) {
-            return $rindex;
-        }
-        else {
-            return UTF8::R2::length(CORE::substr $_[0], 0, $rindex);
-        }
+    else {
+        $rindex = CORE::rindex $_[0], $_[1];
+    }
+    if ($rindex == -1) {
+        return -1;
+    }
+    else {
+        return UTF8::R2::length(CORE::substr $_[0], 0, $rindex);
+    }
+}
+
+#---------------------------------------------------------------------
+# JPerl like rindex() for UTF-8 codepoint string
+sub UTF8::R2::rindex_byte ($$;$) {
+    my $rindex = 0;
+    if (@_ == 3) {
+        return CORE::rindex $_[0], $_[1], CORE::length(UTF8::R2::substr($_[0], 0, $_[2]));
+    }
+    else {
+        return CORE::rindex $_[0], $_[1];
     }
 }
 
@@ -641,21 +742,34 @@ sub UTF8::R2::split (;$$$) {
 
 #---------------------------------------------------------------------
 # substr() for UTF-8 codepoint string
-eval sprintf <<'END', ($] >= 5.014) ? ':lvalue' : '';
-#                            vv--------*******
+CORE::eval sprintf <<'END', ($] >= 5.014) ? ':lvalue' : '';
+#                            vv--------------*******
 sub UTF8::R2::substr ($$;$$) %s {
     my @x = $_[0] =~ /\G$x/g;
+
+    # If the substring is beyond either end of the string, substr() returns the undefined
+    # value and produces a warning. When used as an lvalue, specifying a substring that
+    # is entirely outside the string raises an exception.
+    # http://perldoc.perl.org/functions/substr.html
+
+    # A return with no argument returns the scalar value undef in scalar context,
+    # an empty list () in list context, and (naturally) nothing at all in void
+    # context.
 
     if (($_[1] < (-1 * scalar(@x))) or (+1 * scalar(@x) < $_[1])) {
         return;
     }
 
+    # substr($string,$offset,$length,$replacement)
     if (@_ == 4) {
         my $substr = join '', splice @x, $_[1], $_[2], $_[3];
         $_[0] = join '', @x;
         $substr; # "return $substr" doesn't work, don't write "return"
     }
+
+    # substr($string,$offset,$length)
     elsif (@_ == 3) {
+        local $SIG{__WARN__} = sub {}; # avoid: Use of uninitialized value in join or string at here
         my $octet_offset =
             ($_[1] < 0) ? -1 * CORE::length(join '', @x[$#x+$_[1]+1 .. $#x])     :
             ($_[1] > 0) ?      CORE::length(join '', @x[0           .. $_[1]-1]) :
@@ -666,6 +780,8 @@ sub UTF8::R2::substr ($$;$$) %s {
             0;
         CORE::substr($_[0], $octet_offset, $octet_length);
     }
+
+    # substr($string,$offset)
     else {
         my $octet_offset =
             ($_[1] < 0) ? -1 * CORE::length(join '', @x[$#x+$_[1]+1 .. $#x])     :
@@ -678,7 +794,7 @@ END
 
 #---------------------------------------------------------------------
 # tr/A-C/1-3/ for UTF-8 codepoint
-sub _list_all_ASCII_by_hyphen {
+sub list_all_ASCII_by_hyphen {
     my @hyphened = @_;
     my @list_all = ();
     for (my $i=0; $i <= $#hyphened; ) {
@@ -686,6 +802,8 @@ sub _list_all_ASCII_by_hyphen {
             ($i+1 < $#hyphened)      and
             ($hyphened[$i+1] eq '-') and
         1) {
+            $hyphened[$i+0] = ($hyphened[$i+0] eq '\\-') ? '-' : $hyphened[$i+0];
+            $hyphened[$i+2] = ($hyphened[$i+2] eq '\\-') ? '-' : $hyphened[$i+2];
             if (0) { }
             elsif ($hyphened[$i+0] !~ m/\A [\x00-\x7F] \z/oxms) {
                 confess sprintf(qq{@{[__FILE__]}: "$hyphened[$i+0]-$hyphened[$i+2]" in tr/// is not ASCII});
@@ -697,12 +815,17 @@ sub _list_all_ASCII_by_hyphen {
                 confess sprintf(qq{@{[__FILE__]}: "$hyphened[$i+0]-$hyphened[$i+2]" in tr/// is not "$hyphened[$i+0]" le "$hyphened[$i+2]"});
             }
             else {
-                push @list_all, ($hyphened[$i+0] .. $hyphened[$i+2]);
+                push @list_all, map { CORE::chr($_) } (CORE::ord($hyphened[$i+0]) .. CORE::ord($hyphened[$i+2]));
                 $i += 3;
             }
         }
         else {
-            push @list_all, $hyphened[$i];
+            if ($hyphened[$i] eq '\\-') {
+                push @list_all, '-';
+            }
+            else {
+                push @list_all, $hyphened[$i];
+            }
             $i++;
         }
     }
@@ -713,8 +836,8 @@ sub _list_all_ASCII_by_hyphen {
 # tr/// for UTF-8 codepoint string
 sub UTF8::R2::tr ($$$;$) {
     my @x           = $_[0] =~ /\G$x/g;
-    my @search      = _list_all_ASCII_by_hyphen($_[1] =~ /\G$x/g);
-    my @replacement = _list_all_ASCII_by_hyphen($_[2] =~ /\G$x/g);
+    my @search      = list_all_ASCII_by_hyphen($_[1] =~ /\G(\\-|$x)/xmsg);
+    my @replacement = list_all_ASCII_by_hyphen($_[2] =~ /\G(\\-|$x)/xmsg);
     my %modifier    = (defined $_[3]) ? (map { $_ => 1 } CORE::split //, $_[3]) : ();
 
     my %tr = ();
@@ -866,15 +989,17 @@ sub UTF8::R2::tr ($$$;$) {
 #---------------------------------------------------------------------
 # universal uc() for UTF-8 codepoint string
 sub UTF8::R2::uc (;$) {
+    local $_ = @_ ? $_[0] : $_;
     #                          a A b B c C d D e E f F g G h H i I j J k K l L m M n N o O p P q Q r R s S t T u U v V w W x X y Y z Z
-    return join '', map { {qw( a A b B c C d D e E f F g G h H i I j J k K l L m M n N o O p P q Q r R s S t T u U v V w W x X y Y z Z )}->{$_}||$_ } (&_ =~ /\G$x/g);
+    return join '', map { {qw( a A b B c C d D e E f F g G h H i I j J k K l L m M n N o O p P q Q r R s S t T u U v V w W x X y Y z Z )}->{$_}||$_ } /\G$x/g;
     #                          a A b B c C d D e E f F g G h H i I j J k K l L m M n N o O p P q Q r R s S t T u U v V w W x X y Y z Z
 }
 
 #---------------------------------------------------------------------
 # universal ucfirst() for UTF-8 codepoint string
 sub UTF8::R2::ucfirst (;$) {
-    if (&_ =~ UTF8::R2::qr(qr/\A(.)(.*)\z/s)) {
+    local $_ = @_ ? $_[0] : $_;
+    if (/\A($x)(.*)\z/s) {
         return UTF8::R2::uc($1) . $2;
     }
     else {
@@ -885,7 +1010,8 @@ sub UTF8::R2::ucfirst (;$) {
 # syntax sugar for UTF-8 codepoint regex
 #
 # tie my %mb, 'UTF8::R2';
-# $result = $_ =~ $mb{qr/$utf8regex/imsxogc}
+# $result = $_ =~ $mb{qr/$utf8regex/imsxo}
+# $result = $_ =~ m<\G$mb{qr/$utf8regex/imsxo}>gc
 # $result = $_ =~ s<$mb{qr/before/imsxo}><after>egr
 
 sub TIEHASH  { bless { }, $_[0] }
@@ -922,18 +1048,23 @@ UTF8::R2 - makes UTF-8 scripting easy for enterprise use or LTS
   use UTF8::R2 qw( %mb );           # multibyte regex by %mb
 
     $result = UTF8::R2::chop(@_)
-    $result = UTF8::R2::chr($_)
+    $result = UTF8::R2::chr($utf8octet_not_unicode)
+    $result = UTF8::R2::do($_)
+    $result = UTF8::R2::eval($_)
     $result = UTF8::R2::getc(FILEHANDLE)
     $result = UTF8::R2::index($_, 'ABC', 5)
+    $result = UTF8::R2::index_byte($_, 'ABC', 5)
     $result = UTF8::R2::lc($_)
     $result = UTF8::R2::lcfirst($_)
     $result = UTF8::R2::length($_)
     $result = UTF8::R2::ord($_)
-    $result = UTF8::R2::qr(qr/$utf8regex/imsxogc)
+    $result = UTF8::R2::qr(qr/$utf8regex/imsxo) # no /gc
+    $result = UTF8::R2::require($_)
     @result = UTF8::R2::reverse(@_)
-    $result = UTF8::R2::reverse(@_)
-    $result = UTF8::R2::reverse()
+    $result = scalar UTF8::R2::reverse(@_)
+    $result = scalar UTF8::R2::reverse()
     $result = UTF8::R2::rindex($_, 'ABC', 5)
+    $result = UTF8::R2::rindex_byte($_, 'ABC', 5)
     @result = UTF8::R2::split(qr/$utf8regex/, $_, 3)
     $result = UTF8::R2::substr($_, 0, 5)
     $result = UTF8::R2::tr($_, 'A-C', 'X-Z', 'cdsr')
@@ -945,7 +1076,7 @@ UTF8::R2 - makes UTF-8 scripting easy for enterprise use or LTS
     $result = $_ =~ m<\G$mb{qr/$utf8regex/imsxo}>gc
     $result = $_ =~ s<$mb{qr/before/imsxo}><after>egr
 
-=head1 OCTET-semantics Functions vs. Codepoint-semantics Subroutines
+=head1 Octet-Semantics Functions vs. Codepoint-Semantics Subroutines
 
 This software adds the ability to handle UTF-8 code points to bare Perl; it does
 not provide the ability to handle characters and graphene with UTF-8.
@@ -961,7 +1092,7 @@ name.
   ------------------------------------------------------------------------------------------------------------------------------------------
   chop                    UTF8::R2::chop(@_)                         usually chomp() is useful
   ------------------------------------------------------------------------------------------------------------------------------------------
-  chr                     UTF8::R2::chr($_)                          returns UTF-8 codepoint octets by UTF-8 number (not by Unicode number)
+  chr                     UTF8::R2::chr($_)                          returns UTF-8 codepoint octets by UTF-8 hex number (not by Unicode number)
   ------------------------------------------------------------------------------------------------------------------------------------------
   getc                    UTF8::R2::getc(FILEHANDLE)                 get UTF-8 codepoint octets
   ------------------------------------------------------------------------------------------------------------------------------------------
@@ -977,22 +1108,24 @@ name.
                           m<@{[UTF8::R2::qr(qr/$utf8regex/imsxo)]}>gc
                             or                                       not supports named character (such as \N{GREEK SMALL LETTER EPSILON}, \N{greek:epsilon}, or \N{epsilon})
                           use UTF8::R2 qw(%mb);                      not supports character properties (like \p{PROP} and \P{PROP})
-                          $mb{qr/$utf8regex/imsxo}
-                          m<\G$mb{qr/$utf8regex/imsxo}>gc
+                          $mb{qr/$utf8regex/imsxo}                   modifier i, m, s, x, o work on compile time
+                          m<\G$mb{qr/$utf8regex/imsxo}>gc            modifier g,c work on run time
 
                           Special Escapes in Regex                   Support Perl Version
                           --------------------------------------------------------------------------------------------------
-                          $mb{qr/ \x{Unicode} /}                     since perl 5.005
+                          $mb{qr/ \x{UTF8hex} /}                     since perl 5.005
+                          $mb{qr/ [\x{UTF8hex}] /}                   since perl 5.005
                           $mb{qr/ [[:POSIX:]] /}                     since perl 5.005
                           $mb{qr/ [[:^POSIX:]] /}                    since perl 5.005
                           $mb{qr/ [^ ... ] /}                        ** CAUTION ** perl 5.006 cannot this
+                          $mb{qr/ [\x{UTF8hex}-\x{UTF8hex}] /}       since perl 5.008
                           $mb{qr/ \h /}                              since perl 5.010
                           $mb{qr/ \v /}                              since perl 5.010
                           $mb{qr/ \H /}                              since perl 5.010
                           $mb{qr/ \V /}                              since perl 5.010
                           $mb{qr/ \R /}                              since perl 5.010
                           $mb{qr/ \N /}                              since perl 5.012
-
+                          (max \x{UTF8hex} is \x{7FFFFFFF}, so cannot 4 octet codepoints, pardon me please!)
   ------------------------------------------------------------------------------------------------------------------------------------------
   ?? or m??                 (nothing)
   ------------------------------------------------------------------------------------------------------------------------------------------
@@ -1024,6 +1157,22 @@ name.
   ------------------------------------------------------------------------------------------------------------------------------------------
   write                     (nothing)
   ------------------------------------------------------------------------------------------------------------------------------------------
+
+=head1 mb.pm Modulino Compatible Routines, and Variables
+
+The following subroutines exist for compatibility with the mb.pm module.
+
+  -------------------------------------------------------------------
+  mb.pm Modulino            Compatible Routines, and Variables
+  -------------------------------------------------------------------
+  mb::do                    UTF8::R2::do($_)
+  mb::eval                  UTF8::R2::eval($_)
+  mb::index_byte            UTF8::R2::index_byte($_, 'ABC', 5)
+  mb::require               UTF8::R2::require($_)
+  mb::rindex_byte           UTF8::R2::rindex_byte($_, 'ABC', 5)
+  $mb::PERL                 $UTF8::R2::PERL
+  $mb::ORIG_PROGRAM_NAME    $UTF8::R2::ORIG_PROGRAM_NAME
+  -------------------------------------------------------------------
 
 =head1 UTF8 Flag Considered Harmful, and Our Goals
 
@@ -1187,10 +1336,11 @@ INABA Hitoshi E<lt>ina@cpan.orgE<gt>
 
 This project was originated by INABA Hitoshi.
 
-=head1 LICENSE AND COPYRIGHT
+=head1 LICENSE and COPYRIGHT
 
 This software is free software; you can redistribute it and/or
-modify it under the same terms as Perl itself. See L<perlartistic>.
+modify it under the same terms as Perl itself. See the LICENSE
+file for details.
 
 This software is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of

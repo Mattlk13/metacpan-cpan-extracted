@@ -1,53 +1,44 @@
-use v5.16;
 use Test::More;
 use Art::World;
-use Faker;
+use Art::World::Util;
 
-my $f = Faker->new;
+my $agent = Art::World->new_agent(
+  name => Art::World::Util->new_person->fake_name );
+can_ok $agent, qw/participate networking/;
 
-use_ok 'Art::World::Agent';
-my $agent = Art::World->new_agent( name => $f->person_name );
-can_ok $agent, 'participate';
-# does-ok $agent, Art::Behavior::Crudable;
+my $artist_1 = Art::World->new_artist(
+  id => 1, name => Art::World::Util->new_person->fake_name );
+my $artist_2 = Art::World->new_artist(
+  id => 2, name => Art::World::Util->new_person->fake_name );
+my $curator_1 = Art::World->new_curator(
+  id => 3, reputation => 100, name => Art::World::Util->new_person->fake_name );
 
-SKIP: {
-  ok "Not implemented";
+my $peoples = [ $artist_1, $artist_2, $curator_1 ];
 
-  # does-ok $agent, Art::Behavior::CRUD;
+can_ok $curator_1, 'networking';
 
-  # for Art::Agent.^attributes {
-  #     if $_ ~~ Art::Behavior::CRUD {
-  #         ok $_ ~~ Art::Behavior::CRUD,
-  #         'Attribute does CRUD through is crud trait';
-  #     }
-  # }
+is $curator_1->reputation, 100, 'Initial Curator reputation';
+is $artist_1->reputation, 0,  'Initial Artist reputation';
+is $artist_2->reputation, 0,  'Another initial Artist reputation';
 
-  # $agent = Art::Agent.new(
-  #     id => 123456789,
-  #     name => "Camelia Butterfly",
-  #     reputation => 10
-  # );
+$curator_1->networking( $peoples );
 
-  # my @attributes = Art::Agent.^attributes;
+is $curator_1->reputation, 110, 'Curator reputation increased';
+is $artist_1->reputation, 60, 'Artist reputation increased';
+is $artist_2->reputation, 60, 'Artist reputation increased';
 
-  # ok @attributes[1] ~~ Art::Behavior::CRUD, 'attribute does CRUD through is crud trait';
-  # ok $agent.name eq "Camelia Butterfly", 'Agent name contain the right value';
+$curator_1->bump_fame(-101);
 
-  # my @found;
+is $curator_1->reputation, 9, 'Basic calculation on the fame';
 
-  # for @attributes -> $attr {
-  #     if $attr ~~ Art::Behavior::CRUD {
-  #         @found.push($attr);
-  #     }
-  # }
+$curator_1->networking( $peoples );
 
-  # ok @found.Int == 3,
-  # 'The found number of attributes in the class is correct';
+is $curator_1->reputation, 15, 'Curator reputation increased';
+is $artist_1->reputation, 396, 'Artist reputation increased';
+is $artist_2->reputation, 396, 'Artist reputation increased';
 
-  # ok $agent.introspect-crud-attributes == @found,
-  # '.introspect-crud-attributes returns the right number of elements';
+$curator_1->bump_fame;
 
-  # ddt $agent.introspect-crud-attributes;
+is $curator_1->reputation, 16, 'Default bump';
 
-}
 done_testing;

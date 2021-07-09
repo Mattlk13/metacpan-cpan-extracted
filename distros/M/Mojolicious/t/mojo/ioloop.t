@@ -6,9 +6,9 @@ use Test::More;
 use IO::Socket::IP;
 use Mojo::IOLoop;
 use Mojo::IOLoop::Client;
-use Mojo::IOLoop::Delay;
 use Mojo::IOLoop::Server;
 use Mojo::IOLoop::Stream;
+use Mojo::Promise;
 
 subtest 'Defaults' => sub {
   my $loop = Mojo::IOLoop->new;
@@ -83,11 +83,12 @@ subtest 'Recurring timer' => sub {
 };
 
 subtest 'Handle and reset' => sub {
-  my ($handle, $handle2, $reset);
+  my ($handle, $handle2, $reset, $close);
   Mojo::IOLoop->singleton->on(reset => sub { $reset++ });
   my $id = Mojo::IOLoop->server(
     (address => '127.0.0.1') => sub {
       my ($loop, $stream) = @_;
+      $stream->on(close => sub { $close++ });
       $handle = $stream->handle;
       Mojo::IOLoop->stop;
     }
@@ -110,6 +111,39 @@ subtest 'Handle and reset' => sub {
   is $handle,     $handle2, 'handles are equal';
   isa_ok $handle, 'IO::Socket', 'right reference';
   is $reset,      1,            'reset event has been emitted once';
+  is $close,      1,            'close event has been emitted once';
+};
+
+subtest 'Handle and reset with freeze' => sub {
+  my ($handle, $handle2, $reset, $close);
+  Mojo::IOLoop->singleton->on(reset => sub { $reset++ });
+  my $id = Mojo::IOLoop->server(
+    (address => '127.0.0.1') => sub {
+      my ($loop, $stream) = @_;
+      $stream->on(close => sub { $close++ });
+      $handle = $stream->handle;
+      Mojo::IOLoop->stop;
+    }
+  );
+  my $port = Mojo::IOLoop->acceptor($id)->port;
+  Mojo::IOLoop->acceptor($id)->on(accept => sub { $handle2 = pop });
+  my $id2 = Mojo::IOLoop->client((address => '127.0.0.1', port => $port) => sub { });
+  Mojo::IOLoop->start;
+  my ($count, $running, $timer) = (0) x 3;
+  Mojo::IOLoop->recurring(10 => sub { $timer++ });
+  Mojo::IOLoop->next_tick(sub {
+    Mojo::IOLoop->reset({freeze => 1});
+    $running = Mojo::IOLoop->is_running;
+  });
+  Mojo::IOLoop->start;
+  ok !$running, 'not running';
+  is $count, 0, 'no recurring events';
+  ok !Mojo::IOLoop->acceptor($id), 'acceptor has been removed';
+  ok !Mojo::IOLoop->stream($id2),  'stream has been removed';
+  is $handle,     $handle2, 'handles are equal';
+  isa_ok $handle, 'IO::Socket', 'right reference';
+  is $reset,      1,            'reset event has been emitted once';
+  ok !$close, 'close event has not been emitted';
 };
 
 subtest 'The poll reactor stops when there are no events being watched anymore' => sub {
@@ -143,20 +177,19 @@ subtest 'Stream' => sub {
       );
     }
   );
-  my $port  = Mojo::IOLoop->acceptor($id)->port;
-  my $delay = Mojo::IOLoop->delay;
-  my $end   = $delay->begin;
+  my $port    = Mojo::IOLoop->acceptor($id)->port;
+  my $promise = Mojo::Promise->new;
   my $handle;
   Mojo::IOLoop->client(
     {port => $port} => sub {
       my ($loop, $err, $stream) = @_;
       $handle = $stream->steal_handle;
-      $end->();
+      $promise->resolve;
       $stream->on(close => sub { $buffer .= 'should not happen' });
       $stream->on(error => sub { $buffer .= 'should not happen either' });
     }
   );
-  $delay->wait;
+  $promise->wait;
   my $stream = Mojo::IOLoop::Stream->new($handle);
   is $stream->timeout, 15, 'right default';
   is $stream->timeout(16)->timeout, 16, 'right timeout';
@@ -194,26 +227,26 @@ subtest 'Removed listen socket' => sub {
   ok !$loop->acceptor($id), 'acceptor has been removed';
 };
 
-subtest 'Removed connection (with delay)' => sub {
+subtest 'Removed connection (with promise)' => sub {
   my $removed;
-  my $delay = Mojo::IOLoop->delay(sub { $removed++ });
-  my $end   = $delay->begin;
-  my $id    = Mojo::IOLoop->server(
+  my $promise = Mojo::Promise->new;
+  $promise->then(sub { $removed++ });
+  my $id = Mojo::IOLoop->server(
     (address => '127.0.0.1') => sub {
       my ($loop, $stream) = @_;
-      $stream->on(close => $end);
+      $stream->on(close => sub { $promise->resolve });
     }
   );
-  my $port = Mojo::IOLoop->acceptor($id)->port;
-  my $end2 = $delay->begin;
+  my $port     = Mojo::IOLoop->acceptor($id)->port;
+  my $promise2 = Mojo::Promise->new;
   $id = Mojo::IOLoop->client(
     (port => $port) => sub {
       my ($loop, $err, $stream) = @_;
-      $stream->on(close => $end2);
+      $stream->on(close => sub { $promise2->resolve });
       $loop->remove($id);
     }
   );
-  $delay->wait;
+  Mojo::Promise->all($promise, $promise2)->wait;
   is $removed, 1, 'connection has been removed';
 };
 
@@ -353,7 +386,6 @@ subtest 'Exception in timer' => sub {
 
 subtest 'Defaults' => sub {
   is(Mojo::IOLoop::Client->new->reactor, Mojo::IOLoop->singleton->reactor, 'right default');
-  is(Mojo::IOLoop::Delay->new->ioloop,   Mojo::IOLoop->singleton,          'right default');
   is(Mojo::IOLoop::Server->new->reactor, Mojo::IOLoop->singleton->reactor, 'right default');
   is(Mojo::IOLoop::Stream->new->reactor, Mojo::IOLoop->singleton->reactor, 'right default');
 };

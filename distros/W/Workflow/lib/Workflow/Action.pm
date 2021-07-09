@@ -1,8 +1,7 @@
 package Workflow::Action;
 
 # Note: we may implement a separate event mechanism so that actions
-# can trigger other code (use 'Class::Observable'? read observations
-# from database?)
+# can trigger other code (to read observations from database?)
 
 use warnings;
 use strict;
@@ -13,7 +12,7 @@ use Workflow::Validator::HasRequiredField;
 use Workflow::Factory qw( FACTORY );
 use Carp qw(croak);
 
-$Workflow::Action::VERSION = '1.49';
+$Workflow::Action::VERSION = '1.54';
 
 my @PROPS    = qw( name class description );
 my @INTERNAL = qw( _factory );
@@ -103,8 +102,6 @@ sub execute {
 sub init {
     my ( $self, $wf, $params ) = @_;
 
-    my $log = get_logger();
-
     # So we don't destroy the original...
     my %copy_params = %{$params};
 
@@ -117,10 +114,10 @@ sub init {
     my @fields = $self->normalize_array( $copy_params{field} );
     foreach my $field_info (@fields) {
         if ( my $field_class = $field_info->{class} ) {
-            $log->debug("Using custom field class $field_class");
+            $self->log->debug("Using custom field class $field_class");
             $self->add_fields( $field_class->new($field_info) );
         } else {
-            $log->debug("Using standard field class");
+            $self->log->debug("Using standard field class");
             $self->add_fields(
                 Workflow::Action::InputField->new($field_info) );
         }
@@ -161,13 +158,15 @@ sub init {
 
 __END__
 
+=pod
+
 =head1 NAME
 
 Workflow::Action - Base class for Workflow actions
 
 =head1 VERSION
 
-This documentation describes version 1.09 of this package
+This documentation describes version 1.54 of this package
 
 =head1 SYNOPSIS
 
@@ -280,7 +279,7 @@ You can validate it like this:
     my $config = shift;
     unless ('NOW' eq $config->{when}) {
       configuration_error "`$$config{when}' is not a valid value " .
-		          "for `when'";
+                          "for `when'";
     }
   }
 
@@ -292,7 +291,7 @@ You can validate it like this:
 
 Subclasses may override this method, but it's not very common. It is
 called when you invoke a method in your Workflow object that returns
-an Action object, for example, methods such as $wf->_get_action will
+an Action object, for example, methods such as $wf->get_action will
 call this method.
 
 B<Your action classes usually subclass directly from Workflow::Action
@@ -384,18 +383,6 @@ current $wf_state. Your milage may vary.
   1;
 
 
-=head2 Private Methods
-
-=head3 init( $workflow, \%params )
-
-init is called in conjuction with the overall workflow initialization.
-
-It sets up the necessary validators based on the on configured actions, input fields and required fields.
-
-=head3 add_field( @fields )
-
-Add one or more L<Workflow::Action::InputField>s to the action.
-
 =head3 required_fields()
 
 Return a list of L<Workflow::Action::InputField> objects that are required.
@@ -408,6 +395,19 @@ Return a list of L<Workflow::Action::InputField> objects that are optional.
 
 Return a list of all L<Workflow::Action::InputField> objects
 associated with this action.
+
+
+=head2 Private Methods
+
+=head3 init( $workflow, \%params )
+
+init is called in conjuction with the overall workflow initialization.
+
+It sets up the necessary validators based on the on configured actions, input fields and required fields.
+
+=head3 add_field( @fields )
+
+Add one or more L<Workflow::Action::InputField>s to the action.
 
 =head3 add_validators( @validator_config )
 
@@ -441,20 +441,27 @@ states you should return a simple scalar for a return value.
 Method to add fields to the workflow. The method takes an array of
 fields.
 
-
 =head1 SEE ALSO
 
-L<Workflow>
+=over
 
-L<Workflow::Factory>
+=item * L<Workflow>
+
+=item * L<Workflow::Factory>
+
+=back
 
 =head1 COPYRIGHT
 
-Copyright (c) 2003-2004 Chris Winters. All rights reserved.
+Copyright (c) 2003-2021 Chris Winters. All rights reserved.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
+Please see the F<LICENSE>
+
 =head1 AUTHORS
 
-Chris Winters E<lt>chris@cwinters.comE<gt>
+Please see L<Workflow>
+
+=cut

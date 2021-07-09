@@ -22,12 +22,18 @@ use base qw(Number::Phone::StubCountry);
 use strict;
 use warnings;
 use utf8;
-our $VERSION = 1.20201204215957;
+our $VERSION = 1.20210602223300;
 
 my $formatters = [
                 {
                   'format' => '$1 $2 $3 $4',
                   'leading_digits' => '[569]',
+                  'national_rule' => '0$1',
+                  'pattern' => '(\\d{3})(\\d{2})(\\d{2})(\\d{2})'
+                },
+                {
+                  'format' => '$1 $2 $3 $4',
+                  'leading_digits' => '8',
                   'national_rule' => '0$1',
                   'pattern' => '(\\d{3})(\\d{2})(\\d{2})(\\d{2})'
                 }
@@ -36,34 +42,31 @@ my $formatters = [
 my $validators = {
                 'fixed_line' => '
           596(?:
-            0[0-7]|
+            0[0-8]|
             10|
             2[7-9]|
-            3[05-9]|
-            4[0-46-8]|
-            [5-7]\\d|
+            3[04-9]|
+            [4-7]\\d|
             8[09]|
-            9[4-8]
+            9[4-9]
           )\\d{4}
         ',
                 'geographic' => '
           596(?:
-            0[0-7]|
+            0[0-8]|
             10|
             2[7-9]|
-            3[05-9]|
-            4[0-46-8]|
-            [5-7]\\d|
+            3[04-9]|
+            [4-7]\\d|
             8[09]|
-            9[4-8]
+            9[4-9]
           )\\d{4}
         ',
                 'mobile' => '
           69(?:
             6(?:
-              [0-47-9]\\d|
-              5[0-6]|
-              6[0-4]
+              [0-46-9]\\d|
+              5[0-6]
             )|
             727
           )\\d{4}
@@ -71,10 +74,10 @@ my $validators = {
                 'pager' => '',
                 'personal_number' => '',
                 'specialrate' => '',
-                'toll_free' => '',
+                'toll_free' => '80[0-5]\\d{6}',
                 'voip' => '
           976(?:
-            6[1-9]|
+            6\\d|
             7[0-367]
           )\\d{4}
         '

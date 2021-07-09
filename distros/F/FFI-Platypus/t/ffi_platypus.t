@@ -1,6 +1,4 @@
-use strict;
-use warnings;
-use Test::More;
+use Test2::V0 -no_srand => 1;
 use FFI::Platypus;
 use FFI::CheckLib;
 use Data::Dumper;
@@ -25,20 +23,20 @@ subtest 'constructor' => sub {
 
   subtest 'no arguments' => sub {
     my $ffi = FFI::Platypus->new;
-    isa_ok $ffi, 'FFI::Platypus', 'FFI::Platypus.new';
-    is_deeply [$ffi->lib], [], 'ffi.lib';
+    isa_ok $ffi, 'FFI::Platypus';
+    is [$ffi->lib], [], 'ffi.lib';
   };
 
   subtest 'with single lib' => sub {
     my $ffi = FFI::Platypus->new( lib => "libfoo.so" );
-    isa_ok $ffi, 'FFI::Platypus', 'FFI::Platypus.new';
-    is_deeply [$ffi->lib], ['libfoo.so'], 'ffi.lib';
+    isa_ok $ffi, 'FFI::Platypus';
+    is [$ffi->lib], ['libfoo.so'], 'ffi.lib';
   };
 
   subtest 'with multiple lib' => sub {
     my $ffi = FFI::Platypus->new( lib => ["libfoo.so", "libbar.so", "libbaz.so" ] );
-    isa_ok $ffi, 'FFI::Platypus', 'FFI::Platypus.new';
-    is_deeply [$ffi->lib], ['libfoo.so', 'libbar.so', 'libbaz.so'], 'ffi.lib';
+    isa_ok $ffi, 'FFI::Platypus';
+    is [$ffi->lib], ['libfoo.so', 'libbar.so', 'libbaz.so'], 'ffi.lib';
   };
 
 };
@@ -56,8 +54,10 @@ subtest 'abi' => sub {
     subtest $abi => sub {
       eval { $ffi->abi($abi) };
       is $@, '', 'string';
+      is $ffi->{tp}->abi, $abis{$abi}, 'type parser';
       eval { $ffi->abi($abis{$abi}) };
       is $@, '', 'integer';
+      is $ffi->{tp}->abi, $abis{$abi}, 'type parser';
     };
   }
 
@@ -227,7 +227,7 @@ subtest 'lib' => sub {
     eval { $ffi->lib($lib) };
     is $@, '', 'ffi.lib (set)';
 
-    is_deeply [eval { $ffi->lib }], [$lib], 'ffi.lib (get)';
+    is [eval { $ffi->lib }], [$lib], 'ffi.lib (get)';
 
   };
 
@@ -235,17 +235,17 @@ subtest 'lib' => sub {
 
     subtest 'baseline' => sub {
       my $ffi = FFI::Platypus->new;
-      is_deeply([$ffi->lib], []);
+      is([$ffi->lib], []);
     };
 
     subtest 'lib => [undef]' => sub {
       my $ffi = FFI::Platypus->new(lib => [undef]);
-      is_deeply([$ffi->lib], [undef]);
+      is([$ffi->lib], [undef]);
     };
 
     subtest 'lib => undef' => sub {
       my $ffi = FFI::Platypus->new(lib => undef);
-      is_deeply([$ffi->lib], [undef]);
+      is([$ffi->lib], [undef]);
     };
 
   };
@@ -260,7 +260,7 @@ subtest 'lib' => sub {
     eval { $ffi->lib(sub{ $lib }) };
     is $@, '', 'ffi.lib (set)';
 
-    is_deeply [eval { $ffi->lib }], [$lib], 'ffi.lib (get)';
+    is [eval { $ffi->lib }], [$lib], 'ffi.lib (get)';
 
   };
 };
@@ -381,7 +381,7 @@ subtest 'type' => sub {
     foreach my $name (map { "$_ *" } @list)
     {
       subtest $name => sub {
-        plan skip_all => 'ME GRIMLOCK SAY STRING CAN NO BE POINTER' if $name eq 'string *';
+        skip_all 'ME GRIMLOCK SAY STRING CAN NO BE POINTER' if $name eq 'string *';
         my $ffi = FFI::Platypus->new;
         eval { $ffi->type($name) };
         is $@, '', "ffi.type($name)";
@@ -401,7 +401,7 @@ subtest 'type' => sub {
       my $name = "$basic [$size]";
 
       subtest $name => sub {
-        plan skip_all => 'ME GRIMLOCK SAY STRING CAN NO BE ARRAY' if $name =~ /^string \[[0-9]+\]$/; # TODO: actually this should be doable
+        skip_all 'ME GRIMLOCK SAY STRING CAN NO BE ARRAY' if $name =~ /^string \[[0-9]+\]$/; # TODO: actually this should be doable
         my $ffi = FFI::Platypus->new;
         eval { $ffi->type($name) };
         is $@, '', "ffi.type($name)";
@@ -531,7 +531,7 @@ subtest 'type' => sub {
     foreach my $name (@names)
     {
       subtest $name => sub {
-        plan skip_all => 'test requires longdouble support'
+        skip_all 'test requires longdouble support'
           unless FFI::Platypus::TypeParser->new->have_type($name);
         my $type = eval { FFI::Platypus::TypeParser::Version0->new->parse($name) };
         is $@, '', "type = FFI::Platypus::TypeParser::Version0->new->parse($name)";
@@ -554,7 +554,7 @@ subtest 'type' => sub {
 subtest 'class or instance method' => sub {
   my @class = FFI::Platypus->types;
   my @instance = FFI::Platypus->new->types;
-  is_deeply \@class, \@instance, 'class and instance methods are identical';
+  is \@class, \@instance, 'class and instance methods are identical';
   note "type: $_" foreach sort @class;
 };
 
@@ -727,7 +727,7 @@ subtest 'attach basic' => sub {
     attach_basic;
 
   use FFI::Platypus;
-  use Test::More;
+  use Test2::V0 -no_srand => 1;
 
   my $ffi = FFI::Platypus->new( lib => [@lib] );
 
@@ -761,7 +761,7 @@ subtest 'attach void' => sub {
     attach_void;
 
   use FFI::Platypus;
-  use Test::More;
+  use Test2::V0 -no_srand => 1;
 
   my $ffi = FFI::Platypus->new( lib => [@lib] );
 
@@ -821,7 +821,7 @@ subtest 'warning defaults' => sub {
     @warnings = ();
     my $ffi = FFI::Platypus->new( api => 0, lib => ['corpus/bogus.so'] );
     is $ffi->find_symbol('foo'), undef;
-    is_deeply \@warnings, [];
+    is \@warnings, [];
   };
 
   subtest 'api = 1' => sub {

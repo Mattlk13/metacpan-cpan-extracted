@@ -58,7 +58,9 @@ EOT
 # TODO: provision phyml
 
 SKIP: {
-    skip q{Cannot find 'phyml' in $PATH}, 5 unless qx{which phyml};
+    skip q{Cannot find 'phyml' in $PATH}, 5
+        unless qx{which phyml} && $^O ne 'solaris';
+        # Note: For some reason Solaris return value for 'which' is not usable
 
     my $alifile = file('test', 'gb_strict.fasta');
     my $ali = Bio::MUST::Core::Ali->load($alifile);
@@ -158,10 +160,24 @@ SKIP: {
     my $tree = $class->load($infile);
     cmp_store(
         obj => $tree, method => 'store_grp',
-        file => "seqid-grp-nbs.grp",
+        file => 'seqid-grp-nbs.grp',
         test => 'wrote expected .grp file from .tre file (smart SeqIds)',
     );
 }
+
+{
+    my $infile = file('test', 'long-leaf-tree.tre');
+    my $tree = $class->load($infile);
+    my $list = $tree->long_leaf_list(1.5);
+
+    cmp_store(
+        obj  => $list, method => 'store',
+        file => 'long-leaf-seqs.idl',
+        test => 'wrote expected list of long leaf ids'
+    );
+}
+
+
 
 # TODO: test this!
 # {

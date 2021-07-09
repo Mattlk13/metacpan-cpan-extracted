@@ -28,6 +28,24 @@ Net::Z3950::FOLIO::Config - configuration file for the FOLIO Z39.50 gateway
       "queryFilter": "source=marc",
       "graphqlQuery": "instances.graphql-query",
       "chunkSize": 5
+      "marcHoldings": {
+        "restrictToItem": 0,
+        "field": "952",
+        "indicators": [" ", " "],
+        "holdingsElements": {
+          "t": "copyNumber"
+        },
+        "itemElements": {
+          "b": "itemId",
+          "k": "_callNumberPrefix",
+          "h": "_callNumber",
+          "m": "_callNumberSuffix",
+          "v": "_volume",
+          "e": "_enumeration",
+          "y": "_yearCaption",
+          "c": "_chronology"
+        }
+      },
       "postProcessing": {
         "marc": {
           "008": { "op": "regsub", "pattern": "([13579])", "replacement": "[$1]", "flags": "g" },
@@ -102,6 +120,11 @@ Contains two elements, both with string values:
 
     The corresponding password, unless overridden by authentication information in the Z39.50 init request.
 
+## `nologin`
+
+If specified and set to 1, then no login is performed, and the
+`login` section need not be provided.
+
 ## `indexMap`
 
 Contains any number of elements. The keys are the numbers of BIB-1 use
@@ -170,6 +193,72 @@ search. This can be tweaked to tune performance. Setting it too low
 will result in many requests with small numbers of records returned
 each time; setting it too high will result in fetching and decoding
 more records than are actually wanted.
+
+## `marcHoldings`
+
+An optional object specifying how holdings and item-level data should
+be mapped into MARC fields. It contains up to five elements:
+
+- `restrictToItem`
+
+    If specified and set to 1, then the item-level holding information
+    included in MARC records is restricted to that which pertains to the
+    barcode mentioned in the search that yielded the record, if any. If
+    zero (the default), then information on all holdings and items is
+    included.
+
+- `field` (mandatory)
+
+    A string specifying which MARC field should be used for holdings
+    information. When a record contains multiple holdings, a separate
+    instance of this MARC field is created for each holding.
+
+- `indicators` (mandatory)
+
+    An array containing two strings, each of them specifying one of the
+    two indicators to be used in the MARC field that contains
+    holdings. There must be exactly two elements: blank indicators can
+    be specified as a single space.
+
+    information.
+
+- `holdingsElements`
+
+    An object specifying MARC subfields that should be set from
+    holdings-level data. The keys are the single-character names of the
+    subfields, and the corresponding values are the names of
+    holdings-level fields in the OPAC XML record structure.
+
+    See `itemElements` for detail of the structure.
+
+- `itemElements`
+
+    An object specifying MARC subfields that should be set from item-level
+    data. The keys are the single-character names of the subfields, and
+    the corresponding values are the names of item-level fields in the
+    OPAC XML record structure. In addition to the standard field names,
+    several additional special fields are avaialable, not part of the OPAC
+    Z39.50 record, assigned names that begin with underscores:
+
+    - `_enumeration`
+    - `_chronology`
+    - `_callNumber`
+    - `_callNumberPrefix`
+    - `_callNumberSuffix`
+
+        \-item `_permanentLocation`
+
+    - `_holdingsLocation`
+    - `_volume`
+    - `_yearCaption`
+
+    Since there may be multiple items in a single holding, sets of these
+    fields can repeat, e.g. for a holding with two items each specifying
+    data that is encoded in the `b`, `e` and `h` subfields, the field
+    would take the form
+
+        $b 46243154 $e 1994/95 v.1 $h
+        $b 46243072 $e 1994/95 v.2 $h TD224.I3I58b
 
 ## `postProcessing`
 

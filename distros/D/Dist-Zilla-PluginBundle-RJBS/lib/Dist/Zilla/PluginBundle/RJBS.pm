@@ -1,12 +1,16 @@
-package Dist::Zilla::PluginBundle::RJBS;
+package Dist::Zilla::PluginBundle::RJBS 5.020;
 # ABSTRACT: BeLike::RJBS when you build your dists
-$Dist::Zilla::PluginBundle::RJBS::VERSION = '5.012';
+
 use Moose;
 use Dist::Zilla 2.100922; # TestRelease
 with
     'Dist::Zilla::Role::PluginBundle::Easy',
     'Dist::Zilla::Role::PluginBundle::PluginRemover' => { -version => '0.103' },
     'Dist::Zilla::Role::PluginBundle::Config::Slicer';
+
+use v5.20.0;
+use experimental 'postderef'; # Not really an experiment anymore.
+use utf8;
 
 #pod =head1 DESCRIPTION
 #pod
@@ -18,6 +22,7 @@ with
 #pod
 #pod   [MakeMaker]
 #pod   default_jobs = 9
+#pod   eumm_version = 6.78
 #pod
 #pod   [AutoPrereqs]
 #pod   [Git::NextVersion]
@@ -59,6 +64,54 @@ with
 use Dist::Zilla::PluginBundle::Basic;
 use Dist::Zilla::PluginBundle::Filter;
 use Dist::Zilla::PluginBundle::Git;
+
+package Dist::Zilla::Plugin::RJBSMisc 5.020 {
+  use Moose;
+  with 'Dist::Zilla::Role::BeforeBuild',
+       'Dist::Zilla::Role::AfterBuild',
+       'Dist::Zilla::Role::MetaProvider',
+       'Dist::Zilla::Role::PrereqSource';
+
+  has perl_window => (is => 'ro');
+  has package_name_version => (is => 'ro');
+
+  sub metadata {
+    my ($self) = @_;
+
+    return { x_rjbs_perl_window => $self->perl_window };
+  }
+
+  sub register_prereqs {
+    my ($self) = @_;
+
+    if ($self->package_name_version) {
+      $self->zilla->register_prereqs(
+        { phase => 'runtime', type => 'requires' },
+        perl => '5.012',
+      );
+    }
+  }
+
+  sub before_build {
+    my ($self) = @_;
+
+    if (($self->perl_window // '') eq 'toolchain' && $self->package_name_version) {
+      $self->log_fatal('This dist claims to be toolchain but uses "package NAME VERSION"');
+    }
+
+    unless (defined $self->perl_window) {
+      $self->log("❗️ did not set perl-window!");
+    }
+  }
+
+  sub after_build {
+    my ($self) = @_;
+
+    if (grep {; /rjbs\@cpan\.org/ } $self->zilla->authors->@*) {
+      $self->log('Authors still contain rjbs@cpan.org!  Needs an update.');
+    }
+  }
+}
 
 has manual_version => (
   is      => 'ro',
@@ -104,6 +157,19 @@ has weaver_config => (
 
 sub mvp_multivalue_args { qw(dont_compile) }
 
+sub mvp_aliases {
+  return {
+    'is-task'       => 'is_task',
+    'major-version' => 'major_version',
+    'perl-window'   => 'perl_window',
+    'dont-compile'  => 'dont_compile',
+    'weaver-config' => 'weaver_config',
+    'manual-version'       => 'manual_version',
+    'primary-branch'       => 'primary_branch',
+    'package-name-version' => 'package_name_version',
+  }
+}
+
 has dont_compile => (
   is      => 'ro',
   isa     => 'ArrayRef[Str]',
@@ -115,13 +181,50 @@ has package_name_version => (
   is      => 'ro',
   isa     => 'Bool',
   lazy    => 1,
-  default => sub { $_[0]->payload->{package_name_version} // 0 },
+  default => sub { $_[0]->payload->{package_name_version}
+                // $_[0]->payload->{'package-name-version'}
+                // 1
+  },
+);
+
+has perl_window => (
+  is      => 'ro',
+  lazy    => 1,
+  default => sub {
+    # XXX: Fix this better.
+    # See, we have all these mvp aliases to convert foo-bar to foo_bar, but
+    # those aliases aren't run on the bundle options when passed through a
+    # @Filter.  So:
+    #
+    # [@Filter]
+    # -bundle = @RJBS
+    # perl-window = no-mercy
+    #
+    # ...didn't work, because the payload had 'perl-window' and not
+    # 'perl_window'.  Probably this aliasing should happen during the @Filter
+    # process, but it's kind of a hot mess in here.  This key is the most
+    # important one, and this comment is here to remind me what happened if I
+    # ever hear this on some other library.
+    $_[0]->payload->{perl_window} // $_[0]->payload->{'perl-window'}
+  },
+);
+
+has primary_branch => (
+  is      => 'ro',
+  lazy    => 1,
+  default => sub {
+    # XXX: Fix this better.  See matching comment in perl_window attr.
+    return $_[0]->payload->{primary_branch}
+        // $_[0]->payload->{'primary-branch'}
+        // 'main'
+  },
 );
 
 sub configure {
   my ($self) = @_;
 
-  $self->log_fatal("you must not specify both weaver_config and is_task")
+  # It'd be nice to have a Logger here... -- rjbs, 2021-04-24
+  die "you must not specify both weaver_config and is_task"
     if $self->is_task and $self->weaver_config ne '@RJBS';
 
   $self->add_plugins('Git::GatherDir');
@@ -135,6 +238,7 @@ sub configure {
     [ PromptIfStale => 'CPAN-Outdated' => {
       phase => 'release',
       check_all_plugins => 1,
+      skip  => [ 'Dist::Zilla::Plugin::RJBSMisc' ],
       # check_all_prereqs => 1, # <-- not sure yet -- rjbs, 2013-09-23
     } ],
   );
@@ -143,7 +247,12 @@ sub configure {
     '-remove' => [ 'GatherDir', 'ExtraTests', 'MakeMaker' ],
   });
 
-  $self->add_plugins([ MakeMaker => { default_jobs => 9 } ]);
+  $self->add_plugins([
+    MakeMaker => {
+      default_jobs  => 9,
+      eumm_version  =>  6.78, # Stop using -w when running tests.
+    }
+  ]);
 
   $self->add_plugins('AutoPrereqs');
 
@@ -188,6 +297,17 @@ sub configure {
   );
 
   $self->add_plugins(
+    [
+      'Git::Remote::Check' => {
+        remote_name   => 'github',
+        remote_branch => $self->primary_branch,
+        branch        => $self->primary_branch,
+        do_update     => 1,
+      },
+    ],
+  );
+
+  $self->add_plugins(
     [ Prereqs => 'TestMoreWithSubtests' => {
       -phase => 'test',
       -type  => 'requires',
@@ -198,6 +318,7 @@ sub configure {
   if ($self->is_task) {
     $self->add_plugins('TaskWeaver');
   } else {
+    our $perl_window = $self->perl_window;
     $self->add_plugins([
       PodWeaver => {
         config_plugin => $self->weaver_config,
@@ -205,6 +326,15 @@ sub configure {
       }
     ]);
   }
+
+  $self->add_plugins(
+    [ RJBSMisc => {
+        map {; $_ => scalar $self->$_ } qw(
+          package_name_version
+          perl_window
+        )
+    } ],
+  );
 
   $self->add_plugins(
     [ GithubMeta => {
@@ -241,7 +371,7 @@ Dist::Zilla::PluginBundle::RJBS - BeLike::RJBS when you build your dists
 
 =head1 VERSION
 
-version 5.012
+version 5.020
 
 =head1 DESCRIPTION
 
@@ -253,6 +383,7 @@ This is the plugin bundle that RJBS uses.  It is more or less equivalent to:
 
   [MakeMaker]
   default_jobs = 9
+  eumm_version = 6.78
 
   [AutoPrereqs]
   [Git::NextVersion]
@@ -289,29 +420,27 @@ point to GitHub issues for the dist's bugtracker.
 This bundle makes use of L<Dist::Zilla::Role::PluginBundle::PluginRemover> and
 L<Dist::Zilla::Role::PluginBundle::Config::Slicer> to allow further customization.
 
+=head1 PERL VERSION
+
+This module is shipped with no promise about what version of perl it will
+require in the future.  In practice, this tends to mean "you need a perl from
+the last three years," but you can't rely on that.  If a new version of perl
+ship, this software B<may> begin to require it for any reason, and there is no
+promise that patches will be accepted to lower the minimum required perl.
+
 =head1 AUTHOR
 
 Ricardo Signes <rjbs@semiotic.systems>
 
-=head1 CONTRIBUTORS
+=head1 CONTRIBUTOR
 
-=for stopwords Karen Etheridge Ricardo SIGNES
-
-=over 4
-
-=item *
+=for stopwords Karen Etheridge
 
 Karen Etheridge <ether@cpan.org>
 
-=item *
-
-Ricardo SIGNES <rjbs@cpan.org>
-
-=back
-
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Ricardo Signes.
+This software is copyright (c) 2021 by Ricardo Signes.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

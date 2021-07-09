@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015-2020 Christian Jaeger, copying@christianjaeger.ch
+# Copyright (c) 2015-2021 Christian Jaeger, copying@christianjaeger.ch
 #
 # This is free software, offered under either the same terms as perl 5
 # or the terms of the Artistic License version 2 or the terms of the
@@ -42,15 +42,19 @@ our %dependencies = (
 
     # Don't specify Sub::Call::Tail (if meta/tail-expand can expand it)!
 
-    'Chj::Serialize'          => ['FP::Repl::Dependencies', 'B::Deparse'],
-    'FP::Docstring'           => ['B::Deparse'],
-    'FP::BigInt'              => ['Math::BigInt'],
-    'FP::autobox'             => ['autobox'],
-    'FP::Failure'             => ['Path::Tiny'],
-    'FP::Text::CSV'           => ['Text::CSV'],
-    'FP::url_'                => ['URI'],
-    'Chj::CPAN::ModulePODUrl' => ['LWP::UserAgent'],
-    'FP::DBI'                 => ['DBI'],
+    'FP::SortedPureArray'       => ["5.020", "List::BinarySearch"],
+    'FP::RegexMatch'            => ["5.020"],
+    'FP::JSON'                  => ['JSON', "5.020"],
+    'FP::Abstract::Sequence::t' => ['FP::autobox'],
+    'Chj::Serialize'            => ['FP::Repl::Dependencies', 'B::Deparse'],
+    'FP::Docstring'             => ['B::Deparse'],
+    'FP::BigInt'                => ['Math::BigInt'],
+    'FP::autobox'               => ['autobox'],
+    'FP::Failure'               => ['Path::Tiny'],
+    'FP::Text::CSV'             => ['Text::CSV'],
+    'FP::url_'                  => ['URI'],
+    'Chj::CPAN::ModulePODUrl'   => ['LWP::UserAgent'],
+    'FP::DBI'                   => ['DBI'],
     'FunctionalPerl::Htmlgen::UriUtil'  => ['5.020', 'URI'],
     'FunctionalPerl::Htmlgen::PathUtil' => ['5.020', 'File::Spec',],
     'FunctionalPerl::Htmlgen::PathTranslate' =>

@@ -1,5 +1,45 @@
 Revision history for Perl extension Graphics::TIFF.
 
+16  Thu, 24 Jun 2021 00:00 +0000
+        - The *_t types seem only to be missing from msvcrt, so altered the
+          guards appropriately.
+
+15  Thu, 03 Jun 2021 00:00 +0000
+        - + *_t types for those versions of libc that do not have them.
+          Closes GH #5 (GT 14 will not install on Strawberry Perl 5.22)
+
+14  Mon, 31 May 2021 00:00 +0000
+        - Windows runtime dependency on Alien::libtiff
+        - Use the standardised uint16_t etc. types.
+          Closes RT #136629 (uint16, uint32, and unint64 types are deprecated)
+
+13  Thu, 28 May 2021 00:00 +0000
+        - Makefile.PL - Fix error creating Makefile on Windows
+        - tiffperl.h - follow Google style guide to satisfy linter
+        - Windows dependency on Alien::libtiff
+
+12  Thu, 29 Apr 2021 22:30 +0200
+        - Changes to tests to fix RT 122933
+          (t/1.t test crashes with ImageMagick 7.0.6.9)
+
+11  Tue, 27 Apr 2021 22:30 +0200
+        - Adapt tests to tiff-4.3.0.
+          Closes RT 135330 (Tests fail with libtiff 4.3.0)
+          Thanks to Petr Písař for the patch.
+
+10  Sun, 11 Apr 2021 22:30 +0200
+        - Fix TIFFGetField for TIFFTAG_PREDICTOR
+
+9   Wed, 10 Feb 2021 22:30 +0100
+        - Use temporary directories to enable parallel testing.
+          Closes RT 134352 (Parallel tests fail)
+          Thanks to Petr Pisar for the patch.
+
+8   Tue, 09 Feb 2021 22:30 +0100
+        - Adapt tests to tiff-4.2.0.
+          Closes RT 134344 (t/93_tiff2pdf.t fails with tiff-4.2.0)
+          Thanks to Petr Pisar and Thierry Vignaud for the patches.
+
 7   Thu, 27 Oct 2020 19:30 +0100
         - Fix TIFFGetField for TIFFTAG_COLORMAP
 

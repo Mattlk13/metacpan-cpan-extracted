@@ -3,15 +3,12 @@
 use strict;
 use warnings;
 
-use Wikibase::Datatype::Struct::Value::Monolingual qw(struct2obj);
+use Wikibase::Datatype::Struct::Language qw(struct2obj);
 
 # Monolingualtext structure.
 my $struct_hr = {
-        'type' => 'monolingualtext',
-        'value' => {
-                'language' => 'en',
-                'text' => 'English text',
-        },
+        'language' => 'en',
+        'text' => 'English text',
 };
 
 # Get object.

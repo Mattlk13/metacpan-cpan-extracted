@@ -34,9 +34,11 @@ sub parse {
     timethese(-1, {
         big => sub { URI::XS::bench_parse($big) },
         mid => sub { URI::XS::bench_parse($mid) },
+        mid_ex => sub { URI::XS::bench_parse($mid, ALLOW_EXTENDED_CHARS) },
         sml => sub { URI::XS::bench_parse($sml) },
         enc => sub { URI::XS::bench_parse($enc) },
         min => sub { URI::XS::bench_parse($min) },
+        min_ex => sub { URI::XS::bench_parse($min, ALLOW_EXTENDED_CHARS) },
         ex1 => sub { URI::XS::bench_parse($ex1, ALLOW_EXTENDED_CHARS) },
         ex2 => sub { URI::XS::bench_parse($ex2, ALLOW_EXTENDED_CHARS) },
     });
@@ -60,7 +62,8 @@ sub parse_query {
 
 sub encdec_uric {
     my $big = "01234567890123456789012345678901234567890123456789%01%02%03%04%05%06%07%08%09%10%11%12%13%14%15%16%17%18%19%20";
-    my $sml = "hi%20i%20m%20here";    
+    my $sml = "hi%20i%20m%20here";
+    say URI::XS::decode_uri_component($big);
     timethese(-1, {
         encbig => sub { URI::XS::bench_encode_uri_component($big) },
         encsml => sub { URI::XS::bench_encode_uri_component($sml) },

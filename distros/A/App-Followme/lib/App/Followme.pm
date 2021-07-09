@@ -8,12 +8,11 @@ use lib '..';
 
 use base qw(App::Followme::Module);
 
-use Cwd;
 use IO::File;
 use File::Spec::Functions qw(splitdir catfile);
 use App::Followme::FIO;
 
-our $VERSION = "1.95";
+our $VERSION = "2.02";
 
 #----------------------------------------------------------------------
 # Read the default parameter values
@@ -38,6 +37,29 @@ sub run {
                          %{$self->{configuration}});
 
     return;
+}
+
+#----------------------------------------------------------------------
+# Check case sensitivity of this system
+
+sub check_sensitivity {
+    my ($self, $config_file) = @_;
+
+    my ($dir, $filename) = fio_split_filename($config_file);
+    $filename = ucfirst($filename);
+    my $other_config_file = catfile($dir, $filename);
+
+    my $sensitivity;
+    if (-e $other_config_file) {
+        my $date = fio_get_date($config_file);
+        my $other_date = fio_get_date($other_config_file);
+        $sensitivity = $date != $other_date;
+
+    } else {
+        $sensitivity = 1;
+    }
+
+    return $sensitivity;
 }
 
 #----------------------------------------------------------------------
@@ -66,7 +88,7 @@ sub find_configuration {
     @configuration_files = reverse @configuration_files;
 
     # The topmost configuration file is the top and base directory
-    $self->set_directories(@configuration_files);
+    $self->set_configuration(@configuration_files);
 
     return \@configuration_files;
 }
@@ -78,7 +100,6 @@ sub load_and_run_modules {
     my ($self, $modules, $base_directory, $directory, %configuration) = @_;
 
     $configuration{base_directory} = $base_directory;
-    $configuration{current_directory} = $directory;
 
     foreach my $module (@$modules) {
         eval "require $module" or die "Module not found: $module\n";
@@ -91,24 +112,18 @@ sub load_and_run_modules {
 }
 
 #----------------------------------------------------------------------
-# Set base and top directories to the topmost configuration file
+# Set the initial configuration parameters
 
-sub set_directories {
+sub set_configuration {
     my ($self, @configuration_files) = @_;
 
     my ($directory, $file) = fio_split_filename($configuration_files[0]);
-    $self->{base_directory} = $directory;
-    $self->{top_directory} = $directory;
-    return;
-}
+    $self->{configuration}{base_directory} = $directory;
+    $self->{configuration}{top_directory} = $directory;
 
-#----------------------------------------------------------------------
-#  Save the configuration for other modules
+    $self->{configuration}{case_sensitive} = 
+        $self->check_sensitivity($configuration_files[0]);
 
-sub setup {
-    my ($self, %configuration) = @_;
-
-    $self->{configuration} = \%configuration;
     return;
 }
 
@@ -128,11 +143,11 @@ sub update_folder {
         %configuration = $self->read_configuration($configuration_file,
                                                    %configuration);
 
-        $run_before = $configuration{''}->{run_before};
-        delete $configuration{''}->{run_before};
+        $run_before = $configuration{run_before};
+        delete $configuration{run_before};
 
-        $run_after = $configuration{''}->{run_after};
-        delete $configuration{''}->{run_after};
+        $run_after = $configuration{run_after};
+        delete $configuration{run_after};
     }
 
     $self->load_and_run_modules($run_before,
@@ -148,7 +163,6 @@ sub update_folder {
 
     } elsif (! $self->{quick_update}) {
         my ($filenames, $directories) = fio_visit($directory);
-
         foreach my $subdirectory (@$directories) {
             $self->update_folder($subdirectory,
                                  $configuration_files,
@@ -190,8 +204,9 @@ The configuration file for followme is followme.cfg in the top directory of
 your site. It contains the names of the Perl modules that are run when the
 followme command is run:
 
-    run_before = App::Followme::FormatPage
-    run_before = App::Followme::ConvertPage
+    run_before:
+        - App::Followme::FormatPage
+        - App::Followme::ConvertPage
 
 Perl modules are run in the order they appear in the configuration file. If they
 are named run_before then they are run before modules in configuration files in
@@ -221,7 +236,7 @@ is run from.
 
 Configuration file lines are organized as lines containing
 
-    NAME = VALUE
+    NAME: VALUE
 
 and may contain blank lines or comment lines starting with a C<#>. Values in
 configuration files are combined with those set in the files in directories

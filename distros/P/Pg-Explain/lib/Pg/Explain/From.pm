@@ -18,6 +18,7 @@ if ( grep /\P{ASCII}/ => @ARGV ) {
 # UTF8 boilerplace, per http://stackoverflow.com/questions/6162484/why-does-modern-perl-avoid-utf-8-by-default/
 
 use Pg::Explain::Node;
+use Pg::Explain::Buffers;
 use Carp;
 
 =head1 NAME
@@ -26,11 +27,11 @@ Pg::Explain::From - Base class for parsers of non-text explain formats.
 
 =head1 VERSION
 
-Version 1.04
+Version 1.11
 
 =cut
 
-our $VERSION = '1.04';
+our $VERSION = '1.11';
 
 =head1 SYNOPSIS
 
@@ -114,6 +115,9 @@ sub make_node_from {
         $use_type = 'HashAggregate'  if $strategy eq 'Hashed';
         $use_type = 'GroupAggregate' if $strategy eq 'Sorted';
         $use_type = 'MixedAggregate' if $strategy eq 'Mixed';
+    }
+    if ( ( $struct->{ 'Scan Direction' } || '' ) eq 'Backward' ) {
+        $use_type .= ' Backward';
     }
 
     my $new_node = Pg::Explain::Node->new(
@@ -206,8 +210,29 @@ sub make_node_from {
         $new_node->add_extra_info( 'Workers Launched: ' . $struct->{ 'Workers Launched' } );
     }
 
+    if ( $struct->{ 'Recheck Cond' } ) {
+        $new_node->add_extra_info( 'Recheck Cond: ' . $struct->{ 'Recheck Cond' } );
+        if ( $struct->{ 'Rows Removed by Index Recheck' } ) {
+            $new_node->add_extra_info( 'Rows Removed by Index Recheck: ' . $struct->{ 'Rows Removed by Index Recheck' } );
+        }
+    }
+
+    if ( $struct->{ 'Join Filter' } ) {
+        $new_node->add_extra_info( 'Join Filter: ' . $struct->{ 'Join Filter' } );
+        if ( $struct->{ 'Rows Removed by Join Filter' } ) {
+            $new_node->add_extra_info( 'Rows Removed by Join Filter: ' . $struct->{ 'Rows Removed by Join Filter' } );
+        }
+    }
+
     $new_node->add_extra_info( 'Index Cond: ' . $struct->{ 'Index Cond' } ) if $struct->{ 'Index Cond' };
-    $new_node->add_extra_info( 'Filter: ' . $struct->{ 'Filter' } )         if $struct->{ 'Filter' };
+
+    if ( $struct->{ 'Filter' } ) {
+        $new_node->add_extra_info( 'Filter: ' . $struct->{ 'Filter' } );
+        if ( defined $struct->{ 'Rows Removed by Filter' } ) {
+            $new_node->add_extra_info( 'Rows Removed by Filter: ' . $struct->{ 'Rows Removed by Filter' } );
+        }
+    }
+
     if ( $struct->{ 'Node Type' } eq 'Sort' ) {
         if ( 'ARRAY' eq ref $struct->{ 'Sort Key' } ) {
             $new_node->add_extra_info( 'Sort Key: ' . join( ', ', @{ $struct->{ 'Sort Key' } } ) );
@@ -230,19 +255,25 @@ sub make_node_from {
     }
     $new_node->add_extra_info( 'Heap Blocks: ' . join( ' ', @heap_blocks_info ) ) if 0 < scalar @heap_blocks_info;
 
-    my @buf_info = ();
-    for my $buf_block ( qw(Shared Local Temp) ) {
-        my @buf_block_info = ();
-        for my $buf_read ( qw(Hit Read Dirtied Written) ) {
-            my $key = "$buf_block $buf_read Blocks";    # Shared Hit Blocks
-            push @buf_block_info, sprintf '%s=%d', lc $buf_read, $struct->{ $key }    # hit=12345
-                if defined $struct->{ $key }
-                and $struct->{ $key } =~ m{\A\d+\z}
-                and $struct->{ $key } > 0;
+    my $buffers = Pg::Explain::Buffers->new( $struct );
+    $new_node->buffers( $buffers ) if $buffers;
+
+    if ( $struct->{ 'Conflict Resolution' } ) {
+        $new_node->add_extra_info( 'Conflict Resolution: ' . $struct->{ 'Conflict Resolution' } );
+        if ( $struct->{ 'Conflict Arbiter Indexes' } ) {
+            $new_node->add_extra_info( 'Conflict Arbiter Indexes: ' . join( ', ', @{ $struct->{ 'Conflict Arbiter Indexes' } } ) );
         }
-        push @buf_info, join ' ', lc $buf_block, @buf_block_info if @buf_block_info;
+        if ( $struct->{ 'Conflict Filter' } ) {
+            $new_node->add_extra_info( 'Conflict Filter: ' . $struct->{ 'Conflict Filter' } );
+            if ( defined $struct->{ 'Rows Removed by Conflict Filter' } ) {
+                $new_node->add_extra_info( 'Rows Removed by Conflict Filter: ' . $struct->{ 'Rows Removed by Conflict Filter' } );
+            }
+        }
     }
-    $new_node->add_extra_info( 'Buffers: ' . join ', ', @buf_info ) if @buf_info;
+
+    $new_node->add_extra_info( 'Tuples Inserted: ' . $struct->{ 'Tuples Inserted' } ) if defined $struct->{ 'Tuples Inserted' };
+
+    $new_node->add_extra_info( 'Conflicting Tuples: ' . $struct->{ 'Conflicting Tuples' } ) if defined $struct->{ 'Conflicting Tuples' };
 
     if ( $struct->{ 'Plans' } ) {
         my @plans;
@@ -291,7 +322,7 @@ You can find documentation for this module with the perldoc command.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2008-2015 hubert depesz lubaczewski, all rights reserved.
+Copyright 2008-2021 hubert depesz lubaczewski, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

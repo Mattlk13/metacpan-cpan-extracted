@@ -1,0 +1,110 @@
+NAME
+    TableData - Specification for TableData::*, modules that contains table
+    data
+
+SPECIFICATION VERSION
+    0.2
+
+VERSION
+    This document describes version 0.2.1 of TableData (from Perl
+    distribution TableData), released on 2021-06-01.
+
+SYNOPSIS
+    Use one of the "TableData::*" modules.
+
+DESCRIPTION
+    NOTE: EARLY SPECIFICATION; THINGS WILL STILL CHANGE A LOT.
+
+    "TableData::*" modules are modules that contain two-dimensional table
+    data. The table can be accessed via a standard interface (see
+    TableDataRole::Spec::Basic). An example of table data would be list of
+    countries along with their names and country code, or a list of CPAN
+    authors along with their published email addresses.
+
+    Why put data in a Perl module, as a Perl distribution? To leverage the
+    Perl/CPAN toolchain and infrastructure: 1) ease of installation, update,
+    and uninstallation; 2) allowing dependency expression and version
+    comparison; 3) ease of packaging further as OS packages, e.g. Debian
+    packages (converted from Perl distribution); 4) testing by CPAN Testers.
+
+    The table data can actually be stored as CSV in the DATA section of a
+    Perl module, or as a CSV file in a shared directory of a Perl
+    distribution, or a Perl structure in the module source code, or from
+    other sources.
+
+    The standard interface provides a convenient and consistent way to
+    access the data, from accessing the rows, getting the column names, and
+    dumping to CSV or Perl structure for other tools to operate on.
+
+    To get started, see TableDataRole::Spec::Basic and one of existing
+    "TableData::*" module.
+
+NAMESPACE ORGANIZATION
+    "TableData" (this module) is the specification.
+
+    All the modules under "TableData::*" are modules with actual table data.
+    The entity mentioned in the module name should be singular, not plural
+    (e.g. "TableData::Person::AcmeInc" instead of
+    "TableData::Persons::AcmeInc" or "TableData::People::AcmeInc".
+
+    More specific subnamespaces for more specific types of table data:
+
+    *   "TableData::Locale::*" for locale-related data
+
+        Examples: "TableData::Locale::Country" (list of countries in the
+        world), TableData::Locale::US::State (list of US states),
+        "TableData::Locale::ID::Province" (list of Indonesian provinces).
+
+    *   "TableData::Lingua::*" for human-language-related data
+
+        Examples: TableData::Lingua::Word::EN::Adjective::TalkEnglish (list
+        of top adjectives from talkenglish.com website, along with some
+        other data like frequency). All "TableData::Lingua::Word::*" modules
+        should contain the column "word" so they are usable from
+        applications like word games.
+
+    "TableDataRole::*" the roles.
+
+    "TableDataRoles::*" is the name for distribution that contain several
+    role modules.
+
+    "TableDataBase::*" for base classes.
+
+    "TableDataBases::*" is the name for distribution that contain several
+    "TableDataBase" modules.
+
+    "TableDataBundle-*" name for distribution that contains several
+    "TableData" modules.
+
+FAQ
+HOMEPAGE
+    Please visit the project's homepage at
+    <https://metacpan.org/release/TableData>.
+
+SOURCE
+    Source repository is at <https://github.com/perlancar/perl-TableData>.
+
+BUGS
+    Please report any bugs or feature requests on the bugtracker website
+    <https://rt.cpan.org/Public/Dist/Display.html?Name=TableData>
+
+    When submitting a bug or request, please include a test-file or a patch
+    to an existing test-file that illustrates the bug or desired feature.
+
+SEE ALSO
+    ArrayData, HashData are related projects.
+
+    WordList is an older, related project.
+
+    Modules and CLIs that manipulate table data: Data::TableData::Object, td
+    (from App::td).
+
+AUTHOR
+    perlancar <perlancar@cpan.org>
+
+COPYRIGHT AND LICENSE
+    This software is copyright (c) 2021, 2020 by perlancar@cpan.org.
+
+    This is free software; you can redistribute it and/or modify it under
+    the same terms as the Perl 5 programming language system itself.
+

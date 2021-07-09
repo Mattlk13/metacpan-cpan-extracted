@@ -4,8 +4,8 @@
 #
 package PDL::GSL::DIFF;
 
-@EXPORT_OK  = qw( gsldiff PDL::PP diff_central PDL::PP diff_backward PDL::PP diff_forward );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(gsldiff PDL::PP diff_central PDL::PP diff_backward PDL::PP diff_forward );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::GSL::DIFF ;
 
@@ -109,7 +109,7 @@ info not available
 =for bad
 
 diff_central does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -140,7 +140,7 @@ info not available
 =for bad
 
 diff_backward does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -171,7 +171,7 @@ info not available
 =for bad
 
 diff_forward does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

@@ -27,23 +27,23 @@ use lib "$Bin/../../lib";
 use Google::Ads::GoogleAds::Client;
 use Google::Ads::GoogleAds::Utils::GoogleAdsHelper;
 use Google::Ads::GoogleAds::Utils::SearchStreamHandler;
-use Google::Ads::GoogleAds::V6::Resources::Feed;
-use Google::Ads::GoogleAds::V6::Resources::AffiliateLocationFeedData;
-use Google::Ads::GoogleAds::V6::Resources::CampaignFeed;
-use Google::Ads::GoogleAds::V6::Common::MatchingFunction;
-use Google::Ads::GoogleAds::V6::Enums::AffiliateLocationFeedRelationshipTypeEnum
+use Google::Ads::GoogleAds::V8::Resources::Feed;
+use Google::Ads::GoogleAds::V8::Resources::AffiliateLocationFeedData;
+use Google::Ads::GoogleAds::V8::Resources::CampaignFeed;
+use Google::Ads::GoogleAds::V8::Common::MatchingFunction;
+use Google::Ads::GoogleAds::V8::Enums::AffiliateLocationFeedRelationshipTypeEnum
   qw(GENERAL_RETAILER);
-use Google::Ads::GoogleAds::V6::Enums::FeedOriginEnum qw(GOOGLE);
-use Google::Ads::GoogleAds::V6::Enums::PlaceholderTypeEnum
+use Google::Ads::GoogleAds::V8::Enums::FeedOriginEnum qw(GOOGLE);
+use Google::Ads::GoogleAds::V8::Enums::PlaceholderTypeEnum
   qw(AFFILIATE_LOCATION);
-use Google::Ads::GoogleAds::V6::Enums::AffiliateLocationPlaceholderFieldEnum
+use Google::Ads::GoogleAds::V8::Enums::AffiliateLocationPlaceholderFieldEnum
   qw(CHAIN_ID);
 use
-  Google::Ads::GoogleAds::V6::Services::CustomerFeedService::CustomerFeedOperation;
-use Google::Ads::GoogleAds::V6::Services::FeedService::FeedOperation;
+  Google::Ads::GoogleAds::V8::Services::CustomerFeedService::CustomerFeedOperation;
+use Google::Ads::GoogleAds::V8::Services::FeedService::FeedOperation;
 use
-  Google::Ads::GoogleAds::V6::Services::CampaignFeedService::CampaignFeedOperation;
-use Google::Ads::GoogleAds::V6::Utils::ResourceNames;
+  Google::Ads::GoogleAds::V8::Services::CampaignFeedService::CampaignFeedOperation;
+use Google::Ads::GoogleAds::V8::Utils::ResourceNames;
 
 use Getopt::Long qw(:config auto_help);
 use Pod::Usage;
@@ -65,7 +65,7 @@ use constant MAX_FEED_MAPPING_RETRIEVAL_ATTEMPTS => 10;
 # Running the example with -h will print the command line usage.
 my $customer_id = "INSERT_CUSTOMER_ID_HERE";
 # The retail chain ID. For a complete list of valid retail chain IDs, see
-# https://developers.google.com/adwords/api/docs/appendix/codes-formats#chain-ids.
+# https://developers.google.com/google-ads/api/reference/data/codes-formats#chain-ids.
 my $chain_id = "INSERT_CHAIN_ID_HERE";
 # The campaign ID for which the affiliate location extensions are added.
 my $campaign_id = "INSERT_CAMPAIGN_ID_HERE";
@@ -162,7 +162,7 @@ sub remove_customer_feeds {
   my $operations = [];
   foreach my $customer_feed (@$customer_feeds) {
     push @$operations,
-      Google::Ads::GoogleAds::V6::Services::CustomerFeedService::CustomerFeedOperation
+      Google::Ads::GoogleAds::V8::Services::CustomerFeedService::CustomerFeedOperation
       ->new({remove => $customer_feed->{resourceName}});
   }
 
@@ -209,7 +209,7 @@ sub remove_feeds {
   my $operations = [];
   foreach my $feed (@$feeds) {
     push @$operations,
-      Google::Ads::GoogleAds::V6::Services::FeedService::FeedOperation->new(
+      Google::Ads::GoogleAds::V8::Services::FeedService::FeedOperation->new(
       {remove => $feed->{resourceName}});
   }
 
@@ -221,17 +221,17 @@ sub remove_feeds {
 }
 
 # Creates the affiliate location extension feed.
-# [START add_affiliate_location_extensions_3]
+# [START add_affiliate_location_extensions]
 sub create_affiliate_location_extension_feed {
   my ($api_client, $customer_id, $chain_id) = @_;
 
   # Create a feed that will sync to retail addresses for a given retail chain ID.
   # Do not add feed attributes, Google Ads will add them automatically because
   # this will be a system generated feed.
-  my $feed = Google::Ads::GoogleAds::V6::Resources::Feed->new({
+  my $feed = Google::Ads::GoogleAds::V8::Resources::Feed->new({
       name => "Affiliate Location Extension feed #" . uniqid(),
       affiliateLocationFeedData =>
-        Google::Ads::GoogleAds::V6::Resources::AffiliateLocationFeedData->new({
+        Google::Ads::GoogleAds::V8::Resources::AffiliateLocationFeedData->new({
           chainIds         => [$chain_id],
           relationshipType => GENERAL_RETAILER
         }
@@ -243,7 +243,7 @@ sub create_affiliate_location_extension_feed {
 
   # Create the feed operation.
   my $operation =
-    Google::Ads::GoogleAds::V6::Services::FeedService::FeedOperation->new({
+    Google::Ads::GoogleAds::V8::Services::FeedService::FeedOperation->new({
       create => $feed
     });
 
@@ -258,10 +258,10 @@ sub create_affiliate_location_extension_feed {
 
   return $feed_resource_name;
 }
-# [END add_affiliate_location_extensions_3]
+# [END add_affiliate_location_extensions]
 
 # Waits for the affiliate location extension feed to be ready.
-# [START add_affiliate_location_extensions]
+# [START add_affiliate_location_extensions_2]
 sub wait_for_feed_to_be_ready {
   my ($api_client, $customer_id, $feed_resource_name) = @_;
 
@@ -296,10 +296,10 @@ sub wait_for_feed_to_be_ready {
     MAX_FEED_MAPPING_RETRIEVAL_ATTEMPTS
   );
 }
-# [END add_affiliate_location_extensions]
+# [END add_affiliate_location_extensions_2]
 
 # Gets the affiliate location extension feed mapping.
-# [START add_affiliate_location_extensions_4]
+# [START add_affiliate_location_extensions_1]
 sub get_affiliate_location_extension_feed_mapping {
   my ($api_client, $customer_id, $feed_resource_name) = @_;
 
@@ -323,10 +323,10 @@ sub get_affiliate_location_extension_feed_mapping {
     ? $response->{results}[0]{feedMapping}
     : undef;
 }
-# [END add_affiliate_location_extensions_4]
+# [END add_affiliate_location_extensions_1]
 
 # Create the campaign feed.
-# [START add_affiliate_location_extensions_1]
+# [START add_affiliate_location_extensions_3]
 sub create_campaign_feed {
   my ($api_client, $customer_id, $campaign_id, $feed_mapping,
     $feed_resource_name, $chain_id)
@@ -339,21 +339,21 @@ sub create_campaign_feed {
 
   # Add a campaign feed that associates the feed with this campaign for the
   # AFFILIATE_LOCATION placeholder type.
-  my $campaign_feed = Google::Ads::GoogleAds::V6::Resources::CampaignFeed->new({
+  my $campaign_feed = Google::Ads::GoogleAds::V8::Resources::CampaignFeed->new({
       feed             => $feed_resource_name,
       placeholderTypes => AFFILIATE_LOCATION,
       matchingFunction =>
-        Google::Ads::GoogleAds::V6::Common::MatchingFunction->new({
+        Google::Ads::GoogleAds::V8::Common::MatchingFunction->new({
           functionString => $matching_function
         }
         ),
-      campaign => Google::Ads::GoogleAds::V6::Utils::ResourceNames::campaign(
+      campaign => Google::Ads::GoogleAds::V8::Utils::ResourceNames::campaign(
         $customer_id, $campaign_id
       )});
 
   # Create the campaign feed operation.
   my $operation =
-    Google::Ads::GoogleAds::V6::Services::CampaignFeedService::CampaignFeedOperation
+    Google::Ads::GoogleAds::V8::Services::CampaignFeedService::CampaignFeedOperation
     ->new({
       create => $campaign_feed
     });
@@ -367,10 +367,10 @@ sub create_campaign_feed {
     "Campaign feed created with resource name: '%s'.\n",
     $response->{results}[0]{resourceName};
 }
-# [END add_affiliate_location_extensions_1]
+# [END add_affiliate_location_extensions_3]
 
 # Gets the feed attribute ID for the retail chain ID.
-# [START add_affiliate_location_extensions_2]
+# [START add_affiliate_location_extensions_4]
 sub get_attribute_id_for_chain_id {
   my ($feed_mapping) = @_;
 
@@ -382,7 +382,7 @@ sub get_attribute_id_for_chain_id {
 
   die "Affiliate location feed mapping isn't setup correctly.";
 }
-# [END add_affiliate_location_extensions_2]
+# [END add_affiliate_location_extensions_4]
 
 # Don't run the example if the file is being included.
 if (abs_path($0) ne abs_path(__FILE__)) {

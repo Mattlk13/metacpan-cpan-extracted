@@ -1,10 +1,18 @@
 package Devel::NYTProf::FileInfo;    # fid_fileinfo
 
+=head1 NAME
+
+Devel::NYTProf::FileInfo
+
+=head1 METHODS
+
+=cut
+
 use strict;
 
 use Carp;
 use Config;
-use List::Util qw(sum max);
+use List::Util qw(sum);
 
 use Devel::NYTProf::Util qw(strip_prefix_from_paths trace_level);
 

@@ -9,12 +9,30 @@ use File::Spec();
 
 my $SEP = File::Spec->catfile('', '');
 
-our $VERSION = '0.000009';
+our $VERSION = '0.000023';
 
-our %FILES;
+# Directly modifying this is a bad idea, but for the XS to work it needs to be
+# a package var, not a lexical.
+our $FROM = '*';
+my $FROM_MODIFIED = 0;
+my $FROM_MANAGER;
+
+our $ROOT;
+BEGIN { $ROOT = "" . path('.')->realpath }
+
+our %REPORT;
+
+my %FILTER = (
+    $0 => 1,
+    __FILE__, 1,
+    File::Spec->rel2abs($0) => 1,
+    File::Spec->rel2abs(__FILE__) => 1,
+);
 
 use XSLoader;
 XSLoader::load(__PACKAGE__, $VERSION);
+
+1;
 
 my $IMPORTED = 0;
 sub import {
@@ -29,8 +47,9 @@ sub import {
     }
 
     my $ran = 0;
-    my $root = path('.')->realpath;
-    my $callback = sub { return if $ran++; $class->report(%params, ctx => $_[0], root => $root) };
+    $ROOT = "" . $params{root} if $params{root};
+    $ROOT //= "" . path('.')->realpath;
+    my $callback = sub { return if $ran++; $class->report(%params, ctx => $_[0], root => $ROOT) };
 
     test2_add_callback_exit($callback);
 
@@ -38,13 +57,35 @@ sub import {
     eval 'END { local $?; $callback->() }; 1' or die $@;
 }
 
-sub clear { %FILES = () }
+sub full_reset {
+    reset_from();
+    reset_coverage();
+}
+
+sub reset_from {
+    $FROM = '*';
+    $FROM_MODIFIED = 0;
+    $FROM_MANAGER = undef;
+}
+
+sub reset_coverage {
+    %REPORT  = ();
+}
+
+sub set_root { $ROOT = "" . pop };
+
+sub get_from   { $FROM //= '*' }
+sub set_from   { $FROM_MODIFIED++; $FROM = pop }
+sub clear_from { $FROM = '*' }
+sub was_from_modified { $FROM_MODIFIED ? 1 : 0 }
+sub set_from_manager  { $FROM_MODIFIED++; $FROM_MANAGER = pop }
 
 sub filter {
     my $class = shift;
     my ($file, %params) = @_;
 
     my $root = $params{root} // path('.')->realpath;
+    $root = path($root);
 
     my $path = $INC{$file} ? path($INC{$file}) : path($file);
     $path = $path->realpath if $path->exists;
@@ -98,40 +139,126 @@ sub extract {
     return;
 }
 
+my %HIDDEN_SUBS = (
+    '__ANON__'  => 1,
+    'eval'      => 1,
+);
+
+my %SPECIAL_SUBS = (
+    'BEGIN'     => 1,
+    'CHECK'     => 1,
+    'END'       => 1,
+    'INIT'      => 1,
+    'UNITCHECK' => 1,
+);
+
 sub files {
     my $class = shift;
     my %params = @_;
 
-    my $filter  = $params{filter}  // $class->can('filter');
-    my $extract = $params{extract} // $class->can('extract');
+    my $report = $class->_process(%params);
 
-    my %seen = ($0 => 1);
-    my @files = sort map { my $f = $class->$extract($_, %params); ($f && !$seen{$f}++) ? ($class->$filter($f, %params)) : () } keys %FILES;
-    return \@files;
+    return [sort keys %$report];
+}
+
+sub data {
+    my $class = shift;
+    my %params = @_;
+
+    my $report = $class->_process(%params);
+
+    my $out = {};
+
+    for my $file (keys %$report) {
+        my $rval = $report->{$file} // next;
+        my $oval = $out->{$file} = {};
+
+        for my $sub (keys %$rval) {
+            next if $HIDDEN_SUBS{$sub};
+
+            my $key = $SPECIAL_SUBS{$sub} ? '*' : $sub;
+            my @add = map { $rval->{$sub}->{$_} } keys %{$rval->{$sub}};
+
+            if ($oval->{$key}) {
+                my %seen;
+                $oval->{$key} = [ sort grep { !$seen{$_}++ } @{$oval->{$key}}, @add ];
+            }
+            else {
+                $oval->{$key} = [ sort @add ];
+            }
+        }
+    }
+
+    return $out;
 }
 
 sub report {
     my $class = shift;
     my %params = @_;
 
-    my $files = $class->files(%params);
+    my $data    = $class->data(%params);
+    my $details = "This test covered " . scalar(keys %$data) . " source files.";
+    my $type    = $FROM_MODIFIED ? 'split' : 'flat';
 
-    my $details = "This test covered " . @$files . " source files.";
-
-    my $ctx = $params{ctx} // context();
+    my $ctx   = $params{ctx} // context();
     my $event = $ctx->send_ev2(
-        about    => {package => __PACKAGE__, details => $details},
-        coverage => {files => $files, details => $details},
+        about => {package => __PACKAGE__, details => $details},
+
+        coverage => {
+            files        => $data,
+            details      => $details,
+            test_type    => $type,
+            from_manager => $FROM_MANAGER,
+        },
 
         info => [{tag => 'COVERAGE', details => $details, debug => $params{verbose}}],
-
-        harness_job_fields => [
-            {name => "files_covered", details => $details, data => $files},
-        ]
     );
     $ctx->release unless $params{ctx};
 
     return $event;
+}
+
+sub _process {
+    my $class = shift;
+    my %params = @_;
+
+    my $filter  = $class->can('filter');
+    my $extract = $class->can('extract');
+
+    my %report;
+
+    for my $raw (keys %REPORT) {
+        next unless $raw;
+        next if $FILTER{$raw};
+
+        my $file = $class->$extract($raw, %params) // next;
+        next if $FILTER{$file};
+
+        my $path = $class->$filter($file, %params) // next;
+        next if $FILTER{$path};
+
+        my $from = $REPORT{$raw};
+
+        # Easy
+        if (!$report{$path}) {
+            $report{$path} = $from;
+            next;
+        }
+
+        # Merge
+        my $into = $report{$path};
+
+        for my $sub (keys %$from) {
+            if ($into->{$sub}) {
+                $into->{$sub} = {%{$into->{$sub}}, %{$from->{$sub}}};
+            }
+            else {
+                $into->{$sub} = $from->{$sub};
+            }
+        }
+    }
+
+    return \%report;
 }
 
 1;
@@ -196,9 +323,12 @@ code obtains the next op that will be run and tries to pull the filename from
 it. C<eval>, XS, Moose, and other magic can sometimes mask the filename, this
 module only makes a minimal attempt to find the filename in these cases.
 
-This tool DOES NOT cover anything beyond files in which subs executed by the
-test were defined. If you want sub names, lines executed, and more, use
-L<Devel::Cover>.
+Originally this module only collected the filenames touched by a test. Now in
+addition to that data it can give you seperate lists of files where subs were
+called, and files that were touched via open(). Additionally the sub list
+includes the info about what subs were called. In all of these cases it is also
+possible to know what secgtions of your test called the subs or opened the
+files.
 
 =head2 REAL EXAMPLES
 
@@ -247,8 +377,9 @@ You can tell prove to use the module this way:
 
     HARNESS_PERL_SWITCHES=-MTest2::Plugin::Cover prove ...
 
-This also works for L<Test2::Harness> aka C<yath>, but yath may have a flag to
-enable this for you by the time you are reading these docs.
+For yath:
+
+    yath test --cover-files ...
 
 =head2 SUPPRESS REPORT
 
@@ -263,26 +394,115 @@ INLINE:
 
     use Test2::Plugin::Cover no_event => 1;
 
+=head1 KNOWING WHAT CALLED WHAT
+
+If you use a system like L<Test::Class>, L<Test::Class::Moose>, or
+L<Test2::Tools::Spec> then you divide your tests into subtests (or similar). In
+these cases it would be nice to track what subtest (or equivelent) touched what
+files.
+
+There are 3 methods telated to this, C<set_from()>, C<get_from()>, and
+C<clear_from()> which you can use to manage this meta-data:
+
+    subtest foo => sub {
+        # Note, this is a simple string, but the 'from' data can also be a data
+        # structure.
+        Test2::Plugin::Cover->set_from("foo");
+
+        # subroutine() from Some.pm will be recorded as having been called by 'foo'.
+        Some::subroutine();
+
+        Test2::Plugin::Cover->clear_from();
+    };
+
+Doing this manually for all blocks is not ideal, ideally you would hook your
+tool, such as L<Test::Class> to call C<set_from()> and C<clear_from()> for you.
+Adding such a hook is left as an exercide to the reader, and if you make one
+for a popular tool please upload it to cpan and add a ticket or send an email
+for me to link to it here.
+
+Once you have these hooks in place the data will not only show files and subs
+that were called, but what called them.
+
+Please see the C<set_from()> documentation for details on values.
+
 =head1 CLASS METHODS
 
 =over 4
 
+=item $val = $class->get_from()
+
+Get the current 'from' value. The default is C<'*'> when nothing has set a from
+value.
+
+=item $class->set_from($val)
+
+Set a 'from' value. This can be anything, a string, a hashref, etc. Be advised
+though that it will usually be serialized to JSON, so make sure anything you
+put in it will be serializable as json.
+
+=item $class->clear_from()
+
+Resets the clear value to C<'*'>
+
+=item $bool = $class->was_from_modified()
+
+This will return true if anything has called C<set_from()> or
+C<set_from_manager>. This can be reset back to false using C<reset_from()>,
+which also clears the 'from' and 'from_manager' values.
+
+=item $class->set_from_manager($module)
+
+This should be set to a module that implements the following method:
+
+    sub test_parameters {
+        my $class = shift;
+        my ($test_file, \@from_values) = @_;
+
+        ...
+
+        return {
+            # If true - run the test
+            # If false - skip the test
+            # If not present or undef - run the test
+            run => $bool,
+
+            # The following are optional
+            argv  => [ ... ],
+            env   => { ... },
+            stdin => "...",
+        };
+
+        # OR
+        # If true - run the test
+        # If false - skip the test
+        # If undef or empty list - run the test
+        return $bool;
+    }
+
+This will be used by L<Test2::Harness> to determine what data needs to be
+passed to a test given a set of 'from' values to instruct the test to run the
+necessary parts/subtests/groups/methods/etc.
+
+The 'argv' data will be prepended befor any other arguments provided to the
+test.
+
+The 'env' hashref will be merged with any other env vars needed, with these
+taking priority.
+
+The 'stdin' string will be used as STDIN for the test.
+
 =item $arrayref = $class->files()
 
-=item $arrayref = $class->files(filter => \&filter, extract => \&extract)
+=item $arrayref = $class->files(root => $path)
 
-This will return an arrayref of all files touched so far. If no C<filter> or
-C<extract> callbacks are provided then C<< $class->filter() >> and
-C<< $class->extract() >> will be used as defaults.
+This will return an arrayref of all files touched so far.
 
 The list of files will be sorted alphabetically, and duplicates will be
 removed.
 
-Custom filter callbacks should match the interface for
-C<< $class->filter() >>.
-
-Custom extract callbacks should match the interface for
-C<< $class->extract() >>.
+If a root path is provided it B<MUST> be a L<Path::Tiny> instance. This path
+will be used to filter out any files not under the root directory.
 
 =item $event = $class->report(%options)
 
@@ -299,14 +519,6 @@ Normally this is set to the current directory at module load-time. This is used
 to filter out any source files that do not live under the current directory.
 This B<MUST> be a L<Path::Tiny> instance, passing a string will not work.
 
-=item filter => sub { ... }
-
-Normally C<< $class->filter() >> is used.
-
-=item extract => sub { ... }
-
-Normally C<< $class->extract() >> is used.
-
 =item verbose => $BOOL
 
 If this is set to true then the comment stating how many source files were
@@ -320,9 +532,18 @@ users will never want to use this.
 
 =back
 
-=item $class->clear()
+=item $class->reset_coverage()
 
 This will completely clear all coverage data so far.
+
+=item $class->reset_from()
+
+This will clear the 'from' value, as well as reset the 'was_from_modified'
+state to false.
+
+=item $class->full_reset()
+
+Calls both C<reset_coverage()> and C<reset_from()>.
 
 =item $file_or_undef = $class->filter($file)
 

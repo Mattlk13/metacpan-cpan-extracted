@@ -13,60 +13,68 @@ SYNOPSIS
     -f format       any combination of letters t,u,d as title/url/description (default : tud)
     -s              find schemeless URLs in text files (default : no)
 
+
 DESCRIPTION
 -----------
 
-`bookmarks` is a tool to export bookmarks from files supplied as arguments, or
-from browsers default locations (when called without arguments). The following
-sources are supported :
+`bookmarks` is a tool to export bookmarks from files supplied as arguments, or from browsers default locations (when called without arguments). The following sources are supported :
 
-- Safari (Mac)
-- Firefox (Mac/Linux/Windows)
-- Chrome (Mac/Linux/Windows)
-- Internet Explorer (Windows)
-- Plain text (.txt)
-- Markdown (.md)
+- Safari (_.plist_)
+- Firefox (_.sqlite_)
+- Chrome and Edge (_Bookmarks_)
+- Internet Explorer (_Favorites_)
+- Markdown (_.md_)
+- Gemini (_.gmi_)
+- Surfraw (same as plain text)
+- Plain text (any other extension)
 
-Files named _*.plist_, _*.sqlite_ and _*Bookmarks_ are processed as Safari, Firefox
-and Chrome bookmarks, respectively. Directories named _*Favorites_ are processed
-as Internet Explorer favorites.
+Default export format : `<title> <url> <description>`
 
-The fields `<title>`, `<url>` and `<description>` are retrieved (when existing) and
-are available for exporting (in the desired format), by default :
-`<title> <url> <description>`
-    
-The `<description>` field is filled with Safari's Description, Firefox's Tags or
-empty for Chrome and Internet Explorer.
+- `<title>` is your bookmark's name, alias, or webpage title.
+- `<url>` is your bookmark's address, URL or URI.
+- `<description>` is empty for Chrome, Edge, Internet Explorer or Gemini. It 
+  contains Safari 'Description', Firefox 'Tags' and what the Markdown spec
+  calls the 'Title' (just the tooltip, actually).
+
+Markdown, Gemini and plain text files are processed line by line (as UTF-8) :
+```
+  [markdown example](http://example.md/ "with description")
+  => gemini://example.gmi gemini example
+  plain text example http://example.txt with description
+```
 
 
 SEARCH BOOKMARKS INTERACTIVELY FROM CLI
 ---------------------------------------
 
-This tool can be used to search and open bookmarks interactively from the CLI. The
-following instructions are for macOS, but it should be similar on any regular OS.
+This tool can be used to search, select and open bookmarks interactively from your terminal. The following instructions are for macOS.
 
 ![](tty.png)
 
-Install the wonderful [fzf](https://github.com/junegunn/fzf) (available in
-[Homebrew](https://brew.sh)), [URI::Find](https://github.com/schwern/URI-Find) (CPAN),
-[App::uricolor](https://github.com/kal247/App-uricolor) (CPAN),
-and add these aliases to your shell :
+Install the wonderful [fzf](https://github.com/junegunn/fzf) (available in [Homebrew](https://brew.sh)), [URI::Find](https://github.com/schwern/URI-Find) (CPAN), [App::uricolor](https://github.com/kal247/App-uricolor) (CPAN), and add these aliases to your shell :
 
 **Open link(s) with default application :**
 ```
 alias lk="bookmarks | uricolor | fzf --ansi --exact --multi | urifind | xargs open"
 ```
 
+- `uricolor` colorizes URIs to distinguish them from title and description.
+- `fzf` is a fuzzy finder : use TAB for multiple selection, press ENTER to confirm, or ESC to cancel.
+- `urifind` extracts all URIs. Try `uricolor -s` and `urifind --schemeless` to find schemeless URLs.
+- Selected URIs will open with your default browser or application.
+- Since `open` uses macOS _Launch Services_ to determine which program to run, most common schemes such as `ftp://` or `ssh://` are automatically recognized.
+
+N.B. On Windows, I use [busybox-w32](https://frippery.org/busybox/) and a file `lk.bat` containing : 
+```
+@echo off
+
+bookmarks | uricolor | fzf --ansi --exact --multi | urifind | busybox xargs -n1 cmd /c start ""
+````
+
 **Copy link(s) to clipboard :**
 ```
 alias lkc="bookmarks | uricolor | fzf --ansi --exact --multi | urifind | pbcopy"
 ```
-
-- `uricolor` colorizes URIs to distinguish them from title and description.
-- `fzf` is a fuzzy finder (with many options) : use TAB for multiple selection, press ENTER to confirm, or ESC to cancel.
-- `urifind` extracts all URIs. Try `uricolor -s` and `urifind --schemeless` to find schemeless URLs.
-- Selected URIs will open with your default browser or application.
-- Since `open` uses macOS _Launch Services_ to determine which program to run, most common schemes such as `ftp://` or `ssh://` are automatically recognized.
 
 
 CHECK LINKS STATUS
@@ -103,10 +111,19 @@ To install this module manually, run the following commands :
     make test
     make install
 
+
 PREREQUISITES
 -------------
 
-DBI, Config::Any, Config::Tiny (optional, for IE only), Win32 (optional)
+All are optional.
+
+- Safari : macOS
+- Firefox : DBI, DBD::SQLite
+- Chrome : File::Slurper, JSON
+- Internet Explorer : Config::Any, Config::Tiny, Win32
+- Plain text : URI::Find
+- Markdown : none
+
 
 SUPPORT AND DOCUMENTATION
 -------------------------
@@ -126,10 +143,11 @@ You can also look for information at :
 
     [https://github.com/kal247/App-bookmarks](https://github.com/kal247/App-bookmarks)
 
+
 LICENSE AND COPYRIGHT
 ---------------------
 
-This software is Copyright (c) 2019 by jul.
+This software is Copyright (c) 2019-2021 by jul.
 
 This is free software, licensed under:
 

@@ -1,6 +1,7 @@
-#!/usr/bin/perl 
+#!/usr/bin/env perl
 use FindBin;
 use lib $FindBin::RealBin."/../lib";
+use lib $FindBin::RealBin."../..";
 
 use Finance::IG; 
 use Getopt::Std; 
@@ -11,22 +12,127 @@ use warnings;
 
 
 my %opt; 
-getopts('otf:Nhn:s:SO:g:', \%opt) or die("Aborted!"); 
+
+my @credentials=(
+               $FindBin::RealBin.'/../../credentials.pl' , 
+               $FindBin::RealBin.'/../credentials.pl', 
+               $FindBin::RealBin.'/credentials.pl', 
+               './credentials.pl', 
+             ); 
+
+our $VERSION=0.096; 
+######### code for multiiple -n x arguments treat as single joined with |. Not handled with getopts. 
+$opt{n}=[]; 
+for my $i (0..$#ARGV)
+{ 
+   next if (!defined $ARGV[$i]); 
+   if ($ARGV[$i] eq '-n')
+   { 
+       push(@{$opt{n}},$ARGV[$i+1]); 
+       $ARGV[$i]=$ARGV[$i+1]=undef; 
+       $i+=2; 
+   } 
+   elsif ($ARGV[$i]=~s/^-n//)
+   { 
+     push(@{$opt{n}},$ARGV[$i]); 
+     $ARGV[$i++]=undef; 
+   } 
+} 
+@ARGV=grep { defined $_ } @ARGV; 
+$opt{n}=join('|',@{$opt{n}}); 
+$opt{n} or delete $opt{n}; 
+$opt{a}=1; 
+#########
+
+getopts('a:c:eotf:Nhn:s:SO:g:', \%opt) or help("Aborted! -h for help "); 
 
 my $ig; 
-
 # IG Credentials needed. 
 # You can add them to enviroment variables as bellow or 
 # directly hardcode them below. 
 # It can be useful to have a demo account to, this should be a seperate instance of the 
 # object. 
 
-$ig=Finance::IG->new(
+my $capital; # hardcode your capital here if you want. 
+
+$opt{c}.='/credentials.pl' if ($opt{c} and ! -f $opt{c}); 
+unshift(@credentials,$opt{c}) if ($opt{c}); 
+
+if ($opt{e})
+{ 
+  if ($ENV{IGUSER} and $ENV{IGPASS} and $ENV{IGAPIKEY}) 
+  { 
+    print "Environment variables IGUSER, and IGPASS. and IGAPIKEY 
+are all set and accessible so will use those.\n"; 
+    exit 1; 
+  } 
+  
+  print "IGUSER is missing\n" if (!$ENV{IGUSER}); 
+  print "IGPASS is missing\n" if (!$ENV{IGPASS}); 
+  print "IGAPIKEY is missing\n" if (!$ENV{IGAPIKEY}); 
+
+} 
+   
+if ($ENV{IGUSER} and $ENV{IGPASS} and $ENV{IGAPIKEY}) 
+{ 
+    $ig=Finance::IG->new(
                 username=> $ENV{IGUSER}, 
                 password=> $ENV{IGPASS}, 
                 apikey=>   $ENV{IGAPIKEY}, 
                 isdemo=>0, 
-); 
+                col=>0, 
+   ); 
+} 
+else
+{ 
+#  eval { require $FindBin::RealBin.'/../../credentials.pl' } or 
+#  eval { require $FindBin::RealBin.'/../credentials.pl' } or 
+#  eval { require $FindBin::RealBin.'/credentials.pl' } or 
+#  eval { require './credentials.pl' } or 
+
+  my $reqok=0; 
+  map { $reqok ||=eval { require $_ } } @credentials; 
+
+  
+  $reqok or die "Need a credentials.pl file, looks something like this but contains actual metrobank login credentials: 
+     sub cred
+     { 
+        return  { 
+                   username='',      # Your ig username 
+                   password=>'',  # Your ig password
+                   apikey=>'' ,   # Your ig apikey
+                } 
+     }; 
+     1; 
+
+You can alternatively use 3 environment variables named IGUSER,IGPASSWORD, IGAPIKEY. 
+The credentials file is searched for in the following paths: 
+@credentials
+You can also use -c path or file. 
+" ;
+    $ig=Finance::IG->new(cred(),isdemo=>0,col=>0); 
+
+    # This hack allows you to set your starting  capital in the credentials file if you wish 
+    my %x=cred(); 
+    $capital//=$x{capital}; 
+} 
+
+if ($opt{e})
+{ 
+  my ($e)=grep { m/credentials/ }  keys %INC; 
+  $e=~s#/[^/]+/\.\.##g; 
+  $e=~s#/[^/]+/\.\.##g; 
+  print "credentials.pl from : ".$e."\n"; 
+  exit; 
+} 
+
+# map { $ENV{$_}//='' } qw(IGUSER IGPASS IGAPIKEY); # empty allowed but caught, undef not allowed
+#$ig=Finance::IG->new(
+#                username=> $ENV{IGUSER}, 
+#                password=> $ENV{IGPASS}, 
+#                apikey=>   $ENV{IGAPIKEY}, 
+#                isdemo=>0, 
+#); 
 
 die "missing credentials username, try setting the environment variable IGUSER" if ($ig->username eq ''); 
 die "missing credentials password, try setting the environment variable IGPASS" if ($ig->username eq ''); 
@@ -125,7 +231,14 @@ my $out="stdout";
 $ig->login(); 
 
 my $p=$ig->positions(); 
-$p=$ig->agg($p,$sortlist); 
+if ($opt{a})
+{ 
+   $p=$ig->agg($p,$sortlist); 
+} 
+else
+{ 
+   $p=$ig->nonagg($p,$sortlist); 
+} 
 # $ig->sorter(['-atrisk'],$p); 
 
 printf "%d Positions\n",@$p+0 if (!$opt{S}); 
@@ -205,8 +318,6 @@ for my $position (@$p)
 
 $ig->printpos($out , $titles, $format) if (!$opt{N});  
 
-my $capital=10000; # hardcode your capital here! 
-
 my $accounts=$ig->accounts(); 
 # my ($account)=grep { $_->{accountId} eq "..." } @$accounts; 
 my ($account)=grep { $_->{accountType} eq "SPREADBET" } @$accounts; 
@@ -215,9 +326,18 @@ my $balance=$account->{balance}->{balance};
 my $margin=$account->{balance}->{balance}+$account->{balance}->{profitLoss}-$account->{balance}->{available}; 
 my $available=$account->{balance}->{available};
 
-my $pc=int(1000*($profit+$balance-$capital)/$capital)/10; 
+my $pc;
+   $pc=int(1000*($profit+$balance-$capital)/$capital)/10 if ($capital); 
 my $ppc=int(1000*$profit/$value)/10; 
-print "# Total value $value balance=£$balance profit on open trades=£$profit as % of value $ppc% capital=$capital margin/av=£$margin/£$available profit/capital=$pc%\n" if (!$opt{S}); 
+my $equity=sprintf("%0.2f",$balance+$profit); 
+if (!$opt{S}) 
+{ 
+print "# Total value £$value balance=£$balance equity=£$equity profit on open trades=£$profit as % of value $ppc% "; 
+print "capital=£$capital " if ($capital); 
+print "margin/av=£$margin/£$available "; 
+print "profit/capital=$pc%"if ($capital); 
+print "\n"; 
+} 
 
 sub datecmp
 {
@@ -248,12 +368,27 @@ sub help
 # h help
 # g grep  
 # s print NO summary line 
-   print "$mess\n" if ($mess);  
+
+   my $name=$0; 
+   $name=~s#^.*/([^/]+)$#$1#; 
+   print "$mess\n" if (defined $mess and length($mess)>1);  
+   print "$name Version $VERSION\n"; 
    print "
+This program is both an example of usage and a practical utility in its own right. 
+
+It will print out your spreadbet positions in IG in various ways using your 
+username, password and apikey. These can be supplied in a cedentials.pl file in the script directory
+or 1 or 2 directories up or the current directory. Or you can set
+the environment variables IGPASS, IGUSER, IGAPIKEY.  
+
+The default display is decending order of percent profit.  Various formats are possible. 
+-a n aggregate 1 (default) , nonaggregate 0 = show individual holdings
+-e explain where credentials for login are coming from, then exit. 
 -o Send output to an autogenerated, time based file. 
--f n use one of the inbuilt formats 1 or 2 
+-f n use one of the inbuilt formats 1 to 5. 
 -h this message and exit
--n xxx use xxx as a pattern in name to grep for particular positions
+-n xxx use xxx as a pattern in name to grep for particular positions. Can use | for or. (Must be quoted) 
+   multipl -n allowed. 
 -S print no summary line. 
 -N toggle printing of headers. 
 -t print title lines every 10 lines. 
@@ -268,12 +403,51 @@ sub help
    The default could be written in any of the following ways:   
      -s-profitpc,instrumentName or -s-pn or -s-p,n
    It sorts by decending order of profit and where this is the 
-   same, orders by name. 
+   same, orders by name. Case is significant.  
 -O [+-=]date[time] Show only positions held Opened later or equal  (+) equal to (-) 
    or earlier or equal (-) than the given date or datetime, eg 
    -O 2020/11/05 or -O 2020/11/05T15:00:00
    Equal to means with ref to the format so that 
    2020/11/05 means the days are equal while 2020/11 means amy time that month 
+"; 
+exit 1 if (defined $mess and length($mess)>1); 
+print "A complete list of fields in a position isi as follows. Some of these 
+are IG things, and some are calculated: 
+
+    bid
+    contractSize
+    controlledRisk
+    createdDate
+    createdDateUTC
+    currency
+    dailyp
+    dealId
+    dealReference
+    delayTime
+    direction
+    epic
+    expiry
+    held
+    high
+    instrumentName
+    instrumentType
+    limitedRiskPremium
+    limitLevel
+    lotSize
+    low
+    marketStatus
+    netChange
+    offer
+    percentageChange
+    profit
+    scalingFactor
+    size
+    stopLevel
+    streamingPricesAvailable
+    trailingStep
+    trailingStopDistance
+    updateTime
+    updateTimeUTC
 "; 
  exit(1); 
 } 

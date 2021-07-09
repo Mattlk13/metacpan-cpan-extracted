@@ -1,12 +1,12 @@
 #!perl
 
 # Note: This script is a CLI for Riap function /App/BorderStyleUtils/list_border_style_modules
-# and generated automatically using Perinci::CmdLine::Gen version 0.496
+# and generated automatically using Perinci::CmdLine::Gen version 0.497
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-06-19'; # DATE
+our $DATE = '2021-04-24'; # DATE
 our $DIST = 'App-BorderStyleUtils'; # DIST
-our $VERSION = '0.002'; # VERSION
+our $VERSION = '0.012'; # VERSION
 
 use 5.010001;
 use strict;
@@ -40,7 +40,7 @@ list-border-style-modules - List BorderStyle modules
 
 =head1 VERSION
 
-This document describes version 0.002 of list-border-style-modules (from Perl distribution App-BorderStyleUtils), released on 2020-06-19.
+This document describes version 0.012 of list-border-style-modules (from Perl distribution App-BorderStyleUtils), released on 2021-04-24.
 
 =head1 SYNOPSIS
 
@@ -51,6 +51,47 @@ Usage:
      [--page-result[=program]] [--quiet] [--trace] [--verbose]
      [--view-result[=program]]
 
+Examples:
+
+List style names:
+
+ % list-border-style-modules
+ ASCII::None
+ ASCII::SingleLine
+ ASCII::SingleLineDoubleAfterHeader
+ ASCII::SingleLineHorizontalOnly
+ ASCII::SingleLineInnerOnly
+ ASCII::SingleLineOuterOnly
+ ASCII::SingleLineVerticalOnly
+ ASCII::Space
+ ASCII::SpaceInnerOnly
+ BoxChar::None
+ BoxChar::SingleLine
+ BoxChar::SingleLineHorizontalOnly
+ BoxChar::SingleLineInnerOnly
+ BoxChar::SingleLineOuterOnly
+ BoxChar::SingleLineVerticalOnly
+ BoxChar::Space
+ BoxChar::SpaceInnerOnly
+ Test::CustomChar
+ Test::Labeled
+ Test::Random
+ UTF8::Brick
+ UTF8::BrickOuterOnly
+ UTF8::DoubleLine
+ UTF8::None
+ UTF8::SingleLine
+ UTF8::SingleLineBold
+ UTF8::SingleLineBoldHeader
+ UTF8::SingleLineCurved
+ UTF8::SingleLineDoubleAfterHeader
+ UTF8::SingleLineHorizontalOnly
+ UTF8::SingleLineInnerOnly
+ UTF8::SingleLineOuterOnly
+ UTF8::SingleLineVerticalOnly
+ UTF8::Space
+ UTF8::SpaceInnerOnly
+
 =head1 OPTIONS
 
 C<*> marks required options.
@@ -60,6 +101,8 @@ C<*> marks required options.
 =over
 
 =item B<--detail>, B<-l>
+
+Currently does not do anything yet.
 
 =back
 
@@ -206,7 +249,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

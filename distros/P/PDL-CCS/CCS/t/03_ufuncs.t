@@ -51,7 +51,7 @@ sub test_ufunc {
 
   if ($ufunc_name =~ /_ind$/) {
     ##-- hack: adjust $dense_rc for maximum_ind, minimum_ind
-    $dense_rc->where( $a->index2d($dense_rc,sequence($a->dim(1))) == $missing ) .= -1;
+    $dense_rc->where( $a->index2d($dense_rc,sequence($a->dim(1))) == $missing_val ) .= -1;
   } elsif ($ufunc_name =~ /qsorti$/) {
     ##-- hack: adjust $dense_rc for qsorti()
     my $ccs_mask = $dense_rc->zeroes;

@@ -4,8 +4,8 @@
 #
 package PDL::GSLSF::TRANSPORT;
 
-@EXPORT_OK  = qw( PDL::PP gsl_sf_transport_2 PDL::PP gsl_sf_transport_3 PDL::PP gsl_sf_transport_4 PDL::PP gsl_sf_transport_5 );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP gsl_sf_transport_2 PDL::PP gsl_sf_transport_3 PDL::PP gsl_sf_transport_4 PDL::PP gsl_sf_transport_5 );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::GSLSF::TRANSPORT ;
 
@@ -68,7 +68,7 @@ J(2,x)
 =for bad
 
 gsl_sf_transport_2 does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -97,7 +97,7 @@ J(3,x)
 =for bad
 
 gsl_sf_transport_3 does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -126,7 +126,7 @@ J(4,x)
 =for bad
 
 gsl_sf_transport_4 does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -155,7 +155,7 @@ J(5,x)
 =for bad
 
 gsl_sf_transport_5 does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

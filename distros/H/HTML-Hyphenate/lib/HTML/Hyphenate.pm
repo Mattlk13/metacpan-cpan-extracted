@@ -1,6 +1,6 @@
 # -*- cperl; cperl-indent-level: 4 -*-
-# Copyright (C) 2009-2020, Roland van Ipenburg
-package HTML::Hyphenate v1.1.7;
+# Copyright (C) 2009-2021, Roland van Ipenburg
+package HTML::Hyphenate v1.1.10;
 use Moose;
 use utf8;
 use 5.016000;
@@ -8,10 +8,11 @@ use 5.016000;
 use charnames ();
 
 #use Log::Log4perl qw(:resurrect :easy get_logger);
+use I18N::LangTags;
 use Set::Scalar;
 use TeX::Hyphen;
-use TeX::Hyphen::Pattern 0.100;
-use Mojo::DOM;
+use TeX::Hyphen::Pattern v1.1.8;
+use HTML::Hyphenate::DOM;
 
 use Readonly;
 ## no critic qw(ProhibitCallsToUnexportedSubs)
@@ -47,6 +48,8 @@ Readonly::Hash my %LOG => (
     'HTML_METHOD'   => q{Using HTML passed to method '%s'},
     'HTML_PROPERTY' => q{Using HTML property '%s'},
     'NOT_HYPHEN'    => q{No pattern found for '%s'},
+    'TRY_SIMILAR'   => q{Searching a pattern similar to the unmatched '%s'},
+    'SIMILARITY'    => q{Similarity of candidate '%s' is %i},
     'REGISTER'      => q{Registering TeX::Hyphen object for label '%s'},
     'NO_CLASSES'    => q{No classes defined, so not check for them},
 );
@@ -73,7 +76,7 @@ after 'html' => sub {
         }
     }
 };
-has style => ( is => 'rw', isa => 'Str' );
+has style      => ( is => 'rw', isa => 'Str' );
 has min_length =>
   ( is => 'rw', isa => 'Int', default => $DEFAULT{'MIN_LENGTH'} );
 has min_pre  => ( is => 'rw', isa => 'Int', default => $DEFAULT{'MIN_PRE'} );
@@ -106,7 +109,7 @@ after 'classes_excluded' => sub {
 has _hyphenators   => ( is => 'rw', isa => 'HashRef', default => sub { {} } );
 has _lang          => ( is => 'rw', isa => 'Str' );
 has _doctype       => ( is => 'rw', isa => 'Str' );
-has _dom           => ( is => 'rw', isa => 'Mojo::DOM' );
+has _dom           => ( is => 'rw', isa => 'HTML::Hyphenate::DOM' );
 has _scope_is_root => ( is => 'rw', isa => 'Bool', default => sub { 0 } );
 has _classes       => ( is => 'rw', isa => 'Bool', default => sub { 0 } );
 ## use critic
@@ -186,9 +189,7 @@ sub _traverse_dom {
             {
                 $self->_configure_lang($node);
                 my $hyphened = $self->_hyphen($string);
-                if ( $hyphened ne $string ) {
-                    $node->replace($hyphened);
-                }
+                $node->replace($hyphened);
             }
             return;
         }
@@ -290,12 +291,33 @@ sub _configure_lang {
 
 sub _add_tex_hyphen_to_cache {
     my ($self) = @_;
-    my $thp = TeX::Hyphen::Pattern->new();
-    $thp->label( $self->_lang );
-    my $cache = $self->_hyphenators;
-    if ( my $file = $thp->filename ) {
+    my $thp    = TeX::Hyphen::Pattern->new();
+    my $pat    = $self->_lang;
+    $thp->label($pat);
+    my $file = $thp->filename;
+    if ( !defined $file ) {
+        ###l4p $log->debug( sprintf $LOG{'TRY_SIMILAR'}, $pat );
+        my $max_sim = 0;
+        for my $tag ( $thp->available() ) {
+            $tag =~ s{.*::}{}msx;
+            $tag =~ s{[_]}{-}msx;
+            my $sim =
+              I18N::LangTags::similarity_language_tag( $tag, $self->_lang );
+            ###l4p $log->debug( sprintf $LOG{'SIMILARITY'}, $tag, $sim );
+            if ( $sim > $max_sim ) {
+                $pat     = $tag;
+                $max_sim = $sim;
+            }
+        }
+        if ( $max_sim > 0 ) {
+            $thp->label($pat);
+            $file = $thp->filename;
+        }
+    }
+    if ( defined $file ) {
 
         ###l4p $log->debug( sprintf $LOG{'PATTERN_FILE'}, $file );
+        my $cache = $self->_hyphenators;
         ${$cache}{ $self->_lang } = TeX::Hyphen->new(
             q{file}     => $file,
             q{leftmin}  => $self->min_pre,
@@ -359,7 +381,7 @@ sub _get_nearest_ancestor_level_by_classname {
 
 sub _reset_dom {
     my ($self) = @_;
-    my $dom = Mojo::DOM->new();
+    my $dom = HTML::Hyphenate::DOM->new();
     $self->_dom($dom);
     return;
 }
@@ -370,7 +392,7 @@ __END__
 
 =encoding utf8
 
-=for stopwords Ipenburg Readonly merchantability Mojolicious
+=for stopwords Ipenburg Readonly merchantability Mojolicious Bitbucket
 
 =head1 NAME
 
@@ -378,7 +400,7 @@ HTML::Hyphenate - insert soft hyphens into HTML
 
 =head1 VERSION
 
-This document describes HTML::Hyphenate version v1.1.7.
+This document describes HTML::Hyphenate version C<v1.1.10>.
 
 =head1 SYNOPSIS
 
@@ -534,8 +556,7 @@ converted to a different notation.
 =back
 
 Please report any bugs or feature requests at
-L<RT for rt.cpan.org|
-https://rt.cpan.org/Dist/Display.html?Queue=HTML-Hyphenate>.
+L<Bitbucket|https://bitbucket.org/rolandvanipenburg/html-hyphenate/issues>.
 
 =head1 AUTHOR
 
@@ -543,7 +564,7 @@ Roland van Ipenburg, E<lt>roland@rolandvanipenburg.comE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2009-2020, Roland van Ipenburg
+Copyright (C) 2009-2021, Roland van Ipenburg
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.14.0 or,

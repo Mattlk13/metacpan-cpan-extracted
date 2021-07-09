@@ -4,8 +4,8 @@
 #
 package PDL::IO::Browser;
 
-@EXPORT_OK  = qw( PDL::PP browse );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP browse );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::IO::Browser ;
 
@@ -28,7 +28,7 @@ PDL::IO::Browser -- 2D data browser for PDL
 
 =head1 DESCRIPTION
 
-cursor terminal browser for piddles.
+cursor terminal browser for ndarrays.
 
 =head1 SYNOPSIS
 
@@ -80,7 +80,7 @@ around a PDL array using the cursor keys.
 =for bad
 
 browse does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

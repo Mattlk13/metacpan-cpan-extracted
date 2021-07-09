@@ -209,7 +209,7 @@ tiff_GetVersion (class)
 
 void
 tiff_IsCODECConfigured (class, compression)
-                uint16 compression
+                uint16_t compression
         PPCODE:
                 XPUSHs(sv_2mortal(newSViv(TIFFIsCODECConfigured(compression))));
 
@@ -263,32 +263,33 @@ tiff_NumberOfDirectories (tif)
 void
 tiff_SetDirectory (tif, dirnum)
                 TIFF		*tif
-                uint16          dirnum;
+                uint16_t        dirnum;
         PPCODE:
 	        XPUSHs(sv_2mortal(newSViv(TIFFSetDirectory(tif, dirnum))));
 
 void
 tiff_SetSubDirectory(tif, diroff)
                 TIFF		*tif
-                uint64          diroff;
+                uint64_t        diroff;
         PPCODE:
 	        XPUSHs(sv_2mortal(newSViv(TIFFSetSubDirectory(tif, diroff))));
 
 void
 tiff_GetField (tif, tag)
                 TIFF            *tif
-                uint32          tag
+                uint32_t        tag
 	INIT:
-                uint16          ui16, ui16_2, *aui16, *aui16_2, *aui16_3;
-                uint32          ui32;
-                uint64          *aui;
+                uint16_t        ui16, ui16_2, *aui16, *aui16_2, *aui16_3;
+                uint32_t        ui32;
+                uint64_t        *aui;
                 float           f;
                 float           *af;
                 int             vector_length, nvals;
         PPCODE:
 /* See http://www.libtiff.org/man/TIFFGetField.3t.html */
                 switch (tag) {
-                    /* single uint16 */
+                    /* byte single uint8 */
+                    /* short single uint16 */
 		    case TIFFTAG_BITSPERSAMPLE:
 		    case TIFFTAG_COMPRESSION:
 		    case TIFFTAG_FILLORDER:
@@ -298,6 +299,7 @@ tiff_GetField (tif, tag)
 		    case TIFFTAG_ORIENTATION:
 		    case TIFFTAG_PHOTOMETRIC:
 		    case TIFFTAG_PLANARCONFIG:
+                    case TIFFTAG_PREDICTOR:
 		    case TIFFTAG_RESOLUTIONUNIT:
 		    case TIFFTAG_SAMPLESPERPIXEL:
 		    case TIFFTAG_THRESHHOLDING:
@@ -306,7 +308,7 @@ tiff_GetField (tif, tag)
                         }
                         break;
 
-                    /* single float */
+                    /* single 64-bit unsigned fraction float */
 		    case TIFFTAG_XRESOLUTION:
 		    case TIFFTAG_YRESOLUTION:
 		    case TIFFTAG_XPOSITION:
@@ -316,7 +318,7 @@ tiff_GetField (tif, tag)
                         }
                         break;
 
-                    /* two uint16 */
+                    /* two short uint16 */
 		    case TIFFTAG_PAGENUMBER:
 		    case TIFFTAG_HALFTONEHINTS:
                         if (TIFFGetField (tif, tag, &ui16, &ui16_2)) {
@@ -325,7 +327,7 @@ tiff_GetField (tif, tag)
                         }
                         break;
 
-                    /* count + array of uint16 */
+                    /* count + array of short uint16 */
 		    case TIFFTAG_EXTRASAMPLES:
                         if (TIFFGetField (tif, tag, &ui16, &aui16)) {
                             int i;
@@ -334,12 +336,12 @@ tiff_GetField (tif, tag)
                         }
                         break;
 
-                    /* three array of uint16 */
+                    /* three array of short uint16 */
 		    case TIFFTAG_COLORMAP:
                         if (TIFFGetField (tif, tag, &aui16, &aui16_2, &aui16_3)) {
-                          if ((aui16 != (uint16 *) NULL)
-                              && (aui16_2 != (uint16 *) NULL)
-                              && (aui16_3 != (uint16 *) NULL)) {
+                          if ((aui16 != (uint16_t *) NULL)
+                              && (aui16_2 != (uint16_t *) NULL)
+                              && (aui16_3 != (uint16_t *) NULL)) {
                             AV* rav = newAV();
                             AV* gav = newAV();
                             AV* bav = newAV();
@@ -399,16 +401,17 @@ tiff_GetField (tif, tag)
 void
 tiff_GetFieldDefaulted (tif, tag)
                 TIFF            *tif
-                uint32          tag
+                uint32_t        tag
 	INIT:
-                uint16          ui16, ui16_2, *aui16, *aui16_2, *aui16_3;
-                uint32          ui32;
-                uint64          *aui;
+                uint16_t        ui16, ui16_2, *aui16, *aui16_2, *aui16_3;
+                uint32_t        ui32;
+                uint64_t        *aui;
                 float           f;
                 int             vector_length;
         PPCODE:
                 switch (tag) {
-                    /* single uint16 */
+                    /* byte single uint8 */
+                    /* short single uint16 */
 		    case TIFFTAG_BITSPERSAMPLE:
 		    case TIFFTAG_COMPRESSION:
 		    case TIFFTAG_FILLORDER:
@@ -418,6 +421,7 @@ tiff_GetFieldDefaulted (tif, tag)
 		    case TIFFTAG_ORIENTATION:
 		    case TIFFTAG_PHOTOMETRIC:
 		    case TIFFTAG_PLANARCONFIG:
+                    case TIFFTAG_PREDICTOR:
 		    case TIFFTAG_RESOLUTIONUNIT:
 		    case TIFFTAG_SAMPLESPERPIXEL:
 		    case TIFFTAG_THRESHHOLDING:
@@ -426,7 +430,7 @@ tiff_GetFieldDefaulted (tif, tag)
                         }
                         break;
 
-                    /* single float */
+                    /* single 64-bit unsigned fraction float */
 		    case TIFFTAG_XRESOLUTION:
 		    case TIFFTAG_YRESOLUTION:
 		    case TIFFTAG_XPOSITION:
@@ -436,7 +440,7 @@ tiff_GetFieldDefaulted (tif, tag)
                         }
                         break;
 
-                    /* two uint16 */
+                    /* two short uint16 */
 		    case TIFFTAG_PAGENUMBER:
 		    case TIFFTAG_HALFTONEHINTS:
                         if (TIFFGetFieldDefaulted (tif, tag, &ui16, &ui16_2)) {
@@ -445,7 +449,7 @@ tiff_GetFieldDefaulted (tif, tag)
                         }
                         break;
 
-                    /* count + array of uint16 */
+                    /* count + array of short uint16 */
 		    case TIFFTAG_EXTRASAMPLES:
                         if (TIFFGetFieldDefaulted (tif, tag, &ui16, &aui16)) {
                             int i;
@@ -454,12 +458,12 @@ tiff_GetFieldDefaulted (tif, tag)
                         }
                         break;
 
-                    /* three array of uint16 */
+                    /* three array of short uint16 */
 		    case TIFFTAG_COLORMAP:
                         if (TIFFGetFieldDefaulted (tif, tag, &aui16, &aui16_2, &aui16_3)) {
-                          if ((aui16 != (uint16 *) NULL)
-                              && (aui16_2 != (uint16 *) NULL)
-                              && (aui16_3 != (uint16 *) NULL)) {
+                          if ((aui16 != (uint16_t *) NULL)
+                              && (aui16_2 != (uint16_t *) NULL)
+                              && (aui16_3 != (uint16_t *) NULL)) {
                             AV* rav = newAV();
                             AV* gav = newAV();
                             AV* bav = newAV();
@@ -501,10 +505,10 @@ tiff_GetFieldDefaulted (tif, tag)
 void
 tiff_SetField (tif, tag, ...)
                 TIFF            *tif
-                uint32          tag
+                uint32_t        tag
 	INIT:
-                uint16          ui16, ui16_2;
-                uint32          ui32;
+                uint16_t        ui16, ui16_2;
+                uint32_t        ui32;
                 float           f;
         PPCODE:
                 switch (tag) {
@@ -569,15 +573,15 @@ tiff_TileRowSize (tif)
 void
 tiff_ComputeStrip (tif, row, sample)
                 TIFF            *tif
-                uint32          row
-                uint16          sample
+                uint32_t        row
+                uint16_t        sample
         PPCODE:
                 XPUSHs(sv_2mortal(newSViv(TIFFComputeStrip(tif, row, sample))));
 
 void
 tiff_ReadEncodedStrip (tif, strip, size)
                 TIFF            *tif
-                uint32          strip
+                uint32_t        strip
                 tmsize_t        size
 	INIT:
                 void            *buf;
@@ -594,7 +598,7 @@ tiff_ReadEncodedStrip (tif, strip, size)
 void
 tiff_WriteEncodedStrip (tif, strip, data, size)
                 TIFF            *tif
-                uint32          strip
+                uint32_t        strip
                 void*           data
                 tmsize_t        size
 	INIT:
@@ -606,7 +610,7 @@ tiff_WriteEncodedStrip (tif, strip, data, size)
 void
 tiff_ReadRawStrip (tif, strip, size)
                 TIFF            *tif
-                uint32          strip
+                uint32_t        strip
                 tmsize_t        size
 	INIT:
                 void            *buf;
@@ -623,10 +627,10 @@ tiff_ReadRawStrip (tif, strip, size)
 void
 tiff_ReadTile (tif, x, y, z, s)
                 TIFF            *tif
-                uint32          x
-                uint32          y
-                uint32          z
-                uint16          s
+                uint32_t        x
+                uint32_t        y
+                uint32_t        z
+                uint16_t        s
 	INIT:
                 void            *buf;
                 tmsize_t        tilesize, bufsize;

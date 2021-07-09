@@ -2,7 +2,7 @@ package Catmandu::Interactive;
 
 use Catmandu::Sane;
 
-our $VERSION = '1.2013';
+our $VERSION = '1.2015';
 
 use Catmandu;
 use Moo;

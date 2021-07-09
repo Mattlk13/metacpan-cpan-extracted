@@ -1,0 +1,28 @@
+Changes
+clib/CMakeLists.txt
+clib/src/panda/unievent/socks.cc
+clib/src/panda/unievent/socks.h
+clib/src/panda/unievent/socks/error.cc
+clib/src/panda/unievent/socks/error.h
+clib/src/panda/unievent/socks/Socks.h
+clib/src/panda/unievent/socks/SocksFilter.cc
+clib/src/panda/unievent/socks/SocksFilter.h
+clib/src/panda/unievent/socks/SocksParser.cc
+clib/src/panda/unievent/socks/SocksParser.rl
+clib/tests/cert/cert.pem
+clib/tests/cert/key.pem
+clib/tests/main.cc
+clib/tests/socks.cc
+clib/unievent-socks-config.cmake
+INSTALL.SKIP
+lib/UniEvent/Socks.pm
+lib/UniEvent/Socks.pod
+Makefile.PL
+MANIFEST			This list of files
+MANIFEST.SKIP
+misc/fail-SRV-815.plx
+Socks.xs
+t/lib/MyTest.pm
+t/socks.t
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)

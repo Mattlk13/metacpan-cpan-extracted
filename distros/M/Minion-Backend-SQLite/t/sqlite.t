@@ -7,6 +7,7 @@ use Test::More;
 use Config;
 use Minion;
 use Mojo::IOLoop;
+use Mojo::Promise;
 use Sys::Hostname qw(hostname);
 use Time::HiRes qw(usleep);
 
@@ -735,6 +736,28 @@ subtest 'Jobs with priority' => sub {
   is $job->info->{retries},  2, 'job has been retried twice';
   is $job->info->{priority}, 0, 'low priority';
   ok $job->finish, 'job finished';
+
+  $id = $minion->enqueue(add => [2, 6], {priority => 2});
+  ok !$worker->dequeue(0, {min_priority => 5});
+  ok !$worker->dequeue(0, {min_priority => 3});
+  ok $job = $worker->dequeue(0, {min_priority => 2});
+  is $job->id, $id, 'right id';
+  is $job->info->{priority}, 2, 'expected priority';
+  ok $job->finish, 'job finished';
+  $minion->enqueue(add => [2, 8], {priority => 0});
+  $minion->enqueue(add => [2, 7], {priority => 5});
+  $minion->enqueue(add => [2, 8], {priority => -2});
+  ok !$worker->dequeue(0, {min_priority => 6});
+  ok $job = $worker->dequeue(0, {min_priority => 0});
+  is $job->info->{priority}, 5, 'expected priority';
+  ok $job->finish, 'job finished';
+  ok $job = $worker->dequeue(0, {min_priority => 0});
+  is $job->info->{priority}, 0, 'expected priority';
+  ok $job->finish, 'job finished';
+  ok !$worker->dequeue(0, {min_priority => 0});
+  ok $job = $worker->dequeue(0, {min_priority => -10});
+  is $job->info->{priority}, -2, 'expected priority';
+  ok $job->finish, 'job finished';
   $worker->unregister;
 };
 
@@ -930,7 +953,7 @@ subtest 'Nested data structures' => sub {
 subtest 'Perform job in a running event loop' => sub {
   plan skip_all => 'Minion workers do not support fork emulation' if HAS_PSEUDOFORK;
   my $id = $minion->enqueue(add => [8, 9]);
-  Mojo::IOLoop->delay(sub { $minion->perform_jobs })->wait;
+  Mojo::Promise->new->resolve->then(sub { $minion->perform_jobs })->wait;
   is $minion->job($id)->info->{state}, 'finished', 'right state';
   is_deeply $minion->job($id)->info->{result}, {added => 17}, 'right result';
 };

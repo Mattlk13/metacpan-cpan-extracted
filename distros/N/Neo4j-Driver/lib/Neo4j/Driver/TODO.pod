@@ -31,10 +31,6 @@ See also L<#7|https://github.com/johannessen/neo4j-driver-perl/issues/7>.
 =item * L<Neo4j::Driver/"Parameter syntax conversion">: make stable and move
 filter implementation to C<Transaction> in preparation of Bolt v3 support
 
-=item * L<Neo4j::Driver/"Type system customisation">: make illegal, but
-create a new config option that continues to provide C<init> functionality
-(same flexibility, simpler API)
-
 =item * L<Neo4j::Driver::Session/"Calling in list context">: make illegal
 
 =item * L<Neo4j::Driver::Session/"Concurrent transactions">: make illegal
@@ -60,6 +56,11 @@ L<in ResultSummary|Neo4j::Driver::ResultSummary/"Calling in scalar context">)
 should probably generally behave the same way using a list in scalar
 context would: It should return the number of items in the list.
 
+=item * Jolt: The C<jolt> config option will be deprecated once
+Jolt implementation is fully complete. Those who use a modern Neo4j
+version and still want to get plain old JSON responses can easily
+write their own net module overriding the C<Accept> header.
+
 =back
 
 =head2 Tests, code quality, documentation
@@ -68,9 +69,6 @@ context would: It should return the number of items in the list.
 
 =item * Test roundtrip of special numeric values
 (very large integers, -0.0, ±Inf, ±NaN).
-
-=item * Convert tests in C<xt/compatibility> to use L<Module::Load>, so that
-testing/dev dependencies are fewer.
 
 =item * Improve test coverage:
 
@@ -99,9 +97,6 @@ methods might be a quick way to bring up the B<pod> coverage stats a bit.
 =item * Neo4j::Test should auto-detect the Neo4j server version and
 set the C<cypher_filter> config option accordingly.
 
-=item * Neo4j::Sim should implement the driver HTTP net module API instead
-of the L<REST::Client> API, so that we can eventually replace REST::Client.
-
 =item * Write new unit tests for all modules.
 
 =item * Optimise the simulator for C<$hash = 0>.
@@ -110,20 +105,9 @@ could filter out.
 The internals test "transaction: REST 404 error handling" should run a distinct
 statement.
 
-=item * Try to change "no connection" tests such that no C<NXDOMAIN> responses
-are required by (ab)using a particular port number on localhost; the port could
-be checked beforehand and the test skipped if it happens to be open for some
-reason. Alternatively, the tests in question could be changed to a simulated
-connection failure.
-
 =item * Verify that L<Neo4j::Driver::Type::Node/"get"> and
 L<Neo4j::Driver::Type::Relationship/"get"> really do return undef
 (as documented), even when called in list context.
-
-=item * Add test for byte arrays (C<RETURN apoc.text.bytes("DATA") AS x>).
-
-=item * Check that nodes without labels and nodes without properties are
-handled correctly in all aspects (there I<might> be issues with perlbolt).
 
 =item * Check that after a server error, the next statement will succeed
 (there I<might> be issues with perlbolt; see
@@ -171,11 +155,6 @@ re-blessing the structural types into custom types from the business logic
 using C<< $cypher_types->{init} >>. (For example, check for Neo4j nodes that
 are labelled C<:Person> and re-bless those as C<Local::Person> or whatever.)
 
-=item * Consider adding a config option like C<tls_options> to be
-used as input to L<IO::Socket::SSL> by the default C<net_module>.
-While this avoids the need to create a new module in simple cases,
-it does introduce a potential security risk.
-
 =back
 
 =head2 L<Neo4j::Driver::Session>
@@ -220,15 +199,6 @@ this item might mean investing time in developing an optimisation
 feature that is almost never used. Since the server is often run on localhost
 anyway where latency is very close to zero, this item should not have high
 priority.
-
-=item * The current API to
-L<Neo4j::Driver::Transaction/"Execute multiple statements at once">
-seems a bit too complicated, especially for something that is probably
-hardly ever actually used in practice. It might make sense to provide a
-dedicated method (e. g. C<_run_multiple()>) for just that purpose. This
-would eventually free up the C<run()> implementation from unneeded baggage.
-The dedicated method may be private as long as the plan still is to provide
-this functionality by running statements lazily.
 
 =back
 
@@ -332,18 +302,6 @@ i. e. the resource has been created at the default transaction endpoint.
 That should never happen; in fact, it should only ever happen for a PUT
 request, but we don't use those here. So ignoring this is probably the right
 choice. But it may still be useful to revisit this logic later on.
-
-=back
-
-=head2 Neo4j::Driver::Net::HTTP::*
-
-=over
-
-=item * Profile whether C<X-Stream> has any performance impact. Remove if
-in doubt, as we don't implement streaming (and have no plans to in the
-future, considering that Bolt should be used when speed is important).
-
-=item * Remove the L<REST::Client> dependency and use <LWP::UserAgent> directly.
 
 =back
 

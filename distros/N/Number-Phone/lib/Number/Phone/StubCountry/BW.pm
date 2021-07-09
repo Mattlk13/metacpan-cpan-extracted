@@ -22,7 +22,7 @@ use base qw(Number::Phone::StubCountry);
 use strict;
 use warnings;
 use utf8;
-our $VERSION = 1.20201204215954;
+our $VERSION = 1.20210602223257;
 
 my $formatters = [
                 {
@@ -32,17 +32,25 @@ my $formatters = [
                 },
                 {
                   'format' => '$1 $2',
-                  'leading_digits' => '[2-6]',
+                  'leading_digits' => '
+            [24-6]|
+            3[15-79]
+          ',
                   'pattern' => '(\\d{3})(\\d{4})'
                 },
                 {
                   'format' => '$1 $2 $3',
-                  'leading_digits' => '7',
+                  'leading_digits' => '[37]',
                   'pattern' => '(\\d{2})(\\d{3})(\\d{3})'
                 },
                 {
                   'format' => '$1 $2 $3',
                   'pattern' => '(\\d{4})(\\d{3})(\\d{3})'
+                },
+                {
+                  'format' => '$1 $2 $3',
+                  'leading_digits' => '8',
+                  'pattern' => '(\\d{3})(\\d{4})(\\d{3})'
                 }
               ];
 
@@ -66,7 +74,7 @@ my $validators = {
               9[0-5]
             )|
             5(?:
-              3[0389]|
+              3[03489]|
               4[0489]|
               7[1-47]|
               88|
@@ -98,7 +106,7 @@ my $validators = {
               9[0-5]
             )|
             5(?:
-              3[0389]|
+              3[03489]|
               4[0489]|
               7[1-47]|
               88|
@@ -113,15 +121,24 @@ my $validators = {
         ',
                 'mobile' => '
           77200\\d{3}|
-          7(?:
-            [1-6]\\d|
-            7[013-9]
+          (?:
+            321|
+            7(?:
+              [1-6]\\d|
+              7[013-9]|
+              8[01]
+            )
           )\\d{5}
         ',
                 'pager' => '',
                 'personal_number' => '',
                 'specialrate' => '(90\\d{5})',
-                'toll_free' => '0800\\d{6}',
+                'toll_free' => '
+          (?:
+            0800|
+            800\\d
+          )\\d{6}
+        ',
                 'voip' => '
           79(?:
             1(?:
@@ -133,44 +150,45 @@ my $validators = {
         '
               };
 my %areanames = ();
-$areanames{en} = {"26746", "Serowe",
+$areanames{en} = {"267390", "Gaborone",
 "26735", "Gaborone",
-"267397", "Gaborone",
-"267312", "Gaborone",
-"267392", "Gaborone",
-"267317", "Gaborone",
-"267319", "Gaborone",
-"267316", "Gaborone",
 "267659", "Gantsi",
-"267391", "Gaborone",
 "26754", "Barolong\/Ngwaketse",
-"26724", "Francistown",
-"267651", "Kgalagadi",
-"267315", "Gaborone",
-"267394", "Gaborone",
-"26747", "Mahalapye",
-"267539", "Ramotswa",
-"26729", "Letlhakane\/Orapa",
-"267370", "Gaborone",
 "267395", "Gaborone",
-"26759", "Molepolole",
-"267654", "Kgalagadi",
-"26726", "Selebi\-Phikwe",
-"267533", "Lobatse",
-"26768", "Maun",
-"267530", "Lobatse",
-"267318", "Gaborone",
-"26736", "Gaborone",
-"267393", "Gaborone",
-"267371", "Gaborone",
+"267370", "Gaborone",
+"267539", "Ramotswa",
+"267319", "Gaborone",
 "267313", "Gaborone",
-"26762", "Kasane",
-"267310", "Gaborone\ \(outer\)",
-"267390", "Gaborone",
+"267533", "Lobatse",
+"267392", "Gaborone",
+"26746", "Serowe",
+"26759", "Molepolole",
 "267538", "Ramotswa",
-"26749", "Palapye",
+"267397", "Gaborone",
+"267318", "Gaborone",
+"26758", "Jwaneng",
+"267651", "Kgalagadi",
+"267394", "Gaborone",
 "26757", "Mochudi",
-"26758", "Jwaneng",};
+"26726", "Selebi\-Phikwe",
+"267530", "Lobatse",
+"267310", "Gaborone\ \(outer\)",
+"267391", "Gaborone",
+"267654", "Kgalagadi",
+"26736", "Gaborone",
+"26749", "Palapye",
+"26747", "Mahalapye",
+"267315", "Gaborone",
+"26729", "Letlhakane\/Orapa",
+"267371", "Gaborone",
+"26762", "Kasane",
+"267317", "Gaborone",
+"267312", "Gaborone",
+"267393", "Gaborone",
+"26768", "Maun",
+"26724", "Francistown",
+"267534", "Lobatse",
+"267316", "Gaborone",};
 
     sub new {
       my $class = shift;

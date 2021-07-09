@@ -1,13 +1,15 @@
 package Archive::BagIt::Fast;
 use strict;
 use warnings;
-use IO::AIO;
-use Carp;
-use Time::HiRes qw(time);
+use IO::AIO ();
+use Carp qw( croak );
+use Time::HiRes qw( time );
 use Moo;
 extends "Archive::BagIt";
 
-our $VERSION = '0.071'; # VERSION
+our $VERSION = '0.075'; # VERSION
+
+# ABSTRACT: A module to use IO::AIO to het better performance
 
 
 has 'digest_callback' => (
@@ -29,11 +31,19 @@ has 'digest_callback' => (
             my $data;
             if ($filesize < $MMAP_MIN ) {
                 sysread $fh, $data, $filesize;
-                $digest = $digestobj->_digest->add($data)->hexdigest;
+                Net::SSLeay::EVP_DigestUpdate($digestobj->_digest, $data);
+                my $result = Net::SSLeay::EVP_DigestFinal($digestobj->_digest);
+                Net::SSLeay::EVP_MD_CTX_destroy($digestobj->_digest);
+                delete $digestobj->{_digest};
+                $digest = unpack('H*', $result);
             }
             elsif ( $filesize < 1500000000) {
                 IO::AIO::mmap $data, $filesize, IO::AIO::PROT_READ, IO::AIO::MAP_SHARED, $fh or croak "mmap: $!";
-                $digest = $digestobj->_digest->add($data)->hexdigest;
+                Net::SSLeay::EVP_DigestUpdate($digestobj->_digest, $data);
+                my $result = Net::SSLeay::EVP_DigestFinal($digestobj->_digest);
+                Net::SSLeay::EVP_MD_CTX_destroy($digestobj->_digest);
+                delete $digestobj->{_digest};
+                $digest = unpack('H*', $result);
             }
             else {
                 $digest = $digestobj->get_hash_string($fh);
@@ -58,11 +68,11 @@ __END__
 
 =head1 NAME
 
-Archive::BagIt::Fast
+Archive::BagIt::Fast - A module to use IO::AIO to het better performance
 
 =head1 VERSION
 
-version 0.071
+version 0.075
 
 =head1 NAME
 

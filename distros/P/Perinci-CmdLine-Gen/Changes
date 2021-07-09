@@ -1,3 +1,14 @@
+0.499   2021-06-23  Released-By: PERLANCAR; Urgency: medium
+
+	- Bump generated prereq versions: Perinci::CmdLine::Any -> 0.152,
+	  Perinci::CmdLine::Lite -> 1.905.
+
+
+0.498   2021-02-01  Released-By: PERLANCAR; Urgency: medium
+
+	- Update generated prereq version of Log::ger 0.037 -> 0.038.
+
+
 0.497   2020-07-31  Released-By: PERLANCAR; Urgency: medium
 
 	- Add arguments: copt_naked_res_{default,enable,getopt}.

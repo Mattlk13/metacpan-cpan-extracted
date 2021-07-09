@@ -11,6 +11,7 @@ package TestCase {
   use TestCase::ImplementCallback1;
   use TestCase::ImplementCallback2;
   use TestCase::Comparator;
+  use TestCase::Comparator::Byte;
   use TestCase::Pointer;
   use TestCase::ComplexCalc;
   use TestCase::Minimal::XGetter;
@@ -20,6 +21,7 @@ package TestCase {
   use TestCase::Point_3l;
   use TestCase::Point_3f;
   use TestCase::Point_3d;
+  use TestCase::DumpTest1;
   use SPVM::Complex_2f;
   use SPVM::Complex_2d;
 
@@ -71,9 +73,193 @@ SPVM::Test - SPVM test module
   sub DOUBLE_PRECICE : double () { return 2147483647.0; }
 
   sub main : int ($args : string[]) {
+    # dump
+    {
+      # string
+      {
+        my $string = "Hello";
+        warn dump $string;
+      }
+
+      # undef
+      {
+        my $string = (string)undef;
+        warn dump $string;
+      }
+      
+      # byte array
+      {
+        my $array = [(byte)1, 2];
+        warn dump $array;
+      }
+
+      # short array
+      {
+        my $array = [(short)1, 2];
+        warn dump $array;
+      }
+
+      # int array
+      {
+        my $array = [(int)1, 2];
+        warn dump $array;
+      }
+
+      # long array
+      {
+        my $array = [(long)1, 2];
+        warn dump $array;
+      }
+
+      # float array
+      {
+        my $array = [(float)1.2f, 2.4f];
+        warn dump $array;
+      }
+
+      # double array
+      {
+        my $array = [(double)1.2, 2.4];
+        warn dump $array;
+      }
+      
+      # byte muti numeric array
+      {
+        my $array = new TestCase::Point_3b[2];
+        $array->[0]{x} = 1;
+        $array->[0]{y} = 2;
+        $array->[0]{z} = 3;
+        $array->[1]{x} = 4;
+        $array->[1]{y} = 5;
+        $array->[1]{z} = 6;
+        warn dump $array;
+      }
+
+      # short muti numeric array
+      {
+        my $array = new TestCase::Point_3s[2];
+        $array->[0]{x} = 1;
+        $array->[0]{y} = 2;
+        $array->[0]{z} = 3;
+        $array->[1]{x} = 4;
+        $array->[1]{y} = 5;
+        $array->[1]{z} = 6;
+        warn dump $array;
+      }
+
+      # int muti numeric array
+      {
+        my $array = new TestCase::Point_3i[2];
+        $array->[0]{x} = 1;
+        $array->[0]{y} = 2;
+        $array->[0]{z} = 3;
+        $array->[1]{x} = 4;
+        $array->[1]{y} = 5;
+        $array->[1]{z} = 6;
+        warn dump $array;
+      }
+
+      # long muti numeric array
+      {
+        my $array = new TestCase::Point_3f[2];
+        $array->[0]{x} = 1;
+        $array->[0]{y} = 2;
+        $array->[0]{z} = 3;
+        $array->[1]{x} = 4;
+        $array->[1]{y} = 5;
+        $array->[1]{z} = 6;
+        warn dump $array;
+      }
+
+      # float muti numeric array
+      {
+        my $array = new TestCase::Point_3f[2];
+        $array->[0]{x} = 1.1f;
+        $array->[0]{y} = 2.1f;
+        $array->[0]{z} = 3.1f;
+        $array->[1]{x} = 4.1f;
+        $array->[1]{y} = 5.1f;
+        $array->[1]{z} = 6.1f;
+        warn dump $array;
+      }
+
+      # double muti numeric array
+      {
+        my $array = new TestCase::Point_3d[2];
+        $array->[0]{x} = 1.1;
+        $array->[0]{y} = 2.1;
+        $array->[0]{z} = 3.1;
+        $array->[1]{x} = 4.1;
+        $array->[1]{y} = 5.1;
+        $array->[1]{z} = 6.1;
+        warn dump $array;
+      }
+
+      # string array
+      {
+        my $array = ["abc", "def", undef];
+        warn dump $array;
+      }
+
+      # string array of array
+      {
+        my $array = [["abc", "def", undef], ["a", "b"]];
+        warn dump $array;
+      }
+      
+      # object
+      {
+        my $object = new TestCase::DumpTest1;
+        $object->{byte_value} = 1;
+        $object->{short_value} = 2;
+        $object->{int_value} = 3;
+        $object->{long_value} = 4;
+        $object->{float_value} = 1.1f;
+        $object->{double_value} = 1.2;
+        $object->{string_value} = "a";
+        $object->{int_array} = [1, 2, 3];
+        $object->{object_value} = new TestCase::DumpTest1;
+        
+        warn dump $object;
+      }
+
+      # object array, reuse, object[]
+      {
+        my $object = new TestCase::DumpTest1;
+        $object->{object_value} = $object;
+        weaken $object->{object_value};
+        
+        my $array = [(object)$object, $object, $object];
+        
+        warn dump $array;
+      }
+    }
+
+    {
+      my $array = {};
+    }
+    
+    {
+      my $array = {foo => 1, bar => 2};
+    }
+
+    {
+      my $minimal = TestCase::Minimal->new;
+      my $name = ref $minimal;
+    }
+    {
+      my $simple = TestCase::Simple->new;
+      my $minimal = TestCase::Minimal->new;
+      $simple->set_minimal($minimal);
+      
+      $simple->minimal->x;
+      
+    }
+
     {
       # my $nums : byte[] = "abc";
-      # my $string : string = new byte[3];;
+      # my $string : string = new byte[3];
+      1;
     }
     
     {
@@ -617,7 +803,7 @@ SPVM::Test - SPVM test module
       $minimals->[2] = TestCase::Minimal->new;
       $minimals->[2]{x} = 2;
       
-      sort_obj($minimals, sub : int ($self : self, $object1 : object, $object2 : object) {
+      sort_objectect($minimals, sub : int ($self : self, $object1 : object, $object2 : object) {
         my $minimal1 = (TestCase::Minimal)$object1;
         my $minimal2 = (TestCase::Minimal)$object2;
         
@@ -805,6 +991,7 @@ SPVM::Test - SPVM test module
     
     {
       # error_call_stack();
+      1;
     }
     
     {
@@ -859,8 +1046,8 @@ SPVM::Test - SPVM test module
     print("a" . "\n");
     
     # Default return value object
-    if (TestCase->default_return_value_object_sub() == undef) {
-      if (TestCase->default_return_value_object_sub_empty() == undef) {
+    if (TestCase->default_return_value_object_method() == undef) {
+      if (TestCase->default_return_value_object_method_empty() == undef) {
         1;
       }
     }
@@ -959,7 +1146,7 @@ SPVM::Test - SPVM test module
       print($obj->{values1}[0] . "\n");
     }
     
-    # Call new subroutine without variable
+    # Call new method without variable
     {
       TestCase::Minimal->new();
       sum0(1, 3);
@@ -972,13 +1159,13 @@ SPVM::Test - SPVM test module
       TestCase::Minimal->new()->{x};
     }
     
-    my $obj1 = TestCase::Minimal->new();
+    my $object1 = TestCase::Minimal->new();
     
     # last
     {
       while (1) {
-        my $obj1 = TestCase::Minimal->new();
-        my $obj2 = TestCase::Minimal->new();
+        my $object1 = TestCase::Minimal->new();
+        my $object2 = TestCase::Minimal->new();
         {
           my $obj3 = TestCase::Minimal->new();
           last;
@@ -1134,9 +1321,9 @@ SPVM::Test - SPVM test module
     }
     
     {
-      my $obj1 = TestCase::Minimal->new();
+      my $object1 = TestCase::Minimal->new();
       
-      my $obj2 : TestCase::Minimal;
+      my $object2 : TestCase::Minimal;
       
       my $obj3 : TestCase::Minimal = undef;
     }
@@ -1526,12 +1713,12 @@ SPVM::Test - SPVM test module
     
     # Basic operation byte
     {
-    
+      1;
     }
     
     # Basic operation short
     {
-    
+      1;
     }
     
     # Basic operation int
@@ -1625,13 +1812,13 @@ SPVM::Test - SPVM test module
   }
 
   # Call void function
-  sub call_void_sub : void ($nums : int[]) {
+  sub call_void_method : void ($nums : int[]) {
     $nums->[0] = 5;
   }
   sub call_void : int () {
     my $nums = [1];
     
-    call_void_sub($nums);
+    call_void_method($nums);
     
     if ($nums->[0] == 5) {
       return 1;
@@ -1725,13 +1912,13 @@ SPVM::Test - SPVM test module
   sub return_object : TestCase::Minimal () {
     my $obj0 = TestCase::Minimal->new();
     {
-      my $obj1 = TestCase::Minimal->new();
+      my $object1 = TestCase::Minimal->new();
       
-      my $obj2 : TestCase::Minimal;
+      my $object2 : TestCase::Minimal;
       
       my $obj3 : TestCase::Minimal = undef;
 
-      return $obj2;
+      return $object2;
     }
   }
 
@@ -1739,9 +1926,9 @@ SPVM::Test - SPVM test module
     my $obj0 = TestCase::Minimal->new();
     
     eval {
-      my $obj1 = TestCase::Minimal->new();
+      my $object1 = TestCase::Minimal->new();
       
-      my $obj2 : TestCase::Minimal;
+      my $object2 : TestCase::Minimal;
       
       my $obj3 : TestCase::Minimal = undef;
       
@@ -1773,10 +1960,10 @@ SPVM::Test - SPVM test module
     my $true_result = new int[1];
     return $true_result;
   }
-  sub default_return_value_object_sub : TestCase () {
+  sub default_return_value_object_method : TestCase () {
     1;
   }
-  sub default_return_value_object_sub_empty : TestCase () {
+  sub default_return_value_object_method_empty : TestCase () {
     
   }
   sub weaken_reference_count1_object : int (){
@@ -1834,16 +2021,16 @@ SPVM::Test - SPVM test module
     return new TestCase;
   }
 
-  sub call_sub_args_convertion_stab1 : double ($var6 : double) {
+  sub call_spvm_method_args_convertion_stab1 : double ($var6 : double) {
     return ($var6);
   }
   
-  sub call_sub_args_convertion : int () {
-    my $return_value1 = call_sub_args_convertion_stab1(16);
+  sub call_spvm_method_args_convertion : int () {
+    my $return_value1 = call_spvm_method_args_convertion_stab1(16);
     return 0;
   }
 
-  sub sort_obj : void ($values : oarray, $comparator : TestCase::Comparator) {
+  sub sort_objectect : void ($values : oarray, $comparator : TestCase::Comparator) {
 
     my $change_cnt = @$values - 1;
     while( $change_cnt > 0){

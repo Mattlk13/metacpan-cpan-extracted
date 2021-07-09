@@ -32,6 +32,8 @@ else {
   $mycflags .= " $ENV{CPPFLAGS}" if $ENV{CPPFLAGS};
 
   #FIX: gcc with -flto is a trouble maker see https://github.com/DCIT/perl-CryptX/issues/32
+  #FIX: another issue with "-flto=auto" see https://github.com/DCIT/perl-CryptX/pull/66
+  $mycflags =~ s/-flto=[a-zA-Z0-9]+//g; # -flto=auto -flto=jobserver -flto=N ...
   $mycflags =~ s/-flto\b//g;
 
   #FIX: avoid -Wwrite-strings -Wcast-qual -pedantic -pedantic-errors -ansi -std=c89
@@ -72,7 +74,7 @@ my %eumm_args = (
   PREREQ_PM        => { },
   TEST_REQUIRES    => { 'Test::More' => 0 },
   META_MERGE       => { resources  => { repository => 'https://github.com/DCIT/perl-CryptX', bugtracker => 'https://github.com/DCIT/perl-CryptX/issues' } },
-  dist             => { PREOP => 'perldoc -u lib/CryptX.pm | pod2markdown > README.md', TAR => 'ptar', TARFLAGS => '-c -C -f' },
+  dist             => { PREOP => 'perldoc -u lib/CryptX.pm | pod2markdown > README.md', TARFLAGS => '--owner=0 --group=0 -cvf' },
   @EUMM_INC_LIB
 );
 

@@ -7,11 +7,11 @@ Module::Build->new(
     'license'           => 'perl',
     'dist_author'       => 'Graham TerMarsch (cpan@howlingfrog.com)',
     'requires'          => {
-        'XML::Generator'    => 0,
-        'TAP::Harness'      => 3.12,
-        'Moose'             => 0,
-        'MooseX::NonMoose'  => 0,
-        'File::Slurp'       => 0,
+        'XML::Generator'        => 0,
+        'TAP::Harness'          => 3.12,
+        'Moose'                 => 0,
+        'MooseX::NonMoose'      => 0,
+        'File::Slurp'           => 0,
         },
     'build_requires'    => {
         'Test::More'        => 0,

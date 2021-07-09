@@ -1,5 +1,17 @@
-Revision history for UUID-Random-Patch-UseMRS
+0.030   2021-01-24  Released-By: PERLANCAR; Urgency: low
 
-0.01     2012-09-06 (SHARYANTO)
+	- No functional changes.
 
-         First release.
+        - Switch to x.yyy versioning scheme.
+
+
+0.02    2021-01-24  Released-By: PERLANCAR; Urgency: low
+
+	- No functional changes.
+
+	- [doc] Mention some other related modules.
+
+
+0.01     2012-09-06  Released-By: SHARYANTO
+
+         - First release.

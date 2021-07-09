@@ -8,7 +8,7 @@ use warnings;
 use Carp;
 use base qw{ Exporter };
 
-our $VERSION = '0.014';
+our $VERSION = '0.017';
 
 our @CARP_NOT = qw{
     PPIx::QuoteLike
@@ -132,6 +132,7 @@ names, without the leading sigil. Nothing is captured.
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
+L<https://rt.cpan.org/Public/Dist/Display.html?Name=PPIx-QuoteLike>,
 L<https://github.com/trwyant/perl-PPIx-QuoteLike/issues>, or in
 electronic mail to the author.
 

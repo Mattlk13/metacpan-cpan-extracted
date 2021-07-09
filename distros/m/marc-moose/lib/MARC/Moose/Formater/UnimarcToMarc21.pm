@@ -1,5 +1,5 @@
 package MARC::Moose::Formater::UnimarcToMarc21;
-$MARC::Moose::Formater::UnimarcToMarc21::VERSION = '1.0.42';
+$MARC::Moose::Formater::UnimarcToMarc21::VERSION = '1.0.45';
 # ABSTRACT: Convert biblio record from UNIMARC to MARC21
 use Moose;
 
@@ -945,7 +945,7 @@ override 'format' => sub {
         [454, 765],
         [455, 787, 8, 'Reproduction of:'],
         [456, 787, 8, 'Reproduced as:'],
-        [461, 774],
+        [461, 773],
         [462, 774],
         [463, 773],
         [464, 774],
@@ -1024,8 +1024,8 @@ override 'format' => sub {
                 elsif ( /f/   ) { $date_available = 1; $letter = 'd'; }
                 elsif ( /y/   ) { $letter = 'z'; }
                 elsif ( /z/   ) { $letter = 'y'; }
+                push @sf, [ $letter => $value ];
             }
-            push @sf, [ $letter => $value ];
         }
         my @sf_complete;
         my $notpushed = 1;
@@ -1045,7 +1045,7 @@ override 'format' => sub {
     # On conserve à leur place les lettres a x j (subdivision de forme)
     # On inverse y et z. et déplacée en v.
     # On suppr les $3
-    for my $fromto ( ( [604, 600], [605, 630], [606, 650], [607, 651], [608, 650] ) ) {
+    for my $fromto ( ( [601, 650], [604, 600], [605, 630], [606, 650], [607, 651], [608, 650] ) ) {
         my ($from, $to) = @$fromto;
         for my $field ( $unimarc->field($from) ) {
             my @sf;
@@ -1272,7 +1272,7 @@ MARC::Moose::Formater::UnimarcToMarc21 - Convert biblio record from UNIMARC to M
 
 =head1 VERSION
 
-version 1.0.42
+version 1.0.45
 
 =head1 SYNOPSYS
 
@@ -1324,7 +1324,7 @@ Frédéric Demians <f.demians@tamil.fr>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Frédéric Demians.
+This software is copyright (c) 2022 by Frédéric Demians.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

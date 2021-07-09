@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2020 Christian Jaeger, copying@christianjaeger.ch
+# Copyright (c) 2013-2021 Christian Jaeger, copying@christianjaeger.ch
 #
 # This is free software, offered under either the same terms as perl 5
 # or the terms of the Artistic License version 2 or the terms of the
@@ -68,6 +68,8 @@ our @EXPORT_OK = qw(array
     array_unshift
     array_sub
     array_take
+    array_take_upto
+    array_last_upto
     array_take_while
     array_take_while_and_rest
     array_drop
@@ -79,6 +81,7 @@ our @EXPORT_OK = qw(array
     array_hashing_uniq
     array_zip2
     array_for_each
+    array_for_each_with_islast
     array_map
     array_map_with_index
     array_map_with_islast
@@ -104,6 +107,7 @@ use Chj::TEST;
 use FP::Div qw(min);
 use FP::Ops 'add';
 use FP::Equal 'equal';
+use Scalar::Util qw(blessed);
 
 sub array { [@_] }
 
@@ -254,13 +258,38 @@ sub array_sub {
     my ($a, $from, $to) = @_;    # incl $from, excl $to
     (0 <= $from and $from <= @$a) or die "from out of range: $from";
     (0 <= $to   and $to <= @$a)   or die "to out of range: $to";
-    bless [@$a[$from .. $to - 1]], ref $a
+    my $a2 = [@$a[$from .. $to - 1]];
+    if (defined(my $pck = blessed $a)) {
+        bless $a2, $pck
+    } else {
+        $a2
+    }
 }
 
 sub array_take {
     @_ == 2 or fp_croak_arity 2;
     my ($a, $n) = @_;
     array_sub $a, 0, $n
+}
+
+sub array_take_upto {
+    @_ == 2 or fp_croak_arity 2;
+    my ($a, $n) = @_;
+    my $len    = @$a;
+    my $newlen = min($n, $len);
+    array_take($a, $newlen)
+}
+
+sub array_last_upto {
+
+    # last n items but if n is larger than the length, just the whole
+    # array. todo: don't copy it in that case.
+    my ($a, $n) = @_;
+    my $len    = @$a;
+    my $newlen = min($n, $len);
+    array_sub $a, $len - $newlen, $len
+
+        # [@$a[$len - $newlen .. $len - 1]]
 }
 
 sub array_drop {
@@ -372,6 +401,14 @@ sub array_for_each {
     @_ == 2 or fp_croak_arity 2;
     my ($fn, $v) = @_;
     for my $a (@$v) { &$fn($a) }
+}
+
+sub array_for_each_with_islast {
+    @_ == 2 or fp_croak_arity 2;
+    my ($fn, $v) = @_;
+    my $len = @$v;
+    my $n   = 0;
+    for my $a (@$v) { &$fn($a, (++$n == $len)) }
 }
 
 sub array_map {
@@ -572,10 +609,12 @@ TEST {
 sub array_any {
     @_ == 2 or fp_croak_arity 2;
     my ($fn, $ary) = @_;
+    my $v;
     for (@$ary) {
-        return 1 if &$fn($_);
+        $v = &$fn($_);
+        return $v if $v;
     }
-    0
+    $v
 }
 
 TEST {
@@ -585,7 +624,7 @@ TEST {
 TEST {
     array_any sub { $_[0] % 2 }, []
 }
-0;
+undef;
 TEST {
     array_any sub { $_[0] % 2 }, [2, 5, 8]
 }

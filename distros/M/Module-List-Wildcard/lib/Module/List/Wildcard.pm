@@ -1,7 +1,7 @@
 package Module::List::Wildcard;
 
-our $DATE = '2020-09-21'; # DATE
-our $VERSION = '0.004006'; # VERSION
+our $DATE = '2021-01-16'; # DATE
+our $VERSION = '0.004009'; # VERSION
 
 #IFUNBUILT
 # # use strict 'subs', 'vars';
@@ -212,7 +212,7 @@ Module::List::Wildcard - A fork of Module::List that groks wildcard
 
 =head1 VERSION
 
-This document describes version 0.004006 of Module::List::Wildcard (from Perl distribution Module-List-Wildcard), released on 2020-09-21.
+This document describes version 0.004009 of Module::List::Wildcard (from Perl distribution Module-List-Wildcard), released on 2021-01-16.
 
 =head1 SYNOPSIS
 
@@ -251,7 +251,8 @@ Path separator is hard-coded as C</>.
 
 This boolean option can be set to true to recognize wildcard pattern in prefix.
 Wildcard patterns such as jokers (C<?>, C<*>, C<**>), classes (C<[a-z]>), as
-well as braces (C<{One,Two}>) are supported. C<**> implies recursive listing.
+well as braces (C<{One,Two}>) are supported. C<**> implies recursive listing
+(sets C<recurse> option to 1).
 
 Examples:
 
@@ -308,7 +309,7 @@ Source repository is at L<https://github.com/perlancar/perl-Module-List-Wildcard
 
 =head1 BUGS
 
-Please report any bugs or feature requests on the bugtracker website L<https://rt.cpan.org/Public/Dist/Display.html?Name=Module-List-Wildcard>
+Please report any bugs or feature requests on the bugtracker website L<https://github.com/perlancar/perl-Module-List-Wildcard/issues>
 
 When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
@@ -316,7 +317,14 @@ feature.
 
 =head1 SEE ALSO
 
-L<Module::List>, L<Module::List::Tiny>, L<Module::List::More>
+L<Module::List>
+
+L<Module::List::Tiny>
+
+L<Module::List::More>, from which Module::List::Wildcard is actually forked
+from. Module::List::More contains more features, including wildcard support. I'm
+currently maintainng both modules. Eventually this duplication might be resolved
+in the future.
 
 =head1 AUTHOR
 
@@ -324,7 +332,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2019 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2019 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

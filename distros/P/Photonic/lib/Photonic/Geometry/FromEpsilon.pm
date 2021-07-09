@@ -1,5 +1,5 @@
 package Photonic::Geometry::FromEpsilon;
-$Photonic::Geometry::FromEpsilon::VERSION = '0.014';
+$Photonic::Geometry::FromEpsilon::VERSION = '0.017';
 
 =encoding UTF-8
 
@@ -8,7 +8,7 @@ $Photonic::Geometry::FromEpsilon::VERSION = '0.014';
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -38,8 +38,9 @@ use namespace::autoclean;
 use Carp;
 use Moose;
 use MooseX::StrictConstructor;
+use Photonic::Types;
 
-has 'epsilon'=>(is=>'ro', isa=>'PDL::Complex', required=>1,
+has 'epsilon'=>(is=>'ro', isa=>'Photonic::Types::PDLComplex', required=>1,
 		documentation=>'Dielectric function as function of position');
 
 has 'B' =>(is=>'ro', isa=>'PDL', init_arg=>undef, builder=>'_B', lazy=>1,
@@ -75,7 +76,7 @@ Photonic::Geometry::FromEpsilon
 
 =head1 VERSION
 
-version 0.014
+version 0.017
 
 =head1 SYNOPSIS
 
@@ -110,7 +111,7 @@ default, it is the number of voxels or pixels.
 
 =back
 
-=head1 ACCESORS (read only)
+=head1 ACCESSORS (read only)
 
 =over 4
 

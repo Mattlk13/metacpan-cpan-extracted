@@ -3,6 +3,8 @@ use Carp qw(carp croak);
 use CallBackery::Translate qw(trm);
 use CallBackery::Exception qw(mkerror);
 use Mojo::Promise;
+use Mojo::JSON qw(encode_json);
+use Mojo::Util qw(dumper);
 
 =head1 NAME
 
@@ -34,11 +36,18 @@ Qooxdoo form.
 
 has screenCfg => sub {
     my $self = shift;
+    # prepend plugin name (see also messageConfig below)
+    my $name = $self->name;
+    for my $action (@{$self->actionCfg}) {
+        if ($action->{action} =~ /popup|wizzard/) {
+            $action->{name} = "${name}_$action->{name}";
+        }
+    }
     return {
-        type => 'form',
+        type    => 'form',
         options => $self->screenOpts,
-        form => $self->formCfg,
-        action => $self->actionCfg,
+        form    => $self->formCfg,
+        action  => $self->actionCfg,
     }
 };
 
@@ -124,7 +133,7 @@ an error message.
 sub validateData {
     my $self = shift;
     my $fieldName = shift;
-    my $formData = shift;
+    my $formData = shift || {};
     my $entry = $self->formCfgMap->{$fieldName};
     if (not ref $entry){
         die mkerror(4095,trm("sorry, don't know the field you are talking about"));
@@ -143,6 +152,7 @@ and then store the data into the config database.
 sub processData {
     my $self = shift;
     my $args = shift;
+    $self->args($args) if $args;
     my $form = $self->formCfgMap;
     my $formData = $args->{formData};
     # this is only to be sure ... data should be pre-validated
@@ -203,7 +213,7 @@ sub getFieldValue {
             return $entry->{getter}->($self);
         }
         else {
-            warn 'Plugin instance'.$self->name." field $field has a broken getter\n";
+            $self->log->warn('Plugin instance'.$self->name." field $field has a broken getter\n");
         }
     }
     return $self->getConfigValue($self->name.'::'.$field);
@@ -280,14 +290,24 @@ sub massageConfig {
     my $cfg = shift;
     my $actionCfg = $self->actionCfg;
     for my $button (@$actionCfg){
-        if ($button->{action} =~ /popup|wizzard/){
-            my $name = $button->{name};
-            die "Plugin instance name $name is not unique\n"
-                if $cfg->{PLUGIN}{prototype}{$name};
+        if ($button->{action} =~ /popup|wizzard/) {
+            # prepend plugin name (see also screenCfg above)
+            my $name = $self->name . '_' . $button->{name};
+            $button->{name} = $name;
+            # allow same plugin multiple times
+            if ($cfg->{PLUGIN}{prototype}{$name}) {
+                my $newCfg = encode_json($button->{backend});
+                my $oldCfg = encode_json($cfg->{PLUGIN}{prototype}{$name}{backend});
+                if ($oldCfg ne 'null' and $newCfg ne $oldCfg) {
+                    $self->log->warn("oldCfg=" . dumper $oldCfg);
+                    $self->log->warn("newCfg=", dumper $newCfg);
+                    die "Not unique plugin instance name $name not allowed as backend config is different\n";
+                }
+            }
             my $popup = $cfg->{PLUGIN}{prototype}{$name}
                 = $self->app->config->loadAndNewPlugin($button->{backend}{plugin});
             $popup->config($button->{backend}{config});
-            $popup->name($button->{name});
+            $popup->name($name);
             $popup->app($self->app);
             $popup->massageConfig($cfg);
         }

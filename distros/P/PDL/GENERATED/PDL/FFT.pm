@@ -4,8 +4,8 @@
 #
 package PDL::FFT;
 
-@EXPORT_OK  = qw( PDL::PP _fft PDL::PP _ifft  fft ifft fftnd ifftnd fftconvolve realfft realifft kernctr PDL::PP convmath PDL::PP cmul PDL::PP cdiv );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP _fft PDL::PP _ifft  fft ifft fftnd ifftnd fftconvolve realfft realifft kernctr PDL::PP convmath PDL::PP cmul PDL::PP cdiv );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::FFT ;
 
@@ -59,9 +59,9 @@ the in-place flag.  That should be fixed.
 =head1 DATA TYPES
 
 The underlying C library upon which this module is based performs FFTs
-on both single precision and double precision floating point piddles.
+on both single precision and double precision floating point ndarrays.
 Performing FFTs on integer data types is not reliable.  Consider the
-following FFT on piddles of type 'double':
+following FFT on ndarrays of type 'double':
 
 	$r = pdl(0,1,0,1);
 	$i = zeroes($r);
@@ -77,14 +77,14 @@ But if $r and $i are unsigned short integers (ushorts):
 	print $r,$i;
 	[2 0 65534 0] [0 0 0 0]
 
-This used to occur because L<PDL::PP|PDL::PP> converts the ushort
-piddles to floats or doubles, performs the FFT on them, and then
+This used to occur because L<PDL::PP> converts the ushort
+ndarrays to floats or doubles, performs the FFT on them, and then
 converts them back to ushort, causing the overflow where the amplitude
 of the frequency should be -2.
 
-Therefore, if you pass in a piddle of integer datatype (byte, short,
+Therefore, if you pass in an ndarray of integer datatype (byte, short,
 ushort, long) to any of the routines in PDL::FFT, your data will be
-promoted to a double-precision piddle.  If you pass in a float, the
+promoted to a double-precision ndarray.  If you pass in a float, the
 single-precision FFT will be performed.
 
 =head1 FREQUENCIES
@@ -113,7 +113,7 @@ C<< $kx = $real->xlinvals(-($N/2-0.5)/$N/$D,($N/2-0.5)/$N/$D)->rotate(-($N-1)/2)
 =head1 ALTERNATIVE FFT PACKAGES
 
 Various other modules - such as 
-L<PDL::FFTW|PDL::FFTW> and L<PDL::Slatec|PDL::Slatec> - 
+L<PDL::FFTW> and L<PDL::Slatec> - 
 contain FFT routines.
 However, unlike PDL::FFT, these modules are optional,
 and so may not be installed.
@@ -153,6 +153,7 @@ use PDL::Core qw/:Func/;
 use PDL::Basic qw/:Func/;
 use PDL::Types;
 use PDL::ImageND qw/kernctr/; # moved to ImageND since FFTW uses it too
+use PDL::Ops qw/czip/;
 
 END {
   # tidying up required after using fftn
@@ -171,7 +172,8 @@ sub todecimal {
 
 =for ref
 
-Complex 1-D FFT of the "real" and "imag" arrays [inplace].
+Complex 1-D FFT of the "real" and "imag" arrays [inplace]. A single
+cfloat/cdouble input ndarray can also be used.
 
 =for sig
 
@@ -187,21 +189,32 @@ fft($real,$imag);
 
 sub PDL::fft {
 	# Convert the first argument to decimal and check for trouble.
-	eval {	todecimal($_[0]);	};
+	my $re=$_[0];
+	my $im=$_[1];
+	if (!$re->type->real) {
+		$im=$re->im;
+		$re=$re->re;
+	}
+	eval {	todecimal($re);	};
 	if ($@) {
 		$@ =~ s/ at .*//s;
 		barf("Error in FFT with first argument: $@");
 	}
 	# Convert the second argument to decimal and check for trouble.
-	eval {	todecimal($_[1]);	};
+	eval {	todecimal($im);	};
 	if ($@) {
 		$@ =~ s/ at .*//s;
 		my $message = "Error in FFT with second argument: $@";
-		$message .= '. Did you forget to supply the second (imaginary) piddle?'
+		$message .= '. Did you forget to supply the second (imaginary) ndarray?'
 			if ($message =~ /undefined value/);
 		barf($message);
 	}
-	_fft($_[0],$_[1]);
+	_fft($re,$im);
+	if (!$_[0]->type->real) {
+		$_[0]= czip($re, $im);
+	} else {
+		$_[0]=$re,$_[1]=$im;
+	}
 }
 
 
@@ -209,7 +222,8 @@ sub PDL::fft {
 
 =for ref
 
-Complex inverse 1-D FFT of the "real" and "imag" arrays [inplace].
+Complex inverse 1-D FFT of the "real" and "imag" arrays [inplace]. A single
+cfloat/cdouble input ndarray can also be used.
 
 =for sig
 
@@ -225,21 +239,32 @@ ifft($real,$imag);
 
 sub PDL::ifft {
 	# Convert the first argument to decimal and check for trouble.
-	eval {	todecimal($_[0]);	};
+	my $re=$_[0];
+	my $im=$_[1];
+	if (!$re->type->real) {
+		$im=$re->im;
+		$re=$re->re;
+	}
+	eval {	todecimal($re);	};
 	if ($@) {
 		$@ =~ s/ at .*//s;
 		barf("Error in FFT with first argument: $@");
 	}
 	# Convert the second argument to decimal and check for trouble.
-	eval {	todecimal($_[1]);	};
+	eval {	todecimal($im);	};
 	if ($@) {
 		$@ =~ s/ at .*//s;
 		my $message = "Error in FFT with second argument: $@";
-		$message .= '. Did you forget to supply the second (imaginary) piddle?'
+		$message .= '. Did you forget to supply the second (imaginary) ndarray?'
 			if ($message =~ /undefined value/);
 		barf($message);
 	}
-	_ifft($_[0],$_[1]);
+	_ifft($re,$im);
+	if (!$_[0]->type->real) {
+		$_[0]= czip($re, $im);
+	} else {
+		$_[0]=$re,$_[1]=$im;
+	}
 }
 
 =head2 realfft()
@@ -320,6 +345,10 @@ N-dimensional FFT over all pdl dims of input (inplace)
 sub PDL::fftnd {
     barf "Must have real and imaginary parts for fftnd" if $#_ != 1;
     my ($r,$i) = @_;
+    if (!$r->type->real) {
+	$i=im $r;
+	$r=re $r;
+    }
     my ($n) = $r->getndims;
     barf "Dimensions of real and imag must be the same for fft"
         if ($n != $i->getndims);
@@ -333,7 +362,11 @@ sub PDL::fftnd {
       $r = $r->mv(0,$n);
       $i = $i->mv(0,$n);
     }
-    $_[0] = $r; $_[1] = $i;
+    if (!$_[0]->type->real) {
+	$_[0]= czip($r, $i);
+    } else {
+	$_[0] = $r; $_[1] = $i;
+    }
     undef;
 }
 
@@ -354,6 +387,10 @@ N-dimensional inverse FFT over all pdl dims of input (inplace)
 sub PDL::ifftnd {
     barf "Must have real and imaginary parts for ifftnd" if $#_ != 1;
     my ($r,$i) = @_;
+    if (!$r->type->real) {
+	$r=re $r;
+	$i=im $r;
+    }
     my ($n) = $r->getndims;
     barf "Dimensions of real and imag must be the same for ifft"
         if ($n != $i->getndims);
@@ -367,7 +404,11 @@ sub PDL::ifftnd {
       $r = $r->mv(0,$n);
       $i = $i->mv(0,$n);
     }
-    $_[0] = $r; $_[1] = $i;
+    if (!$_[0]->type->real) {
+	$_[0]= czip($r, $i);
+    } else {
+	$_[0] = $r; $_[1] = $i;
+    }
     undef;
 }
 
@@ -431,6 +472,10 @@ sub PDL::fftconvolve {
 sub PDL::fftconvolve_inplace {
     barf "Must have image & kernel for fftconvolve" if $#_ != 1;
     my ($hr, $hi) = @_;
+    if (!$hr->type->real) {
+	$hi=$hr->im;
+	$hr=$hr->re;
+    }
     my ($n) = $hr->getndims;
     todecimal($hr);   # Convert to double unless already float or double
     todecimal($hi);   # Convert to double unless already float or double
@@ -456,8 +501,14 @@ sub PDL::fftconvolve_inplace {
     $hr->clump(-1)->set(0,$hr->clump(-1)->at(0)*2);
     $hi->clump(-1)->set(0,0.);
     ifftnd($hr,$hi);
-    $_[0] = $hr; $_[1] = $hi;
-    ($hr,$hi);
+    # convert back to complex if input was complex
+    if (!$_[0]->type->real) {
+	$_[0]= czip($hr, $hi);
+	return $_[0];
+    } else {
+        $_[0] = $hr; $_[1] = $hi;
+        return ($hr,$hi);
+    }
 }
 
 
@@ -477,7 +528,7 @@ Internal routine doing maths for convolution
 =for bad
 
 convmath does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -506,7 +557,7 @@ Complex multiplication
 =for bad
 
 cmul does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -535,7 +586,7 @@ Complex division
 =for bad
 
 cdiv does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

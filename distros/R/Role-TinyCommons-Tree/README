@@ -2,8 +2,8 @@ NAME
     Role::TinyCommons::Tree - Roles related to object tree
 
 VERSION
-    This document describes version 0.124 of Role::TinyCommons::Tree (from
-    Perl distribution Role-TinyCommons-Tree), released on 2020-04-14.
+    This document describes version 0.127 of Role::TinyCommons::Tree (from
+    Perl distribution Role-TinyCommons-Tree), released on 2021-07-02.
 
 DESCRIPTION
     This distribution provides several roles you can use to create a tree
@@ -30,6 +30,9 @@ DESCRIPTION
     function call if you do not want to involve Role::Tiny. See an example
     of this usage in Data::CSel.
 
+CONTRIBUTOR
+    perlancar (@pc-office) <perlancar@gmail.com>
+
 HOMEPAGE
     Please visit the project's homepage at
     <https://metacpan.org/release/Role-TinyCommons-Tree>.
@@ -55,7 +58,7 @@ AUTHOR
     perlancar <perlancar@cpan.org>
 
 COPYRIGHT AND LICENSE
-    This software is copyright (c) 2020, 2016 by perlancar@cpan.org.
+    This software is copyright (c) 2021, 2020, 2016 by perlancar@cpan.org.
 
     This is free software; you can redistribute it and/or modify it under
     the same terms as the Perl 5 programming language system itself.

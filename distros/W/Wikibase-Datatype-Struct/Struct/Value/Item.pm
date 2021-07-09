@@ -10,7 +10,7 @@ use Wikibase::Datatype::Value::Item;
 
 Readonly::Array our @EXPORT_OK => qw(obj2struct struct2obj);
 
-our $VERSION = 0.05;
+our $VERSION = 0.08;
 
 sub obj2struct {
 	my $obj = shift;
@@ -40,8 +40,11 @@ sub struct2obj {
 	my $struct_hr = shift;
 
 	if (! exists $struct_hr->{'type'}
+		|| ! defined $struct_hr->{'type'}
 		|| $struct_hr->{'type'} ne 'wikibase-entityid'
+		|| ! exists $struct_hr->{'value'}
 		|| ! exists $struct_hr->{'value'}->{'entity-type'}
+		|| ! defined $struct_hr->{'value'}->{'entity-type'}
 		|| $struct_hr->{'value'}->{'entity-type'} ne 'item') {
 
 		err "Structure isn't for 'item' datatype.";
@@ -202,12 +205,12 @@ L<http://skim.cz>
 
 =head1 LICENSE AND COPYRIGHT
 
-© Michal Josef Špaček 2020
+© Michal Josef Špaček 2020-2021
 
 BSD 2-Clause License
 
 =head1 VERSION
 
-0.05
+0.08
 
 =cut

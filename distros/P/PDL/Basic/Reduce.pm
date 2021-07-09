@@ -70,7 +70,7 @@ my %reduce = (
 
 =for ref
 
-reduce dimension of piddle by one by applying an operation
+reduce dimension of ndarray by one by applying an operation
 along the specified dimension
 
 =for example
@@ -111,10 +111,10 @@ data/array languages hopefully feel more at home.
  $result = $pdl->reduce($operation [,@dims]);
 
 C<reduce> applies the named operation along the specified
-dimension(s) reducing the input piddle dimension by as many
+dimension(s) reducing the input ndarray dimension by as many
 dimensions as supplied as arguments. If the
 dimension(s) argument is omitted the operation is applied along the first
-dimension. To get a list of valid operations see L<canreduce>.
+dimension. To get a list of valid operations see L</canreduce>.
 
 NOTE - new power user feature: you can now supply a code
 reference as operation to reduce with.
@@ -144,7 +144,7 @@ sub PDL::reduce ($$;$) {
     for (@dims) { $min = $_ if $_ < $min; $max = $_ if $_ > $max }
     barf "dimension out of bounds (one of @dims >= $n)"
       if $min >= $n || $max >= $n;
-    $dim = $min; # this will be the resulting dim of the clumped piddle
+    $dim = $min; # this will be the resulting dim of the clumped ndarray
     $pdl = $pdl->clump(@dims);
   } else {
     $dim = @dims > 0 ? $dims[0] : 0;

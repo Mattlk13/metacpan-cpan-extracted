@@ -2,6 +2,7 @@ use strict;
 use warnings;
 use ExtUtils::MakeMaker;
 use Config;
+use Text::ParseWords qw(shellwords quotewords);
 
 my ($include_path, $lib_path, $linkname);
 my $ppfile = "GD.pd";
@@ -19,12 +20,19 @@ my @lib_locations = (
     '/usr/lib',
     '/usr/local/lib',
     '/lib',
-    split(/ /, $Config{libpth}),
+    ($^O eq 'MSWin32'
+        ? (split($Config{path_sep}, $ENV{PATH}),
+            (map {s/^-L//;$_} grep /^-L/, map {s/"//g; $_} quotewords('\s+', 1, $Config{ldflags}))
+        )
+        : shellwords($Config{libpth})),
 );
 my @inc_locations = (
     '/usr/include',
     '/usr/local/include',
     $Config{usrinc},
+    (map {s/^-I//;$_} grep /^-I/, $^O eq 'MSWin32'
+        ? (map {s/"//g; $_} quotewords('\s+', 1, $Config{cppflags}))
+        : shellwords($Config{cppflags})),
 );
 
 my $msg = "";
@@ -32,13 +40,13 @@ my $forcebuild=0;
 
 if (defined $PDL::Config{$config_flag} && $PDL::Config{$config_flag}==0)
 {
-    $msg = "\n   Will skip build of $package_name on this system   \n";
+    $msg = "Will skip build of $package_name on this system\n";
     goto skip;
 }
 
 if (defined $PDL::Config{$config_flag} && $PDL::Config{$config_flag}==1)
 {
-    print "\n   Will forcibly try and build $package_name on this system   \n\n";
+    print "Will try and build $package_name on this system\n";
     $forcebuild=1;
 }
 
@@ -100,21 +108,17 @@ $donot = 0 if( $forcebuild );
 
 if ( $donot )
 {
-    $msg .= "\n Skipping build of $package_name.\n";
+    $msg .= "Skipping build of $package_name.\n";
 }
 
 skip:
 
-if ($msg ne "" && $forcebuild==0)
-{
+if ($msg ne "" && $forcebuild==0) {
     write_dummy_make( $msg );
     $donot = 1;
     $PDL::Config{$config_flag}=0;
-}
-else
-{
+} else {
     $PDL::Config{$config_flag}=1;
-    print "\n   Building $package_name. Turn off $config_flag if there are any problems\n\n";
 }
 
 return if $donot;
@@ -123,8 +127,8 @@ my $package = [$ppfile, $lib_name, $package_name];
 my %hash = pdlpp_stdargs($package);
 $hash{VERSION_FROM} = $ppfile;
 $hash{DEFINE} = $PDL::Config{GD_DEFINE};
-$hash{LIBS} = ["-L$lib_path -l$linkname"];
-$hash{INC} = PDL_INCLUDE() . " -I$include_path";
+$hash{LIBS} = [qq{-L"$lib_path" -l$linkname}];
+$hash{INC} = PDL_INCLUDE() . qq{ -I"$include_path"};
 push( @{ $hash{TYPEMAPS} }, 'typemap' );
 
 undef &MY::postamble; # suppress warning

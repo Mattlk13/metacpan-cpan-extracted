@@ -4,7 +4,9 @@ lib/Nice/Try.pm
 LICENSE
 Makefile.PL
 MANIFEST
+pm_to_blib
 README
+README.md
 t/001_load.t
 t/002_try_catch.t
 t/003_try_finally.t
@@ -15,11 +17,19 @@ t/007_return.t
 t/008_finally_die.t
 t/009_localise.t
 t/010_catch_bug.t
-t/011_exception.t
-t/012_consecutive.t
-t/013_pod.t
-t/014_eof.t
-t/015_eot.t
-t/016_kwalitee.t
+t/011_consecutive.t
+t/012_exception.t
+t/013_exception_inheritance.t
+t/014_nested.t
+t/015_eof.t
+t/016_eot.t
+t/017_loop.t
+t/018_context_aware.t
+t/019_caller.t
+t/020_threads.t
+t/021_forks.t
+t/022_use_try_right_after.t
+t/900_pod.t
+t/999_kwalitee.t
 META.yml                                 Module YAML meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)

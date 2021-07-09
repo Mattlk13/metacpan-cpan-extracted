@@ -27,7 +27,6 @@
             "Digest::SHA" : "0",
             "File::HomeDir" : "0",
             "HTTP::Daemon" : "0",
-            "HTTP::Response" : "0",
             "HTTP::Status" : "0",
             "IO::Socket::SSL" : "0",
             "PDF::API2" : "2.036",
@@ -46,6 +45,7 @@
             "Config::INI::Reader" : "0",
             "Crypt::URandom" : "0",
             "DirHandle" : "0",
+            "Encode" : "0",
             "English" : "0",
             "Exporter" : "0",
             "Fcntl" : "0",
@@ -53,12 +53,15 @@
             "File::Spec" : "0",
             "File::Temp" : "0",
             "FileHandle" : "0",
+            "HTTP::Response" : "0",
             "IPC::Open3" : "1.03",
             "JSON" : "0",
             "MIME::Base64" : "0",
             "POSIX" : "0",
             "Pod::Simple::Text" : "0",
             "Socket" : "0",
+            "Term::ReadKey" : "0",
+            "Text::CSV_XS" : "0",
             "Time::HiRes" : "0",
             "URI" : "0",
             "URI::Escape" : "0",
@@ -70,10 +73,15 @@
    },
    "release_status" : "stable",
    "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/david-dick/firefox-marionette/issues"
+      },
       "repository" : {
-         "url" : "https://github.com/david-dick/firefox-marionette"
+         "type" : "git",
+         "url" : "https://github.com/david-dick/firefox-marionette",
+         "web" : "https://github.com/david-dick/firefox-marionette"
       }
    },
-   "version" : "1.00",
+   "version" : "1.08",
    "x_serialization_backend" : "JSON::PP version 4.05"
 }

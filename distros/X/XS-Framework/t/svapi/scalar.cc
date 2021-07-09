@@ -5,7 +5,7 @@ using Test = TestSv<Scalar>;
 // when policy = INCREMENT, and SV* declined, do nothing (+1 -1)
 // when policy = NONE and SV* declined, it MUST be decremented
 
-TEST_CASE("Scalar", "[Sv]") {
+TEST_CASE("Scalar", "[Scalar]") {
     perlvars vars;
     Scalar my(vars.iv);
     Sv oth_valid(vars.rv), oth_invalid(vars.av);
@@ -142,4 +142,25 @@ TEST_CASE("Scalar", "[Sv]") {
         REQUIRE(Scalar::undef.as_number() == 0);
         REQUIRE_THROWS_AS(Ref::create(Array::create()).as_number(), std::invalid_argument);
    }
+
+    SECTION("LV") {
+        auto lv = SvREFCNT_inc(SvRV(eval_pv("\\substr('suka', 1, 2)", 1)));
+
+        SECTION("detached to a value") {
+            auto val = Scalar(lv);
+            CHECK(SvTYPE(val.get()) != SVt_PVLV);
+        }
+        SECTION("refcnt") {
+            auto rcnt = SvREFCNT(lv);
+            auto val = Scalar(lv);
+            CHECK(SvREFCNT(lv) == rcnt);
+
+            SvREFCNT_inc(lv);
+            rcnt = SvREFCNT(lv);
+            auto val2 = Scalar::noinc(lv);
+            CHECK(SvREFCNT(lv) == rcnt - 1);
+        }
+
+        SvREFCNT_dec(lv);
+    }
 }

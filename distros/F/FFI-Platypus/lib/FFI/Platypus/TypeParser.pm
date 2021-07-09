@@ -7,7 +7,7 @@ use List::Util 1.45 qw( uniqstr );
 use Carp qw( croak );
 
 # ABSTRACT: FFI Type Parser
-our $VERSION = '1.34'; # VERSION
+our $VERSION = '1.52'; # VERSION
 
 
 # The TypeParser and Type classes are used internally ONLY and
@@ -18,7 +18,7 @@ our $VERSION = '1.34'; # VERSION
 sub new
 {
   my($class) = @_;
-  my $self = bless { types => {}, type_map => {} }, $class;
+  my $self = bless { types => {}, type_map => {}, abi => -1 }, $class;
   $self->build;
   $self;
 }
@@ -70,6 +70,14 @@ sub types
   shift->{types};
 }
 
+# The type parser needs to know the ABI when creating closures
+sub abi
+{
+  my($self, $new) = @_;
+  $self->{abi} = $new if defined $new;
+  $self->{abi};
+}
+
 {
   my %store;
 
@@ -112,7 +120,7 @@ FFI::Platypus::TypeParser - FFI Type Parser
 
 =head1 VERSION
 
-version 1.34
+version 1.52
 
 =head1 DESCRIPTION
 
@@ -145,7 +153,7 @@ Damyan Ivanov
 
 Ilya Pavlov (Ilya33)
 
-Petr Pisar (ppisar)
+Petr Písař (ppisar)
 
 Mohammad S Anwar (MANWAR)
 
@@ -154,6 +162,12 @@ Håkon Hægland (hakonhagland, HAKONH)
 Meredith (merrilymeredith, MHOWARD)
 
 Diab Jerius (DJERIUS)
+
+Eric Brine (IKEGAMI)
+
+szTheory
+
+José Joaquín Atria (JJATRIA)
 
 =head1 COPYRIGHT AND LICENSE
 

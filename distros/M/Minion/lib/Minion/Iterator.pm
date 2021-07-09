@@ -4,6 +4,11 @@ use Mojo::Base -base;
 has fetch => 10;
 has [qw(minion options)];
 
+sub each {
+  my ($self, $cb) = @_;
+  while ($_ = $self->next) { $cb->($_) }
+}
+
 sub next { shift @{shift->_fetch(0)->{results}} }
 
 sub total { shift->_fetch(1)->{total} }
@@ -73,6 +78,13 @@ Options to be passed to L<Minion::Backend/"list_jobs"> or L<Minion::Backend/"lis
 
 L<Minion::Iterator> inherits all methods from L<Mojo::Base> and implements the following new ones.
 
+=head2 each
+
+  $iter->each(sub {...});
+
+Evaluate callback for each element in collection. The element will be the first argument passed to the callback, and is
+also available as C<$_>.
+
 =head2 next
 
   my $value = $iter->next;
@@ -88,6 +100,6 @@ that gets updated every time new results are fetched.
 
 =head1 SEE ALSO
 
-L<Minion>, L<https://minion.pm>, L<Mojolicious::Guides>, L<https://mojolicious.org>.
+L<Minion>, L<Minion::Guide>, L<https://minion.pm>, L<Mojolicious::Guides>, L<https://mojolicious.org>.
 
 =cut

@@ -23,6 +23,9 @@ nytprof-50-errno.out
 /t/*.new
 /t/*.newp
 /t/*.out
+/t/*.calls_new
+/t/*.rdt_new
+/t/*.rdt_newp
 /t/nytprof_t.out
 /t/nytprof-test51-*.out
 /t/nytprof_test30-fork-*.out.*
@@ -33,3 +36,6 @@ pm_to_blib
 dll.base
 dll.exp
 NYTProf_def.old
+/cover_db/
+MYMETA.json.lock
+Devel-NYTProf-*/

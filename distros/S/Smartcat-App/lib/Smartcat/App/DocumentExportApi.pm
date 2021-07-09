@@ -50,7 +50,8 @@ sub export_files {
         my @task_doc_ids = splice( @doc_ids, 0, EXPORT_ZIP_FILES_COUNT );
         my $task = eval {
             $api->document_export_request_export(
-                document_ids => \@task_doc_ids );
+                document_ids => \@task_doc_ids,
+                mode => $rundata->{mode} );
         };
         die $log->error(
             sprintf(
@@ -97,7 +98,7 @@ sub export_files {
 
         if ($single_file_export) {
             my $doc  = $docs{ @{ $task->document_ids }[0] };
-            my $name = $doc->name;
+            my $name = $doc->full_path;
             $log->info("Processing document '$name'...");
             my $filepath = get_file_path( $rundata->{project_workdir},
                 $doc->target_language, $name, $rundata->{filetype} );

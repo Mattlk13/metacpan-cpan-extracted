@@ -2,14 +2,8 @@
 //  class => TableClass,
 //  id => ID (for wrapper)
 //
-//  fetch => URL_FOR_ITEMS,
-//
 //  place_row => function(row_html, item, table) { return bool } // true means function placed row, false means append row
 //  modify_row_hook => function(row_html, item) { return null },
-//
-//  row_redraw_check => function(item) { return bool },
-//  row_redraw_fetch => function(item) { return uri },
-//  row_redraw_interval => integer,
 //
 //  dynamic_field_attribute => FIELD_NAME,
 //  dynamic_field_fetch     => function(field_data) { return uri },
@@ -28,13 +22,11 @@
 function FieldTable(spec) {
     var me = this;
     me.spec = spec;
-    me.rows = [];
+    me.rows = {};
     me.columns = [];
     me.postfix_columns = [];
     me.dynamic_columns = [];
     me.dynamic_column_lookup = {};
-    me.redraw = {};
-    me.redraw_id = 1;
     me.row_state = {};
     me.hidden_columns = {};
 
@@ -52,45 +44,8 @@ function FieldTable(spec) {
         me.row_state.body = me.body;
         me.row_state.header = me.header;
 
-        if (me.spec.row_redraw_interval) {
-            setInterval(function() {
-                Object.keys(me.redraw).forEach(function (redraw_id) {
-                    var old = me.redraw[redraw_id];
-                    delete me.redraw[redraw_id];
-
-                    var uri = me.spec.row_redraw_fetch(old.item);
-                    $.ajax(uri, {
-                        'data': { 'content-type': 'application/json' },
-                        'error': function(a, b, c) { me.redraw[redraw_id] = old },
-                        'success': function(item) {
-                            var row = me.render_row(item);
-                            row.index = old.index;
-
-                            if (me.spec.modify_row_hook) {
-                                me.spec.modify_row_hook(row.html, item);
-                            }
-
-                            if (me.spec.row_redraw_check(item)) {
-                                me.redraw[row.redraw_id] = row;
-                            }
-
-                            me.rows[old.index] = row;
-                            old.html.replaceWith(row.html);
-                            old.html.remove();
-                        },
-                    });
-                });
-            }, me.spec.row_redraw_interval);
-        }
-
-        if (typeof(me.spec.fetch) === 'string') {
-            t2hui.fetch(me.spec.fetch, {done: me.make_sortable}, me.render_item);
-        }
-        else if (typeof(me.spec.fetch) === 'object') {
-            me.spec.fetch.forEach(me.render_item);
-            if (me.spec.fetch.length > 1) {
-                me.make_sortable();
-            }
+        if (me.spec.init) {
+            me.spec.init(me.table, me.row_state);
         }
 
         var wrapper = $('<div id="' + spec.id + '" class="field-table-wrapper ' + spec.class + '"></div>');
@@ -100,97 +55,60 @@ function FieldTable(spec) {
     }
 
     me.make_sortable = function() {
-        if (!me.spec.sortable) { return }
-
         me.table.DataTable({
             paging: false,
             searching: false,
             info: false,
             orderCellsTop: true,
         });
-
-//        var them = me.table.children('thead').children('tr').first().children('th');
-
-//        them.click(function() {
-//            $(this).addClass('sorting');
-//        });
-//
-//        var x = me.table.tablesort({
-//            'compare': function(a, b) {
-//                var an = parseFloat(a);
-//                var bn = parseFloat(b);
-//
-//                if (!isNaN(an) && !isNaN(bn)) {
-//                    if (an > bn) {
-//                        return 1;
-//                    } else if (an < bn) {
-//                        return -1;
-//                    } else {
-//                        return 0;
-//                    }
-//                }
-//                if (!isNaN(an)) {
-//                    return 1;
-//                }
-//                if (!isNaN(bn)) {
-//                    return -1;
-//                }
-//
-//                if (a > b) {
-//                    return 1;
-//                } else if (a < b) {
-//                    return -1;
-//                } else {
-//                    return 0;
-//                }
-//            }
-//        });
-//
-//        me.table.on('tablesort:complete', function() {
-//            them.removeClass('sorting');
-//        })
     }
 
-    me.render_item = function(item) {
+    me.render_item = function(item, id, update) {
         if (me.spec.expand_item) {
             var list = me.spec.expand_item(item);
-            list.forEach(me._render_item);
+            list.forEach(function(subitem) {
+                me._render_item(subitem, id, update);
+            });
         }
         else {
-            me._render_item(item);
+            return me._render_item(item, id, update);
         }
-    }
+    },
 
-    me._render_item = function(item) {
-        var row = me.render_row(item);
+    me._render_item = function(item, id, update) {
+        var row = me.render_row(item, id);
 
         if (me.spec.modify_row_hook) {
-            me.spec.modify_row_hook(row.html, item);
+            me.spec.modify_row_hook(row.html, item, me);
         }
 
+        var placed = false;
         if (me.spec.place_row) {
-            if (!me.spec.place_row(row.html, item, me.table, me.row_state)) {
+            placed = me.spec.place_row(row.html, item, me, me.row_state, me.rows[id]);
+        }
+
+        if (placed) {
+            if (me.rows[id]) {
+                me.rows[id].html.detach();
+            }
+        }
+        else {
+            if (me.rows[id]) {
+                me.rows[id].html.replaceWith(row.html);
+            }
+            else {
                 me.body.append(row.html);
             }
         }
-        else {
-            me.body.append(row.html);
-        }
 
-        if (me.spec.row_redraw_check) {
-            if (me.spec.row_redraw_check(item)) {
-                row.redraw_id = me.redraw_id++;
-                me.redraw[row.redraw_id] = row;
-            }
+        if (me.spec.updatable || me.spec.dynamic_field_attribute) {
+            me.rows[id] = row;
         }
-
-        row.index = me.rows.length;
-        me.rows.push(row);
     }
 
-    me.render_row = function(item) {
+    me.render_row = function(item, id) {
         var row = {
-            'html': $('<tr></tr>'),
+            'html': $('<tr id="' + id + '"></tr>'),
             'columns': [],
             'dynamic_columns': [],
             'postfix_columns': [],
@@ -231,7 +149,7 @@ function FieldTable(spec) {
         var attr = me.spec.dynamic_field_attribute;
         if (attr && item[attr]) {
             item[attr].forEach(function(field) {
-                var col = me.render_dynamic_col(field, field.name);
+                var col = me.render_dynamic_col(field, field.name, item);
                 if (me.hidden_columns[field.name]) {
                     col.hide();
                 }
@@ -261,7 +179,7 @@ function FieldTable(spec) {
         return row;
     }
 
-    me.render_dynamic_col = function(field, name) {
+    me.render_dynamic_col = function(field, name, item) {
         var tooltable = $('<table class="tool_table"></table>');
         var toolrow = $('<tr></tr>');
         tooltable.append(toolrow);
@@ -289,14 +207,15 @@ function FieldTable(spec) {
                 $('#modal_body').text("loading...");
                 $('#free_modal').slideDown();
 
-                var uri = me.spec.dynamic_field_fetch(field);
+                var uri = me.spec.dynamic_field_fetch(field, item);
 
                 $.ajax(uri, {
                     'data': { 'content-type': 'application/json' },
                     'success': function(field) {
                         var data = me.spec.dynamic_field_builder ? me.spec.dynamic_field_builder(field, name) : field;
                         $('#modal_body').empty();
-                        $('#modal_body').jsonView(data, {collapsed: true});
+                        var formatter = new JSONFormatter(data, 2);
+                        $('#modal_body').html(formatter.render());
                     },
                 });
             });
@@ -395,7 +314,7 @@ function FieldTable(spec) {
         if (me.dynamic_columns.length) {
             me.dynamic_columns[me.dynamic_columns.length - 1].after(col);
 
-            me.rows.forEach(function(row) {
+            Object.values(me.rows).forEach(function(row) {
                 var td = $('<td class="' + cclass + '"></td>');
                 row.dynamic_columns[row.dynamic_columns.length - 1].after(td);
                 row.dynamic_columns.push(td);
@@ -404,7 +323,7 @@ function FieldTable(spec) {
         else if (me.columns.length) {
             me.columns[me.columns.length - 1].after(col);
 
-            me.rows.forEach(function(row) {
+            Object.values(me.rows).forEach(function(row) {
                 var td = $('<td class="' + cclass + '"></td>');
                 row.columns[row.columns.length - 1].after(td);
                 row.dynamic_columns.push(td);
@@ -414,7 +333,7 @@ function FieldTable(spec) {
             me.header.prepend(col);
 
             var row;
-            me.rows.forEach(function(row) {
+            Object.values(me.rows).forEach(function(row) {
                 var td = $('<td class="' + cclass + '"></td>');
                 row.append(td);
                 row.dynamic_columns.push(td);

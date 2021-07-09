@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2003-2020 Christian Jaeger, copying@christianjaeger.ch
+# Copyright (c) 2003-2021 Christian Jaeger, copying@christianjaeger.ch
 #
 # This is free software, offered under either the same terms as perl 5
 # or the terms of the Artistic License version 2 or the terms of the
@@ -808,7 +808,9 @@ sub fstype_for_device {
     sub setuid          { !!(shift->[2] & 04000) }
 
     # ^ I have no desire to put is_ in front.
-    sub setgid   { !!(shift->[2] & 02000) }
+    sub setgid { !!(shift->[2] & 02000) }
+
+    # sticky is simply the lowest of the 3 permissions_s bits:
     sub sticky   { !!(shift->[2] & 01000) }
     sub filetype { (shift->[2] & 0170000) >> 12 }    # 4*3bits
 
@@ -1376,23 +1378,20 @@ sub dirname {
 sub xmkdir_p;
 
 sub xmkdir_p {
-    @_ == 1 or fp_croak_arity 1;
-    my ($path) = @_;
+    @_ == 1 or @_ == 2 or fp_croak_arity "1 or 2";
+    my ($path, $maybe_mask) = @_;
+    my $mask = $maybe_mask // 0777;
 
     # (XX: see commit d1abd3c2 in megacopy for possible improvement)
     if (-d $path) {
-
-        #done
         ()
     } else {
-        if (mkdir $path) {
-
-            #done
+        if (mkdir $path, $mask) {
             ()
         } else {
             if ($! == ENOENT) {
-                xmkdir_p(dirname $path);
-                mkdir $path or die "could not mkdir('$path'): $!";
+                xmkdir_p(dirname($path), $mask);
+                mkdir $path, $mask or die "could not mkdir('$path'): $!";
             } else {
                 die "could not mkdir('$path'): $!";
             }
@@ -1494,10 +1493,19 @@ sub xprintln {
 sub xgetfile_utf8 {
     @_ == 1 or fp_croak_arity 1;
     my ($path) = @_;
-    open my $in, "<", $path or die "xgetfile_utf8($path): open: $!";
-    binmode $in, ":encoding(UTF-8)" or die "binmode";
-    local $/;
-    my $cnt = <$in> // die "xgetfile_utf8($path): read: $!";
+
+    # using PerlIO::utf8_strict
+    open my $in, '<:utf8_strict', $path or die "xgetfile_utf8($path): open: $!";
+    my $cnt;
+    eval {
+        local $/;
+        $cnt = <$in> // die "read: $!";
+        1
+    } || do {
+        my $e = $@;
+        close $in;
+        die "xgetfile_utf8($path): $e"
+    };
     close $in or die "xgetfile_utf8($path): close: $!";
     $cnt
 }

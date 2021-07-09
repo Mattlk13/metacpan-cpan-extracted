@@ -6,13 +6,41 @@ Mark Overmeer.
 TODO:
 	. Add source http://www.ltsw.se/knbase/internet/mime.htp ?
 
+version 2.21: Fri 28 May 12:01:00 CEST 2021
+
+	Changes:
+	- application/octet-stream is better for .dat [issue #11, Даша Федорова]
+	- add video/webm which Google forgot to register [issue #12, Brent Laabs]
+	- add image/webp which Google registered too late [issue #12, Brent Laabs]
+
+version 2.20: Thu 22 Apr 12:48:35 CEST 2021
+
+	Fixes:
+	- problems with PAUSE cause the previous release to show-up in
+	  the wrong location.  Let's hope this release solves it.
+
+	Changes:
+	- heif/heic/heifs/heics/hif fix [issue #9, Даша Федорова]
+	- no 'and' and 'or' extensions [issue #9, Даша Федорова]
+	- application/octet-stream is better for .bin [issue #10, Даша Федорова]
+
+version 2.19: Fri 16 Apr 11:47:10 CEST 2021
+
+	Improvements:
+	- update with the newest data from IANA and Apache httpd
+
+	Changes:
+	- mp4 preference is video/mp4 [issue #5, Даша Федорова]
+	- yt preference is video/vnd.youtube.yt [issue #6, Даша Федорова]
+	- 3gp and 3gpp preference is video/3gpp [issue #7, Даша Федорова]
+
 version 2.18: Wed  9 Dec 10:29:46 CET 2020
 
 	Improvements:
 	- update with newest data
 
 	Changes:
-	- Mojo 6.0 changed types() into mapping() [Dmitry Latin ]
+	- Mojo 6.0 changed types() into mapping() [Dmitry Latin]
 	- Mojo 7.94 adds experimental file_type()
 	- Mojo 7.94 adds experimental content_type()
 

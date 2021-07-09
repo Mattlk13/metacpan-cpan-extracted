@@ -19,6 +19,8 @@ my %WriteMakefileArgs = (
     "Capture::Tiny" => 0,
     "Cwd" => 0,
     "IPC::Run" => 0,
+    "Log::ger::Format" => "0.018",
+    "Log::ger::Format::MultilevelLog" => 0,
     "Proc::ChildError" => 0,
     "String::ShellQuote" => 0,
     "strict" => 0,
@@ -32,7 +34,7 @@ my %WriteMakefileArgs = (
     "Test::Exception" => 0,
     "Test::More" => "0.98"
   },
-  "VERSION" => "0.338",
+  "VERSION" => "0.340",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -47,6 +49,8 @@ my %FallbackPrereqs = (
   "IO::Handle" => 0,
   "IPC::Open3" => 0,
   "IPC::Run" => 0,
+  "Log::ger::Format" => "0.018",
+  "Log::ger::Format::MultilevelLog" => 0,
   "Proc::ChildError" => 0,
   "String::ShellQuote" => 0,
   "Test::Exception" => 0,

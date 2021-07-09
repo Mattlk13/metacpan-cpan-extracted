@@ -2,38 +2,47 @@ package Net::Z3950::FOLIO::PostProcess;
 
 use strict;
 use warnings;
+use utf8;
 
 use Data::Dumper;
-use Unicode::Diacritic::Strip ':all';
+use Unicode::Diacritic::Strip 'fast_strip';
 
 
-sub postProcess {
-    my($cfg, $json) = @_;
+sub postProcessMARCRecord {
+    my($cfg, $marc) = @_;
 
-    return $json if !$cfg;
+    return $marc if !$cfg;
+    my $newMarc = new MARC::Record();
+    $newMarc->leader($marc->leader());
 
-    foreach my $field (@{ $json->{fields} }) {
-	# Silly data structure: each "field" is a single-element hash
-	foreach my $key (keys %$field) {
-	    my $val = $field->{$key};
-	    if (!ref $val) {
-		# Simple field
-		my $rules = $cfg->{$key};
-		$field->{$key} = transform($rules, $field->{$key}) if $rules;
-	    } else {
-		# Complex field with subfields
-		foreach my $subfield (@{ $val->{subfields} }) {
-		    # Silly data structure: each "subfield" is a single-element hash
-		    foreach my $key2 (keys %$subfield) {
-			my $rules = $cfg->{"$key\$$key2"};
-			$subfield->{$key2} = transform($rules, $subfield->{$key2}) if $rules;
-		    }
+    foreach my $field ($marc->fields()) {
+	my $tag = $field->tag();
+
+	my $newField;
+	if ($field->is_control_field())	{
+	    my $value = $field->data();
+	    my $rules = $cfg->{$tag};
+	    $value = transform($rules, $value) if $rules;
+	    $newField = new MARC::Field($tag, $field->indicator(1), $field->indicator(2), $value);
+	} else {
+	    foreach my $subfield ($field->subfields()) {
+		my($key, $value) = @$subfield;
+		my $rules = $cfg->{"$tag\$$key"};
+		$value = transform($rules, $value) if $rules;
+		if (!$newField) {
+		    $newField = new MARC::Field($tag, $field->indicator(1), $field->indicator(2), $key, $value);
+		} else {
+		    $newField->add_subfields($key, $value);
 		}
 	    }
+
+	    die "can't transform empty field", $field if !$newField;
 	}
+
+	$newMarc->append_fields($newField);
     }
 
-    return $json;
+    return $newMarc;
 }
 
 
@@ -70,8 +79,23 @@ sub applyRule {
 sub applyStripDiacritics {
     my($_rule, $value) = @_;
 
-    # it seems that the regular strip_diacritics function just plain no-ops, hence fast_strip instead
-    my $result = fast_strip($value);
+    my $result = $value;
+
+    # Extra special case: needs handling first, as fast_strip converts ipper-case thorn to "th"
+    $result =~ s/Þ/TH/g;
+
+    # It seems that the regular strip_diacritics function just plain no-ops, hence fast_strip instead
+    $result = fast_strip($result);
+
+    # Special cases required in ZF-31, but apparently not implemented by fast_strip
+    $result =~ s/ß/ss/g;
+    $result =~ s/ẞ/SS/g;
+    $result =~ s/Đ/D/g;
+    $result =~ s/ð/d/g;
+    $result =~ s/Æ/AE/g;
+    $result =~ s/æ/ae/g;
+    $result =~ s/Œ/OE/g; # For some reason, fast_strip handle the lower-case version but not the upper-case
+
     # warn "stripping diacritics: '$value' -> '$result'";
     return $result;
 }
@@ -82,7 +106,7 @@ sub applyRegsub {
 
     my $pattern = $rule->{pattern};
     my $replacement = $rule->{replacement};
-    my $flags = $rule->{flags};
+    my $flags = $rule->{flags} || "";
     my $res = $value;
 
     # See advice on this next part at https://perlmonks.org/?node_id=11124218
@@ -97,7 +121,7 @@ sub applyRegsub {
 
 
 use Exporter qw(import);
-our @EXPORT_OK = qw(postProcess transform applyRule applyStripDiacritics applyRegsub);
+our @EXPORT_OK = qw(postProcess postProcessMARCRecord transform applyRule applyStripDiacritics applyRegsub);
 
 
 1;

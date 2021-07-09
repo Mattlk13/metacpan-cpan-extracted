@@ -10,7 +10,7 @@ use Mojo::Util qw(humanize_bytes);
 
 use constant MACOS => $^O eq 'darwin';
 
-our $VERSION = '1.13';
+our $VERSION = '1.17';
 
 sub register {
   my ($self, $app, $config) = @_;
@@ -35,7 +35,8 @@ sub register {
   push @{$app->renderer->paths}, $resources->child('templates')->to_string;
 
   # Routes
-  $prefix->get('/' => {mojo_status => $self} => \&_dashboard)->name('mojo_status');
+  $prefix->get('/' => => [format => ['json']] => {format => undef, mojo_status => $self} => \&_dashboard)
+    ->name('mojo_status');
 }
 
 sub _activity {
@@ -109,9 +110,10 @@ sub _dashboard {
 }
 
 sub _read_write {
-  my ($record, $id) = @_;
+  my ($all, $id) = @_;
   return unless my $stream = Mojo::IOLoop->stream($id);
-  @{$record}{qw(bytes_read bytes_written)} = ($stream->bytes_read, $stream->bytes_written);
+  @{$all->{workers}{$$}{connections}{$id}}{qw(bytes_read bytes_written)}
+    = ($stream->bytes_read, $stream->bytes_written);
 }
 
 sub _request {
@@ -133,7 +135,7 @@ sub _request {
       query      => $url->query->to_string,
       started    => time
     };
-    _read_write($_->{workers}{$$}{connections}{$id}, $id);
+    _read_write($_, $id);
     $_->{workers}{$$}{connections}{$id}{client} = $tx->remote_address;
   });
 
@@ -151,8 +153,7 @@ sub _request {
         elsif ($code > 199) { $_->{stats}{success}++ }
         elsif ($code)       { $_->{stats}{info}++ }
 
-        $worker->{connections}{$id}{request}{finished} = time;
-        $worker->{connections}{$id}{request}{status}   = $code;
+        @{$worker->{connections}{$id}{request}}{qw(finished status)} = (time, $code);
         $worker->{connections}{$id}{processed}++;
         $worker->{processed}++;
         $_->{processed}++;
@@ -164,14 +165,13 @@ sub _request {
 sub _rendered {
   my ($self, $c) = @_;
 
-  my $id   = $c->tx->connection;
-  my $map  = $self->{map};
-  my $conn = $map->writer->fetch->{workers}{$$}{connections}{$id};
-  return unless $conn && (my $req = $conn->{request});
-  $req->{time} = time - $req->{started};
-  @{$req}{qw(client status worker)} = ($conn->{client}, $c->res->code, $$);
+  my $id = $c->tx->connection;
+  $self->{map}->writer->change(sub {
+    return unless my $conn = $_->{workers}{$$}{connections}{$id};
+    return unless my $req  = $conn->{request};
+    $req->{time} = time - $req->{started};
+    @{$req}{qw(client status worker)} = ($conn->{client}, $c->res->code, $$);
 
-  $map->writer->change(sub {
     my $slowest = $_->{slowest};
     @$slowest = sort { $b->{time} <=> $a->{time} } @$slowest, $req;
     my %seen;
@@ -189,9 +189,7 @@ sub _resources {
     # macOS actually returns bytes instead of kilobytes
     $_->{workers}{$$}{maxrss} = $_->{workers}{$$}{maxrss} * 1000 unless MACOS;
 
-    for my $id (keys %{$_->{workers}{$$}{connections}}) {
-      _read_write($_->{workers}{$$}{connections}{$id}, $id);
-    }
+    for my $id (keys %{$_->{workers}{$$}{connections}}) { _read_write($_, $id) }
   });
 }
 
@@ -212,7 +210,9 @@ sub _slowest {
 
 sub _start {
   my ($self, $server, $app) = @_;
-  return unless $server->isa('Mojo::Server::Daemon');
+
+  return $app->log->warn('Server not suported by Mojolicious::Plugin::Status')
+    unless $server->isa('Mojo::Server::Daemon');
 
   # Register started workers
   Mojo::IOLoop->next_tick(sub {
@@ -235,9 +235,7 @@ sub _start {
   Mojo::IOLoop->recurring(5 => sub { $self->_resources });
 }
 
-sub _stats {
-  return {started => time, info => 0, success => 0, redirect => 0, client_error => 0, server_error => 0};
-}
+sub _stats { {started => time, info => 0, success => 0, redirect => 0, client_error => 0, server_error => 0} }
 
 sub _stream {
   my ($self, $id) = @_;
@@ -381,7 +379,7 @@ Sebastian Riedel, C<sri@cpan.org>.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2018-2020, Sebastian Riedel and others.
+Copyright (C) 2018-2021, Sebastian Riedel and others.
 
 This program is free software, you can redistribute it and/or modify it under the terms of the Artistic License version
 2.0.

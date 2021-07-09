@@ -1,0 +1,83 @@
+Revision history for Sentry-SDK
+
+v1.0.10  2021-05-14 08:14:46 CEST
+
+  - Fix required minimum Perl version
+
+v1.0.9  2021-05-13 11:11:57 CEST
+
+  - Added missing minimum List::Util version
+  - Added missing minimum Perl version
+
+v1.0.8  2021-05-11 14:48:13 CEST
+
+  - fix: Ensure integrations are initialized once
+  - fix(CGI::Application::Plugin::Sentry): Ensure clean state when initializing the app
+
+v1.0.7  2021-05-10 09:28:01 CEST
+
+  - fix(Sentry::Integration::DBI): do not try to finish non-existing spans (second location).
+
+v1.0.6  2021-05-07 10:25:25 CEST
+
+  - fix(Sentry::Integration::DBI): do not try to finish non-existing spans.
+
+v1.0.5  2021-05-07 09:10:20 CEST
+
+  - fix(CGI::Application::Plugin::Sentry): prefer `REQUEST_URI` environment variable for building the current URL
+
+v1.0.4  2021-05-06 16:53:01 CEST
+
+  - fix(CGI::Application::Plugin::Sentry): provide `runmode` and `server_name` tags
+
+v1.0.3  2021-05-06 16:20:47 CEST
+
+  - fix "Too few arguments for subroutine" warning
+
+v1.0.2  2021-02-11 15:38:56 CET
+
+  - fix(CGI::Application::Plugin::Sentry): handle scope end in prerun stage
+  - fix: fix exception handling when the exception object does not have a `to_string` method
+  - fix(dsn): fix URL building when standard ports are used
+  - feat(sdk): add `debug` option
+
+v1.0.1  2021-02-11 09:42:35 CET
+
+  - fix(deps): add missing `List::Util` (for a newer release ccontaining `uniq()`)
+
+v1.0.0  2021-02-11 00:10:25 CET
+
+  - Configure the packages main module
+
+0.11.2  2021-02-11 00:01:05 CET
+
+  - Moved to https://github.com/heiseonline/perl-sentry-sdk
+
+0.11.1  2021-02-10 23:43:09 CET
+
+  - feat: improve the `CGI::Application` plugin
+  - fix(hub): fix error in `set_tags()`
+
+0.11.0  2021-02-10 22:27:39 CET
+
+  - feat(tracing): support the `traces_sample_rate` option
+
+0.10.5  2021-02-10 11:18:15 CET
+
+  - docs: add POD
+
+0.10.4  2021-02-10 10:28:34 CET
+
+  - fix: add missing requirements (Perl v5.24.0)
+
+0.10.3  2021-02-09 00:28:01 CET
+
+  - fix: use new Sentry module name in framework integrations
+
+0.10.2  2021-02-08 23:54:59 CET
+
+  - fix: rename Mojolicious::Plugin::Sentry -> Mojolicious::Plugin::SentrySDK
+
+0.10.1  2021-02-08 23:46:34 CET
+
+  - Initial release

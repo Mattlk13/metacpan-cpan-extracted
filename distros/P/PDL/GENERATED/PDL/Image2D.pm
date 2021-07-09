@@ -4,8 +4,8 @@
 #
 package PDL::Image2D;
 
-@EXPORT_OK  = qw(  PDL::PP conv2d PDL::PP med2d PDL::PP med2df PDL::PP box2d PDL::PP patch2d PDL::PP patchbad2d PDL::PP max2d_ind PDL::PP centroid2d  cc8compt cc4compt PDL::PP ccNcompt polyfill  pnpoly  polyfillv  rotnewsz PDL::PP rot2d PDL::PP bilin2d PDL::PP rescale2d  fitwarp2d applywarp2d PDL::PP warp2d  warp2d_kernel PDL::PP warp2d_kernel );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw( PDL::PP conv2d PDL::PP med2d PDL::PP med2df PDL::PP box2d PDL::PP patch2d PDL::PP patchbad2d PDL::PP max2d_ind PDL::PP centroid2d  cc8compt cc4compt PDL::PP ccNcompt polyfill  pnpoly  polyfillv  rotnewsz PDL::PP rot2d PDL::PP bilin2d PDL::PP rescale2d  fitwarp2d applywarp2d PDL::PP warp2d  warp2d_kernel PDL::PP warp2d_kernel );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::Image2D ;
 
@@ -250,7 +250,7 @@ Note: this routine does the median over all points in a rectangular
 =for bad
 
 med2df does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -306,7 +306,7 @@ C<box2d> should be updated to support similar edge options
 as C<conv2d> and C<med2d> etc.
 
 Boxcar averaging is a pretty crude way of filtering. For serious stuff
-better filters are around (e.g., use L<conv2d|conv2d> with the appropriate
+better filters are around (e.g., use L</conv2d> with the appropriate
 kernel). On the other hand it is fast and computational cost grows only
 approximately linearly with window size.
 
@@ -315,7 +315,7 @@ approximately linearly with window size.
 =for bad
 
 box2d does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -355,7 +355,7 @@ copied across.
 
 =for bad
 
-This routine does not handle bad values - use L<patchbad2d|/patchbad2d> instead
+This routine does not handle bad values - use L</patchbad2d> instead
 
 =cut
 
@@ -387,15 +387,15 @@ patch bad pixels out of 2D images containing bad values
 
 Pixels are replaced by the average of their non-bad neighbours;
 if all neighbours are bad, the output is set bad.
-If the input piddle contains I<no> bad values, then a straight copy
-is performed (see L<patch2d|/patch2d>).
+If the input ndarray contains I<no> bad values, then a straight copy
+is performed (see L</patch2d>).
 
 
 
 =for bad
 
-patchbad2d handles bad values. The output piddle I<may> contain
-bad values, depending on the pattern of bad values in the input piddle.
+patchbad2d handles bad values. The output ndarray I<may> contain
+bad values, depending on the pattern of bad values in the input ndarray.
 
 =cut
 
@@ -490,7 +490,7 @@ Connected 8-component labeling of a binary image.
 Connected 8-component labeling of 0,1 image - i.e. find separate
 segmented objects and fill object pixels with object number.
 8-component labeling includes all neighboring pixels.
-This is just a front-end to ccNcompt.  See also L<cc4compt|cc4compt>.
+This is just a front-end to ccNcompt.  See also L</cc4compt>.
 
 =for example
 
@@ -505,7 +505,7 @@ Connected 4-component labeling of a binary image.
 Connected 4-component labeling of 0,1 image - i.e. find separate
 segmented objects and fill object pixels with object number.
 4-component labling does not include the diagonal neighbors.
-This is just a front-end to ccNcompt.  See also L<cc8compt|cc8compt>.
+This is just a front-end to ccNcompt.  See also L</cc8compt>.
 
 =for example
 
@@ -541,7 +541,7 @@ Connected component labeling of a binary image.
 
 Connected component labeling of 0,1 image - i.e. find separate
 segmented objects and fill object pixels with object number.
-See also L<cc4compt|cc4compt> and L<cc8compt|cc8compt>.
+See also L</cc4compt> and L</cc8compt>.
 
 The connectivity parameter must be 4 or 8.
 
@@ -557,8 +557,8 @@ where the second parameter specifies the connectivity (4 or 8) of the labeling.
 
 =for bad
 
-ccNcompt ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+ccNcompt ignores the bad-value flag of the input ndarrays.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -585,14 +585,14 @@ This function works inplace, i.e. modifies C<im>.
   polyfill($im,$ps,$colour,[\%options]);
 
 The default method of determining which points lie inside of the polygon used
-is not as strict as the method used in L<pnpoly|pnpoly>. Often, it includes vertices
+is not as strict as the method used in L</pnpoly>. Often, it includes vertices
 and edge points. Set the C<Method> option to change this behaviour.
 
 =for option
 
 Method   -  Set the method used to determine which points lie in the polygon.
             => Default - internal PDL algorithm
-            => pnpoly  - use the L<pnpoly|pnpoly> algorithm
+            => pnpoly  - use the L</pnpoly> algorithm
 
 =for example
 
@@ -632,7 +632,7 @@ sub PDL::polyfill {
 
 =for ref
 
-'points in a polygon' selection from a 2-D piddle
+'points in a polygon' selection from a 2-D ndarray
 
 =for usage
 
@@ -673,7 +673,7 @@ and vectorized for PDL by Karl Glazebrook.
 #
 # Fixes needed to pnpoly code:
 #
-# Use topdl() to ensure piddle args
+# Use topdl() to ensure ndarray args
 #
 # Add POD docs for usage
 #
@@ -720,14 +720,14 @@ return the (dataflown) area of an image described by a polygon
   polyfillv($im,$ps,[\%options]);
 
 The default method of determining which points lie inside of the polygon used
-is not as strict as the method used in L<pnpoly|pnpoly>. Often, it includes vertices
+is not as strict as the method used in L</pnpoly>. Often, it includes vertices
 and edge points. Set the C<Method> option to change this behaviour.
 
 =for option
 
 Method   -  Set the method used to determine which points lie in the polygon.
             => Default - internal PDL algorithm
-            => pnpoly  - use the L<pnpoly|pnpoly> algorithm
+            => pnpoly  - use the L</pnpoly> algorithm
 
 =for example
 
@@ -793,7 +793,7 @@ newly created image
 
   ($newcols,$newrows) = rotnewsz $oldn, $oldm, $angle;
 
-L<PDL::Transform|PDL::Transform> offers a more general interface to
+L<PDL::Transform> offers a more general interface to
 distortions, including rotation, with various types of sampling; but
 rot2d is faster.
 
@@ -801,8 +801,8 @@ rot2d is faster.
 
 =for bad
 
-rot2d ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+rot2d ignores the bad-value flag of the input ndarrays.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -822,21 +822,21 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for sig
 
-  Signature: (I(n,m); O(q,p))
+  Signature: (Int(n,m); O(q,p))
 
 
 =for ref
 
-Bilinearly maps the first piddle in the second. The
+Bilinearly maps the first ndarray in the second. The
 interpolated values are actually added to the second
-piddle which is supposed to be larger than the first one.
+ndarray which is supposed to be larger than the first one.
 
 
 
 =for bad
 
-bilin2d ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+bilin2d ignores the bad-value flag of the input ndarrays.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -856,12 +856,12 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for sig
 
-  Signature: (I(m,n); O(p,q))
+  Signature: (Int(m,n); O(p,q))
 
 
 =for ref
 
-The first piddle is rescaled to the dimensions of the second
+The first ndarray is rescaled to the dimensions of the second
 (expanding or meaning values as needed) and then added to it in place.
 Nothing useful is returned.
 
@@ -874,8 +874,8 @@ rescale2d.
 
 =for bad
 
-rescale2d ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+rescale2d ignores the bad-value flag of the input ndarrays.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -909,7 +909,7 @@ The order of the fit is controlled by the C<$nf> parameter
 (the maximum power of the polynomial is C<$nf - 1>), and you
 can restrict the terms to fit using the C<FIT> option.
 
-C<$px> and C<$py> are C<np> by C<np> element piddles which describe
+C<$px> and C<$py> are C<np> by C<np> element ndarrays which describe
 a polynomial mapping (of order C<np-1>)
 from the I<output> C<(u,v)> image to the I<input> C<(x,y)> image:
 
@@ -941,8 +941,8 @@ old option, caused trouble
 =item FIT
 
 C<FIT> allows you to restrict which terms of the polynomial to fit:
-only those terms for which the FIT piddle evaluates to true will be
-evaluated.  If a 2D piddle is sent in, then it is
+only those terms for which the FIT ndarray evaluates to true will be
+evaluated.  If a 2D ndarray is sent in, then it is
 used for the x and y polynomials; otherwise
 C<< $fit->slice(":,:,(0)") >> will be used for C<$px> and
 C<< $fit->slice(":,:,(1)") >> will be used for C<$py>.
@@ -1043,7 +1043,7 @@ Transform a set of points using a 2-D polynomial mapping
 
   ( $x, $y ) = applywarp2d( $px, $py, $u, $v )
 
-Convert a set of points (stored in 1D piddles C<$u,$v>)
+Convert a set of points (stored in 1D ndarrays C<$u,$v>)
 to C<$x,$y> using the 2-D polynomial with coefficients stored in C<$px>
 and C<$py>.  See L<fitwarp2d()|/fitwarp2d>
 for more information on the format of C<$px> and C<$py>.
@@ -1140,22 +1140,15 @@ sub _svd ($$) {
 
     #EXPLANATION: the division by (the non-zero elements of) $svd_w (the singular values) is
     #equivalent to $sigma_plus x $tmp, so $tmp is now SIGMA^+ x $svd_u x $y
-    if ( $PDL::Bad::Status ) {
-	$tmp /= $svd_w->setvaltobad(0.0);
-	$tmp->inplace->setbadtoval(0.0);
-    } else {
-	# not checked
-	my $mask = ($svd_w == 0.0);
-	$tmp /= ( $svd_w + $mask );
-	$tmp *= ( 1 - $mask );
-    }
+    $tmp /= $svd_w->setvaltobad(0.0);
+    $tmp->inplace->setbadtoval(0.0);
 
     #EXPLANATION:   $svd_v x SIGMA^+ x $svd_u x $y
     return sumover( $svd_v * $tmp );
 
 } # sub: _svd()
 
-#_mkbasis returns a piddle in which the k(=j*n+i)_th column is v**j * u**i
+#_mkbasis returns an ndarray in which the k(=j*n+i)_th column is v**j * u**i
 #k=0 j=0 i=0
 #k=1 j=0 i=1
 #k=2 j=0 i=2
@@ -1218,7 +1211,7 @@ sub PDL::fitwarp2d {
 
     my $fit = $$oref{FIT};
     my $fit_ndim = $fit->getndims();
-    croak "fitwarp2d: FIT option must be sent a (\$nf,\$nf[,2]) element piddle"
+    croak "fitwarp2d: FIT option must be sent a (\$nf,\$nf[,2]) element ndarray"
 	unless UNIVERSAL::isa($fit,"PDL") and
 	    ($fit_ndim == 2 or ($fit_ndim == 3 and $fit->getdim(2) == 2)) and
 	    $fit->getdim(0) == $nf and $fit->getdim(1) == $nf;
@@ -1256,7 +1249,7 @@ sub PDL::fitwarp2d {
     my $px = _svd( $basisx, $x ); # $svd_thresh);
     my $py = _svd( $basisy, $y ); # $svd_thresh);
 
-    # convert into $nf x $nf element piddles, if necessary
+    # convert into $nf x $nf element ndarrays, if necessary
     my $nf2 = $nf * $nf;
 
     return ( $px->reshape($nf,$nf), $py->reshape($nf,$nf) )
@@ -1338,7 +1331,7 @@ Warp a 2D image given a polynomial describing the I<reverse> mapping.
   $out = warp2d( $img, $px, $py, { options } );
 
 Apply the polynomial transformation encoded in the C<$px> and
-C<$py> piddles to warp the input image C<$img> into the output
+C<$py> ndarrays to warp the input image C<$img> into the output
 image C<$out>.
 
 The format for the polynomial transformation is described in
@@ -1489,7 +1482,7 @@ sub PDL::warp2d {
 
 =for ref
 
-Return the specified kernel, as used by L<warp2d|/warp2d>
+Return the specified kernel, as used by L</warp2d>
 
 =for usage
 

@@ -2,7 +2,7 @@ package Test::Cleanup;
 
 use strict;
 use warnings;
-use base qw( Exporter );
+use Exporter qw( import );
 use File::Path qw( rmtree );
 
 our @EXPORT = qw( cleanup );
@@ -16,9 +16,16 @@ sub cleanup
 
 END
 {
-  foreach my $dir (@cleanup)
+  foreach my $item (@cleanup)
   {
-    rmtree($dir, { verbose => 0 });
+    if(ref $item eq 'CODE')
+    {
+      $item->();
+    }
+    else
+    {
+      rmtree("$item", { verbose => 0 });
+    }
   }
 }
 

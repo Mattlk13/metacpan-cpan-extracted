@@ -1,18 +1,20 @@
-#!/usr/bin/perl -Tw
+#!/usr/bin/perl
 
 use strict;
-use lib '..','../blib/lib','.','./blib/lib';
+use lib './lib','./blib/lib';
 
 sub test;
 
 my (@mods,@pads,@in,$pad,$test_data,$mod,$tnum,$c,$i,$p);
 
-@mods = qw/Rijndael
-           Blowfish
-           Blowfish_PP
-           IDEA
-           DES
-          /;
+@mods = qw/
+    Cipher::AES
+    Rijndael
+    Blowfish
+    Blowfish_PP
+    IDEA
+    DES
+    /;
 @pads = qw/standard oneandzeroes space null/;
 
 for $mod (@mods) {
@@ -43,6 +45,7 @@ for my $mod (@in) {
     my $cipher = Crypt::CBC->new(-key     => 'secret',
 				 -cipher  => $mod,
 				 -padding => $pad,
+				 -pbkdf  => 'opensslv2',
 				);
     for my $length (1..128) {
       my $test_data = 'a'x$length . '0';

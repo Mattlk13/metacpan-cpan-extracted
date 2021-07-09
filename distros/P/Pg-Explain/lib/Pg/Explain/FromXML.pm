@@ -20,6 +20,8 @@ if ( grep /\P{ASCII}/ => @ARGV ) {
 use base qw( Pg::Explain::From );
 use XML::Simple;
 use Carp;
+use Pg::Explain::JIT;
+use Pg::Explain::Buffers;
 
 =head1 NAME
 
@@ -27,11 +29,11 @@ Pg::Explain::FromXML - Parser for explains in XML format
 
 =head1 VERSION
 
-Version 1.04
+Version 1.11
 
 =cut
 
-our $VERSION = '1.04';
+our $VERSION = '1.11';
 
 =head1 SYNOPSIS
 
@@ -51,6 +53,7 @@ sub normalize_node_struct {
     my @keys = keys %{ $struct };
     for my $key ( @keys ) {
         my $new_key = $key;
+        $new_key =~ s{^I-O-(Read|Write)-Time$}{I/O $1 Time};
         $new_key =~ s/-/ /g;
         $struct->{ $new_key } = delete $struct->{ $key } if $key ne $new_key;
     }
@@ -76,6 +79,10 @@ sub normalize_node_struct {
         else {
             $struct->{ 'Group Key' } = [ $items ];
         }
+    }
+
+    if ( $struct->{ 'Conflict Arbiter Indexes' } ) {
+        $struct->{ 'Conflict Arbiter Indexes' } = [ $struct->{ 'Conflict Arbiter Indexes' }->{ 'Item' } ];
     }
     return $struct;
 }
@@ -111,6 +118,8 @@ sub parse_source {
 
     if ( $struct->{ 'Planning' } ) {
         $self->explain->planning_time( $struct->{ 'Planning' }->{ 'Planning-Time' } );
+        my $buffers = Pg::Explain::Buffers->new( $self->normalize_node_struct( $struct->{ 'Planning' } ) );
+        $self->explain->planning_buffers( $buffers ) if $buffers;
     }
     elsif ( $struct->{ 'Planning-Time' } ) {
         $self->explain->planning_time( $struct->{ 'Planning-Time' } );
@@ -127,6 +136,10 @@ sub parse_source {
             $self->explain->add_trigger_time( $ts );
         }
     }
+    $self->explain->jit( Pg::Explain::JIT->new( 'struct' => $struct->{ 'JIT' } ) ) if $struct->{ 'JIT' };
+
+    $self->explain->query( $struct->{ 'Query-Text' } ) if $struct->{ 'Query-Text' };
+
     return $top_node;
 }
 
@@ -146,7 +159,7 @@ You can find documentation for this module with the perldoc command.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2008-2015 hubert depesz lubaczewski, all rights reserved.
+Copyright 2008-2021 hubert depesz lubaczewski, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

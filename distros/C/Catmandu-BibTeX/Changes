@@ -1,5 +1,15 @@
 Revision history for Catmandu-BibTeX
 
+0.21  2021-06-08 11:16:20 CEST
+  - use double brackets to preserve case
+
+0.20  2021-03-02 10:19:26 CET
+  - update tests to work with latest BibTeX::Parser (page range divider is now
+    long dash)
+
+0.19  2021-01-25 13:14:08 CET
+  - fix version for LaTeX::ToUnicode
+
 0.18  2020-03-04 13:39:24 CET
   - fix travis build
 

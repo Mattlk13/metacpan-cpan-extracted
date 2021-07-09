@@ -12,9 +12,9 @@ use strict;
 ##==============================================================================
 ## Constants
 ##==============================================================================
-our $VERSION = "0.96";
-our $SVNID   = 'svn+ssh://odo.dwds.de/home/svn/dev/dta-tokwrap/trunk @ 32979';
-our $PACKAGE_VERSION = "0.96";  ##-- usually == $VERSION
+our $VERSION = "0.98";
+our $SVNID   = 'svn+ssh://svn.dwds.de/home/svn/dev/dta-tokwrap/trunk @ 34492M';
+our $PACKAGE_VERSION = "0.98";  ##-- usually == $VERSION
 
 our $prefix = "/usr/local";
 our $datadir ="${prefix}/share";

@@ -32,6 +32,7 @@ can_ok(
 		report
 
         AdditionalDetails
+        AgencyId
         AppointmentDate
         BlockName
 		CallbackId
@@ -40,6 +41,7 @@ can_ok(
         CostCode
         Quotes
         QuoteEndTime
+        QuoteRequests
 		FaultTitle
 		TermsAccepted
 		TenantNotes

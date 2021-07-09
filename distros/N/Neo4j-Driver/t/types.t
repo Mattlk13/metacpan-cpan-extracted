@@ -4,9 +4,9 @@ use warnings;
 use lib qw(./lib t/lib);
 
 my $driver;
-use Neo4j::Test;
+use Neo4j_Test;
 BEGIN {
-	unless ($driver = Neo4j::Test->driver) {
+	unless ( $driver = Neo4j_Test->driver() ) {
 		print qq{1..0 # SKIP no connection to Neo4j server\n};
 		exit;
 	}
@@ -60,7 +60,7 @@ subtest 'Property types: spatial type semantics' => sub {
 	# may fail on old Neo4j versions and over Bolt
 	plan skip_all => "(spatial types unavailable in server $ver)" if $ver lt 'Neo4j/3.4';
 	plan tests => 1 + 1 unless $ver lt 'Neo4j/3.4';
-	TODO: { local $TODO = 'Spatial not supported by libneo4j-client 2.2.0' if $Neo4j::Test::bolt;
+	TODO: { local $TODO = 'Spatial not supported by libneo4j-client 2.2.0' if $Neo4j_Test::bolt;
 	$q = <<END;
 RETURN point({ x:3, y:0 })
 END
@@ -80,7 +80,7 @@ subtest 'Property types: temporal type semantics' => sub {
 	# may fail on old Neo4j versions and over Bolt
 	plan skip_all => "(temporal types unavailable in server $ver)" if $ver lt 'Neo4j/3.4';
 	plan tests => 1 + 1 unless $ver lt 'Neo4j/3.4';
-	TODO: { local $TODO = 'Temporal not supported by libneo4j-client 2.2.0' if $Neo4j::Test::bolt;
+	TODO: { local $TODO = 'Temporal not supported by libneo4j-client 2.2.0' if $Neo4j_Test::bolt;
 	$q = <<END;
 RETURN
 duration.between(date('1984-10-11'), date('2015-06-24'))
@@ -139,7 +139,7 @@ lives_ok { $r0 = 0; $r0 = $transaction->run($q)->single; } 'run query (structura
 
 subtest 'Structural types: node meta data and props' => sub {
 	plan skip_all => '(query failed)' if ! $r0;
-	plan tests => 10 if $r0;
+	plan tests => 13;
 	ok my $n1 = $r0->get('n1'), 'get node 1';
 	ok my $n2 = $r0->get('n2'), 'get node 2';
 	ok defined($id = $r0->get('id(n1)')), 'get node 1 id';
@@ -150,6 +150,10 @@ subtest 'Structural types: node meta data and props' => sub {
 	is $n1->get('test'), 'node1', 'node 1 get';
 	is $n2->properties->{test}, 'node2', 'node 2 properties';
 	ok grep(m/^Test$/, $n1->labels), 'node 1 label';
+	ok my $n4 = $r0->get('n4'), 'get node 4';
+	my @l;
+	lives_ok { @l = $n4->labels } 'node 4 labels';
+	ok ! @l, 'no node 4 labels';
 };
 
 

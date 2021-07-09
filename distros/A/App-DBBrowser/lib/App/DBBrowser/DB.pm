@@ -5,7 +5,7 @@ use warnings;
 use strict;
 use 5.010001;
 
-our $VERSION = '2.256';
+our $VERSION = '2.271';
 
 #use bytes; # required
 use Scalar::Util qw( looks_like_number );
@@ -56,6 +56,7 @@ sub get_db_handle {
         );
         $dbh->sqlite_create_function( 'bit_length', 1, sub {
                 require bytes;
+                return if ! defined $_[0];
                 return 8 * bytes::length $_[0];
             }
         );
@@ -375,7 +376,7 @@ App::DBBrowser::DB - Database plugin documentation.
 
 =head1 VERSION
 
-Version 2.256
+Version 2.271
 
 =head1 DESCRIPTION
 

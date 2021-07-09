@@ -2,18 +2,13 @@
 # Create BAD_demo.pm
 # - needed since we allow bad pixel handling to be switched off
 #
- 
+
 use strict;
- 
+
 use Config;
 use File::Basename qw(&basename &dirname);
 use blib;
- 
-# check for bad value support
-use lib '../Basic/Core';  # so Config.pm is found during build
-use PDL::Config;
-my $bvalflag = $PDL::Config{WITH_BADVAL} || 0;
- 
+
 # This forces PL files to create target in same directory as PL file.
 # This is so that make depend always knows where to find PL derivatives.
 chdir(dirname($0));
@@ -23,14 +18,10 @@ $file =~ s/\.pl$//
         if ($Config{'osname'} eq 'VMS' or
             $Config{'osname'} eq 'OS2');  # "case-forgiving"
 open OUT,">$file" or die "Can't create $file: $!";
- 
-if ( $bvalflag ) {
-    print "Extracting $file (WITH bad value support)\n";
-} else {
-    print "Extracting $file (NO bad value support)\n";
-}
+
+print "Extracting $file\n";
 chmod 0644, $file;
- 
+
 print OUT <<'!NO!SUBS!';
 #
 # Created by BAD_demo.pm.PL
@@ -46,41 +37,22 @@ sub output;
 
 sub run {
 
-!NO!SUBS!
-
-    if ( ! $bvalflag ) {
-	print OUT <<'!NO!SUBS!';
-
-comment q|
-
-    Your version of PDL has been compiled without support for bad
-    values, hence this demo doesn't do anything.
-
-|;
-
-!NO!SUBS!
-
-#'
-
-} else {
-    print OUT <<'!NO!SUBS!';
-
 comment q|
     Welcome to this tour of the bad value support in PDL
 
-    Each piddle contains a flag - accessible via the badflag() method - 
+    Each ndarray contains a flag - accessible via the badflag() method -
     which indicates whether:
 
-       the piddle contains no bad values (flag equals 0)
-       the piddle *MAY* contain bad values (flag equals 1)
+       the ndarray contains no bad values (flag equals 0)
+       the ndarray *MAY* contain bad values (flag equals 1)
 
     If the flag is set, then the routines (well, those that have been
-    converted) will process these bad values correctly, otherwise they 
-    are ignored. 
+    converted) will process these bad values correctly, otherwise they
+    are ignored.
 
     The code has been written so as to provide as little overhead as
     possible; therefore there should be almost no difference in the
-    time it takes to process piddles which do not have their bad flag 
+    time it takes to process ndarrays which do not have their bad flag
     set.
 
 |;
@@ -89,20 +61,16 @@ act q|
 
     # There are 2 ways to see whether bad-value support has been
     # compiled into your perldl or pdl2 shell:
-    print("You can use bad values.\n") if $PDL::Bad::Status;
+    print("You can use bad values.\n");
 
-    # or
-    use PDL::Config;
-    print("You can stil use bad values.\n") if $PDL::Config{WITH_BADVAL};
-
-    # note that PDL::Bad is included by default when you use 
+    # note that PDL::Bad is included by default when you use
     # 'use PDL', 'use PDL::Lite', or 'use PDL::LiteF'
 
 |;
 
 act q|
 
-    # create a piddle
+    # create an ndarray
     $x = byte(1,2,3);
     print( "Bad flag (x) == ", $x->badflag(), "\n" );
 
@@ -119,9 +87,9 @@ act q|
 act q|
 
     # the badflag is also included in the state info of
-    # piddle
+    # ndarray
     #
-    $c = pdl(2,3); # just a piddle without the badflag set
+    $c = pdl(2,3); # just an ndarray without the badflag set
 
     print "   Type   Dimension        State          Mem\n";
     print "-------------------------------------------------\n";
@@ -170,7 +138,7 @@ act q|
 act q|
 
     # the issue of how to cope with dataflow is not fully resolved. At
-    # present, if you change the badflag of a piddle, all its children
+    # present, if you change the badflag of an ndarray, all its children
     # are also changed:
     $x = sequence( byte, 2, 3 );
     $x = $x->setbadif( $x == 3 );
@@ -186,7 +154,7 @@ act q|
 
     # Note that "boolean" operators return a bad value if either of the
     # operands are bad: one way around this is to replace all bad values
-    # by 0 or 1. 
+    # by 0 or 1.
 
     $x = sequence(3,3); $x = $x->setbadif( $x % 2 );
     print $x > 5;
@@ -203,8 +171,8 @@ act q|
     # on the numerical value used to store bad values).
 
     # There is also the fact that the bad value need not relate to the
-    # type of the input piddle (due to internal conversion to an 'int +').
-    
+    # type of the input ndarray (due to internal conversion to an 'int +').
+
     $x = ones(3); $x = $x->setbadif( $x == 1 );
     print "Any returns: ", any( $x > 2 ), "\n";
     print "which is the bad value of 'long' (", long->badvalue, ").\n";
@@ -216,19 +184,13 @@ act q|
 comment q|
     Many of the 'core' routines have been converted to handle bad values.
     However, some (including most of the additional modules) have not,
-    either because it does not make sense or its too much work to do! 
+    either because it does not make sense or its too much work to do!
 
     To find out the status of a particular routine, use the 'badinfo'
     command in perldl or pdl2 shell (this information is also included
     when you do 'help'), or the '-b' switch of pdldoc.
 
 |;
-
-!NO!SUBS!
-
-} # if: $bvalflag
-
-print OUT <<'!NO!SUBS!';
 
 }
 

@@ -8,8 +8,7 @@
 #
 
 use 5.014_001;
-use strict 1.00;
-use Modern::Perl 1.20140107;
+use warnings;
 
 sub Main {
     Term_CLI_Command_Help_test->SKIP_CLASS(
@@ -110,7 +109,7 @@ sub check_pager : Test(3) {
 }
 
 
-sub check_help : Test(13) {
+sub check_help : Test(14) {
     my $self = shift;
     my $cli = $self->{cli};
 
@@ -124,7 +123,7 @@ sub check_help : Test(13) {
 
     stdout_like(
         sub { $cli->execute('help --pod') },
-        qr/=head2 Commands:.*B<cp>.*B<help>.*B<mv>/sm,
+        qr/=head\d Commands:.*B<cp>.*B<help>.*B<mv>/sm,
         'help --pod returns POD command summary'
     );
 
@@ -135,27 +134,56 @@ sub check_help : Test(13) {
     );
     stdout_like(
         sub { $cli->execute('help --pod cp') },
-        qr/=head2 Usage:.*B<cp>.*B<--force>.*I<src>.*I<dst>/sm,
+        qr/=head\d Usage:.*B<cp>.*B<--force>.*I<src>.*I<dst>/sm,
         '"help --pod cp" returns POD command help'
     );
 
     stdout_like(
         sub { $cli->execute('help --pod show') },
-        qr/=head2 Usage:.*B<show>.*=head2 Sub-Commands:.*B<clock>.*B<load>/sm,
+        qr{
+           =head\d \s+ Usage: \s*\n
+           B<show> .* \n
+           =head\d \s+ Sub-Commands: \s*\n
+           .* B<clock> .* B<load>
+        }smx,
         "'help --pod show' returns POD command summary with sub-commands'",
     );
 
     stdout_like(
         sub { $cli->execute('help --pod show load') },
-        qr/=head2 Usage:.*B<show> B<load>/sm,
+        qr/=head\d Usage:.*B<show> B<load>/sm,
         "'help --pod show load' returns POD command summary with sub-commands'",
     );
 
     stdout_like(
         sub { $cli->execute('help --pod mv') },
-        qr/=head2 Usage:.*B<mv> I<path1> I<path2>/sm,
+        qr/=head\d Usage:.*B<mv> I<path1> I<path2>/sm,
         "'help --pod mv' returns POD command summary'",
     );
+
+
+    stdout_like(
+        sub { $cli->execute('help --pod --all') },
+        qr{
+            =head\d \s COMMAND \s SUMMARY \n{2,}
+            =over [^\n]*\n{2,}
+            =item \s B<cp>   .*\n{2,}
+            =item \s B<help> .*\n{2,}
+            =item \s B<mv>   .*\n{2,}
+            =item \s B<show> .*\n{2,}
+            =back\n{2,}
+            =head\d \s COMMANDS \n{2,}
+            =over [^\n]*\n{2,}
+            =item \s B<cp>   .*\n{2,}
+            =item \s B<help> .*\n{2,}
+            =item \s B<mv>   .*\n{2,}
+            =item \s B<show> .*\n{2,}
+            =back\n
+        }smx,
+        '"help --pod --all" returns POD command help'
+    );
+    my $x=q{
+        };
 
     my %args = $cli->execute('help xp');
     ok($args{status} < 0, '"help xp" results in an error');

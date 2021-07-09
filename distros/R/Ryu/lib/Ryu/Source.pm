@@ -5,7 +5,7 @@ use warnings;
 
 use parent qw(Ryu::Node);
 
-our $VERSION = '2.004'; # VERSION
+our $VERSION = '3.002'; # VERSION
 our $AUTHORITY = 'cpan:TEAM'; # AUTHORITY
 
 =head1 NAME
@@ -318,19 +318,6 @@ sub never {
 
 =cut
 
-=head2 describe
-
-Returns a string describing this source and any parents - typically this will result in a chain
-like C<< from->combine_latest->count >>.
-
-=cut
-
-# It'd be nice if L<Future> already provided a method for this, maybe I should suggest it
-sub describe {
-    my ($self) = @_;
-    ($self->parent ? $self->parent->describe . '=>' : '') . $self->label . '(' . $self->completed->state . ')';
-}
-
 =head2 encode
 
 Passes each item through an encoder.
@@ -552,6 +539,8 @@ This also means you can "merge" items from a series of sources.
 Note that this is not recursive - an arrayref of arrayrefs will be expanded out
 into the child arrayrefs, but no further.
 
+Failure on any input source will cause this source to be marked as failed as well.
+
 =cut
 
 sub flat_map {
@@ -567,20 +556,30 @@ sub flat_map {
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
 
     Scalar::Util::weaken(my $weak_sauce = $src);
-    my $add = sub  {
+    my $add = sub {
         my $v = shift;
         my $src = $weak_sauce or return;
 
         my $k = "$v";
-        $log->tracef("Adding %s which will bring our count to %d", $k, 0 + keys %{$src->{waiting}});
         $src->{waiting}{$k} = $v->on_ready(sub {
+            my ($f) = @_;
             return unless my $src = $weak_sauce;
+
+            # Any failed input source should propagate failure immediately
+            if($f->is_failed) {
+                # Clear out our waitlist, since we don't want to hold those references any more
+                delete $src->{waiting};
+                $src->fail($f->failure) unless $src->is_ready;
+                return;
+            }
+
             delete $src->{waiting}{$k};
             $src->finish unless %{$src->{waiting}};
-        })
+        });
+        $log->tracef("Added %s which will bring our count to %d", $k, 0 + keys %{$src->{waiting}});
     };
 
-    $add->($self->completed);
+    $add->($self->_completed);
     $self->each_while_source(sub {
         my $src = $weak_sauce or return;
         for ($code->($_)) {
@@ -596,9 +595,9 @@ sub flat_map {
                 $src->on_ready(sub {
                     return if $item->is_ready;
                     $log->tracef("Marking %s as ready because %s was", $item->describe, $src->describe);
-                    shift->on_ready($item->completed);
+                    shift->on_ready($item->_completed);
                 });
-                $add->($item->completed);
+                $add->($item->_completed);
                 $item->each_while_source(sub {
                     my $src = $weak_sauce or return;
                     $src->emit($_)
@@ -768,8 +767,8 @@ Might be useful for keeping a source alive.
 sub ignore {
     my ($self) = @_;
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
-    $self->completed->on_ready(sub {
-        shift->on_ready($src->completed) unless $src->completed->is_ready
+    $self->_completed->on_ready(sub {
+        shift->on_ready($src->_completed) unless $src->_completed->is_ready
     });
     return $src;
 }
@@ -808,8 +807,8 @@ sub buffer {
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
     $src->{pause_propagation} = 0;
     my @pending;
-    $self->completed->on_ready(sub {
-        shift->on_ready($src->completed) unless $src->completed->is_ready or @pending;
+    $self->_completed->on_ready(sub {
+        shift->on_ready($src->_completed) unless $src->_completed->is_ready or @pending;
     });
     my $item_handler = do {
         Scalar::Util::weaken(my $weak_self = $self);
@@ -830,8 +829,8 @@ sub buffer {
                 # It's common to have a situation where the parent chain completes while we're
                 # paused waiting for the queue to drain. In this situation, we want to propagate
                 # completion only once the queue is empty.
-                $self->completed->on_ready($src->completed)
-                    if $self->completed->is_ready and not @pending and not $src->completed->is_ready;
+                $self->_completed->on_ready($src->_completed)
+                    if $self->_completed->is_ready and not @pending and not $src->_completed->is_ready;
             }
         }
     };
@@ -841,12 +840,12 @@ sub buffer {
         push @pending, $_;
         $item_handler->()
     });
-    $self->completed->on_ready(sub {
+    $self->_completed->on_ready(sub {
         my ($f) = @_;
         return if @pending;
         my $addr = Scalar::Util::refaddr($code);
         my $count = List::UtilsBy::extract_by { $addr == Scalar::Util::refaddr($_) } @{$self->{on_item}};
-        $f->on_ready($src->completed) unless $src->is_ready;
+        $f->on_ready($src->_completed) unless $src->is_ready;
         $log->tracef("->each_while_source completed on %s for refaddr 0x%x, removed %d on_item handlers", $self->describe, Scalar::Util::refaddr($self), $count);
     });
     $src;
@@ -855,7 +854,7 @@ sub buffer {
 sub retain {
     my ($self) = @_;
     $self->{_self} = $self;
-    $self->completed
+    $self->_completed
         ->on_ready(sub { delete $self->{_self} });
     $self
 }
@@ -872,7 +871,7 @@ sub as_list {
     $self->each(sub {
         push @data, $_
     });
-    $self->completed->transform(done => sub { @data })
+    $self->_completed->transform(done => sub { @data })
 }
 
 =head2 as_arrayref
@@ -887,7 +886,7 @@ sub as_arrayref {
     $self->each(sub {
         push @data, $_
     });
-    $self->completed->transform(done => sub { \@data })
+    $self->_completed->transform(done => sub { \@data })
 }
 
 =head2 as_string
@@ -904,7 +903,7 @@ sub as_string {
     $self->each(sub {
         $data .= $_;
     });
-    $self->completed->transform(done => sub { $data })
+    $self->_completed->transform(done => sub { $data })
 }
 
 =head2 as_queue
@@ -938,16 +937,52 @@ Intended for stream protocol handling - individual
 sized packets are perhaps better suited to the
 L<Ryu::Source> per-item behaviour.
 
+Supports the following named parameters:
+
+=over 4
+
+=item * C<low> - low waterlevel for buffer, start accepting more bytes
+once the L<Ryu::Buffer> has less content than this
+
+=item * C<high> - high waterlevel for buffer, will pause the parent stream
+if this is reached
+
+=back
+
+The backpressure (low/high) values default to undefined, meaning
+no backpressure is applied: the buffer will continue to fill
+indefinitely.
+
 =cut
 
 sub as_buffer {
-    my ($self) = @_;
+    my ($self, %args) = @_;
+    my $low = delete $args{low};
+    my $high = delete $args{high};
+    # We're creating a source but keeping it to ourselves here
+    my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
+
     my $buffer = Ryu::Buffer->new(
-        new_future => $self->{new_future}
+        new_future => $self->{new_future},
+        %args,
+        on_change => sub {
+            my ($self) = @_;
+            $src->resume if $low and $self->size <= $low;
+        }
     );
-    $self->each(sub {
-        $buffer->write($_)
-    });
+
+    Scalar::Util::weaken(my $weak_sauce = $src);
+    Scalar::Util::weaken(my $weak_buffer = $buffer);
+    $self->each_while_source(sub {
+        my $src = $weak_sauce or return;
+        my $buf = $weak_buffer or do {
+            $src->finish;
+            return;
+        };
+        $buf->write($_);
+        $src->pause if $high and $buf->size >= $high;
+        $src->resume if $low and $buf->size <= $low;
+    }, $src);
     return $buffer;
 }
 
@@ -984,8 +1019,8 @@ sub combine_latest : method {
         map $_->completed, @sources
     )->on_ready(sub {
         @value = ();
-        return if $combined->completed->is_ready;
-        shift->on_ready($combined->completed)
+        return if $combined->_completed->is_ready;
+        shift->on_ready($combined->_completed)
     })->retain;
     $combined
 }
@@ -1024,7 +1059,7 @@ sub with_latest_from : method {
     for my $idx (0..$#sources) {
         my $src = $sources[$idx];
         $src->each(sub {
-            return if $combined->completed->is_ready;
+            return if $combined->_completed->is_ready;
             $value[$idx] = $_;
             $seen{$idx} ||= 1;
         });
@@ -1032,11 +1067,11 @@ sub with_latest_from : method {
     $self->each(sub {
         $combined->emit([ $code->(@value) ]) if keys %seen;
     });
-    $self->completed->on_ready($combined->completed);
-    $self->completed->on_ready(sub {
+    $self->_completed->on_ready($combined->_completed);
+    $self->_completed->on_ready(sub {
         @value = ();
         return if $combined->is_ready;
-        shift->on_ready($combined->completed);
+        shift->on_ready($combined->_completed);
     });
     $combined
 }
@@ -1058,16 +1093,43 @@ sub merge : method {
     unshift @sources, $self if ref $self;
     for my $src (@sources) {
         $src->each(sub {
-            return if $combined->completed->is_ready;
+            return if $combined->_completed->is_ready;
             $combined->emit($_)
         });
     }
     Future->needs_all(
         map $_->completed, @sources
-    )->on_ready($combined->completed)
+    )->on_ready($combined->_completed)
      ->on_ready(sub { @sources = () })
      ->retain;
     $combined
+}
+
+=head2 emit_from
+
+Emits items as they are generated by the given sources.
+
+Example:
+
+ my $src = Ryu::Source->new;
+ $src->say;
+ $src->emit_from(
+  $numbers,
+  $letters
+ );
+
+=cut
+
+sub emit_from : method {
+    my ($self, @sources) = @_;
+
+    for my $src (@sources) {
+        $src->each_while_source(sub {
+            return if $self->_completed->is_ready;
+            $self->emit($_)
+        }, $self);
+    }
+    $self
 }
 
 =head2 apply
@@ -1089,7 +1151,7 @@ sub apply : method {
     }
     Future->needs_all(
         map $_->completed, @pending
-    )->on_ready($src->completed)
+    )->on_ready($src->_completed)
      ->retain;
     # Pass through the original events
     $self->each_while_source(sub {
@@ -1117,7 +1179,7 @@ sub switch_str {
 
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
     my @active;
-    $self->completed->on_ready(sub {
+    $self->_completed->on_ready(sub {
         Future->needs_all(
             grep $_, @active
         )->on_ready(sub {
@@ -1158,25 +1220,42 @@ and leave the L<Future> instances active, use:
 
 See L<Future/without_cancel> for more details.
 
+Takes the following named parameters:
+
+=over 4
+
+=item * C<high> - once at least this many unresolved L<Future> instances are pending,
+will L</pause> the upstream L<Ryu::Source>.
+
+=item * C<low> - if the pending count drops to this number, will L</resume>
+the upstream L<Ryu::Source>.
+
+=back
+
 This method is also available as L</resolve>.
 
 =cut
 
 sub ordered_futures {
-    my ($self) = @_;
+    my ($self, %args) = @_;
+    my $low = delete $args{low};
+    my $high = delete $args{high};
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
     my %pending;
-    my $src_completed = $src->completed;
-    my $all_finished = 0;
-    $self->completed->on_ready(sub {
-        $all_finished = 1;
-        $src->completed->done unless %pending or $src_completed->is_ready;
+    my $src_completed = $src->_completed;
+
+    my $all_finished;
+    $self->_completed->on_ready(sub {
+        $all_finished = shift;
+        $all_finished->on_ready($src_completed) unless %pending or $src_completed->is_ready;
     });
 
     $src_completed->on_ready(sub {
         my @pending = values %pending;
         %pending = ();
-        $_->cancel for grep { $_ and not $_->is_ready } @pending;
+        for(@pending) {
+            $_->cancel if $_ and not $_->is_ready;
+        }
     });
     $self->each(sub {
         my $f = $_;
@@ -1185,6 +1264,7 @@ sub ordered_futures {
         # ->is_ready callback removes it
         $pending{$k} = $f;
         $log->tracef('Ordered futures has %d pending', 0 + keys %pending);
+        $src->pause if $high and keys(%pending) >= $high and not $src->is_paused;
         $_->on_done(sub {
             my @pending = @_;
             while(@pending and not $src_completed->is_ready) {
@@ -1194,9 +1274,10 @@ sub ordered_futures {
           ->on_fail(sub { $src->fail(@_) unless $src_completed->is_ready; })
           ->on_ready(sub {
               delete $pending{$k};
+              $src->resume if $low and keys(%pending) <= $low and $src->is_paused;
               $log->tracef('Ordered futures now has %d pending after completion, upstream finish status is %d', 0 + keys(%pending), $all_finished);
               return if %pending;
-              $src_completed->done if $all_finished and not $src_completed->is_ready;
+              $all_finished->on_ready($src_completed) if $all_finished and not $src_completed->is_ready;
           })
     });
     return $src;
@@ -1290,10 +1371,10 @@ sub sort_by {
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
     my @items;
     my @keys;
-    $self->completed->on_done(sub {
+    $self->_completed->on_done(sub {
     })->on_ready(sub {
         return if $src->is_ready;
-        shift->on_ready($src->completed);
+        shift->on_ready($src->_completed);
     });
     $self->each_while_source(sub {
         push @items, $_;
@@ -1406,9 +1487,9 @@ sub skip {
     $count //= 0;
 
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
-    $self->completed->on_ready(sub {
+    $self->_completed->on_ready(sub {
         return if $src->is_ready;
-        shift->on_ready($src->completed);
+        shift->on_ready($src->_completed);
     });
     $self->each(sub {
         $src->emit($_) unless $count-- > 0;
@@ -1427,9 +1508,9 @@ sub skip_last {
     $count //= 0;
 
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
-    $self->completed->on_ready(sub {
+    $self->_completed->on_ready(sub {
         return if $src->is_ready;
-        shift->on_ready($src->completed);
+        shift->on_ready($src->_completed);
     });
     my @pending;
     $self->each(sub {
@@ -1497,11 +1578,11 @@ sub take_until {
 
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
     if(Scalar::Util::blessed($condition) && $condition->isa('Ryu::Source')) {
-        $condition->completed->on_ready(sub {
+        $condition->_completed->on_ready(sub {
             $log->warnf('Condition completed: %s and %s', $condition->describe, $src->describe);
             return if $src->is_ready;
             $log->warnf('Mark as ready');
-            shift->on_ready($src->completed);
+            shift->on_ready($src->_completed);
         });
         $condition->first->each(sub {
             $src->finish unless $src->is_ready
@@ -1585,8 +1666,8 @@ sub some {
     my ($self, $code) = @_;
 
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
-    $self->completed->on_ready(sub {
-        my $sf = $src->completed;
+    $self->_completed->on_ready(sub {
+        my $sf = $src->_completed;
         return if $sf->is_ready;
         my $f = shift;
         return $f->on_ready($sf) unless $f->is_done;
@@ -1594,10 +1675,10 @@ sub some {
         $sf->done;
     });
     $self->each(sub {
-        return if $src->completed->is_ready;
+        return if $src->_completed->is_ready;
         return unless $code->($_);
         $src->emit(1);
-        $src->completed->done
+        $src->_completed->done
     });
     $src
 }
@@ -1613,16 +1694,16 @@ sub every {
     my ($self, $code) = @_;
 
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
-    $self->completed->on_done(sub {
-        return if $src->completed->is_ready;
+    $self->_completed->on_done(sub {
+        return if $src->_completed->is_ready;
         $src->emit(1);
-        $src->completed->done
+        $src->_completed->done
     });
     $self->each(sub {
-        return if $src->completed->is_ready;
+        return if $src->_completed->is_ready;
         return if $code->($_);
         $src->emit(0);
-        $src->completed->done
+        $src->_completed->done
     });
     $src
 }
@@ -1679,8 +1760,8 @@ sub mean {
 
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
     $self->each(sub { ++$count; $sum += $_ });
-    $self->completed->on_done(sub { $src->emit($sum / ($count || 1)) })
-        ->on_ready($src->completed);
+    $self->_completed->on_done(sub { $src->emit($sum / ($count || 1)) })
+        ->on_ready($src->_completed);
     $src
 }
 
@@ -1699,8 +1780,8 @@ sub max {
         return if defined $max and $max > $_;
         $max = $_;
     });
-    $self->completed->on_done(sub { $src->emit($max) })
-        ->on_ready($src->completed);
+    $self->_completed->on_done(sub { $src->emit($max) })
+        ->on_ready($src->_completed);
     $src
 }
 
@@ -1719,8 +1800,8 @@ sub min {
         return if defined $min and $min < $_;
         $min = $_;
     });
-    $self->completed->on_done(sub { $src->emit($min) })
-        ->on_ready($src->completed);
+    $self->_completed->on_done(sub { $src->emit($min) })
+        ->on_ready($src->_completed);
     $src
 }
 
@@ -1763,7 +1844,7 @@ sub statistics {
         ++$count;
         $sum += $_
     });
-    $self->completed->on_done(sub {
+    $self->_completed->on_done(sub {
         $src->emit({
             count => $count,
             sum   => $sum,
@@ -1772,7 +1853,7 @@ sub statistics {
             mean  => ($sum / ($count || 1))
         })
     })
-        ->on_ready($src->completed);
+        ->on_ready($src->_completed);
     $src
 }
 
@@ -1880,7 +1961,7 @@ Emits the given item.
 
 sub emit {
     my $self = shift;
-    my $completion = $self->completed;
+    my $completion = $self->_completed;
     my @handlers = @{$self->{on_item} || []} or return $self;
     for (@_) {
         die 'already completed' if $completion->is_ready;
@@ -1917,7 +1998,7 @@ sub each_as_source : method {
 
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
     my @active;
-    $self->completed->on_ready(sub {
+    $self->_completed->on_ready(sub {
         Future->needs_all(
             grep $_, @active
         )->on_ready(sub {
@@ -1935,31 +2016,12 @@ sub each_as_source : method {
     }, $src)
 }
 
-
-=head2 completed
-
-Returns a L<Future> indicating completion (or failure) of this stream.
-
-=cut
-
-sub completed {
-    my ($self) = @_;
-    $self->{completed} //= do {
-        my $f = $self->new_future(
-            'completion'
-        )->on_ready(
-            $self->curry::weak::cleanup
-        );
-        $self->prepare_await;
-        $f
-    }
-}
-
 sub cleanup {
     my ($self) = @_;
-    $log->tracef("Cleanup for %s (f = %s)", $self->describe, 0 + $self->completed);
+    $log->tracef("Cleanup for %s (f = %s)", $self->describe, 0 + $self->_completed);
+    $_->cancel for values %{$self->{cancel_on_ready} || {}};
     $self->parent->notify_child_completion($self) if $self->parent;
-    delete @{$self}{qw(on_item)};
+    delete @{$self}{qw(on_item cancel_on_ready)};
     $log->tracef("Finished cleanup for %s", $self->describe);
 }
 
@@ -1997,9 +2059,43 @@ Block until this source finishes.
 sub await {
     my ($self) = @_;
     $self->prepare_await;
-    my $f = $self->completed;
+    my $f = $self->_completed;
     $f->await until $f->is_ready;
     $self
+}
+
+=head2 next
+
+Returns a L<Future> which will resolve to the next item emitted by this source.
+
+If the source completes before an item is emitted, the L<Future> will be cancelled.
+
+Note that these are independent - they don't stack, so if you call C<< ->next >>
+multiple times before an item is emitted, each of those would return the same value.
+
+See L<Ryu::Buffer> if you're dealing with protocols and want to extract sequences of
+bytes or characters.
+
+To access the sequence as a discrete stream of L<Future> instances, try L</as_queue>
+which will provide a L<Future::Queue>.
+
+=cut
+
+sub next : method {
+    my ($self) = @_;
+    my $f = $self->new_future(
+        'next'
+    )->on_ready($self->$curry::weak(sub {
+        my ($self, $f) = @_;
+        my $addr = Scalar::Util::refaddr($f);
+        List::UtilsBy::extract_by { Scalar::Util::refaddr($_) == $addr } @{$self->{on_item} || []};
+        delete $self->{cancel_on_ready}{$f};
+    }));
+    $self->{cancel_on_ready}{$f} = $f;
+    push @{$self->{on_item} ||= []}, sub {
+        $f->done(shift) unless $f->is_ready;
+    };
+    return $f;
 }
 
 =head2 finish
@@ -2008,7 +2104,7 @@ Mark this source as completed.
 
 =cut
 
-sub finish { $_[0]->completed->done unless $_[0]->completed->is_ready; $_[0] }
+sub finish { $_[0]->_completed->done unless $_[0]->_completed->is_ready; $_[0] }
 
 sub refresh { }
 
@@ -2036,7 +2132,7 @@ The following methods are proxied to our completion L<Future>:
 
 sub get {
     my ($self) = @_;
-    my $f = $self->completed;
+    my $f = $self->_completed;
     my @rslt;
     $self->each(sub { push @rslt, $_ }) if defined wantarray;
     if(my $parent = $self->parent) {
@@ -2047,8 +2143,13 @@ sub get {
     })->get
 }
 
-for my $k (qw(then cancel fail on_ready transform is_ready is_done is_failed failure is_cancelled else)) {
-    do { no strict 'refs'; *$k = $_ } for sub { shift->completed->$k(@_) }
+for my $k (qw(then fail on_ready transform is_ready is_done is_failed failure else)) {
+    do { no strict 'refs'; *$k = $_ } for sub { shift->_completed->$k(@_) }
+}
+# Cancel operations are only available through the internal state, since we don't want anything
+# accidentally cancelling due to Future->wait_any(timeout, $src->_completed) or similar constructs
+for my $k (qw(cancel is_cancelled)) {
+    do { no strict 'refs'; *$k = $_ } for sub { shift->{completed}->$k(@_) }
 }
 
 =head1 METHODS - Internal
@@ -2067,7 +2168,7 @@ sub prepare_await {
     my ($self) = @_;
     (delete $self->{on_get})->() if $self->{on_get};
     return unless my $parent = $self->parent;
-    my $code = $parent->can('prepare_await');
+    my $code = $parent->can('prepare_await') or return;
     local @_ = ($parent);
     goto &$code;
 }
@@ -2088,7 +2189,7 @@ sub chained {
         );
         Scalar::Util::weaken($src->{parent});
         push @{$self->{children}}, $src;
-        $log->tracef("Constructing chained source for %s from %s (%s)", $src->label, $self->label, $self->completed->state);
+        $log->tracef("Constructing chained source for %s from %s (%s)", $src->label, $self->label, $self->_completed->state);
         return $src;
     } else {
         my $src = $self->new(@_);
@@ -2107,12 +2208,12 @@ parent completes.
 sub each_while_source {
     my ($self, $code, $src, %args) = @_;
     $self->each($code);
-    $self->completed->on_ready(sub {
+    $self->_completed->on_ready(sub {
         my ($f) = @_;
         $args{cleanup}->($f, $src) if exists $args{cleanup};
         my $addr = Scalar::Util::refaddr($code);
         my $count = List::UtilsBy::extract_by { $addr == Scalar::Util::refaddr($_) } @{$self->{on_item}};
-        $f->on_ready($src->completed) unless $src->is_ready;
+        $f->on_ready($src->_completed) unless $src->is_ready;
         $log->tracef("->each_while_source completed on %s for refaddr 0x%x, removed %d on_item handlers", $self->describe, Scalar::Util::refaddr($self), $count);
     });
     $src
@@ -2134,39 +2235,26 @@ sub map_source {
     my ($self, $code) = @_;
 
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
-    $self->completed->on_ready(sub {
+    $self->_completed->on_ready(sub {
         return if $src->is_ready;
-        shift->on_ready($src->completed);
+        shift->on_ready($src->_completed);
     });
     $self->each_while_source(sub {
         $code->($_, $src) for $_;
     }, $src);
 }
 
-=head2 new_future
-
-Used internally to get a L<Future>.
-
-=cut
-
-sub new_future {
-    my $self = shift;
-    (
-        $self->{new_future} //= $FUTURE_FACTORY
-    )->($self, @_)
-}
-
 sub DESTROY {
     my ($self) = @_;
     return if ${^GLOBAL_PHASE} eq 'DESTRUCT';
     $log->tracef("Destruction for %s", $self->describe);
-    $self->completed->cancel unless $self->completed->is_ready;
+    $self->_completed->cancel unless $self->_completed->is_ready;
 }
 
 sub catch {
     my ($self, $code) = @_;
     my $src = $self->chained(label => (caller 0)[3] =~ /::([^:]+)$/);
-    $self->completed->on_fail(sub {
+    $self->_completed->on_fail(sub {
         my @failure = @_;
         my $sub = $code->(@failure);
         if(Scalar::Util::blessed $sub && $sub->isa('Ryu::Source')) {
@@ -2192,5 +2280,5 @@ Tom Molesworth <TEAM@cpan.org>
 
 =head1 LICENSE
 
-Copyright Tom Molesworth 2011-2020. Licensed under the same terms as Perl itself.
+Copyright Tom Molesworth 2011-2021. Licensed under the same terms as Perl itself.
 

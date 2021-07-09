@@ -6,13 +6,13 @@
       "Eugeniy E. Mikhailov <evgmik@gmail.com>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 6.015, CPAN::Meta::Converter version 2.150010",
+   "generated_by" : "Dist::Zilla version 6.017, CPAN::Meta::Converter version 2.150010",
    "license" : [
       "perl_5"
    ],
    "meta-spec" : {
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
-      "version" : 2
+      "version" : "2"
    },
    "name" : "Lab-Measurement",
    "prereqs" : {
@@ -47,6 +47,7 @@
             "File::Basename" : "0",
             "File::Copy" : "0",
             "File::Path" : "0",
+            "File::Which" : "0",
             "Getopt::Long" : "0",
             "Hook::LexWrap" : "0",
             "IO::File" : "0",
@@ -57,6 +58,7 @@
             "List::MoreUtils" : "0",
             "List::Util" : "0",
             "Math::Complex" : "0",
+            "Math::Round" : "0",
             "Math::Trig" : "0",
             "Module::Load" : "0.26",
             "Moose" : "2.1213",
@@ -129,12 +131,12 @@
          "url" : "https://github.com/lab-measurement/lab-measurement.git",
          "web" : "https://github.com/lab-measurement/lab-measurement"
       },
-      "x_IRC" : "irc://chat.freenode.net/#labmeasurement",
+      "x_IRC" : "irc://irc.libera.chat/#labmeasurement",
       "x_MailingList" : "https://www-mailman.uni-regensburg.de/mailman/listinfo/lab-measurement-users"
    },
-   "version" : "3.740",
-   "x_generated_by_perl" : "v5.32.0",
-   "x_serialization_backend" : "Cpanel::JSON::XS version 4.24",
+   "version" : "3.762",
+   "x_generated_by_perl" : "v5.34.0",
+   "x_serialization_backend" : "JSON::XS version 4.03",
    "x_spdx_expression" : "Artistic-1.0-Perl OR GPL-1.0-or-later"
 }
 

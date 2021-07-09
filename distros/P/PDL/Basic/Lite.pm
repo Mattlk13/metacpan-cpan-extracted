@@ -6,8 +6,8 @@ PDL::Lite - minimum PDL module OO loader
 
 Loads the smallest possible set of modules for
 PDL to work, importing only those functions always defined by
-L<PDL::Core|PDL::Core>) into the current namespace
-(C<pdl>, C<piddle>, C<barf> and C<null>).
+L<PDL::Core>) into the current namespace
+(C<pdl>, C<ndarray>, C<barf> and C<null>).
 This is the absolute minimum set for PDL.
 
 Access to other functions is by method syntax, viz:
@@ -26,7 +26,6 @@ Access to other functions is by method syntax, viz:
    use PDL::Basic '';
    use PDL::Slices '';
    use PDL::Bad '';
-   use PDL::Version;
    use PDL::Lvalue;
 
 =cut
@@ -43,10 +42,10 @@ use PDL::Ufunc '';
 use PDL::Basic '';
 use PDL::Slices '';
 use PDL::Bad '';
-use PDL::Version ;  # Doesn't export anything - no need for ''
+require PDL; # for VERSION
 use PDL::Lvalue;
 
-our $VERSION = $PDL::Version::VERSION;
+our $VERSION = $PDL::VERSION;
 
 our @ISA = qw( PDL::Exporter );
 

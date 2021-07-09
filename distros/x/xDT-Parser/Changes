@@ -1,9 +1,28 @@
 Revision history for xDT-Parser
 
-1.00    2017-04-24T12:00
-        Parser finished.
-	Made the xDT::RecordType configurable by xml. (Documentation available at L<http://search.cpan.org/dist/xDT-RecordType/>
+1.06 2021-05-03
+  - Add missing test dependency and clean up manifest
 
-0.01    Date/time
-        First version, released on an unsuspecting world.
+1.05 2021-05-03
+  - Fix a bug where object end records are not added to objects, when read from file
+
+1.04  2021-03-01
+  - Relaxe Moose dependency to version 2
+
+1.03  2021-02-15
+  - Update to BDT/GDT 3.1
+
+1.02  2021-02-12
+  - Add methods to retrieve multiple records/values with same identifier
+
+1.01  2021-02-12
+  - Improved configuration of record types (now possible via XML, JSON and Perl arrayref)
+  - Implemented parsing of xDT files and strings
+
+1.00  2017-04-24
+  - Parser finished
+  - Made the xDT::RecordType configurable by xml
+
+0.01  Date/time
+  - First version, released on an unsuspecting world.
 

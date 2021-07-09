@@ -210,7 +210,7 @@ Individual functions or methods in these section are introduced by
 
 where signature is the argumentlist for a PP defined function as
 explained in L<PDL::PP>. Generally, PDL documentation is in valid POD
-format (see L<perlpod|perlpod>) but uses the C<=for> directive in a
+format (see L<perlpod>) but uses the C<=for> directive in a
 special way. The C<=for> directive is used to flag to the PDL Pod
 parser that information is following that will be used to generate
 online help.
@@ -226,7 +226,7 @@ e.g.,
 
    =for ref
 
-   Returns a piddle of lags to parent.
+   Returns an ndarray of lags to parent.
 
 =item Sig
 
@@ -274,11 +274,10 @@ gives examples of typical usage for the current function:
 
 =item Bad
 
-provides information on how the function handles bad values (if
-C<$PDL:Config{WITH_BADVAL}> is set to 1). The documentation under
-this directive should indicate if this function accepts piddles
-with bad values and under what circumstances this function might
-return piddles with bad values.
+provides information on how the function handles bad values. The
+documentation under this directive should indicate if this function
+accepts ndarrays with bad values and under what circumstances this function
+might return ndarrays with bad values.
 
 =back
 
@@ -314,7 +313,7 @@ following example (extracted from PDL/IO/Misc/misc.pd):
 
    =for ref
 
-   Read ASCII whitespaced cols from file into piddles efficiently.
+   Read ASCII whitespaced cols from file into ndarrays efficiently.
 
    If no columns are specified all are assumed
    Will optionally only process lines matching a pattern.
@@ -339,7 +338,7 @@ which is translated by, e.g, the standard C<pod2text> converter into:
 
   rcols()
 
-    Read ASCII whitespaced cols from file into piddles efficiently.
+    Read ASCII whitespaced cols from file into ndarrays efficiently.
 
     If no columns are specified all are assumed Will optionally only
     process lines matching a pattern. Can take file name or *HANDLE.
@@ -366,7 +365,7 @@ start with the
 
   =head1 NAME
 
-  PDL::Modulename -- do something with piddles
+  PDL::Modulename -- do something with ndarrays
 
 section (as anyway required by C<pod2man>) since the PDL podparser
 extracts the name of the module this function belongs to from

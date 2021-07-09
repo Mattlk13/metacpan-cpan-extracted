@@ -2,7 +2,7 @@ package App::Rakubrew;
 use strict;
 use warnings;
 use 5.010;
-our $VERSION = '15';
+our $VERSION = '19';
 
 use Encode::Locale qw(env);
 if (-t) {
@@ -50,6 +50,7 @@ sub run_script {
 
     mkdir(catdir($prefix, 'bin'))    || _cant_access_home() unless (-d catdir($prefix, 'bin'));
     mkdir(catdir($prefix, 'update')) || _cant_access_home() unless (-d catdir($prefix, 'update'));
+    mkdir(catdir($prefix, 'repos'))    || _cant_access_home() unless (-d catdir($prefix, 'repos'));
     mkdir $shim_dir                  || _cant_access_home() unless (-d $shim_dir);
     mkdir $versions_dir              || _cant_access_home() unless (-d $versions_dir);
     mkdir $git_reference             || _cant_access_home() unless (-d $git_reference);
@@ -316,7 +317,7 @@ EOL
             say STDERR "$brew_name: No version set.";
             exit 1;
         }
-        say "Building zef ", $zef_version?$zef_version:"latest";
+        say("Building zef ", $zef_version || "latest");
         App::Rakubrew::Build::build_zef($version, $zef_version);
         # Might have new executables now -> rehash
         rehash();

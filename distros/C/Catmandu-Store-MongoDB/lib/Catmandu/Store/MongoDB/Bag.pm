@@ -2,7 +2,7 @@ package Catmandu::Store::MongoDB::Bag;
 
 use Catmandu::Sane;
 
-our $VERSION = '0.0803';
+our $VERSION = '0.0806';
 
 use Catmandu::Util qw(:is);
 use Catmandu::Store::MongoDB::Searcher;
@@ -73,6 +73,9 @@ sub each {
 
 sub count {
     my ($self) = @_;
+    if ($self->store->estimate_count) {
+        return $self->collection->estimated_document_count();
+    }
     $self->collection->count_documents({}, $self->_options);
 }
 
@@ -207,6 +210,12 @@ sub search {
     my $bag    = $args{reify};
     my $fields = $args{fields};
 
+    # limit 0 == all in mongodb
+    my $orig_limit = $limit;
+    if ($orig_limit == 0) {
+        $limit = 1;
+    }
+
     my $cursor = $self->_cursor($query)->skip($start)->limit($limit);
     if ($bag) {    # only retrieve _id
         $cursor->fields({});
@@ -220,17 +229,31 @@ sub search {
     }
 
     my @hits = $cursor->all;
+
+    if ($orig_limit == 0) {
+        @hits = ();
+    }
+
     if ($bag) {
         @hits = map {$bag->get($_->{_id})} @hits;
+    }
+
+    my $total;
+
+    if (!($query && scalar(keys %$query) > 0) && $self->store->estimate_count)
+    {
+        $total = $self->collection->estimated_document_count();
+    }
+    else {
+        $total = $self->collection->count_documents($query, $self->_options);
     }
 
     Catmandu::Hits->new(
         {
             start => $start,
-            limit => $limit,
-            total =>
-                $self->collection->count_documents($query, $self->_options),
-            hits => \@hits,
+            limit => $orig_limit,
+            total => $total,
+            hits  => \@hits,
         }
     );
 }
@@ -260,7 +283,7 @@ sub translate_sru_sortkeys {
 sub _translate_sru_sortkey {
     my ($self, $sortkey) = @_;
     my ($field, $schema, $asc) = split /,/, $sortkey;
-    $field || return;
+    $field                              || return;
     ($asc && ($asc == 1 || $asc == -1)) || return;
     if (my $map = $self->cql_mapping) {
         $field = lc $field;
@@ -298,7 +321,7 @@ sub translate_cql_query {
 sub normalize_query {
     my ($self, $query) = @_;
     return $query if ref $query;
-    return {} if !$query;
+    return {}     if !$query;
     decode_json($query);
 }
 
@@ -306,7 +329,7 @@ sub normalize_query {
 sub normalize_sort {
     my ($self, $sort) = @_;
     return $sort if ref $sort;
-    return {} if !$sort;
+    return {}    if !$sort;
     decode_json($sort);
 }
 

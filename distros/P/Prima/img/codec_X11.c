@@ -1,38 +1,24 @@
 #include "img.h"
 
-#ifndef EMULATE_X11_CODEC
-#	define Drawable        XDrawable
-#	define Font            XFont
-#	define Window          XWindow
-#	include <X11/Xlib.h>
-#	include <X11/Xutil.h>
-#	undef Font
-#	undef Drawable
-#	undef Bool
-#	undef Window
-#	define ComplexShape 0
-#	define XBool int
-#	undef Complex
-#	undef FUNC
-#else
-#	include <stdio.h>
-#	include <ctype.h>
-#	define X_PROTOCOL              11
-#	define _Xconst
-#	define False                    0
-#	define True                     1
-#	define BitmapSuccess		0
-#	define BitmapOpenFailed 	1
-#	define BitmapFileInvalid 	2
-#	define BitmapNoMemory		3
-#	undef  RETURN
-#	undef __UNIXOS2__
-#	define Xmalloc                 malloc
-#	define Xfree                   free
+#include <stdio.h>
+#include <ctype.h>
+#define X_PROTOCOL              11
+#define _Xconst
+#define False                    0
+#define True                     1
+#define BitmapSuccess		0
+#define BitmapOpenFailed 	1
+#define BitmapFileInvalid 	2
+#define BitmapNoMemory		3
+#undef  RETURN
+#undef __UNIXOS2__
+#define Xmalloc                 malloc
+#define Xfree                   free
 
-int
+static int
 XReadBitmapFileData (
 	_Xconst char *filename,
+	int is_utf8,
 	unsigned int *width,                /* RETURNED */
 	unsigned int *height,               /* RETURNED */
 	unsigned char **data,               /* RETURNED */
@@ -40,9 +26,7 @@ XReadBitmapFileData (
 	int *y_hot)                         /* RETURNED */
 	;
 
-int XFree(void* ptr);
-
-#endif
+static int XFree(void* ptr);
 
 #include "Image.h"
 
@@ -50,13 +34,13 @@ int XFree(void* ptr);
 extern "C" {
 #endif
 
-static char * xbmext[] = { "xbm", nil };
+static char * xbmext[] = { "xbm", NULL };
 static int    xbmbpp[] = { imbpp1 | imGrayScale, 0 };
 
 static char * loadOutput[] = {
 	"hotSpotX",
 	"hotSpotY",
-	nil
+	NULL
 };
 
 static char * mime[] = {
@@ -73,7 +57,7 @@ static ImgCodecInfo codec_info = {
 	xbmext,    /* extension */
 	"X11 Bitmap File",     /* file type */
 	"XBM", /* short type */
-	nil,    /* features  */
+	NULL,    /* features  */
 	"",     /* module */
 	"",     /* package */
 	IMG_LOAD_FROM_FILE | IMG_SAVE_TO_FILE | IMG_SAVE_TO_STREAM,
@@ -138,14 +122,14 @@ open_load( PImgCodec instance, PImgLoadFileInstance fi)
 	int yh, yw;
 	Byte * data;
 
-	if( XReadBitmapFileData( fi-> fileName, &w, &h, &data, &yw, &yh) != BitmapSuccess)
-		return nil;
+	if( XReadBitmapFileData( fi-> fileName, fi-> is_utf8, &w, &h, &data, &yw, &yh) != BitmapSuccess)
+		return NULL;
 
 	fi-> stop = true;
 	fi-> frameCount = 1;
 
 	l = malloc( sizeof( LoadRec));
-	if ( !l) return nil;
+	if ( !l) return NULL;
 
 	l-> w  = w;
 	l-> h  = h;
@@ -322,10 +306,8 @@ apc_img_codec_X11( void )
 	vmt. open_save     = open_save;
 	vmt. save          = save;
 	vmt. close_save    = close_save;
-	apc_img_register( &vmt, nil);
+	apc_img_register( &vmt, NULL);
 }
-
-#ifdef EMULATE_X11_CODEC
 
 /* $Xorg: RdBitF.c,v 1.5 2001/02/09 02:03:35 xorgcvs Exp $ */
 /*
@@ -449,34 +431,32 @@ NextInt (
 int
 XReadBitmapFileData (
 	_Xconst char *filename,
+	int is_utf8,
 	unsigned int *width,                /* RETURNED */
 	unsigned int *height,               /* RETURNED */
 	unsigned char **data,               /* RETURNED */
 	int *x_hot,                         /* RETURNED */
 	int *y_hot)                         /* RETURNED */
 {
-	FILE *fstream;			/* handle on file  */
-	unsigned char *bits = NULL;		/* working variable */
-	char line[MAX_SIZE];		/* input line from file */
-	int size;				/* number of bytes of data */
-	char name_and_type[MAX_SIZE];	/* an input line */
-	char *type;				/* for parsing */
-	int value;				/* from an input line */
-	int version10p;			/* boolean, old format */
-	int padding;			/* to handle alignment */
-	int bytes_per_line;			/* per scanline of data */
-	unsigned int ww = 0;		/* width */
-	unsigned int hh = 0;		/* height */
-	int hx = -1;			/* x hotspot */
-	int hy = -1;			/* y hotspot */
+	FILE *fstream;                      /* handle on file  */
+	unsigned char *bits = NULL;         /* working variable */
+	char line[MAX_SIZE];                /* input line from file */
+	int size;                           /* number of bytes of data */
+	char name_and_type[MAX_SIZE];       /* an input line */
+	char *type;                         /* for parsing */
+	int value;                          /* from an input line */
+	int version10p;                     /* boolean, old format */
+	int padding;                        /* to handle alignment */
+	int bytes_per_line;                 /* per scanline of data */
+	unsigned int ww = 0;                /* width */
+	unsigned int hh = 0;                /* height */
+	int hx = -1;                        /* x hotspot */
+	int hy = -1;                        /* y hotspot */
 
 	/* first time initialization */
 	if (initialized == False) initHexTable();
 
-#ifdef __UNIXOS2__
-	filename = __XOS2RedirRoot(filename);
-#endif
-	if (!(fstream = fopen(filename, "r")))
+	if (!(fstream = prima_open_file(filename, is_utf8, "r")))
 		return BitmapOpenFailed;
 
 	/* error cleanup and return macro	*/
@@ -487,24 +467,24 @@ XReadBitmapFileData (
 		if (strlen(line) == MAX_SIZE-1)
 				RETURN (BitmapFileInvalid);
 		if (sscanf(line,"#define %s %d",name_and_type,&value) == 2) {
-				if (!(type = strrchr(name_and_type, '_')))
-				type = name_and_type;
-				else
-				type++;
+			if (!(type = strrchr(name_and_type, '_')))
+			type = name_and_type;
+			else
+			type++;
 
-				if (!strcmp("width", type))
-				ww = (unsigned int) value;
-				if (!strcmp("height", type))
-				hh = (unsigned int) value;
-				if (!strcmp("hot", type)) {
-					if (type-- == name_and_type || type-- == name_and_type)
-						continue;
-					if (!strcmp("x_hot", type))
-						hx = value;
-					if (!strcmp("y_hot", type))
-						hy = value;
-				}
-				continue;
+			if (!strcmp("width", type))
+			ww = (unsigned int) value;
+			if (!strcmp("height", type))
+			hh = (unsigned int) value;
+			if (!strcmp("hot", type)) {
+				if (type-- == name_and_type || type-- == name_and_type)
+					continue;
+				if (!strcmp("x_hot", type))
+					hx = value;
+				if (!strcmp("y_hot", type))
+					hy = value;
+			}
+			continue;
 		}
 
 		if (sscanf(line, "static short %s = {", name_and_type) == 1)
@@ -540,25 +520,24 @@ XReadBitmapFileData (
 			RETURN (BitmapNoMemory);
 
 		if (version10p) {
-				unsigned char *ptr;
-				int bytes;
-
-				for (bytes=0, ptr=bits; bytes<size; (bytes += 2)) {
-					if ((value = NextInt(fstream)) < 0)
-						RETURN (BitmapFileInvalid);
-					*(ptr++) = value;
-					if (!padding || ((bytes+2) % bytes_per_line))
-						*(ptr++) = value >> 8;
-				}
+			unsigned char *ptr;
+			int bytes;
+			for (bytes=0, ptr=bits; bytes<size; (bytes += 2)) {
+				if ((value = NextInt(fstream)) < 0)
+					RETURN (BitmapFileInvalid);
+				*(ptr++) = value;
+				if (!padding || ((bytes+2) % bytes_per_line))
+					*(ptr++) = value >> 8;
+			}
 		} else {
-				unsigned char *ptr;
-				int bytes;
+			unsigned char *ptr;
+			int bytes;
 
-				for (bytes=0, ptr=bits; bytes<size; bytes++, ptr++) {
-					if ((value = NextInt(fstream)) < 0)
-						RETURN (BitmapFileInvalid);
-					*ptr=value;
-				}
+			for (bytes=0, ptr=bits; bytes<size; bytes++, ptr++) {
+				if ((value = NextInt(fstream)) < 0)
+					RETURN (BitmapFileInvalid);
+				*ptr=value;
+			}
 		}
 	}					/* end while */
 
@@ -577,11 +556,9 @@ XReadBitmapFileData (
 
 int XFree(void* ptr)
 {
-		free(ptr);
-		return 0;
+	free(ptr);
+	return 0;
 }
-
-#endif
 
 #ifdef __cplusplus
 }

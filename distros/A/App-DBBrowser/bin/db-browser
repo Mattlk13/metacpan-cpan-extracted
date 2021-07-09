@@ -3,7 +3,7 @@ use warnings;
 use strict;
 use 5.010001;
 
-our $VERSION = '2.256';
+our $VERSION = '2.271';
 
 use Term::Choose::Screen qw( hide_cursor show_cursor clear_to_end_of_screen );
 
@@ -53,7 +53,7 @@ C<db-browser> - Browse C<SQLite>/C<MySQL>/C<PostgreSQL> databases and their tabl
 
 =head1 VERSION
 
-Version 2.256
+Version 2.271
 
 =head1 SYNOPSIS
 
@@ -162,6 +162,9 @@ Vertical spaces (C<\v>) are squashed to two spaces
 Control characters, code points of the surrogate ranges and non-characters are removed.
 
 See also the option group L</Output>.
+
+The C<F3> key opens a prompt. A regular expression is expected as input. This enables one to only display rows where at
+least one column matches the entered pattern. See option L<F3 filter>.
 
 =head1 MENUS
 
@@ -424,7 +427,7 @@ Insert the data cell by cell.
 
 Reads from STDIN until the end of input.
 
-=item From File
+=item File
 
 The data is read from a chosen file.
 
@@ -654,10 +657,6 @@ Set the behavior of the interactive menus.
 
 If enabled: saves the menu position while entering in a sub menu.
 
-=head3 Keep header
-
-Show the table header on top of each page.
-
 =head3 Expand table
 
 Expand table rows:
@@ -666,37 +665,26 @@ Expand table rows:
 
 =item C<YES>
 
-if C<Return> is pressed, the selected table row is printed with each column in its own line.
+if C<Return> is pressed, the selected table row is printed with each column in its own line. The first row is not
+expanded if the cursor auto-jumped to the first row.
 
 =item C<NO>
 
 don't expand table rows.
-
-=item C<YES fast back>
-
-do not expand the first row if the cursor auto-jumped to the first row.
 
 =back
 
-=head3 Expand info table
+=head3 F3 filter
 
-Before records are deleted/updated and before a table or a view is dropped the affected records are shown in an info-table.
-
-Expand info tables rows:
+Set the behavior of the C<F3> key.
 
 =over
 
-=item C<YES>
+=item C<disabled>
 
-if C<Return> is pressed, the selected table row is printed with each column in its own line.
+=item C<case-insensitive search>
 
-=item C<NO>
-
-don't expand table rows.
-
-=item C<YES fast back>
-
-do not expand the first row if the cursor auto-jumped to the first row.
+=item C<case-sensitive search>
 
 =back
 
@@ -802,6 +790,9 @@ If these menu entries are prefixed with C<=>, it is required to select the wante
 entry has been chosen.
 
 =head4 Functions
+
+Selecting the prompt line ('Function:') allows one the enable the possibility to set the sign (+/-) for the precision in
+the rounding function.
 
 =over
 
@@ -981,7 +972,7 @@ are then used as default values when the user is asked for the data types.
 Sets C<LIMIT> automatically to I<Max Rows>. This can be overwritten by setting a SQL C<LIMIT> statement manually.
 Fetched table rows are kept in memory.
 
-To disable the automatic limit set I<Auto Limit> to C<0>.
+To disable the automatic limit set I<Max Rows> to C<0>.
 
 =head2 Output
 
@@ -999,10 +990,6 @@ shown while preparing the data for the output.
 
 Set the number of spaces between columns.
 
-=head3 Grid
-
-Separate the columns from each other and the header from the body with lines.
-
 =head3 Color
 
 Enables the support for color and text formatting escape sequences (SGR) if set to C<Enable>. Before the output it is
@@ -1018,13 +1005,9 @@ the output.
 
 If I<squash_spaces> is enabled, consecutive spaces are squashed to one space and leading and trailing spaces are removed.
 
-=head3 Show table name
-
-If enabled, the table name is displayed in the lower left corner of the terminal behind the page number.
-
 =head3 Indentation
 
-Set the indentation width for the info output.
+Set the indentation width for the SQL substatements.
 
 =head3 Truncated rows
 
@@ -1236,6 +1219,8 @@ Expects a regex pattern. If set, removes trailing characters matching regexp fro
 =head3 Enable input filter
 
 Enable the input filter menu.
+
+Enabling I<input filter> will cause a second copy of the data to be kept in memory.
 
 =head3 Empty to Null
 

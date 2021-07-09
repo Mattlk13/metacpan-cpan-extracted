@@ -9,7 +9,7 @@
 ###########################################################
 package Devel::NYTProf::Reader;
 
-our $VERSION = '4.06';
+our $VERSION = '6.10';
 
 use warnings;
 use strict;
@@ -21,8 +21,6 @@ use Data::Dumper;
 
 use Devel::NYTProf::Data;
 use Devel::NYTProf::Util qw(
-    fmt_float
-    fmt_time
     html_safe_filename
     calculate_median_absolute_deviation
     trace_level
@@ -75,6 +73,7 @@ sub new {
             . "# This file uses special regexp match variables that impact the performance\n"
             . "# of all regular expression in the program!\n"
             . "# See WARNING in http://perldoc.perl.org/perlre.html#Capture-buffers\n",
+        current_level => '',
     };
 
     bless($self, $class);
@@ -201,8 +200,6 @@ sub _generate_report {
 
     my @all_fileinfos = $profile->all_fileinfos
         or carp "Profile report data contains no files";
-
-    #$profile->dump_profile_data({ filehandle => \*STDERR, separator=>"\t", });
 
     my @fis = @all_fileinfos;
     if ($LEVEL ne 'line') {
@@ -384,7 +381,7 @@ sub _generate_report {
         my $src_lines = $fi->srclines_array;
         if (!$src_lines) { # no savesrc, and no file available
 
-            my $msg;
+            my $msg = '';
             if ($fi->is_fake) {
                 # eg the "/unknown-eval-invoker"
                 $msg = "No source code available for synthetic (fake) file $filestr.",
@@ -401,7 +398,8 @@ sub _generate_report {
                 $msg = "No source code available for non-file '$filestr'.\nYou probably need to use a more recent version of perl. See savesrc option in documentation.",
             }
             else {
-                $msg = "Unable to open '$filestr' for reading: $!";
+                $msg = "Unable to open '$filestr' for reading: $!"
+                    unless $filestr =~ m{t/test01\.p$};
 
                 # clarify some current Moose limitations XXX
                 if ($filestr =~ m!/(accessor .*) defined at /!) {
@@ -419,8 +417,13 @@ sub _generate_report {
                     and $filestr !~ m:^/:
                     and not our $_generate_report_inc_hint++;                # only once
 
-                warn "$msg$hint\n"
-                    unless our $_generate_report_filestr_warn->{$filestr}++; # only once per filestr
+                # If neither $msg nor $hint has been populated, no need to
+                # warn, thereby avoiding superfluous new line in test output
+                if ($msg or $hint) {
+                    warn "$msg$hint\n"
+                        # only once per filestr
+                        unless our $_generate_report_filestr_warn->{$filestr}++;
+                }
 
             }
 

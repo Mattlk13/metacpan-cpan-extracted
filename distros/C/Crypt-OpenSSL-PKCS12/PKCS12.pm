@@ -1,9 +1,10 @@
 package Crypt::OpenSSL::PKCS12;
 
+use warnings;
 use strict;
 use Exporter;
 
-our $VERSION = '1.3';
+our $VERSION = '1.7';
 our @ISA = qw(Exporter);
 
 our @EXPORT_OK = qw(NOKEYS NOCERTS INFO CLCERTS CACERTS);
@@ -19,6 +20,10 @@ END {
 1;
 
 __END__
+
+=pod
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -115,9 +120,37 @@ OpenSSL(1), Crypt::OpenSSL::X509, Crypt::OpenSSL::RSA, Crypt::OpenSSL::Bignum
 
 Dan Sully, E<lt>daniel@cpan.orgE<gt>
 
+=head1 CONTRIBUTORS
+
+=over
+
+=item * Shoichi Kaji
+
+=item * Todd Rinaldo
+
+=item * Alexandr Ciornii
+
+=item * Songmu
+
+=item * Christopher Hoskin
+
+=item * jonasbn
+
+=item * Mikołaj Zalewski
+
+=item * Darko Prelec
+
+=item * Leonid Antonenkov
+
+=item * kelson
+
+=item * HMBRAND
+
+=back
+
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004-2018 by Dan Sully
+Copyright 2004-2021 by Dan Sully
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.8 or,

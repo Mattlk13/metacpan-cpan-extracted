@@ -12,9 +12,10 @@ use Encode::Locale    qw();
 #use String::Unescape  qw( unescape );      # required
 #use Text::CSV         qw();                # required
 
-use Term::Choose       qw();
-use Term::Choose::Util qw( get_term_size unicode_sprintf insert_sep );
-use Term::Form         qw();
+use Term::Choose           qw();
+use Term::Choose::LineFold qw( line_fold );
+use Term::Choose::Util     qw( get_term_size get_term_width unicode_sprintf insert_sep );
+use Term::Form             qw();
 
 
 sub new {
@@ -27,8 +28,16 @@ sub new {
     bless $sf, $class;
 }
 
+use Term::Choose::Screen qw( clear_screen );
 
-sub __parse_plain {
+sub __print_waiting_str {
+    my ( $sf ) = @_;
+    print clear_screen;
+    print 'Parsing file ... ' . "\r";
+}
+
+
+sub parse_plain {
     my ( $sf, $sql, $fh ) = @_;
     my $rows_of_cols = [];
     my $file_fs = $sf->{i}{f_plain};
@@ -39,16 +48,16 @@ sub __parse_plain {
 }
 
 
-sub __parse_with_Text_CSV {
+sub parse_with_Text_CSV {
     my ( $sf, $sql, $fh ) = @_;
-    my $waiting = 'Parsing file ... ';
+    my $ax = App::DBBrowser::Auxil->new( $sf->{i}, $sf->{o}, $sf->{d} );
     my $tc = Term::Choose->new( $sf->{i}{tc_default} );
-    say $waiting . "\r";
+    $sf->__print_waiting_str;
     seek $fh, 0, 0;
     my $rows_of_cols = [];
-    require Text::CSV;
     require String::Unescape;
     my $options = { map { $_ => String::Unescape::unescape( $sf->{o}{csv}{$_} ) } keys %{$sf->{o}{csv}} };
+    require Text::CSV;
     my $csv = Text::CSV->new( $options ) or die Text::CSV->error_diag();
     $csv->callbacks( error => sub {
         my ( $code, $str, $pos, $rec, $fld ) = @_;
@@ -56,14 +65,15 @@ sub __parse_with_Text_CSV {
             Text::CSV->SetDiag (0);
         }
         else {
-            my $error_inpunt = $csv->error_input();
-            my $message =  "Text::CSV:\n";
-            $message .= "Input: $error_inpunt" if defined $error_inpunt;
-            $message .= "$code $str - pos:$pos rec:$rec fld:$fld";
+            my $error_input = $csv->error_input() // 'No Error Input defined.';
+            my $prompt = "Error Input:";
+            $error_input =~ s/\R/ /g;
+            my $info = "Close with ENTER\nText::CSV\n$code $str\nposition:$pos record:$rec field:$fld\n";
             $tc->choose(
-                [ 'Press ENTER' ],
-                { prompt => $message }
+                [ line_fold( $error_input, get_term_width() ) ],
+                { info => $info, prompt => $prompt  }
             );
+            $ax->print_sql_info( $info );
             return;
         }
     } );
@@ -75,10 +85,9 @@ sub __parse_with_Text_CSV {
 }
 
 
-sub __parse_with_split {
+sub parse_with_split {
     my ( $sf, $sql, $fh ) = @_;
-    my $waiting = 'Parsing file ... ';
-    say $waiting . "\r";
+    $sf->__print_waiting_str;
     my $rows_of_cols = [];
     local $/;
     seek $fh, 0, 0;
@@ -110,7 +119,7 @@ sub __print_template_info {
     $ruler .= substr( $tapeline, 0, ( $term_w % 10 ) );
     my $info = $ruler;
     my $avail_h = $term_h - $occupied_term_h;
-    if ( $avail_h < 5 ) {
+    if ( $avail_h < 5 ) { ##
         $avail_h = 5;
     }
     my $first_part_end = int( $avail_h / 1.5 );
@@ -140,25 +149,27 @@ sub __print_template_info {
 }
 
 
-sub __parse_with_template {
+sub parse_with_template {
     my ( $sf, $sql, $fh ) = @_;
+    my $ax = App::DBBrowser::Auxil->new( $sf->{i}, $sf->{o}, $sf->{d} );
     my $tf = Term::Form->new( $sf->{i}{tf_default} );
     my $tc = Term::Choose->new( $sf->{i}{tc_default} );
     my $tu = Term::Choose::Util->new( $sf->{i}{tcu_default} );
     my $old_idx = 0;
 
     IRS: while ( 1 ) {
-        my $info = "Parse mode: Template\n";
         my $prompt = 'Choose the Input record separator:';
         my @irs = ( "\\n", "\\r", "\\r\\n" );
         my $reparse = '  Reparse';
         my @pre = ( undef );
         my $menu = [ @pre, map( '  "' . $_ . '"', @irs ), $reparse ];
+        my $info = "Parse mode: Template\n";
         # Choose
         my $idx = $tc->choose(
             $menu,
             { prompt => $prompt, index => 1, default => $old_idx, layout => 3, undef => '  <=', clear_screen => 1, info => $info }
         );
+        $ax->print_sql_info( $info );
         if ( ! $idx ) {
             return;
         }
@@ -179,7 +190,7 @@ sub __parse_with_template {
         }
         require String::Unescape;
         $/ = String::Unescape::unescape( $irs[$idx-@pre] );
-        my $waiting = 'Parsing file ... ';
+        $sf->__print_waiting_str;
         seek $fh, 0, 0;
         my @rows = grep { ! /^\s+\z/ } <$fh>;
         chomp @rows;
@@ -191,6 +202,7 @@ sub __parse_with_template {
                 { clear_screen => 1, info => $info, cs_label => 'Number of columns: ',
                   small_first => 1, confirm => 'Confirm', back => 'Back' }
             );
+            $ax->print_sql_info( $info );
             if ( ! $col_count ) {
                 next IRS;
             }
@@ -205,6 +217,7 @@ sub __parse_with_template {
                     { info => $info, prompt => 'Col widths:', auto_up => 2,
                     confirm => $sf->{i}{_confirm}, back => $sf->{i}{_back} . '   ' }
                 );
+                $ax->print_sql_info( $info );
                 if ( ! $form ) {
                     next COL_COUNT;
                 }
@@ -224,20 +237,21 @@ sub __parse_with_template {
                             [ 'Press ENTER' ],
                             { info => $info, prompt => $prompt, info => $info }
                         );
+                        $ax->print_sql_info( $info );
                         @$fields = @$form;
                         next COL_WIDTHS;
                     }
                     push @values, $field_value;
                 }
-
                 my $prompt = 'Remove leading Spaces?';
+                my ( $no, $yes ) = ( '- NO', '- YES' );
                 $info = $sf->__print_template_info( \@rows, 8 );
                 # Choose
-                my ( $no, $yes ) = ( '- NO', '- YES' );
                 my $remove_leading_spaces = $tc->choose(
                     [ undef, $no, $yes ],
                     { info => $info, prompt => $prompt, undef => '  ' . $sf->{i}{back}, layout => 3 }
                 );
+                $ax->print_sql_info( $info );
                 if ( ! defined $remove_leading_spaces ) {
                     next COL_WIDTHS;
                 }
@@ -262,17 +276,16 @@ sub __parse_with_template {
 }
 
 
-sub __parse_with_Spreadsheet_Read {
+sub parse_with_Spreadsheet_Read {
     my ( $sf, $sql, $file_fs ) = @_;
     my $tc = Term::Choose->new( { %{$sf->{i}{tc_default}}, clear_screen => 1 } );
-    my $waiting = 'Parsing file ... ';
-    say $waiting . "\r";
+    $sf->__print_waiting_str;
     require Spreadsheet::Read;
-    my $book = $sf->{i}{S_R}{$file_fs}{book};
+    my $book = $sf->{i}{ss}{$file_fs}{book};
     if ( ! defined $book ) {
-        delete $sf->{i}{S_R};
+        delete $sf->{i}{ss};
         $book = Spreadsheet::Read::ReadData( $file_fs, cells => 0, attr => 0, rc => 1, strip => 0 );
-        $sf->{i}{S_R}{$file_fs}{book} = $book;
+        $sf->{i}{ss}{$file_fs}{book} = $book;
         if ( ! defined $book ) {
             $tc->choose(
                 [ 'Press ENTER' ],
@@ -281,8 +294,8 @@ sub __parse_with_Spreadsheet_Read {
             return;
         }
     }
-    $sf->{i}{S_R}{$file_fs}{sheet_count} = @$book - 1; # first sheet in $book contains meta info
-    my $sheet_count = $sf->{i}{S_R}{$file_fs}{sheet_count};
+    $sf->{i}{ss}{$file_fs}{sheet_count} = @$book - 1; # first sheet in $book contains meta info
+    my $sheet_count = $sf->{i}{ss}{$file_fs}{sheet_count};
     if ( $sheet_count == 0 ) {
         $tc->choose(
             [ 'Press ENTER' ],
@@ -298,27 +311,24 @@ sub __parse_with_Spreadsheet_Read {
         my @sheets = map { '- ' . ( length $book->[$_]{label} ? $book->[$_]{label} : 'sheet_' . $_ ) } 1 .. $#$book;
         my @pre = ( undef );
         my $menu = [ @pre, @sheets ];
-        $sf->{i}{S_R}{$file_fs}{old_idx} //= 0;
-        my $old_idx = $sf->{i}{S_R}{$file_fs}{old_idx};
+        $sf->{i}{ss}{$file_fs}{old_idx_sheet} //= 0;
 
         SHEET: while ( 1 ) {
             # Choose
             my $idx = $tc->choose(
                 $menu,
-                { %{$sf->{i}{lyt_v}}, prompt => 'Choose a sheet', index => 1, default => $old_idx,
+                { %{$sf->{i}{lyt_v}}, prompt => 'Choose a sheet', index => 1, default => $sf->{i}{ss}{$file_fs}{old_idx_sheet},
                 undef => '  <=' }
             );
             if ( ! defined $idx || ! defined $menu->[$idx] ) {
                 return;
             }
             if ( $sf->{o}{G}{menu_memory} ) {
-                if ( $sf->{i}{S_R}{$file_fs}{old_idx} == $idx && ! $ENV{TC_RESET_AUTO_UP} ) {
-                    $old_idx = 0;
+                if ( $sf->{i}{ss}{$file_fs}{old_idx_sheet} == $idx && ! $ENV{TC_RESET_AUTO_UP} ) {
+                    $sf->{i}{ss}{$file_fs}{old_idx_sheet} = 0;
                     next SHEET;
                 }
-                $old_idx = $idx;
-                $sf->{i}{S_R}{$file_fs}{old_idx} = $idx;
-                # save the last active user chosen idx as the old_idx and not the auto-jumped idx (0)
+                $sf->{i}{ss}{$file_fs}{old_idx_sheet} = $idx;
             }
             $sheet_idx = $idx - @pre + 1;
             last SHEET;
@@ -334,7 +344,7 @@ sub __parse_with_Spreadsheet_Read {
     }
     $sql->{insert_into_args} = [ Spreadsheet::Read::rows( $book->[$sheet_idx] ) ];
     if ( ! -T $file_fs && length $book->[$sheet_idx]{label} ) {
-        $sf->{i}{S_R}{$file_fs}{sheet_name} = $book->[$sheet_idx]{label};
+        $sf->{i}{ss}{$file_fs}{sheet_name} = $book->[$sheet_idx]{label};
     }
     return 1;
 }

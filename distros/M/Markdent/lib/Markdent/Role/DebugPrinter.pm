@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use namespace::autoclean;
 
-our $VERSION = '0.38';
+our $VERSION = '0.40';
 
 use Markdent::Types;
 
@@ -57,11 +57,12 @@ Markdent::Role::DebugPrinter - A role for classes which output debugging informa
 
 =head1 VERSION
 
-version 0.38
+version 0.40
 
 =head1 DESCRIPTION
 
-This role implements behavior shared by all classes which output debugging information.
+This role implements behavior shared by all classes which output debugging
+information.
 
 =head1 ATTRIBUTES
 
@@ -83,7 +84,7 @@ This method takes a text string, a parse result string (like "preformatted" or
 "code_start"), and an optional array reference of extra key/value pairs.
 
 All of this will be concatenated together in a pretty(-ish) way and passed to
-C<< $object->_print_debug() >>.
+C<< $object->_print_debug >>.
 
 =head2 $object->_print_debug($text)
 
@@ -107,7 +108,7 @@ Dave Rolsky <autarch@urth.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Dave Rolsky.
+This software is copyright (c) 2021 by Dave Rolsky.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

@@ -1,6 +1,9 @@
 use strict;
 use warnings;
 
+use utf8;
+no utf8;
+
 package Smartcat::App::ProjectApi;
 
 use Smartcat::Client::ProjectApi;
@@ -48,17 +51,25 @@ sub get_project {
 }
 
 sub update_project_external_tag {
-    my ($self, $name, $external_tag) = @_;
+    my ($self, $project, $external_tag) = @_;
 
-    my %args = (name => $name);
+    my %args = (
+        name            => $project->name,
+        description     => $project->description,
+        deadline        => $project->deadline,
+        clientId        => $project->client_id,
+        domainId        => $project->domain_id,
+        vendorAccountId => $project->vendor_account_id
+    );
+
     $args{externalTag} = $external_tag if defined $external_tag;
 
-    my $project =
+    my $model =
       Smartcat::Client::Object::ProjectChangesModel->new(%args);
 
     %args = (
         project_id => $self->{rundata}->{project_id},
-        model => $project);
+        model => $model);
 
     $log->info("Updating project '$self->{rundata}->{project_id}' with '$external_tag' external tag...");
     eval {
@@ -101,12 +112,16 @@ sub upload_file {
       Smartcat::Client::Object::CreateDocumentPropertyModel->new(%args);
 
     $log->info("Uploading file '$path'...");
+    my $utf8_path = $path;
+    my $utf8_filename = $filename;
+    utf8::encode($utf8_path);
+    utf8::encode($utf8_filename);
     %args = (
         project_id     => $self->{rundata}->{project_id},
         document_model => $document,
         file           => {
-            path     => $path,
-            filename => $filename
+            path     => $utf8_path,
+            filename => $utf8_filename
         }
     );
     $args{disassemble_algorithm_name} =

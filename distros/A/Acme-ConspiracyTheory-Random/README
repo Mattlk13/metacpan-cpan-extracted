@@ -1,0 +1,44 @@
+NAME
+    Acme::ConspiracyTheory::Random - random theories
+
+SYNOPSIS
+      use feature 'say';
+      use Acme::ConspiracyTheory::Random -all;
+  
+      say bad_punctuation( theory() );
+
+DESCRIPTION
+    This module exports a function, `theory()` which returns a string.
+
+    There is also a function `bad_punctuation` which, given a string, might
+    make the punctuation worse.
+
+BUGS
+    Please report any bugs to
+    <https://github.com/tobyink/p5-acme-conspiracytheory-random/issues>.
+
+SEE ALSO
+    REDACTED
+
+AUTHOR
+    Toby Inkster <tobyink@cpan.org>.
+
+CONTRIBUTORS
+    Alex Jones discovered that there are secretly other people who have
+    contributed to this module but Toby Inkster is working with Microsoft and
+    the Illuminati to cover it up. I tried to blog about it but all my posts
+    keep getting taken down from Tumblr. There are hidden clues on GitHub
+    <https://github.com/tobyink/p5-acme-conspiracytheory-random/graphs/contrib
+    utors>. You don't want to know how deep this rabbit hole goes!
+
+COPYRIGHT AND LICENCE
+    This software is copyright (c) 2021 by Toby Inkster.
+
+    This is free software; you can redistribute it and/or modify it under the
+    same terms as the Perl 5 programming language system itself.
+
+DISCLAIMER OF WARRANTIES
+    THIS PACKAGE IS PROVIDED "AS IS" AND WITHOUT ANY EXPRESS OR IMPLIED
+    WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+    MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+

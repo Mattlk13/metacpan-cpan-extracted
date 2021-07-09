@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# Copyright (C) 2017–2020  Alex Schroeder <alex@gnu.org>
+# Copyright (C) 2017–2021  Alex Schroeder <alex@gnu.org>
 
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Affero General Public License as published by the Free
@@ -101,6 +101,9 @@ serve one of them)
 
 =item C<--port> is the port to use; the default is 1965
 
+=item C<--text_encoding> is the text encoding to use if you're not going to use
+UTF-8 (consider adding support for L<Encode::Guess>)
+
 =item C<--log_level> is the log level to use (error, warn, info, debug, trace);
 the default is C<warn>
 
@@ -174,6 +177,7 @@ use Getopt::Long;
 use File::Slurper qw(read_binary read_dir);
 use Encode qw(encode_utf8 decode_utf8);
 use Modern::Perl '2018';
+use File::MimeInfo qw(globs);
 use URI::Escape;
 use Pod::Text;
 use utf8;
@@ -182,6 +186,7 @@ our $host;
 our $port ||= 1965;
 our $cert_file ||= "cert.pem";
 our $key_file ||= "key.pem";
+our $encoding ||= "UTF-8";
 our $log_level ||= "warn";  # error, warn, info, debug, trace
 
 my %args = ();
@@ -189,6 +194,7 @@ GetOptions ("host=s"          => \$host,
 	    "port=i"          => \$port,
 	    "cert_file=s"     => \$cert_file,
 	    "key_file=s"      => \$key_file,
+	    "text_encoding=s" => \$encoding,
 	    "log_level=s"     => \$log_level)
     or die("Error in command line arguments\n");
 
@@ -208,14 +214,12 @@ if (not -f $key_file or not -f $cert_file) {
   my $hostname = <STDIN>;
   alarm(0);  # done, no more alarm
   chomp $hostname;
+  die "Some other day.\n" unless $hostname;
   die "The hostname may not contain any whitespace\n" if $hostname =~ /\s/;
   my $cmd = qq(openssl req -new -x509 -newkey ec -subj "/CN=$hostname" )
       . qq(-pkeyopt ec_paramgen_curve:prime256v1 -days 1825 -nodes -out cert.pem -keyout key.pem);
-  if ($hostname) {
-    say "$cmd ";
-    system($cmd) == 0
-      or die "openssl failed: $?";
-  }
+  say "$cmd ";
+  system($cmd) == 0 or die "openssl failed: $?";
 }
 
 Mojo::IOLoop->server(
@@ -229,6 +233,8 @@ Mojo::IOLoop->server(
     my ($loop, $stream) = @_;
     $stream->on(read => \&serve_gemini);
   });
+
+Mojo::IOLoop->start unless Mojo::IOLoop->is_running;
 
 sub serve_gemini {
   my ($stream, $url) = @_;
@@ -255,14 +261,16 @@ sub serve_gemini {
       next if $_ eq $cert_file;
       next if $_ eq $key_file;
       next if /~$/; # Emacs backup files
-      $stream->write("=> $_") if -f;
+      $stream->write("=> $_\n") if -f;
     }
   } elsif ($path eq "/$cert_file" or $path eq "/$key_file") {
     $stream->write("50 Forbidden\n");
   } elsif ($path =~ m!^/([^/]+)$!) {
     my $file = decode_utf8(uri_unescape($1));
     if (-f $file) {
-      $stream->write("20 text/gemini; charset=UTF-8\r\n");
+      my $mime = globs($file) || mime_type($file);
+      $mime .= "; charset=$encoding" if $mime =~ /^text\// and $encoding;
+      $stream->write("20 $mime\r\n");
       $stream->write(read_binary($file));
     } else {
       $stream->write("51 File not found: $file\r\n");
@@ -274,4 +282,13 @@ sub serve_gemini {
   $stream->close_gracefully();
 };
 
-Mojo::IOLoop->start unless Mojo::IOLoop->is_running;
+sub mime_type {
+  $_ = shift;
+  return 'text/plain' if /\.te?xt$/i;
+  return 'text/markdown' if /\.md$/i;
+  return 'text/html' if /\.html?$/i;
+  return 'image/png' if /\.png$/i;
+  return 'image/jpeg' if /\.jpe?g$/i;
+  return 'image/gif' if /\.gif$/i;
+  return 'text/gemini';
+}

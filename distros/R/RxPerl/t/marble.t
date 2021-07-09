@@ -287,13 +287,41 @@ subtest 'rx_fork_join' => sub {
     obs_is $o, [''], 'hash with empty';
 };
 
-subtest 'pipeable operators as methods' => sub {
-    my $o = cold('123456789')
-        ->filter(sub {$_[0] % 2 == 1})
-        ->map(sub {$_[0] * 10})
-        ->take(3)
-        ->delay(1);
-    obs_is $o, ['-a-b-c', {a => 10, b => 30, c => 50}];
+subtest 'op_skip_until' => sub {
+    my $o = cold('-01234567')->pipe(
+        op_skip_until( rx_timer(4.5) ),
+    );
+    obs_is $o, ['-----4567'], 'simple case';
+
+    $o = cold('-01234567#')->pipe(
+        op_skip_until( rx_timer(4.5) ),
+    );
+    obs_is $o, ['-----4567#'], 'error at the end';
+
+    $o = cold('-01#')->pipe(
+        op_skip_until( rx_timer(4.5) ),
+    );
+    obs_is $o, ['---#'], 'error before notifier';
+
+    $o = cold('-01234567')->pipe(
+        op_skip_until(
+            rx_concat(
+                rx_EMPTY->pipe( op_delay(4) ),
+                rx_throw_error(undef),
+            )
+        ),
+    );
+    obs_is $o, ['----#'], 'notifier throws error';
+
+    $o = cold('-01234567')->pipe(
+        op_skip_until( rx_EMPTY ),
+    );
+    obs_is $o, ['---------'], 'notifier only completes';
+
+    $o = rx_of(1, 2, 3)->pipe(
+        op_skip_until( rx_of(1) ),
+    );
+    obs_is $o, ['(123)'], 'of with of notifier';
 };
 
 done_testing();

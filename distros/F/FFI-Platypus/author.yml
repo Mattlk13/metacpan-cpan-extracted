@@ -117,7 +117,7 @@ pod_spelling_system:
     - fbx
     - strndup
     - Petr
-    - Pisar
+    - Písař
     - ppisar
     - Anwar
     - MANWAR
@@ -137,6 +137,16 @@ pod_spelling_system:
     - kindof
     - thet
     - unitof
+    - const
+    - IKEGAMI
+    - BMP
+    - WebAssembly
+    - sensical
+    - eXtensions
+    - szTheory
+    - JJATRIA
+    - Joaqu
+    - Jos
 
 pod_coverage:
   skip: 0

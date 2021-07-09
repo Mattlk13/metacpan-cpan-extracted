@@ -1,6 +1,6 @@
 package Resque::Worker;
 # ABSTRACT: Does the hard work of babysitting Resque::Job's
-$Resque::Worker::VERSION = '0.37';
+$Resque::Worker::VERSION = '0.42';
 use Moose;
 with 'Resque::Encoder';
 
@@ -38,12 +38,19 @@ has stat => (
     default => sub { Resque::Stat->new( resque => $_[0]->resque ) }
 );
 
-has id => ( is => 'rw', lazy => 1, default => sub { $_[0]->_stringify } );
+has id => (
+    is      => 'rw',
+    lazy    => 1,
+    clearer => '_clear_id',
+    default => sub { $_[0]->_stringify }
+);
 sub _string { $_[0]->id } # can't point overload to a mo[o|u]se attribute :-(
 
 has verbose   => ( is => 'rw', default => sub {0} );
 
 has cant_fork => ( is => 'rw', default => sub {0} );
+
+has cant_poll => ( is => 'rw', default => sub {0} );
 
 has child    => ( is => 'rw' );
 
@@ -51,13 +58,15 @@ has shutdown => ( is => 'rw', default => sub{0} );
 
 has paused   => ( is => 'rw', default => sub{0} );
 
-has interval => ( is => 'rw', default => sub{5} );
+has interval => ( is => 'rw', lazy => 1, default => sub{5} );
+
+has timeout => ( is => 'rw', default => sub{30} );
 
 has autoconfig => ( is => 'rw', predicate => 'has_autoconfig' );
 
 sub pause { $_[0]->paused(1) }
 
-sub unpause         { $_[0]->paused(0) }
+sub unpause { $_[0]->paused(0) }
 
 sub shutdown_please {
     print "Shutting down...\n";
@@ -78,7 +87,7 @@ sub work {
             $self->log("Got job $job");
             $self->work_tick($job);
         }
-        elsif( $self->interval ) {
+        elsif( !$self->cant_poll && $self->interval ) {
             unless ( $waiting ) {
                 my $status = $self->paused ? "Paused" : 'Waiting for ' . join( ', ', @{$self->queues} );
                 $self->procline( $status );
@@ -174,12 +183,16 @@ sub del_queue {
 
 sub reserve {
     my $self = shift;
-    my $count = 0;
-    for my $queue ( @{$self->queues} ) {
-        if ( my $job = $self->resque->pop($queue) ) {
-            return $job;
+
+    if ( $self->cant_poll ) {
+        return $self->resque->blpop($self->queues, $self->timeout);
+    }
+    else {
+        for my $queue ( @{$self->queues} ) {
+            if ( my $job = $self->resque->pop($queue) ) {
+                return $job;
+            }
         }
-        return if ++$count == @{$self->queues};
     }
 }
 
@@ -204,7 +217,12 @@ sub done_working {
 
 sub started {
     my $self = shift;
-    _parsedate( $self->redis->get( $self->key( worker => $self->id => 'started' ) ) );
+    _parsedate( $self->_started );
+}
+
+sub _started {
+    my $self = shift;
+    $self->redis->get( $self->key( worker => $self->id => 'started' ) );
 }
 
 sub _parsedate {
@@ -215,7 +233,8 @@ sub _parsedate {
 
 sub set_started {
     my $self = shift;
-    $self->redis->set( $self->key( worker => $self->id => 'started' ), DateTime->now->strftime('%Y-%m-%d %H:%M:%S %Z') );
+    my $date = shift || DateTime->now->strftime('%Y-%m-%d %H:%M:%S %Z');
+    $self->redis->set( $self->key( worker => $self->id => 'started' ), $date );
 }
 
 sub processing {
@@ -223,9 +242,22 @@ sub processing {
     eval { $self->encoder->decode( $self->redis->get( $self->key( worker => $self->id ) ) ) } || {};
 }
 
+sub processing_map {
+    my $self = shift;
+    return {} unless @_;
+
+    my @ids  = map { ref($_) ? $_->id : $_ } @_;
+    my @proc = map { ($_ && $self->encoder->decode($_)) || {} }
+               $self->redis->mget( map { $self->key( worker => $_ ) } @ids );
+
+    my $count = 0;
+    return { map { $_ => $proc[$count++] } @ids };
+}
+
 sub processing_started {
     my $self = shift;
-    my $run_at = $self->processing->{run_at} || return;
+    my $proc = shift || $self->processing;
+    my $run_at = $proc->{run_at} || return;
     _parsedate($run_at);
 }
 
@@ -299,8 +331,30 @@ sub prune_dead_workers {
 
 sub register_worker {
     my $self = shift;
-    $self->redis->sadd( $self->key( 'workers'), $self->id );
+    $self->_register_id;
     $self->set_started;
+}
+
+sub _register_id {
+    my $self = shift;
+    $self->redis->sadd( $self->key( 'workers'), $self->id );
+}
+
+sub refresh_id {
+    my $self = shift;
+    my $id = $self->_stringify;
+    return if $id eq $self->id; # unchanged?
+    my $start = $self->_started || die "Can't refresh_id before start";
+    my $proc  = $self->stat->get("processed:$self");
+    my $fail  = $self->stat->get("failed:$self");
+    $self->redis->multi;
+    $self->_unregister_id;
+    $self->id($id);
+    $self->_register_id;
+    $self->set_started($start);
+    $self->stat->set("processed:$self", $proc);
+    $self->stat->set("failed:$self", $fail);
+    $self->redis->exec;
 }
 
 sub unregister_worker {
@@ -322,10 +376,16 @@ sub unregister_worker {
         }
     }
 
+    $self->_unregister_id;
+
+}
+
+# clear worker registry keys
+sub _unregister_id {
+    my $self = shift;
     $self->redis->srem( $self->key('workers'), $self->id );
     $self->redis->del( $self->key( worker => $self->id ) );
     $self->redis->del( $self->key( worker => $self->id => 'started' ) );
-
     $self->stat->clear("processed:$self");
     $self->stat->clear("failed:$self");
 }
@@ -381,18 +441,23 @@ sub failed {
 sub find {
     my ( $self, $worker_id ) = @_;
     if ( $self->exists( $worker_id ) ) {
-        my @queues = split ',', (split( ':', $worker_id))[-1];
-        return __PACKAGE__->new(
-            resque => $self->resque,
-            queues => \@queues,
-            id     => $worker_id
-        );
+        return $self->_from_id( $worker_id );
     }
+}
+
+sub _from_id {
+    my ( $self, $worker_id ) = @_;
+    my @queues = split ',', (split( ':', $worker_id))[-1];
+    __PACKAGE__->new(
+        resque => $self->resque,
+        queues => \@queues,
+        id     => $worker_id
+    );
 }
 
 sub all {
     my $self = shift;
-    my @w = grep {$_} map { $self->find($_) } $self->redis->smembers( $self->key('workers') );
+    my @w = map { $self->_from_id($_) } $self->redis->smembers( $self->key('workers') );
     return wantarray ? @w : \@w;
 }
 
@@ -415,7 +480,7 @@ Resque::Worker - Does the hard work of babysitting Resque::Job's
 
 =head1 VERSION
 
-version 0.37
+version 0.42
 
 =head1 ATTRIBUTES
 
@@ -451,6 +516,13 @@ By default, the worker will fork the job out and control the
 children process. This make the worker more resilient to
 memory leaks.
 
+=head2 cant_poll
+
+Set it to a true value to stop this worker from polling for jobs and
+use experimental blocking pop instead.
+
+See timeout().
+
 =head2 child
 
 PID of current running child.
@@ -466,6 +538,13 @@ When true, this worker won't proccess more jobs till false.
 =head2 interval
 
 Float representing the polling frequency. The default is 5 seconds, but for a semi-active app you may want to use a smaller value.
+
+=head2 timeout
+
+Integer representing the blocking timeout. The default is not to block but to poll queues (see inverval),
+so this attribute will be completely ignored unless dont_poll().
+The default is 30 seconds. Setting it to 0 will make reserve() to block until some job is assigned to this
+workers and will prevent autoconfig() to be called until it happen.
 
 =head2 autoconfig
 
@@ -582,6 +661,12 @@ Returns a hash explaining the Job we're currently processing, if any.
 
 $worker->processing();
 
+=head2 processing_map
+
+Returns a hashref of processing info for a given worker or worker ID list
+
+$worker->processing( $worker1, $worker2, $worker3->id );
+
 =head2 processing_started
 
 What time did this worker started to work on current job?
@@ -661,6 +746,19 @@ lifecycle on startup.
 
 $worker->register_worker();
 
+=head2 refresh_id
+
+Do the dirty work after changing the queues on an already
+register_worker().
+
+This will update backend on a single transactionto reflex
+current queues by changing this worker ID which need to
+unregister_worker() and register_worker() again while
+keeping stat() and started().
+
+Only useful when you dinamically update queues and want to
+watch it on the web interface.
+
 =head2 unregister_worker
 
 Unregisters ourself as a worker. Useful when shutting down.
@@ -692,7 +790,7 @@ my $jobs_run = $worker->processed( $boolean );
 How many failed jobs has this worker seen.
 Pass a true argument to increment by one before retrieval.
 
-my $jobs_run = $worker->processed( $boolean );
+my $jobs_run = $worker->failed( $boolean );
 
 =head2 find
 
@@ -719,7 +817,7 @@ Diego Kuperman <diego@freekeylabs.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2015 by Diego Kuperman.
+This software is copyright (c) 2021 by Diego Kuperman.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

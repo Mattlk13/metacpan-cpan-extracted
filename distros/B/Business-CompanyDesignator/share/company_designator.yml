@@ -1,7 +1,7 @@
 ---
 Aksjeselskap:
   abbr: AS
-  lang: no
+  lang: "no"
 Aktiebolag:
   abbr: AB
   lang: se
@@ -15,7 +15,7 @@ Aktieselskab:
   lang: da
 Allmennaksjeselskap:
   abbr: ASA
-  lang: no
+  lang: "no"
 'Anonim Ortaklık':
   abbr: A.O.
   lang: tr
@@ -25,9 +25,31 @@ Allmennaksjeselskap:
 Anpartsselskab:
   abbr: ApS
   lang: da
+'Asociación Civil':
+  abbr: A.C.
+  lang: es
 association sans but lucratif:
   abbr: ASBL
   lang: fr
+'Акционерно дружество':
+  abbr:
+    - "АД"
+    - AD
+  lang: bg
+'Акціонерне Товариство':
+  abbr:
+    - "АТ"
+    - "ТОВ"
+    - AT
+    - TOV
+  lang: uk
+  lead: 1
+'Акционерное общество':
+  abbr:
+    - "АО"
+    - "AO"
+  lang: ru
+  lead: 1
 Berhad:
   abbr: Bhd.
   lang: ms
@@ -44,6 +66,12 @@ Besloten vennootschap:
 Chartered:
   abbr: Chtd.
   lang: en
+Closed Joint Stock Company:
+  abbr:
+    - CJSC
+    - PrJSC
+  lang: en
+  lead: 1
 Commanditaire vennootschap:
   abbr: C.V.
   lang: nl
@@ -72,6 +100,22 @@ Cwmni Cyfyngedig Cyhoeddus:
 Cyfyngedig:
   abbr: Cyf
   lang: cy
+'Delniška družba':
+  abbr: d.d.
+  lang: sl
+'Družba z neomejeno odgovornostjo':
+  abbr: d.n.o.
+  lang: sl
+'Družba z omejeno odgovornostjo':
+  abbr: d.o.o.
+  lang: sl
+'Komanditna družba':
+  abbr: k.d.
+  lang: sl
+'Samostojni podjetnik':
+  abbr:
+    - s.p.
+  lang: sl
 'Egyéni Cég':
   abbr: e.c.
   lang: hu
@@ -101,11 +145,18 @@ Empresa Social del Estado:
   abbr: E.S.E.
   lang: es
   lead: 1
+'gemeinnützige GmbH':
+  abbr: gGmbH
+  lang: de
 'Gesellschaft mit beschränkter Haftung':
+  abbr_std: GmbH
   abbr:
     - GmbH
+    - m.b.H.
     - Ges.m.b.H.
-    - mbH
+    - Gesellschaft m.b.H.
+    - '& Co. GmbH'
+    - und Co. GmbH
   lang: de
 'Gesellschaft bürgerlichen Rechts':
   abbr: GbR
@@ -145,11 +196,16 @@ Incorporated:
 'Julkinen osakeyhtiö':
   abbr: Oyj
   lang: fi
-Kabushiki Kaisha:
+Joint Stock Company:
   abbr:
-    - K.K.
-    - Corporation K.K.
-  lang: ja
+    - JSC
+  lang: en
+  lead: 1
+Joint Stock Commercial Bank:
+  abbr:
+    - JSCB
+  lang: en
+  lead: 1
 Kollektivgesellschaft:
   abbr: KolG
   lang: de
@@ -204,9 +260,6 @@ Kommanditselskab:
 'Közös Vállalat':
   abbr: Kv.
   lang: hu
-Limitada:
-  abbr: Lda.
-  lang: pt
 Limited:
   abbr:
     - Ltd.
@@ -235,10 +288,16 @@ Limited Partnership:
     - Company L.P.
   lang: en
 Limited Liability Company:
+  abbr_std: LLC
   abbr:
+    - Limited Liability Companies
     - L.L.C.
     - ASC L.L.C.
+    - Co. L.L.C.
+    - '& Co. L.L.C.'
+    - and Co. L.L.C.
   lang: en
+  lead: 1
 Limited Liability Partnership:
   abbr: L.L.P.
   lang: en
@@ -256,6 +315,8 @@ Naamloze vennootschap:
   abbr:
     - N.V.
     - N.V. Nv
+    - S.A./N.V.
+    - SA/NV
   lang: nl
   lead: 1
 National Association:
@@ -283,6 +344,12 @@ offene Handelsgesellschaft:
     - 'GmbH & Co OHG'
     - 'GmbH und Co OHG'
   lang: de
+Open Joint Stock Company:
+  abbr_std: OJSC
+  abbr:
+    - OJSC
+    - Co. OJSC
+  lang: en
 'opinbert hlutafélag':
   abbr: ohf.
   lang: is
@@ -293,6 +360,7 @@ offene Handelsgesellschaft:
   abbr:
     - ОАО
     - OAO
+    - OJSC
   lang: ru
   lead: 1
 Partnerschaftsgesellschaft:
@@ -304,6 +372,11 @@ Perseroan Terbatas:
 Perseroan Terbatas Terbuka:
   abbr: PT Tbk
   lang: id
+Private Limited:
+  abbr:
+    - Pte. Ltd.
+    - Pvt. Ltd.
+  lang: en
 Private Limited Company:
   abbr:
     - Pte. Ltd.
@@ -326,11 +399,27 @@ Proprietary Limited:
 'Przedsiębiorstwo Państwowe':
   abbr: P.P.
   lang: pl
+Public Joint Stock Company:
+  abbr_std: PJSC
+  abbr:
+    - PJSC
+    - Co. PJSC
+  lang: en
 Public Limited Company:
   abbr:
     - plc
     - p.l.c.
   lang: en
+'Публичное акционерное общество':
+  abbr:
+    - "ПАО"
+    - "PJSC"
+  lang: ru
+  lead: 1
+'Публичное общество':
+  abbr:
+    - "ПО"
+  lang: ru
 'Részvénytársaság':
   abbr: Rt.
   lang: hu
@@ -362,6 +451,22 @@ Single Member Private Limited Company:
   lang: es
 'Sociedad Anónima Laboral':
   abbr: S.A.L.
+  lang: es
+'Sociedad Anónima Bursátil de Capital Variable':
+  abbr:
+    - S.A.B.
+    - S.A.B. de C.V.
+  lang: es
+'Sociedad de Ahorro y Prestamo':
+  abbr: S.A.P.
+  lang: es
+'Sociedad Anónima Promotora de Inversion de Capital Variable':
+  abbr:
+    - S.A.P.I.
+    - S.A.P.I. de C.V.
+  lang: es
+'Sociedad Anónima Unipersonal':
+  abbr: S.A.U.
   lang: es
 Sociedad Colectiva:
   abbr:
@@ -423,6 +528,12 @@ Sociedad Limitada Personal:
 Sociedad Limitada Unipersonal:
   abbr: S.L.U.
   lang: es
+Sociedad Civil Privada:
+  abbr: S.C.P.
+  lang: es
+Sociedad Civil Particular:
+  abbr: S.C.P.
+  lang: es
 'Sociedade anônima':
   abbr: S.A.
   lang: pt
@@ -433,7 +544,9 @@ Sociedad Limitada Unipersonal:
   abbr: SGPS
   lang: pt
 'Sociedade limitada':
-  abbr: Ltda.
+  abbr:
+    - Ltda.
+    - Limitada
   lang: pt
 'Società per Azioni':
   abbr:
@@ -452,7 +565,8 @@ Sociedad Limitada Unipersonal:
     - SàRL
   lang: fr
 'Société anonyme':
-  abbr: SA
+  abbr_std: SA
+  abbr: S.A.
   lang: fr
 'Société commerciale canadienne':
   abbr: S.C.C.
@@ -504,9 +618,22 @@ Sociedad Limitada Unipersonal:
     - Sp. z o.o.
     - Sp. z o.o. Sp.k.
     - Sp. z o.o. S.K.A.
+    - Sp. zo.o.
+    - Sp. zo.o. Sp.k.
+    - Sp. zo.o. S.K.A.
+    - Sp. zo.o.Sp.k.
+    - Sp. zo.o.S.K.A.
+    - Sp.zo.o.
+    - Sp.zo.o.Sp.k.
+    - Sp.zo.o.S.K.A.
+    - Sp.zo.o. Sp.k.
+    - Sp.zo.o. S.K.A.
   lang: pl
 Unlimited Proprietary:
   abbr: Pty.
+  lang: en
+Unlimited Liability Corporation:
+  abbr: ULC
   lang: en
 Vereniging zonder winstoogmerk:
   abbr: VZW
@@ -538,3 +665,107 @@ Vennootschap onder firma:
 'Zártkörűen Működő Részvénytársaság':
   abbr: Zrt.
   lang: hu
+'有限责任公司':
+  abbr: '有限公司'
+  doc: Company with limited liability
+  lang: zh
+'股份有限公司':
+  doc: Company limited by shares
+  lang: zh
+'合伙企业有限合伙':
+  abbr: '合伙企业'
+  doc: Partnership enterprise
+  lang: zh
+'有限合伙企业':
+  abbr: '有限合伙'
+  doc: Limited partnership
+  lang: zh
+'厂':
+  doc: Factory
+  lang: zh
+'总公司':
+  doc: Corporate
+  lang: zh
+'分公司':
+  doc: Branch
+  lang: zh
+'株式会社':
+  abbr:
+    - K.K.
+    - Corporation K.K.
+    - Kabushiki Kaisha
+  doc: stock company
+  lang: ja
+'有限会社':
+  abbr:
+    - Y.K.
+    - Yugen Kaisha
+  doc: limited company
+  lang: ja
+'合同会社':
+  abbr:
+    - G.K.
+    - Godo Kaisha
+  doc: amalgamated company
+  lang: ja
+'合資会社':
+  abbr:
+    - GSK
+    - Goshi Kaisha
+  doc: limited partnership
+  lang: ja
+'合名会社':
+  abbr:
+    - GMK
+    - Gomei Kaisha
+  doc: general partnership
+  lang: ja
+'任意組合':
+  abbr:
+    - NK
+    - "Nin'i Kumiai"
+  doc: general partnership (Civil Code)
+  lang: ja
+'匿名組合':
+  abbr:
+    - TK
+    - Tokumei Kumiai
+  doc: anonymous partnership
+  lang: ja
+'投資事業有限責任組合':
+  abbr: Toshi Jigyo Yugen Sekinin Kumiai
+  doc: limited partnership for investment
+  lang: ja
+'有限責任事業組合':
+  abbr: Yugen Sekinin Jigyo Kumiai
+  doc: limited liability partnership
+  lang: ja
+'주식회사':
+  abbr:
+    - '株式會社'
+    - Jusik Hoesa
+  doc: ~plc (UK) (found no instances in leading position?)
+  lang: ko
+'유한회사':
+  abbr:
+    - '有限會社'
+    - Yuhan Hoesa
+  doc: ~Ltd (UK) (found one instance in leading position, but non-continuous)
+  lang: ko
+  lead: 1
+'합자회사':
+  abbr:
+    - '合資會社'
+    - Hapja Hoesa'
+  doc: limited partnership corporation
+  lang: ko
+'합명회사':
+  abbr:
+    - '合名會社'
+    - Hapmyoung Hoesa
+  doc: general partnership corporation
+  lang: ko
+'شركة':
+  doc: Company
+  lang: ar
+  lead: 1

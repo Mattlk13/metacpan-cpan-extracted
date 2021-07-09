@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use namespace::autoclean;
 
-our $VERSION = '0.38';
+our $VERSION = '0.40';
 
 use Moose::Role;
 
@@ -34,13 +34,13 @@ Markdent::Dialect::Theory::SpanParser - Span parser for Theory's proposed Markdo
 
 =head1 VERSION
 
-version 0.38
+version 0.40
 
 =head1 DESCRIPTION
 
-This role is applied to a L<Markdent::Parser::SpanParser> in order to allow
-the pipe (|) and colon (:) characters to be backslash-escaped. These are used
-to mark tables, so they need to be escapeable.
+This role is applied to a L<Markdent::Parser::SpanParser> in order to allow the
+pipe (|) and colon (:) characters to be backslash-escaped. These are used to
+mark tables, so they need to be escapeable.
 
 =head1 ROLES
 
@@ -64,7 +64,7 @@ Dave Rolsky <autarch@urth.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Dave Rolsky.
+This software is copyright (c) 2021 by Dave Rolsky.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

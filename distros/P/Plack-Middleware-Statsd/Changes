@@ -1,5 +1,29 @@
 Revision history for Plack-Middleware-Statsd
 
+v0.5.1    2021-07-03 14:08:05+01:00 Europe/London
+  [Documentation]
+  - Documented the version required for the catch_errors attribute.
+
+v0.5.0    2021-06-15 17:03:29+01:00 Europe/London
+  [Enhancements]
+  - Add catch_errors option to handle errors in the application.
+
+v0.4.7    2021-04-27 16:47:35+01:00 Europe/London
+  [Bug Fixes]
+  - Use sample_rate for content length metrics.
+
+v0.4.6    2021-04-21 16:51:41+01:00 Europe/London
+  [Enhancements]
+  - Check if internal methods are unused before fetching arguments.
+
+  - Improve argument handling for internal methods.
+
+  [Documentation]
+  - Bump copyright year.
+
+  [Tests]
+  - Add more author tests.
+
 v0.4.5    2020-05-11 18:29:17+01:00 Europe/London
   [Documentation]
   - Updated section on the psgi.worker.pid metric.

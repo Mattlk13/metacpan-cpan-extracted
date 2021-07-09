@@ -1,9 +1,9 @@
 package BorderStyle::BoxChar::SingleLineInnerOnly;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-06-11'; # DATE
+our $DATE = '2021-02-19'; # DATE
 our $DIST = 'BorderStyles-Standard'; # DIST
-our $VERSION = '0.002'; # VERSION
+our $VERSION = '0.006'; # VERSION
 
 use strict;
 use parent 'BorderStyleBase';
@@ -14,9 +14,9 @@ our %BORDER = (
     chars => [
         ['','','',''],     # 0
         [' ','x',' '],     # 1
-        [' ','q','n',' '], # 2
+        [' ','q','n',' ', 'w','v'], # 2
         [' ','x',' '],     # 3
-        [' ','q','n',' '], # 4
+        [' ','q','n',' ', 'w','v','t','u'], # 4
         ['','','',''],     # 5
     ],
     box_chars => 1,
@@ -37,9 +37,37 @@ BorderStyle::BoxChar::SingleLineInnerOnly - Single line border with box-drawing 
 
 =head1 VERSION
 
-This document describes version 0.002 of BorderStyle::BoxChar::SingleLineInnerOnly (from Perl distribution BorderStyles-Standard), released on 2020-06-11.
+This document describes version 0.006 of BorderStyle::BoxChar::SingleLineInnerOnly (from Perl distribution BorderStyles-Standard), released on 2021-02-19.
 
 =head1 SYNOPSIS
+
+To use with L<Text::ANSITable>:
+
+ use Text::ANSITable;
+ my $rows =
+   [
+     ["ColumName1", "ColumnNameB", "ColumnNameC"],
+     ["row1A", "row1B", "row1C"],
+     ["row2A", "row2B", "row2C"],
+     ["row3A", "row3B", "row3C"],
+   ];
+ my $t = Text::ANSITable->new;
+ $t->border_style("BoxChar::SingleLineInnerOnly");
+ $t->columns($rows->[0]);
+ $t->add_row($rows->[$_]) for 1 .. $#{ $rows };
+ print $t->draw;
+
+To use with L<Text::Table::Span>:
+
+ use Text::Table::Span qw/generate_table/;
+ my $rows =
+   [
+     ["ColumName1", "ColumnNameB", "ColumnNameC"],
+     ["row1A", "row1B", "row1C"],
+     ["row2A", "row2B", "row2C"],
+     ["row3A", "row3B", "row3C"],
+   ];
+ generate_table(rows=>$rows, header_row=>1, separate_rows=>1, border_style=>"BoxChar::SingleLineInnerOnly");
 
 To use with L<Text::Table::TinyBorderStyle>:
 
@@ -53,10 +81,6 @@ To use with L<Text::Table::TinyBorderStyle>:
    ];
  generate_table(rows=>$rows, header_row=>1, separate_rows=>1, border_style=>"BorderStyle::BoxChar::SingleLineInnerOnly");
 
-To use with L<Text::ANSITable>:
-
- # TODO
-
 =head1 HOMEPAGE
 
 Please visit the project's homepage at L<https://metacpan.org/release/BorderStyles-Standard>.
@@ -67,7 +91,7 @@ Source repository is at L<https://github.com/perlancar/perl-BorderStyles-Standar
 
 =head1 BUGS
 
-Please report any bugs or feature requests on the bugtracker website L<https://rt.cpan.org/Public/Dist/Display.html?Name=BorderStyles-Standard>
+Please report any bugs or feature requests on the bugtracker website L<https://github.com/perlancar/perl-BorderStyles-Standard/issues>
 
 When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
@@ -91,7 +115,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

@@ -4,6 +4,8 @@ author:
   - 'Jeffrey Ratcliffe'
 build_requires:
   ExtUtils::MakeMaker: '0'
+  File::Spec: '0'
+  File::Temp: '0.19'
   Test::Deep: '0'
   Test::More: '0'
   Test::Requires: '0'
@@ -23,5 +25,7 @@ no_index:
     - inc
 requires:
   Readonly: '0'
-version: '7'
+resources:
+  repository: https://github.com/carygravel/graphics-tiff.git
+version: '16'
 x_serialization_backend: 'CPAN::Meta::YAML version 0.018'

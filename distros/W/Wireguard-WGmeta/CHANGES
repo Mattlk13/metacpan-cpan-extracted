@@ -1,0 +1,76 @@
+0.3.1 2021-07-06 Tobias Bossert (tobib at cpan.org)
+- Improved doc
+- fix: concurrency test -> added small delay between writes
+
+0.3.0 2021-07-03 Tobias Bossert (tobib at cpan.org)
+- changed: CLI: Seamless support for custom attributes (set and addpeer)
+- added: CLI: Ability to remove peers
+- added: CLI: Machine readable output (dump)
+- changed: Core: removed any predefined wg-meta attributes (except alias and checksum)
+- changed: Core: Rewrote parser architecture to be more general and extendable
+- changed: Tests: Are now not dependent on threads any more
+- changed: Wrapper: API of set() and add_peer()
+
+0.2.3 2021-04-15 Tobias Bossert (tobib at cpan.org)
+- changed: Commit behaviour when set to overwrite = False
+- changed: Adding custom attributes is now possible in code
+
+0.2.2 2021-02-28 Tobias Bossert (tobib at cpan.org)
+- fix: Possible infinite recursion in reload_from_disk()
+
+0.2.1 2021-02-28 Tobias Bossert (tobib at cpan.org)
+- fix: Concurrency-test threads detection
+
+0.2.0 2021-02-28 Tobias Bossert (tobib at cpan.org)
+- added: reload callbacks
+- added: fqdn attr
+- added: concurrency handling
+- changed: unified attribute names (potentially a breaking change!)
+- changed: parsers are separate modules now
+
+0.1.2 2021-01-22 Tobias Bossert (tobib at cpan.org)
+- fix: Required perl version in Makefile.PL
+- changed: doc upgrades and fixes
+
+0.1.1 2021-01-21 Tobias Bossert (tobib at cpan.org)
+- Small QoL-changes (dist)
+
+0.1.0 2021-01-21 Tobias Bossert (tobib at cpan.org)
+- added: more doc
+- fix: set min version everywhere to v5.20
+
+0.0.6 2021-01-20 Tobias Bossert (tobib at cpan.org)
+- added: permission check (CLI)
+- added: Pretty errors and warnings (CLI)
+- changed: Refactored to Wireguard::WGmeta namespace
+- added: Interface state to show output (CLI)
+- added: methods to remove peers and interfaces (API)
+- cpan release
+
+0.0.5 2020-12-31 Tobias Bossert (tobib at cpan.org)
+
+- fix: Allow non wireguard .conf files in $WIREGUARD_HOME
+- changed: Added interface public key to the show command
+
+0.0.4 2020-12-20 Tobias Bossert (tobib at cpan.org)
+
+- added: add peer functionality to cli
+- fix: Makefile version updates
+
+0.0.3 2020-12-20 Tobias Bossert (tobib at cpan.org)
+
+- added: Makefile for .deb package
+- fix: apply command
+- added: support for custom wg-meta attributes
+- added: foundation for validating attribute values
+- changed: show output (cleanup)
+
+0.0.2 2020-12-20 Tobias Bossert (tobib at cpan.org)
+
+- fix: Alias must be unique
+- change: prettified wg-meta show output
+
+
+0.0.1 2020-12-20  Tobias Bossert (tobib at cpan.org)
+
+- initial release

@@ -1,14 +1,12 @@
 #  You may distribute under the terms of either the GNU General Public License
 #  or the Artistic License (the same terms as Perl itself)
 #
-#  (C) Paul Evans, 2020 -- leonerd@leonerd.org.uk
+#  (C) Paul Evans, 2020-2021 -- leonerd@leonerd.org.uk
 
-package Object::Pad::MOP::Class;
+package Object::Pad::MOP::Class 0.43;
 
 use v5.14;
 use warnings;
-
-our $VERSION = '0.35';
 
 # This is an XS-implemented object type provided by Object::Pad itself
 require Object::Pad;
@@ -30,6 +28,50 @@ This API should be considered experimental even within the overall context in
 which C<Object::Pad> is expermental.
 
 =cut
+
+=head1 CONSTRUCTOR
+
+=head2 for_class
+
+   $metaclass = Object::Pad::MOP::Class->for_class( $class )
+
+I<Since version 0.38.>
+
+Returns the metaclass instance associated with the given class name.
+
+=cut
+
+sub for_class
+{
+   shift;
+   my ( $targetclass ) = @_;
+
+   return $targetclass->META;
+}
+
+=head2 for_caller
+
+   $metaclass = Object::Pad::MOP::Class->for_caller;
+
+I<Since version 0.38.>
+
+A convenient shortcut for obtaining the metaclass instance of the calling
+package scope. Often handy during C<BEGIN> blocks of the class itself to
+perform adjustments or additions.
+
+   class Some::Class::Here 1.234 {
+      BEGIN {
+         my $meta = Object::Pad::MOP::Class->for_caller;
+         ...
+      }
+   }
+
+=cut
+
+sub for_caller
+{
+   return shift->for_class( caller );
+}
 
 =head1 METHODS
 
@@ -65,6 +107,16 @@ contain at most one item.
 Returns a list of roles implemented by this class, as
 L<Object::Pad::MOP::Class> instances.
 
+=head2 compose_role
+
+   $metaclass->compose_role( $rolename )
+   $metaclass->compose_role( $rolemeta )
+
+Adds a new role to the list of those implemented by the class.
+
+The new role can be specified either as a plain string giving its name, or as
+an C<Object::Pad::MOP::Class> meta instance directly.
+
 =head2 add_BUILD
 
    $metaclass->add_BUILD( $code )
@@ -93,10 +145,35 @@ nor will it see methods inherited from a superclass.
 
 =head2 add_slot
 
-   $metaslot = $metaclass->add_slot( $name )
+   $metaslot = $metaclass->add_slot( $name, %args )
 
 Adds a new slot to the class, using the given name (which must begin with the
 sigil character C<$>, C<@> or C<%>).
+
+Recognises the following additional named arguments:
+
+=over 4
+
+=item default => SCALAR
+
+I<Since version 0.43.>
+
+Provides a default value for the slot; similar to using the syntax
+
+   has $slot = SCALAR;
+
+This value may be C<undef>, to set the value as being optional if it
+additionally has a parameter name.
+
+=item param => STRING
+
+I<Since version 0.43.>
+
+Provides a parameter name for the slot; similar to setting it using the
+C<:param> attribute. This parameter will be required unless a default value is
+set (such value may still be C<undef>).
+
+=back
 
 Returns an instance of L<Object::Pad::MOP::Slot> to represent it.
 
@@ -106,6 +183,15 @@ Returns an instance of L<Object::Pad::MOP::Slot> to represent it.
 
 Returns an instance of L<Object::Pad::MOP::Slot> to represent the slot of the
 given name, if one exists. If not an exception is thrown.
+
+=head2 slots
+
+   @metaslots = $metaclass->slots
+
+I<Since version 0.42.>
+
+Returns a list of L<Object::Pad::MOP::Slot> instances to represent all the
+slots of the class. This list may be empty.
 
 =cut
 

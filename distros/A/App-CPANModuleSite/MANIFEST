@@ -1,0 +1,15 @@
+bin/mksite
+lib/App/CPANModuleSite.pm
+Makefile.PL
+README.md
+MANIFEST			This list of files
+share/site_src/index.html.tt
+share/tt_lib/intro.tt
+share/tt_lib/page.tt
+share/tt_lib/utils.tt
+t/01_load.t
+t/02_basic.t
+tt_lib/intro.tt
+CHANGELOG.md
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)

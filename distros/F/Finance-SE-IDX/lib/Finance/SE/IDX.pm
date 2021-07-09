@@ -1,15 +1,14 @@
 package Finance::SE::IDX;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-12-22'; # DATE
+our $DATE = '2021-06-08'; # DATE
 our $DIST = 'Finance-SE-IDX'; # DIST
-our $VERSION = '0.005'; # VERSION
+our $VERSION = '0.008'; # VERSION
 
 use 5.010001;
 use strict;
 use warnings;
-
-use HTTP::Tiny::Cache;
+use Log::ger;
 
 use Exporter qw(import);
 our @EXPORT_OK = qw(
@@ -26,12 +25,40 @@ $SPEC{':package'} = {
     summary => 'Get information from Indonesian Stock Exchange',
 };
 
-my $urlprefix = "http://www.idx.co.id/umbraco/Surface/";
+my $urlprefix = "https://www.idx.co.id/umbraco/Surface/";
 
 sub _get_json {
     my $url = shift;
 
-    my $res = HTTP::Tiny::Cache->new->get($url);
+    state $ff = do {
+        require Firefox::Marionette;
+        Firefox::Marionette->new;
+    };
+
+    log_debug "";
+    my $json = $ff->go($url)->json;
+    [200, "OK", $json];
+}
+
+#sub _get_json_with_lwp {
+#    state $ua = do { require LWP::UserAgent::Plugin; LWP::UserAgent::Plugin->new };
+#
+#    my $url = shift;
+#
+#    my $res = $ua->get($url);
+#    return [$res->code, $res->message] unless $res->is_success;
+#    require JSON::MaybeXS;
+#    [200, "OK", JSON::MaybeXS::decode_json($res->content)];
+#}
+
+sub _get_json_with_curl {
+    require HTTP::Tinyish;
+    no warnings 'once';
+    local $HTTP::Tinyish::PreferredBackend = 'HTTP::Tinyish::Curl';
+
+    my $url = shift;
+
+    my $res = HTTP::Tinyish->new->get($url);
     return [$res->{status}, $res->{reason}] unless $res->{status} == 200;
     require JSON::MaybeXS;
     [200, "OK", JSON::MaybeXS::decode_json($res->{content})];
@@ -173,6 +200,76 @@ sub list_idx_brokers {
     [200, "OK", \@rows, {'table.fields'=>[qw/code name license status_name city/]}];
 }
 
+$SPEC{get_idx_daily_trading_summary} = {
+    v => 1.1,
+    summary => 'Get daily trading summary',
+    description => <<'_',
+
+This will retrieve end-of-day data for a single trading day, containing list of
+stock names along with their opening price, closing price, highest price, lowest
+price, volume, frequency, foreign buy & sell volume, etc.
+
+To specify date you can either specify `date` (epoch, or YYYY-MM-DD string in
+command-line, which will be coerced to epoch) or `day`, `month`, `year`.
+
+The data for still-trading current day will not be available, so if you are
+looking for intraday data, this is not it.
+
+At the time of this writing (2021-01-17), the data goes back to Jan 1st, 2015.
+If you are looking for older data, you can visit one of the financial data
+websites like Bloomberg.
+
+_
+    args => {
+        date   => {schema => 'date*', pos=>0},
+        day    => {schema => ['int*', between=>[1,31]]},
+        month  => {schema => ['int*', between=>[1,12]]},
+        year   => {schema => ['int*', between=>[1990,2100]]},
+    },
+    args_rels => {
+        req_one => [qw/date day/],
+        choose_all => [qw/day month year/],
+    },
+};
+sub get_idx_daily_trading_summary {
+    local $ENV{CACHE_MAX_AGE} = 8*3600;
+    my %args = @_;
+
+    my $date;
+    if ($args{day}) {
+        $date = sprintf("%04d%02d%02d", $args{year}, $args{month}, $args{day});
+    } else {
+        my @lt = localtime($args{date});
+        $date = sprintf("%04d%02d%02d", $lt[5]+1900, $lt[4]+1, $lt[3]);
+    }
+
+    # the server only returns 500 records at most. we will need to do some
+    # paging. we use Curl backend because both HTTP::Tiny & LWP don't seem to
+    # like long request URL.
+
+    my @rows;
+    my $start = 0;
+    my $pagesize = 500;
+    my $total;
+
+    while (1) {
+        log_trace("Requesting IDX daily trading summary page (date=$date, start=$start) ...");
+        my $res = _get_json("${urlprefix}TradingSummary/GetStockSummary?date=$date&start=$start&length=$pagesize&draw=6&columns[0][data]=StockCode&columns[0][name]=&columns[0][searchable]=true&columns[0][orderable]=false&columns[0][search][value]=&columns[0][search][regex]=false&columns[1][data]=StockCode&columns[1][name]=&columns[1][searchable]=true&columns[1][orderable]=false&columns[1][search][value]=&columns[1][search][regex]=false&columns[2][data]=StockName&columns[2][name]=&columns[2][searchable]=true&columns[2][orderable]=false&columns[2][search][value]=&columns[2][search][regex]=false&columns[3][data]=Remarks&columns[3][name]=&columns[3][searchable]=true&columns[3][orderable]=false&columns[3][search][value]=&columns[3][search][regex]=false&columns[4][data]=Previous&columns[4][name]=&columns[4][searchable]=true&columns[4][orderable]=false&columns[4][search][value]=&columns[4][search][regex]=false&columns[5][data]=OpenPrice&columns[5][name]=&columns[5][searchable]=true&columns[5][orderable]=false&columns[5][search][value]=&columns[5][search][regex]=false&columns[6][data]=FirstTrade&columns[6][name]=&columns[6][searchable]=true&columns[6][orderable]=false&columns[6][search][value]=&columns[6][search][regex]=false&columns[7][data]=High&columns[7][name]=&columns[7][searchable]=true&columns[7][orderable]=false&columns[7][search][value]=&columns[7][search][regex]=false&columns[8][data]=Low&columns[8][name]=&columns[8][searchable]=true&columns[8][orderable]=false&columns[8][search][value]=&columns[8][search][regex]=false&columns[9][data]=Close&columns[9][name]=&columns[9][searchable]=true&columns[9][orderable]=false&columns[9][search][value]=&columns[9][search][regex]=false&columns[10][data]=Change&columns[10][name]=&columns[10][searchable]=true&columns[10][orderable]=false&columns[10][search][value]=&columns[10][search][regex]=false&columns[11][data]=Volume&columns[11][name]=&columns[11][searchable]=true&columns[11][orderable]=false&columns[11][search][value]=&columns[11][search][regex]=false&columns[12][data]=Value&columns[12][name]=&columns[12][searchable]=true&columns[12][orderable]=false&columns[12][search][value]=&columns[12][search][regex]=false&columns[13][data]=Frequency&columns[13][name]=&columns[13][searchable]=true&columns[13][orderable]=false&columns[13][search][value]=&columns[13][search][regex]=false&columns[14][data]=IndexIndividual&columns[14][name]=&columns[14][searchable]=true&columns[14][orderable]=false&columns[14][search][value]=&columns[14][search][regex]=false&columns[15][data]=ListedShares&columns[15][name]=&columns[15][searchable]=true&columns[15][orderable]=false&columns[15][search][value]=&columns[15][search][regex]=false&columns[16][data]=Offer&columns[16][name]=&columns[16][searchable]=true&columns[16][orderable]=false&columns[16][search][value]=&columns[16][search][regex]=false&columns[17][data]=OfferVolume&columns[17][name]=&columns[17][searchable]=true&columns[17][orderable]=false&columns[17][search][value]=&columns[17][search][regex]=false&columns[18][data]=Bid&columns[18][name]=&columns[18][searchable]=true&columns[18][orderable]=false&columns[18][search][value]=&columns[18][search][regex]=false&columns[19][data]=BidVolume&columns[19][name]=&columns[19][searchable]=true&columns[19][orderable]=false&columns[19][search][value]=&columns[19][search][regex]=false&columns[20][data]=Date&columns[20][name]=&columns[20][searchable]=true&columns[20][orderable]=false&columns[20][search][value]=&columns[20][search][regex]=false&columns[21][data]=TradebleShares&columns[21][name]=&columns[21][searchable]=true&columns[21][orderable]=false&columns[21][search][value]=&columns[21][search][regex]=false&columns[22][data]=WeightForIndex&columns[22][name]=&columns[22][searchable]=true&columns[22][orderable]=false&columns[22][search][value]=&columns[22][search][regex]=false&columns[23][data]=ForeignSell&columns[23][name]=&columns[23][searchable]=true&columns[23][orderable]=false&columns[23][search][value]=&columns[23][search][regex]=false&columns[24][data]=ForeignBuy&columns[24][name]=&columns[24][searchable]=true&columns[24][orderable]=false&columns[24][search][value]=&columns[24][search][regex]=false&columns[25][data]=NonRegularVolume&columns[25][name]=&columns[25][searchable]=true&columns[25][orderable]=false&columns[25][search][value]=&columns[25][search][regex]=false&columns[26][data]=NonRegularValue&columns[26][name]=&columns[26][searchable]=true&columns[26][orderable]=false&columns[26][search][value]=&columns[26][search][regex]=false&columns[27][data]=NonRegularFrequency&columns[27][name]=&columns[27][searchable]=true&columns[27][orderable]=false&columns[27][search][value]=&columns[27][search][regex]=false&search[value]=&search[regex]=false");
+        return $res unless $res->[0] == 200;
+        return [500, "JSON response does not contain 'data' key"]
+            unless ref $res->[2] eq 'HASH' && $res->[2]{data};
+        unless (defined $total) {
+            return [200, "JSON response does not contain 'recordsTotal' key, assuming data is empty", []]
+                unless $res->[2]{recordsTotal};
+            $total = $res->[2]{recordsTotal};
+        }
+        push @rows, @{ $res->[2]{data} };
+        last if @rows >= $total;
+        $start += $pagesize;
+    }
+    [200, "OK", \@rows];
+}
+
 1;
 # ABSTRACT: Get information from Indonesian Stock Exchange
 
@@ -188,16 +285,80 @@ Finance::SE::IDX - Get information from Indonesian Stock Exchange
 
 =head1 VERSION
 
-This document describes version 0.005 of Finance::SE::IDX (from Perl distribution Finance-SE-IDX), released on 2020-12-22.
+This document describes version 0.008 of Finance::SE::IDX (from Perl distribution Finance-SE-IDX), released on 2021-06-08.
+
+=head1 DESCRIPTION
+
+This module currently uses L<Firefox::Marionette> to get data from server. If
+you get error when retrieving data, try enabling the debug to see the URL and
+then access the URL in your browser to get through CAPTCHA verification.
+
+=head1 CONTRIBUTOR
+
+=for stopwords perlancar (on netbook-dell-xps13)
+
+perlancar (on netbook-dell-xps13) <perlancar@gmail.com>
 
 =head1 FUNCTIONS
+
+
+=head2 get_idx_daily_trading_summary
+
+Usage:
+
+ get_idx_daily_trading_summary(%args) -> [$status_code, $reason, $payload, \%result_meta]
+
+Get daily trading summary.
+
+This will retrieve end-of-day data for a single trading day, containing list of
+stock names along with their opening price, closing price, highest price, lowest
+price, volume, frequency, foreign buy & sell volume, etc.
+
+To specify date you can either specify C<date> (epoch, or YYYY-MM-DD string in
+command-line, which will be coerced to epoch) or C<day>, C<month>, C<year>.
+
+The data for still-trading current day will not be available, so if you are
+looking for intraday data, this is not it.
+
+At the time of this writing (2021-01-17), the data goes back to Jan 1st, 2015.
+If you are looking for older data, you can visit one of the financial data
+websites like Bloomberg.
+
+This function is not exported.
+
+Arguments ('*' denotes required arguments):
+
+=over 4
+
+=item * B<date> => I<date>
+
+=item * B<day> => I<int>
+
+=item * B<month> => I<int>
+
+=item * B<year> => I<int>
+
+
+=back
+
+Returns an enveloped result (an array).
+
+First element ($status_code) is an integer containing HTTP-like status code
+(200 means OK, 4xx caller error, 5xx function error). Second element
+($reason) is a string containing error message, or something like "OK" if status is
+200. Third element ($payload) is the actual result, but usually not present when enveloped result is an error response ($status_code is not 2xx). Fourth
+element (%result_meta) is called result metadata and is optional, a hash
+that contains extra information, much like how HTTP response headers provide additional metadata.
+
+Return value:  (any)
+
 
 
 =head2 list_idx_boards
 
 Usage:
 
- list_idx_boards() -> [status, msg, payload, meta]
+ list_idx_boards() -> [$status_code, $reason, $payload, \%result_meta]
 
 List boards.
 
@@ -210,12 +371,12 @@ No arguments.
 
 Returns an enveloped result (an array).
 
-First element (status) is an integer containing HTTP status code
+First element ($status_code) is an integer containing HTTP-like status code
 (200 means OK, 4xx caller error, 5xx function error). Second element
-(msg) is a string containing error message, or 'OK' if status is
-200. Third element (payload) is optional, the actual result. Fourth
-element (meta) is called result metadata and is optional, a hash
-that contains extra information.
+($reason) is a string containing error message, or something like "OK" if status is
+200. Third element ($payload) is the actual result, but usually not present when enveloped result is an error response ($status_code is not 2xx). Fourth
+element (%result_meta) is called result metadata and is optional, a hash
+that contains extra information, much like how HTTP response headers provide additional metadata.
 
 Return value:  (any)
 
@@ -225,7 +386,7 @@ Return value:  (any)
 
 Usage:
 
- list_idx_brokers() -> [status, msg, payload, meta]
+ list_idx_brokers() -> [$status_code, $reason, $payload, \%result_meta]
 
 List brokers.
 
@@ -238,12 +399,12 @@ No arguments.
 
 Returns an enveloped result (an array).
 
-First element (status) is an integer containing HTTP status code
+First element ($status_code) is an integer containing HTTP-like status code
 (200 means OK, 4xx caller error, 5xx function error). Second element
-(msg) is a string containing error message, or 'OK' if status is
-200. Third element (payload) is optional, the actual result. Fourth
-element (meta) is called result metadata and is optional, a hash
-that contains extra information.
+($reason) is a string containing error message, or something like "OK" if status is
+200. Third element ($payload) is the actual result, but usually not present when enveloped result is an error response ($status_code is not 2xx). Fourth
+element (%result_meta) is called result metadata and is optional, a hash
+that contains extra information, much like how HTTP response headers provide additional metadata.
 
 Return value:  (any)
 
@@ -253,7 +414,7 @@ Return value:  (any)
 
 Usage:
 
- list_idx_firms(%args) -> [status, msg, payload, meta]
+ list_idx_firms(%args) -> [$status_code, $reason, $payload, \%result_meta]
 
 List firms.
 
@@ -275,12 +436,12 @@ Arguments ('*' denotes required arguments):
 
 Returns an enveloped result (an array).
 
-First element (status) is an integer containing HTTP status code
+First element ($status_code) is an integer containing HTTP-like status code
 (200 means OK, 4xx caller error, 5xx function error). Second element
-(msg) is a string containing error message, or 'OK' if status is
-200. Third element (payload) is optional, the actual result. Fourth
-element (meta) is called result metadata and is optional, a hash
-that contains extra information.
+($reason) is a string containing error message, or something like "OK" if status is
+200. Third element ($payload) is the actual result, but usually not present when enveloped result is an error response ($status_code is not 2xx). Fourth
+element (%result_meta) is called result metadata and is optional, a hash
+that contains extra information, much like how HTTP response headers provide additional metadata.
 
 Return value:  (any)
 
@@ -290,7 +451,7 @@ Return value:  (any)
 
 Usage:
 
- list_idx_sectors() -> [status, msg, payload, meta]
+ list_idx_sectors() -> [$status_code, $reason, $payload, \%result_meta]
 
 List sectors.
 
@@ -303,12 +464,12 @@ No arguments.
 
 Returns an enveloped result (an array).
 
-First element (status) is an integer containing HTTP status code
+First element ($status_code) is an integer containing HTTP-like status code
 (200 means OK, 4xx caller error, 5xx function error). Second element
-(msg) is a string containing error message, or 'OK' if status is
-200. Third element (payload) is optional, the actual result. Fourth
-element (meta) is called result metadata and is optional, a hash
-that contains extra information.
+($reason) is a string containing error message, or something like "OK" if status is
+200. Third element ($payload) is the actual result, but usually not present when enveloped result is an error response ($status_code is not 2xx). Fourth
+element (%result_meta) is called result metadata and is optional, a hash
+that contains extra information, much like how HTTP response headers provide additional metadata.
 
 Return value:  (any)
 
@@ -322,7 +483,7 @@ Source repository is at L<https://github.com/perlancar/perl-Finance-SE-IDX>.
 
 =head1 BUGS
 
-Please report any bugs or feature requests on the bugtracker website L<https://github.com/perlancar/perl-Finance-SE-IDX/issues>
+Please report any bugs or feature requests on the bugtracker website L<https://rt.cpan.org/Public/Dist/Display.html?Name=Finance-SE-IDX>
 
 When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
@@ -338,7 +499,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

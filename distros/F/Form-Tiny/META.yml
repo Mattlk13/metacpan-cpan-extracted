@@ -20,14 +20,14 @@ no_index:
     - inc
 requires:
   Import::Into: '0'
-  Moo: '0'
+  Moo: '2.000000'
   Type::Tiny: '1.004000'
   namespace::clean: '0'
   perl: '5.010001'
 resources:
   bugtracker: https://github.com/brtastic/perl-form-tiny/issues
-  homepage: https://metacpan.org/release/Form-Tiny
+  homepage: https://brtastic.xyz/project/form-tiny
   license: https://dev.perl.org/licenses
-  repository: https://github.com/brtastic/perl-form-tiny
-version: '1.12'
+  repository: https://github.com/brtastic/perl-form-tiny.git
+version: '2.01'
 x_serialization_backend: 'CPAN::Meta::YAML version 0.018'

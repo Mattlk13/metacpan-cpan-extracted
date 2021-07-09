@@ -4,8 +4,8 @@
 #
 package PDL::Complex;
 
-@EXPORT_OK  = qw(  Ctan  Catan  re  im  i  cplx  real PDL::PP r2C PDL::PP i2C PDL::PP Cr2p PDL::PP Cp2r PDL::PP Cadd PDL::PP Csub PDL::PP Cmul PDL::PP Cprodover PDL::PP Cscale PDL::PP Cdiv PDL::PP Ccmp PDL::PP Cconj PDL::PP Cabs PDL::PP Cabs2 PDL::PP Carg PDL::PP Csin PDL::PP Ccos PDL::PP Cexp PDL::PP Clog PDL::PP Cpow PDL::PP Csqrt PDL::PP Casin PDL::PP Cacos PDL::PP Csinh PDL::PP Ccosh PDL::PP Ctanh PDL::PP Casinh PDL::PP Cacosh PDL::PP Catanh PDL::PP Cproj PDL::PP Croots PDL::PP rCpolynomial );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw( Ctan  Catan  re  im  i  cplx  real PDL::PP r2C PDL::PP i2C PDL::PP Cr2p PDL::PP Cp2r PDL::PP Cadd PDL::PP Csub PDL::PP Cmul PDL::PP Cprodover PDL::PP Cscale PDL::PP Cdiv PDL::PP Ceq PDL::PP Cconj PDL::PP Cabs PDL::PP Cabs2 PDL::PP Carg PDL::PP Csin PDL::PP Ccos PDL::PP Cexp PDL::PP Clog PDL::PP Cpow PDL::PP Csqrt PDL::PP Casin PDL::PP Cacos PDL::PP Csinh PDL::PP Ccosh PDL::PP Ctanh PDL::PP Casinh PDL::PP Cacosh PDL::PP Catanh PDL::PP Cproj PDL::PP Croots PDL::PP rCpolynomial );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,13 +14,16 @@ use DynaLoader;
 
 BEGIN {
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader','PDL' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader','PDL' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::Complex ;
 }
 
 
 
+use strict;
+use warnings;
+use Carp;
 our $VERSION = '2.009';
    use PDL::Slices;
    use PDL::Types;
@@ -50,14 +53,27 @@ inplace (not yet implemented!!!) and require rectangular form.
 
 While there is a procedural interface available (C<< $x/$y*$c <=> Cmul
 (Cdiv ($x, $y), $c) >>), you can also opt to cast your pdl's into the
-C<PDL::Complex> datatype, which works just like your normal piddles, but
+C<PDL::Complex> datatype, which works just like your normal ndarrays, but
 with all the normal perl operators overloaded.
 
 The latter means that C<sin($x) + $y/$c> will be evaluated using the
 normal rules of complex numbers, while other pdl functions (like C<max>)
-just treat the piddle as a real-valued piddle with a lowest dimension of
+just treat the ndarray as a real-valued ndarray with a lowest dimension of
 size 2, so C<max> will return the maximum of all real and imaginary parts,
 not the "highest" (for some definition)
+
+=head2 Native complex support
+
+2.027 added changes in complex number handling, with support for C99
+complex floating-point types, and most functions and modules in the core
+distribution support these as well.
+
+PDL can now handle complex numbers natively as scalars. This has
+the advantage that real and complex valued ndarrays have the same
+dimensions. Consider this when writing code in the future.
+
+See L<PDL::Ops/re>, L<PDL::Ops/im>, L<PDL::Ops/abs>, L<PDL::Ops/carg>,
+L<PDL::Ops/conj> for more.
 
 =head1 TIPS, TRICKS & CAVEATS
 
@@ -65,9 +81,12 @@ not the "highest" (for some definition)
 
 =item *
 
-C<i> is a constant exported by this module, which represents
-C<-1**0.5>, i.e. the imaginary unit. it can be used to quickly and
-conveniently write complex constants like this: C<4+3*i>.
+C<i> is a function (not, as of 2.047, a constant) exported by this module,
+which represents C<-1**0.5>, i.e. the imaginary unit. it can be used to
+quickly and conveniently write complex constants like this: C<4+3*i>.
+
+B<NB> This will override the PDL::Core function of the same name, which
+returns a native complex value.
 
 =item *
 
@@ -78,8 +97,8 @@ the fifths roots of 1+1*i (due to threading).
 
 =item *
 
-use C<cplx(real-valued-piddle)> to cast from normal piddles into the
-complex datatype. Use C<real(complex-valued-piddle)> to cast back. This
+use C<cplx(real-valued-ndarray)> to cast from normal ndarrays into the
+complex datatype. Use C<real(complex-valued-ndarray)> to cast back. This
 requires a copy, though.
 
 =item *
@@ -97,7 +116,7 @@ The complex constant five is equal to C<pdl(1,0)>:
    pdl> p $x = r2C 5
    5 +0i
 
-Now calculate the three cubic roots of of five:
+Now calculate the three cubic roots of five:
 
    pdl> p $r = Croots $x, 3
    [1.70998 +0i  -0.854988 +1.48088i  -0.854988 -1.48088i]
@@ -113,11 +132,12 @@ Duh! Could be better. Now try by multiplying C<$r> three times with itself:
    [5 +0i  5 -4.72647e-15i  5 -7.53694e-15i]
 
 Well... maybe C<Cpow> (which is used by the C<**> operator) isn't as
-bad as I thought. Now multiply by C<i> and negate, which is just a very
-expensive way of swapping real and imaginary parts.
+bad as I thought. Now multiply by C<i> and negate, then take the complex
+conjugate, which is just a very expensive way of swapping real and
+imaginary parts.
 
-   pdl> p -($r*i)
-   [0 -1.70998i  1.48088 +0.854988i  -1.48088 +0.854988i]
+   pdl> p Cconj(-($r*i))
+   [0 +1.70998i  1.48088 -0.854988i  -1.48088 -0.854988i]
 
 Now plot the magnitude of (part of) the complex sine. First generate the
 coefficients:
@@ -184,29 +204,25 @@ The following operators are overloaded:
 
 =item -, -= (subtraction)
 
-=item *, *= (multiplication; L<Cmul|/Cmul>)
+=item *, *= (multiplication; L</Cmul>)
 
-=item /, /= (division; L<Cdiv|/Cdiv>)
+=item /, /= (division; L</Cdiv>)
 
-=item **, **= (exponentiation; L<Cpow|/Cpow>)
+=item **, **= (exponentiation; L</Cpow>)
 
 =item atan2 (4-quadrant arc tangent)
 
-=item <=> (nonsensical comparison operator; L<Ccmp|/Ccmp>)
+=item sin (L</Csin>)
 
-=item sin (L<Csin|/Csin>)
+=item cos (L</Ccos>)
 
-=item cos (L<Ccos|/Ccos>)
+=item exp (L</Cexp>)
 
-=item exp (L<Cexp|/Cexp>)
+=item abs (L</Cabs>)
 
-=item abs (L<Cabs|/Cabs>)
+=item log (L</Clog>)
 
-=item log (L<Clog|/Clog>)
-
-=item sqrt (L<Csqrt|/Csqrt>)
-
-=item <, <=, ==, !=, >=, > (just as nonsensical as L<Ccmp|/Ccmp>)
+=item sqrt (L</Csqrt>)
 
 =item ++, -- (increment, decrement; they affect the real part of the complex number only)
 
@@ -214,11 +230,17 @@ The following operators are overloaded:
 
 =back
 
+Comparing complex numbers other than for equality is a fatal error.
+
 =cut
 
 my $i;
 BEGIN { $i = bless pdl 0,1 }
-sub i () { $i->copy };
+undef &PDL::i;
+{
+no warnings 'redefine';
+sub i { $i->copy + (@_ ? $_[0] : 0) };
+}
 
 
 
@@ -235,13 +257,49 @@ sub i () { $i->copy };
 
 
 
+=head2 from_native
+
+=for ref
+
+Class method to convert a native-complex ndarray to a PDL::Complex object.
+
+=for usage
+
+ PDL::Complex->from_native($native_complex_ndarray)
+
+=cut
+
+sub from_native {
+  my ($class, $ndarray) = @_;
+  return $ndarray if UNIVERSAL::isa($ndarray,'PDL::Complex'); # NOOP if P:C
+  croak "not an ndarray" if !UNIVERSAL::isa($ndarray,'PDL');
+  croak "not a native complex ndarray" if $ndarray->type->real;
+  bless PDL::append($ndarray->re->dummy(0),$ndarray->im->dummy(0)), $class;
+}
+
+=head2 as_native
+
+=for ref
+
+Object method to convert a PDL::Complex object to a native-complex ndarray.
+
+=for usage
+
+ $pdl_complex_obj->as_native
+
+=cut
+
+sub as_native {
+  PDL::Ops::czip(map $_[0]->slice("($_)"), 0..1);
+}
+
 =head2 cplx
 
 =for ref
 
-Cast a real-valued piddle to the complex datatype.
+Cast a real-valued ndarray to the complex datatype.
 
-The first dimension of the piddle must be of size 2. After this the
+The first dimension of the ndarray must be of size 2. After this the
 usual (complex) arithmetic operators are applied to this pdl, rather
 than the normal elementwise pdl operators.  Dataflow to the complex
 parent works. Use C<sever> on the result if you don't want this.
@@ -254,11 +312,11 @@ parent works. Use C<sever> on the result if you don't want this.
 
 =for ref
 
-Cast a real-valued piddle to the complex datatype I<without> dataflow
+Cast a real-valued ndarray to the complex datatype I<without> dataflow
 and I<inplace>.
 
-Achieved by merely reblessing a piddle. The first dimension of the
-piddle must be of size 2.
+Achieved by merely reblessing an ndarray. The first dimension of the
+ndarray must be of size 2.
 
 =for usage
 
@@ -280,15 +338,14 @@ result if you don't want this.
 
 =cut
 
-use Carp;
 sub cplx($) {
-   return $_[0] if UNIVERSAL::isa($_[0],'PDL::Complex'); # NOOP if just piddle
+   return $_[0] if UNIVERSAL::isa($_[0],'PDL::Complex'); # NOOP if just ndarray
    croak "first dimsize must be 2" unless $_[0]->dims > 0 && $_[0]->dim(0) == 2;
    bless $_[0]->slice('');
 }
 
 sub complex($) {
-   return $_[0] if UNIVERSAL::isa($_[0],'PDL::Complex'); # NOOP if just piddle
+   return $_[0] if UNIVERSAL::isa($_[0],'PDL::Complex'); # NOOP if just ndarray
    croak "first dimsize must be 2" unless $_[0]->dims > 0 && $_[0]->dim(0) == 2;
    bless $_[0];
 }
@@ -318,7 +375,7 @@ convert real to complex, assuming an imaginary part of zero
 =for bad
 
 r2C does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -327,8 +384,9 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 
+undef &PDL::r2C;
 *PDL::r2C = \&PDL::Complex::r2C;
-sub PDL::Complex::r2C($) {
+sub PDL::Complex::r2C {
   return $_[0] if UNIVERSAL::isa($_[0],'PDL::Complex');
   my $r = __PACKAGE__->initialize;
   &PDL::Complex::_r2C_int($_[0], $r);
@@ -355,7 +413,7 @@ convert imaginary to complex, assuming a real part of zero
 =for bad
 
 i2C does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -363,7 +421,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 
-*PDL::i2C = \&PDL::Complex::i2C; sub PDL::Complex::i2C($) { my $r = __PACKAGE__->initialize; &PDL::Complex::_i2C_int($_[0], $r); $r }
+undef &PDL::i2C; *PDL::i2C = \&PDL::Complex::i2C; sub PDL::Complex::i2C { my $r = __PACKAGE__->initialize; &PDL::Complex::_i2C_int($_[0], $r); $r }
 
 BEGIN {*i2C = \&PDL::Complex::i2C;
 }
@@ -384,7 +442,7 @@ convert complex numbers in rectangular form to polar (mod,arg) form. Works inpla
 =for bad
 
 Cr2p does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -413,7 +471,7 @@ convert complex numbers in polar (mod,arg) form to rectangular form. Works inpla
 =for bad
 
 Cp2r does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -454,7 +512,7 @@ complex multiplication
 =for bad
 
 Cmul does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -483,7 +541,7 @@ Project via product to N-1 dimension
 =for bad
 
 Cprodover does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -512,7 +570,7 @@ mixed complex/real multiplication
 =for bad
 
 Cscale does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -541,7 +599,7 @@ complex division
 =for bad
 
 Cdiv does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -557,7 +615,7 @@ BEGIN {*Cdiv = \&PDL::Complex::Cdiv;
 
 
 
-=head2 Ccmp
+=head2 Ceq
 
 =for sig
 
@@ -565,14 +623,12 @@ BEGIN {*Cdiv = \&PDL::Complex::Cdiv;
 
 =for ref
 
-Complex comparison operator (spaceship).
-
-Ccmp orders by real first, then by imaginary. Hm, but it is mathematical nonsense! Complex numbers cannot be ordered.
+Complex equality operator.
 
 =for bad
 
-Ccmp does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+Ceq does not process bad values.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -580,9 +636,15 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 
+sub PDL::Complex::Ceq {
+    my @args = !$_[2] ? @_[1,0] : @_[0,1];
+    $args[1] = r2C($args[1]) if ref $args[1] ne __PACKAGE__;
+    PDL::Complex::_Ceq_int($args[0], $args[1], my $r = PDL->null);
+    $r;
+}
 
 
-BEGIN {*Ccmp = \&PDL::Complex::Ccmp;
+BEGIN {*Ceq = \&PDL::Complex::Ceq;
 }
 
 
@@ -601,7 +663,7 @@ complex conjugation. Works inplace
 =for bad
 
 Cconj does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -630,7 +692,7 @@ complex C<abs()> (also known as I<modulus>)
 =for bad
 
 Cabs does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -664,7 +726,7 @@ complex squared C<abs()> (also known I<squared modulus>)
 =for bad
 
 Cabs2 does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -698,7 +760,7 @@ complex argument function ("angle")
 =for bad
 
 Carg does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -732,7 +794,7 @@ BEGIN {*Carg = \&PDL::Complex::Carg;
 =for bad
 
 Csin does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -761,7 +823,7 @@ BEGIN {*Csin = \&PDL::Complex::Csin;
 =for bad
 
 Ccos does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -808,7 +870,7 @@ sub Ctan($) { Csin($_[0]) / Ccos($_[0]) }
 =for bad
 
 Cexp does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -837,7 +899,7 @@ BEGIN {*Cexp = \&PDL::Complex::Cexp;
 =for bad
 
 Clog does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -866,7 +928,7 @@ complex C<pow()> (C<**>-operator)
 =for bad
 
 Cpow does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -895,7 +957,7 @@ Works inplace
 =for bad
 
 Csqrt does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -924,7 +986,7 @@ Works inplace
 =for bad
 
 Casin does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -953,7 +1015,7 @@ Works inplace
 =for bad
 
 Cacos does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -980,7 +1042,7 @@ Does not work inplace.
 
 sub Catan($) {
    my $z = shift;
-   Cmul Clog(Cdiv (PDL::Complex::i+$z, PDL::Complex::i-$z)), pdl(0, 0.5);
+   Cmul Clog(Cdiv (PDL::Complex::i()+$z, PDL::Complex::i()-$z)), pdl(0, 0.5);
 }
 
 
@@ -1000,7 +1062,7 @@ sub Catan($) {
 =for bad
 
 Csinh does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1029,7 +1091,7 @@ BEGIN {*Csinh = \&PDL::Complex::Csinh;
 =for bad
 
 Ccosh does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1058,7 +1120,7 @@ Works inplace
 =for bad
 
 Ctanh does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1087,7 +1149,7 @@ Works inplace
 =for bad
 
 Casinh does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1116,7 +1178,7 @@ Works inplace
 =for bad
 
 Cacosh does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1145,7 +1207,7 @@ Works inplace
 =for bad
 
 Catanh does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1174,7 +1236,7 @@ compute the projection of a complex number to the riemann sphere. Works inplace
 =for bad
 
 Cproj does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1203,7 +1265,7 @@ Compute the C<n> roots of C<a>. C<n> must be a positive integer. The result will
 =for bad
 
 Croots does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1228,15 +1290,23 @@ BEGIN {*Croots = \&PDL::Complex::Croots;
 Return the real or imaginary part of the complex number(s) given.
 
 These are slicing operators, so data flow works. The real and
-imaginary parts are returned as piddles (ref eq PDL).
+imaginary parts are returned as ndarrays (ref eq PDL).
 
 =cut
 
-sub re($) { bless $_[0]->slice("(0)"), 'PDL'; }
-sub im($) { bless $_[0]->slice("(1)"), 'PDL'; }
+sub re($) { $_[0]->slice("(0)") }
+sub im($) { $_[0]->slice("(1)") }
 
-*PDL::Complex::re = \&re;
-*PDL::Complex::im = \&im;
+{
+no warnings 'redefine';
+# if the argument does anything other than pass through 0-th dim, re-bless
+sub slice (;@) :lvalue {
+  my $first = ref $_[1] ? $_[1][0] : (split ',', $_[1])[0];
+  my $class = ($first//'') =~ /^[:x]?$/i ? ref($_[0]) : 'PDL';
+  my $ret = bless $_[0]->SUPER::slice(@_[1..$#_]), $class;
+  $ret;
+}
+}
 
 
 
@@ -1255,7 +1325,7 @@ evaluate the polynomial with (real) coefficients C<coeffs> at the (complex) posi
 =for bad
 
 rCpolynomial does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1283,8 +1353,8 @@ BEGIN {*rCpolynomial = \&PDL::Complex::rCpolynomial;
 # overload must be here, so that all the functions can be seen
 
 # undocumented compatibility functions (thanks to Luis Mochan!)
-sub Catan2($$) { Clog( $_[1] + i*$_[0])/i }
-sub atan2($$) { Clog( $_[1] + i*$_[0])/i }
+sub Catan2($$) { Clog( $_[1] + i()*$_[0])/i }
+sub atan2($$) { Clog( $_[1] + i()*$_[0])/i }
 
 
 =begin comment
@@ -1295,14 +1365,11 @@ is ('+') or is not ('-') commutative. See the discussion of argument
 swapping in the section "Calling Conventions and Magic Autogeneration"
 in "perldoc overload".
 
-This is a great example of taking almost as many lines to write cute
-generating code as it would take to just clearly and explicitly write
-down the overload.
-
 =end comment
 
 =cut
 
+my %NO_MUTATE; BEGIN { @NO_MUTATE{qw(atan2 .= ==)} = (); }
 sub _gen_biop {
    local $_ = shift;
    my $sub;
@@ -1314,393 +1381,60 @@ sub _gen_biop {
    } else {
       die;
    }
-   if($1 eq "atan2" || $1 eq "<=>") { return ($1, $sub) }
+   return ($1, $sub) if exists $NO_MUTATE{$1};
    ($1, $sub, "$1=", $sub);
 }
 
 sub _gen_unop {
    my ($op, $func) = ($_[0] =~ /(.+)@(\w+)/);
+   no strict 'refs';
    *$op = \&$func if $op =~ /\w+/; # create an alias
    ($op, eval 'sub { '.$func.' $_[0] }');
 }
 
-#sub _gen_cpop {
-#   ($_[0], eval 'sub { my $y = ref $_[1] eq __PACKAGE__ ? $_[1] : r2C $_[1];
-#                 ($_[2] ? $y <=> $_[0] : $_[0] <=> $y) '.$_[0].' 0 }');
-#}
-
 sub initialize {
    # Bless a null PDL into the supplied 1st arg package
    #   If 1st arg is a ref, get the package from it
-   bless PDL->null, ref($_[0]) ? ref($_[0]) : $_[0];
+   bless PDL->null, ref($_[0]) || $_[0];
+}
+
+# so threading doesn't also assign the real value into the imaginary
+sub Cassgn {
+    my @args = !$_[2] ? @_[1,0] : @_[0,1];
+    $args[1] = r2C($args[1]) if ref $args[1] ne __PACKAGE__;
+    PDL::Ops::assgn(@args);
+    $args[1];
 }
 
 use overload
-   (map _gen_biop($_), qw(++Cadd --Csub *+Cmul /-Cdiv **-Cpow atan2-Catan2 <=>-Ccmp)),
+   (map _gen_biop($_), qw(++Cadd --Csub *+Cmul /-Cdiv **-Cpow atan2-Catan2 ==+Ceq .=-Cassgn)),
    (map _gen_unop($_), qw(sin@Csin cos@Ccos exp@Cexp abs@Cabs log@Clog sqrt@Csqrt)),
-#   (map _gen_cpop($_), qw(< <= == != >= >)), #segfaults with infinite recursion of the operator.
-#final ternary used to make result a scalar, not a PDL:::Complex (thx CED!)
-    "<" => sub { my $y = ref $_[1] eq __PACKAGE__ ? $_[1] : r2C $_[1];
-		 PDL::lt( ($_[2] ? $y <=> $_[0] : $_[0] <=> $y), 0, 0) ? 1 : 0;},
-    "<=" => sub { my $y = ref $_[1] eq __PACKAGE__ ? $_[1] : r2C $_[1];
-                 PDL::le( ($_[2] ? $y <=> $_[0] : $_[0] <=> $y), 0, 0) ? 1 : 0;},
-    "==" => sub { my $y = ref $_[1] eq __PACKAGE__ ? $_[1] : r2C $_[1];
-                 PDL::eq( ($_[2] ? $y <=> $_[0] : $_[0] <=> $y), 0, 0) ? 1 : 0;},
-    "!=" => sub { my $y = ref $_[1] eq __PACKAGE__ ? $_[1] : r2C $_[1];
-                 PDL::ne( ($_[2] ? $y <=> $_[0] : $_[0] <=> $y), 0, 0) ? 1 : 0;},
-    ">=" => sub { my $y = ref $_[1] eq __PACKAGE__ ? $_[1] : r2C $_[1];
-                 PDL::ge( ($_[2] ? $y <=> $_[0] : $_[0] <=> $y), 0, 0) ? 1 : 0;},
-    ">" => sub { my $y = ref $_[1] eq __PACKAGE__ ? $_[1] : r2C $_[1];
-                 PDL::gt( ($_[2] ? $y <=> $_[0] : $_[0] <=> $y), 0, 0) ? 1 : 0;},
-   '++' => sub { $_[0] += 1 },
-   '--' => sub { $_[0] -= 1 },
-   '""' => \&PDL::Complex::string
+   (map +($_ => sub { confess "Can't compare complex numbers" }), qw(< > <= >=)),
+   "!=" => sub { !($_[0] == $_[1]) },
+   '""' => sub { $_[0]->as_native->string },
 ;
 
-# overwrite PDL's overloading to honour subclass methods in + - * /
-{ package PDL;
-        my $warningFlag;
-        # This strange usage of BEGINs is to ensure the
-        # warning messages get disabled and enabled in the
-        # proper order. Without the BEGIN's the 'use overload'
-        #  would be called first.
-        BEGIN {$warningFlag = $^W; # Temporarily disable warnings caused by
-               $^W = 0;            # redefining PDL's subs
-              }
-
-
-sub cp(;@) {
-	my $foo;
-	if (ref $_[1]
-		&& (ref $_[1] ne 'PDL')
-		&& defined ($foo = overload::Method($_[1],'+')))
-		{ &$foo($_[1], $_[0], !$_[2])}
-	else { PDL::plus (@_)}
+sub sum {
+  my($x) = @_;
+  return $x if $x->dims==1;
+  my $tmp = $x->mv(0,-1)->clump(-2)->mv(1,0)->sumover;
+  return $tmp;
 }
 
-sub cm(;@) {
-	my $foo;
-	if (ref $_[1]
-		&& (ref $_[1] ne 'PDL')
-		&& defined ($foo = overload::Method($_[1],'*')))
-		{ &$foo($_[1], $_[0], !$_[2])}
-	else { PDL::mult (@_)}
+sub sumover{
+  my $m = shift;
+  PDL::Ufunc::sumover($m->transpose);
 }
 
-sub cmi(;@) {
-	my $foo;
-	if (ref $_[1]
-		&& (ref $_[1] ne 'PDL')
-		&& defined ($foo = overload::Method($_[1],'-')))
-		{ &$foo($_[1], $_[0], !$_[2])}
-	else { PDL::minus (@_)}
-}
+*PDL::Complex::Csumover=\&sumover; # define through alias
 
-sub cd(;@) {
-	my $foo;
-	if (ref $_[1]
-		&& (ref $_[1] ne 'PDL')
-		&& defined ($foo = overload::Method($_[1],'/')))
-		{ &$foo($_[1], $_[0], !$_[2])}
-	else { PDL::divide (@_)}
-}
+*PDL::Complex::prodover=\&Cprodover; # define through alias
 
-
-  # Used in overriding standard PDL +, -, *, / ops in the complex subclass.
-  use overload (
-		 '+' => \&cp,
-		 '*' => \&cm,
-	         '-' => \&cmi,
-		 '/' => \&cd,
-		);
-
-
-
-        BEGIN{ $^W = $warningFlag;} # Put Back Warnings
-};
-
-
-{
-
-   our $floatformat  = "%4.4g";    # Default print format for long numbers
-   our $doubleformat = "%6.6g";
-
-   $PDL::Complex::_STRINGIZING = 0;
-
-   sub PDL::Complex::string {
-      my($self,$format1,$format2)=@_;
-      my @dims = $self->dims;
-      return PDL::string($self) if ($dims[0] != 2);
-
-      if($PDL::Complex::_STRINGIZING) {
-         return "ALREADY_STRINGIZING_NO_LOOPS";
-      }
-      local $PDL::Complex::_STRINGIZING = 1;
-      my $ndims = $self->getndims;
-      if($self->nelem > $PDL::toolongtoprint) {
-         return "TOO LONG TO PRINT";
-      }
-      if ($ndims==0){
-         PDL::Core::string($self,$format1);
-      }
-      return "Null" if $self->isnull;
-      return "Empty" if $self->isempty; # Empty piddle
-      local $sep  = $PDL::use_commas ? ", " : "  ";
-      local $sep2 = $PDL::use_commas ? ", " : "";
-      if ($ndims < 3) {
-         return str1D($self,$format1,$format2);
-      }
-      else{
-         return strND($self,$format1,$format2,0);
-      }
-   }
-
-
-   sub sum {
-      my($x) = @_;
-      return $x if $x->dims==1;
-      my $tmp = $x->mv(0,-1)->clump(-2)->mv(1,0)->sumover;
-      return $tmp;
-   }
-
-   sub sumover{
-      my $m = shift;
-      PDL::Ufunc::sumover($m->xchg(0,1));
-   }
-
-   *PDL::Complex::Csumover=\&sumover; # define through alias
-
-   *PDL::Complex::prodover=\&Cprodover; # define through alias
-
-   sub prod {
-      my($x) = @_;
-      return $x if $x->dims==1;
-      my $tmp = $x->mv(0,-1)->clump(-2)->mv(1,0)->prodover;
-      return $tmp;
-   }
-
-
-
-   sub strND {
-      my($self,$format1,$format2,$level)=@_;
-      my @dims = $self->dims;
-
-      if ($#dims==2) {
-         return str2D($self,$format1,$format2,$level);
-      }
-      else {
-         my $secbas = join '',map {":,"} @dims[0..$#dims-1];
-         my $ret="\n"." "x$level ."["; my $j;
-         for ($j=0; $j<$dims[$#dims]; $j++) {
-            my $sec = $secbas . "($j)";
-
-            $ret .= strND($self->slice($sec),$format1,$format2, $level+1);
-            chop $ret; $ret .= $sep2;
-         }
-         chop $ret if $PDL::use_commas;
-         $ret .= "\n" ." "x$level ."]\n";
-         return $ret;
-      }
-   }
-
-
-   # String 1D array in nice format
-   #
-   sub str1D {
-      my($self,$format1,$format2)=@_;
-      barf "Not 1D" if $self->getndims() > 2;
-      my $x = PDL::Core::listref_c($self);
-      my ($ret,$dformat,$t, $i);
-
-      my $dtype = $self->get_datatype();
-      $dformat = $PDL::Complex::floatformat  if $dtype == $PDL_F;
-      $dformat = $PDL::Complex::doubleformat if $dtype == $PDL_D;
-
-      $ret = "[" if $self->getndims() > 1;
-      my $badflag = $self->badflag();
-      for($i=0; $i<=$#$x; $i++){
-         $t = $$x[$i];
-         if ( $badflag and $t eq "BAD" ) {
-            # do nothing
-         } elsif ($format1) {
-            $t =  sprintf $format1,$t;
-         } else{ # Default
-            if ($dformat && length($t)>7) { # Try smaller
-               $t = sprintf $dformat,$t;
-            }
-         }
-         $ret .= $i % 2 ?
-         $i<$#$x ? $t."i$sep" : $t."i"
-         : substr($$x[$i+1],0,1) eq "-" ?  "$t " : $t." +";
-      }
-      $ret.="]" if $self->getndims() > 1;
-      return $ret;
-   }
-
-
-   sub str2D {
-      my($self,$format1,$format2,$level)=@_;
-      my @dims = $self->dims();
-      barf "Not 2D" if scalar(@dims)!=3;
-      my $x = PDL::Core::listref_c($self);
-      my ($i, $f, $t, $len1, $len2, $ret);
-
-      my $dtype = $self->get_datatype();
-      my $badflag = $self->badflag();
-
-      my $findmax = 0;
-
-      if (!defined $format1 || !defined $format2 ||
-         $format1 eq '' || $format2 eq '') {
-         $len1= $len2 = 0;
-
-         if ( $badflag ) {
-            for ($i=0; $i<=$#$x; $i++) {
-               if ( $$x[$i] eq "BAD" ) {
-                  $f = 3;
-               }
-               else {
-                  $f = length($$x[$i]);
-               }
-               if ($i % 2) {
-                  $len2 = $f if $f > $len2;
-               }
-               else {
-                  $len1 = $f if $f > $len1;
-               }
-            }
-         } else {
-            for ($i=0; $i<=$#$x; $i++) {
-               $f = length($$x[$i]);
-               if ($i % 2){
-                  $len2 = $f if $f > $len2;
-               }
-               else{
-                  $len1 = $f if $f > $len1;
-               }
-            }
-         }
-
-         $format1 = '%'.$len1.'s';
-         $format2 = '%'.$len2.'s';
-
-         if ($len1 > 5){
-            if ($dtype == $PDL_F) {
-               $format1 = $PDL::Complex::floatformat;
-               $findmax = 1;
-            } elsif ($dtype == $PDL_D) {
-               $format1 = $PDL::Complex::doubleformat;
-               $findmax = 1;
-            } else {
-               $findmax = 0;
-            }
-         }
-         if($len2 > 5){
-            if ($dtype == $PDL_F) {
-               $format2 = $PDL::Complex::floatformat;
-               $findmax = 1;
-            } elsif ($dtype == $PDL_D) {
-               $format2 = $PDL::Complex::doubleformat;
-               $findmax = 1;
-            } else {
-               $findmax = 0 unless $findmax;
-            }
-         }
-      }
-
-      if($findmax) {
-         $len1 = $len2=0;
-
-         if ( $badflag ) {
-            for($i=0; $i<=$#$x; $i++){
-               $findmax = $i % 2;
-               if ( $$x[$i] eq 'BAD' ){
-                  $f = 3;
-               }
-               else{
-                  $f = $findmax ? length(sprintf $format2,$$x[$i]) :
-                  length(sprintf $format1,$$x[$i]);
-               }
-               if ($findmax){
-                  $len2 = $f if $f > $len2;
-               }
-               else{
-                  $len1 = $f if $f > $len1;
-               }
-            }
-         } else {
-            for ($i=0; $i<=$#$x; $i++) {
-               if ($i % 2){
-                  $f = length(sprintf $format2,$$x[$i]);
-                  $len2 = $f if $f > $len2;
-               }
-               else{
-                  $f = length(sprintf $format1,$$x[$i]);
-                  $len1 = $f if $f > $len1;
-               }
-            }
-         }
-
-
-      } # if: $findmax
-
-      $ret = "\n" . ' 'x$level . "[\n";
-      {
-         my $level = $level+1;
-         $ret .= ' 'x$level .'[';
-         $len2 += 2;
-
-         for ($i=0; $i<=$#$x; $i++) {
-            $findmax = $i % 2;
-            if ($findmax){
-               if ( $badflag and  $$x[$i] eq 'BAD' ){
-                  #||
-                  #($findmax && $$x[$i - 1 ] eq 'BAD') ||
-                  #(!$findmax && $$x[$i +1 ] eq 'BAD')){
-                  $f = "BAD";
-               }
-               else{
-                  $f = sprintf $format2, $$x[$i];
-                  if (substr($$x[$i],0,1) eq '-'){
-                     $f.='i';
-                  }
-                  else{
-                     $f =~ s/(\s*)(.*)/+$2i/;
-                  }
-               }
-               $t = $len2-length($f);
-            }
-            else{
-               if ( $badflag and  $$x[$i] eq 'BAD' ){
-                  $f = "BAD";
-               }
-               else{
-                  $f = sprintf $format1, $$x[$i];
-                  $t =  $len1-length($f);
-               }
-            }
-
-            $f = ' 'x$t.$f if $t>0;
-
-            $ret .= $f;
-            if (($i+1)%($dims[1]*2)) {
-               $ret.=$sep if $findmax;
-            }
-            else{ # End of output line
-               $ret.=']';
-               if ($i==$#$x) { # very last number
-                  $ret.="\n";
-               }
-               else{
-                  $ret.= $sep2."\n" . ' 'x$level .'[';
-               }
-            }
-         }
-      }
-      $ret .= ' 'x$level."]\n";
-      return $ret;
-   }
-
+sub prod {
+  my($x) = @_;
+  return $x if $x->dims==1;
+  my $tmp = $x->mv(0,-1)->clump(-2)->mv(1,0)->prodover;
+  return $tmp;
 }
 
 =head1 AUTHOR

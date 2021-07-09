@@ -1,0 +1,46 @@
+Changes
+clib/CMakeLists.txt
+clib/src/panda/unievent/http/manager.h
+clib/src/panda/unievent/http/manager/Child.cc
+clib/src/panda/unievent/http/manager/Child.h
+clib/src/panda/unievent/http/manager/Manager.cc
+clib/src/panda/unievent/http/manager/Manager.h
+clib/src/panda/unievent/http/manager/Mpm.cc
+clib/src/panda/unievent/http/manager/Mpm.h
+clib/src/panda/unievent/http/manager/PreFork.cc
+clib/src/panda/unievent/http/manager/PreFork.h
+clib/src/panda/unievent/http/manager/StlThread.cc
+clib/src/panda/unievent/http/manager/StlThread.h
+clib/src/panda/unievent/http/manager/Thread.cc
+clib/src/panda/unievent/http/manager/Thread.h
+clib/src/panda/unievent/http/manager/unix.icc
+clib/src/panda/unievent/http/manager/windows.icc
+clib/tests/mpm.cc
+clib/tests/thread-model.cc
+clib/unievent-http-manager-config.cmake
+INSTALL.SKIP
+lib/Plack/Handler/UniEvent/HTTP.pm
+lib/Plack/Handler/UniEvent/HTTP.pod
+lib/UniEvent/HTTP/Manager.pm
+lib/UniEvent/HTTP/Manager.pod
+Makefile.PL
+MANIFEST			This list of files
+MANIFEST.SKIP
+misc/app.psgi
+misc/mytest.plx
+misc/run_xs.plx
+src/xs/unievent/http/manager.cc
+src/xs/unievent/http/manager.h
+t/lib/IPCToken.pm
+t/lib/MyTest.pm
+t/lib/MyTest.xs
+t/mpm.t
+t/plack-handler.t
+t/prefork-master-death.t
+t/prefork-request.t
+t/prefork-spawn_callback.t
+t/thread-model.t
+xs/main.xs
+xs/PerlThread.h
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)

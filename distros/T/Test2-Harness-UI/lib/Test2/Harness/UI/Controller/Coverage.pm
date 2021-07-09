@@ -2,7 +2,7 @@ package Test2::Harness::UI::Controller::Coverage;
 use strict;
 use warnings;
 
-our $VERSION = '0.000028';
+our $VERSION = '0.000068';
 
 use Data::GUID;
 use List::Util qw/max/;
@@ -21,65 +21,42 @@ sub handle {
     my $req = $self->{+REQUEST};
     my $res = resp(200);
 
+    my $schema = $self->{+CONFIG}->schema;
+
     die error(404 => 'Missing route') unless $route;
-    my $project_name = $route->{project} or die error(404 => 'No project');
+    my $source = $route->{source} or die error(404 => 'No source');
+    my $username = $route->{user};
 
-    my $schema  = $self->{+CONFIG}->schema;
-    my $project = $schema->resultset('Project')->find({name => $project_name});
+    my $delete = $route->{delete};
 
-    my $data;
-    if ($req->method eq 'POST') {
-        my $files;
-        eval { $files = decode_json($req->content); 1 } or warn $@;
-        die error(400 => 'POST content must be a JSON array (list of filenames)') unless $files && ref($files) eq 'ARRAY';
-        my $dbh = $self->{+CONFIG}->connect;
-
-        my $placeholders = join ',' => map { '?' } @$files;
-        my $sth = $dbh->prepare(<<"        EOT");
-            SELECT DISTINCT(jobs.file) AS file FROM jobs
-              JOIN coverage USING(job_key)
-              JOIN runs     USING(run_id)
-             WHERE runs.project_id = ?
-               AND coverage.file IN ($placeholders)
-        EOT
-
-        $sth->execute($project->project_id, @$files) or die $sth->errstr;
-        my $rows = $sth->fetchall_arrayref;
-
-        $data = [map { $_->[0] } @$rows];
+    if ($username && $username eq 'delete') {
+        $delete = 1;
+        $username = undef;
     }
-    elsif ($req->method eq 'GET') {
-        my $dbh = $self->{+CONFIG}->connect;
 
-        my $sth = $dbh->prepare(<<"        EOT");
-            SELECT DISTINCT
-                   coverage.file AS source,
-                   jobs.file     AS test
-              FROM coverage
-              JOIN jobs USING(job_key)
-              JOIN runs USING(run_id)
-             WHERE runs.project_id = ?
-        EOT
-
-        $data = {};
-        $sth->execute($project->project_id) or die $sth->errstr;
-        for my $row (@{$sth->fetchall_arrayref}) {
-            push @{$data->{$row->[0]}} => $row->[1];
-        }
+    my $cover;
+    if (my $project = $schema->resultset('Project')->find({name => $source})) {
+        $cover = $project->coverage(user => $username);
+    }
+    elsif ($cover = $schema->resultset('Coverage')->find({coverage_id => $source})) {
     }
     else {
         die error(405);
     }
 
-    my $ct ||= lc($req->headers->{'content-type'} || $req->parameters->{'Content-Type'} || $req->parameters->{'content-type'} || 'text/html; charset=utf-8');
-    $res->content_type($ct);
+    my $data;
 
-    if ($ct eq 'application/json') {
-        $res->raw_body($data);
+    if ($delete && $cover) {
+        $cover->runs->first->update({coverage_id => undef});
+        $cover->delete;
+        $data = {};
     }
-    else {
-        $res->raw_body("<pre>" . encode_pretty_json($data) . "</pre>");
+    elsif ($cover) {
+        $data = $cover ? $cover->coverage : {};
     }
+
+    $res->content_type('application/json');
+    $res->raw_body($data);
 
     return $res;
 }

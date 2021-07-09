@@ -1,0 +1,88 @@
+0.008   2021-06-21  Released-By: PERLANCAR; Urgency: medium
+
+	- [subcommand update] Handle non-directories (counter.db) in raw/
+	  directory.
+
+
+0.007   2021-06-17  Released-By: PERLANCAR; Urgency: medium
+
+	- [ux] Add shortcut alias -g for --graph.
+
+	- [dox] Update example in Synopsis.
+
+
+0.006   2021-06-17  Released-By: PERLANCAR; Urgency: medium
+
+	- Add subcommand: stocks-by-foreign-ownership.
+
+	- [ux] Replace usage of DateTime outside of functions with
+	  Time::Local::More, to reduce startup overhead for tab completion.
+
+	- [ux] [subcommand daily] Add option --fields-price-and-afnb (Close
+	  and AccumForeignNetBuy).
+
+
+0.005   2021-06-16  Released-By: PERLANCAR; Urgency: medium
+
+	- [ux] [subcommand daily] Use secondary y axes for fields 2, 3, ...
+	  so we can plot different scales e.g. closing price (3000-5000) vs
+	  accumulated net buys (range millions - billions) in the same
+	  graph.
+
+	- [ux] Add options --2month, --2year.
+
+
+0.004   2021-01-22  Released-By: PERLANCAR; Urgency: medium
+
+	[Incompatible changes]
+
+        - [reorganize] Reorganize the various *ownership* and *daily*
+	  subcommands to ownership & daily. This means merging the graph-* and
+	  table-* subcommands. User can now produce graphs by specifying
+	  --graph.
+
+        - [reorganize] Merge ownership-legends subcommand to ownership.
+
+        [Enhancements]
+
+        - [subcommand daily] Accept multiple stocks.
+
+        [UX]
+
+	- Add alias --1week for --week, --1month for --month, --1year for
+	  --year; add period shortcut --ytd.
+
+
+0.003   2021-01-21  Released-By: PERLANCAR; Urgency: medium
+
+        [Enhancements]
+
+	- Add subcommands: table-daily-trading-summary,
+	  graph-daily-trading-summary.
+
+        [UX]
+
+	- [subcommand update] Tweak logging statement, so --verbose will show
+          updated data.
+
+        - Tweak graphs (tic label rotation, better colors using
+          ColorTheme::Distinct::WhiteBG)
+
+        - Accept natural dates for --date-* options.
+
+        - Add --week, --month, --3month, --6month, --year, --3year, --5year,
+          --10year shortcuts for --date-start + --date-end.
+
+	- Add example for legend_ownership().
+
+
+0.002   2021-01-19  Released-By: PERLANCAR; Urgency: low
+
+	- No functional changes.
+
+	- Tweak Abstract.
+
+
+0.001   2021-01-18  Released-By: PERLANCAR
+
+        - First, early release.

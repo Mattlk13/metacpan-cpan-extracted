@@ -10,7 +10,7 @@ my %DOM_SEL = (
   ':desc'      => ['meta[property="og:description"]', 'meta[name="twitter:description"]', 'meta[name="description"]'],
   ':image'     => ['meta[property="og:image"]',       'meta[property="og:image:url"]',    'meta[name="twitter:image"]'],
   ':site_name' => ['meta[property="og:site_name"]',   'meta[property="twitter:site"]'],
-  ':title' => ['meta[property="og:title"]', 'meta[name="twitter:title"]', 'title'],
+  ':title'     => ['meta[property="og:title"]',       'meta[name="twitter:title"]', 'title'],
 );
 
 my @JSON_ATTRS = (
@@ -26,6 +26,7 @@ has description     => '';
 has error           => undef;                                                # {message => "", code => ""}
 has force_secure    => 0;
 has height          => sub { $_[0]->type =~ /^photo|video$/ ? 0 : undef };
+has mimetype        => '';
 has placeholder_url => '';
 
 has provider_name => sub {
@@ -79,7 +80,7 @@ sub _el {
   @sel = @{$DOM_SEL{$sel[0]}} if $DOM_SEL{$sel[0]};
 
   for my $sel (@sel) {
-    my $e = $dom->at($sel) or next;
+    my $e     = $dom->at($sel) or next;
     my ($val) = grep {$_} map { trim($_ // '') } $e->{content}, $e->{value}, $e->{href}, $e->text, $e->all_text;
     return $val if defined $val;
   }
@@ -241,6 +242,10 @@ This attribute is EXPERIMENTAL. Feeback appreciated.
 
 The height of L</html> in pixels. Might be C<undef>.
 
+=head2 mimetype
+
+  $str = $self->mimetype;
+
 =head2 provider_name
 
   $str = $self->provider_name;
@@ -360,12 +365,12 @@ __DATA__
 @@ rich.html.ep
 % if ($l->title) {
   % if (my $thumbnail_url = $l->thumbnail_url || $l->placeholder_url) {
-<div class="le-card le-image-card le-<%= $l->type %> le-provider-<%= lc $l->provider_name %>">
+<div class="le-<%= $l->type %> le-card le-image-card le-provider-<%= lc $l->provider_name %>">
     <a href="<%= $l->url %>" class="le-thumbnail<%= $l->thumbnail_url ? '' : '-placeholder' %>">
       <img src="<%= $thumbnail_url %>" alt="<%= $l->author_name || 'Placeholder' %>">
     </a>
   % } else {
-<div class="le-card le-<%= $l->type %> le-provider-<%= lc $l->provider_name %>">
+<div class="le-<%= $l->type %> le-card le-provider-<%= lc $l->provider_name %>">
   % }
   <h3><%= $l->title %></h3>
     % if ($l->description) {
@@ -382,9 +387,9 @@ __DATA__
 <a class="le-<%= $l->type %> le-provider-<%= lc $l->provider_name %>" href="<%= $l->url %>"><%= Mojo::Util::url_unescape($l->url) %></a>
 % }
 @@ video.html.ep
-<video class="le-<%= $l->type %> le-provider-<%= lc $l->provider_name %>" height="640" width="480" preload="metadata" controls>
-% for my $s (@{$l->{sources} || []}) {
-  <source src="<%= $s->{url} %>" type="<%= $s->{type} || '' %>">
-% }
-  <p>Your browser does not support the video tag.</p>
-</video>
+<div class="le-<%= $l->type %> le-provider-<%= lc $l->provider_name %>">
+  <video preload="metadata" controls>
+    <source src="<%= $l->url %>" type="<%= $l->mimetype || '' %>">
+    <p>Your browser is unable to play <%= $l->mimetype || 'video' %> content.</p>
+  </video>
+</div>

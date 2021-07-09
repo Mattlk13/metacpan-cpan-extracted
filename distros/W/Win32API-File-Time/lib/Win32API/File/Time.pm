@@ -71,7 +71,7 @@ use Time::Local;
 use Win32::API;
 use Win32API::File qw{ :ALL };
 
-our $VERSION = '0.009';
+our $VERSION = '0.011';
 
 our @EXPORT_OK = qw{ GetFileTime SetFileTime utime };
 our %EXPORT_TAGS = (
@@ -103,7 +103,6 @@ sub GetFileTime {
     CloseHandle( $fh );
     return _filetime_to_perltime( $atime, $mtime, $ctime );
 }
-
 
 =item SetFileTime( filename, atime, mtime, ctime );
 
@@ -162,7 +161,6 @@ sub utime {	## no critic (ProhibitBuiltinHomonyms)
     return $num;
 }
 
-
 #######################################################################
 #
 #	Internal subroutines
@@ -179,7 +177,6 @@ sub _close_handle {
     $^E = $err;	## no critic (RequireLocalizedPunctuationVars)
     return;
 }
-
 
 #	_filetime_to_perltime
 #
@@ -223,7 +220,6 @@ sub _filetime_to_perltime {
     return wantarray ? @result : $result[0];
 }
 
-
 #	_get_handle
 #
 #	This subroutine takes a file name and returns a handle to the
@@ -258,7 +254,6 @@ sub _get_handle {
     return $handle;
 }
 
-
 #	_map
 #
 #	This subroutine calls Win32API to map an entry point.
@@ -267,7 +262,6 @@ sub _map {
 return Win32::API->new ( @_ ) ||
     croak "Error - Failed to map $_[1] from $_[0]: $^E";
 }
-
 
 #	_perltime_to_filetime
 #
@@ -368,6 +362,11 @@ FAT file time resolution is 2 seconds at best, as documented at
 L<https://docs.microsoft.com/en-us/windows/win32/sysinfo/file-times>.
 Access time resolution seems to be to the nearest day.
 
+Support is by the author. Please file bug reports at
+L<https://rt.cpan.org/Public/Dist/Display.html?Name=Win32API-File-Time>,
+L<https://github.com/trwyant/perl-Win32API-File-Time/issues>, or in
+electronic mail to the author.
+
 =head1 ACKNOWLEDGMENTS
 
 This module would not exist without the following people:
@@ -398,7 +397,7 @@ Thomas R. Wyant, III (F<Thomas.R.Wyant-III@usa.dupont.com>)
 Copyright (C) 2004-2005 by E. I. DuPont de Nemours and Company, Inc. All
 rights reserved.
 
-Copyright (C) 2007, 2010, 2016-2017, 2019 by Thomas R. Wyant, III
+Copyright (C) 2007, 2010, 2016-2017, 2019-2021 by Thomas R. Wyant, III
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl 5.10.0. For more details, see the full text

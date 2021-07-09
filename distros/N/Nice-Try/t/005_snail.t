@@ -1,11 +1,11 @@
 # -*- perl -*-
-
-use strict;
-use warnings;
-
-use Test::More qw( no_plan );
-
-use Nice::Try;
+BEGIN
+{
+    use strict;
+    use warnings;
+    use Test::More qw( no_plan );
+    use Nice::Try;
+};
 
 # Credits to Steve Scaffidi for his test suit
 

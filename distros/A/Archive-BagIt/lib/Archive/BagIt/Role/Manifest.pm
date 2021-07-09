@@ -1,13 +1,14 @@
-#ABSTRACT: A role that handles all manifest files for a specific Algorithm
 package Archive::BagIt::Role::Manifest;
 use strict;
 use warnings;
 use namespace::autoclean;
-use Carp;
-use File::Spec;
+use Carp qw( croak );
+use File::Spec ();
 use Moo::Role;
 with 'Archive::BagIt::Role::Plugin';
 with 'Archive::BagIt::Role::Portability';
+# ABSTRACT: A role that handles all manifest files for a specific Algorithm
+our $VERSION = '0.075'; # VERSION
 
 has 'algorithm' => (
     is => 'rw',
@@ -314,7 +315,7 @@ Archive::BagIt::Role::Manifest - A role that handles all manifest files for a sp
 
 =head1 VERSION
 
-version 0.071
+version 0.075
 
 =head2 calc_digests($bagit, $digestobj, $filenames_ref, $opts)
 

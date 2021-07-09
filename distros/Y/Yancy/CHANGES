@@ -1,5 +1,57 @@
 Changelog for Yancy
 
+1.074     2021-06-18 12:55:53-05:00 America/Chicago
+
+    [Added]
+
+    - Added Yancy::Plugin::Roles for role-based access controls.
+    - Added Yancy base application class with password auth and
+      role-based access controls. This makes starting a new app as easy
+      as `use Mojo::Base 'Yancy'`!
+
+    [Fixed]
+
+    - Fixed compatibility with JSON::Validator 4.20
+
+1.073     2021-06-07 11:35:37-05:00 America/Chicago
+
+    [Added]
+
+    - Password auth now respects the `return_to` flash value so that
+      users can be redirected to the login form. Thanks @flash548 for
+      submitting this patch! [Github #134]
+
+1.072     2021-05-25 23:32:42-05:00 America/Chicago
+
+    - Fixed IRC channel: We've moved to libera.chat
+
+1.071     2021-05-24 12:01:18-05:00 America/Chicago
+
+    [Added]
+
+    - (Experimental) Added Yancy::Model to organize model-layer code
+      (business logic).
+
+1.070     2021-05-08 20:51:45-05:00 America/Chicago
+
+    [Fixed]
+
+    - Fixed issues with `format` changes in Mojolicious 9.11. Thanks
+      @kiwiroy for reporting and fixing these issues! [Github #131,
+      #132, #133]
+    - Reorganized documentation into Guides, more like Mojolicious. This
+      is a work-in-progress, so there's lot more to do.
+    - Removed fallback template rendering from standalone app. The
+      standalone app is going to evolve into a base class for starting
+      new Yancy apps, and this feature does not fit well.
+
+1.069     2021-03-04 09:41:27-06:00 America/Chicago
+
+    [Fixed]
+
+    - Fixed compatibility with Mojolicious 9 and JSON::Validator 4.
+      Thanks @mjaix for reporting this issue!
+
 1.068     2020-12-19 16:33:19-06:00 America/Chicago
 
     [Fixed]

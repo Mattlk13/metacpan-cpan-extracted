@@ -1,5 +1,5 @@
 package Photonic::Geometry::FromImage2D;
-$Photonic::Geometry::FromImage2D::VERSION = '0.014';
+$Photonic::Geometry::FromImage2D::VERSION = '0.017';
 
 =encoding UTF-8
 
@@ -9,14 +9,14 @@ Photonic::Geometry::FromImage2D
 
 =head1 VERSION
 
-version 0.014
+version 0.017
 
 =head1 COPYRIGHT NOTICE
 
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -75,7 +75,7 @@ inverted: 1 means invert, 0 don't invert. Default: 0
 
 =back
 
-=head1 ACCESORS (read only)
+=head1 ACCESSORS (read only)
 
 =over 4
 

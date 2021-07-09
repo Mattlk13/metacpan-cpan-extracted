@@ -10,6 +10,8 @@ use lib qw{ inc };
 
 use My::Module::Test;
 
+set_test_output_encoding;
+
 check_testable 'pbpaste';
 
 my $do_utf = do_utf();
@@ -45,6 +47,8 @@ foreach my $args (
     my $pbopt = pb_opt $selector;
     my $putsub = __PACKAGE__->can( $putter );
 
+    note "\nselector: '$selector'; args: @args";
+
     my $where = $name || 'the default pasteboard';
 
     my $pb = defined $name ?
@@ -78,6 +82,44 @@ foreach my $args (
 
     $pb->clear;
     test_vs_pbpaste $pbopt, '', "Clear data placed on $where by pbcopy.";
+
+    CAN_USE_UNICODE
+	or next;
+
+    # NON-ASCII BELOW HERE
+
+    note <<'EOD';
+
+The following tests with LATIN SMALL LETTER E WITH ACUTE were added as
+a result of reading Felipe Gasper's blog entry "Perl's SvPV Menace" at
+https://dev.to/fgasper/perl-s-svpv-menace-5515
+EOD
+
+    $data = chr 0xC3;	# LATIN SMALL LETTER E WITH ACUTE
+
+    $pb->clear();
+    utf8::downgrade( $data );
+    $pb->copy( $data );
+    test_vs_pbpaste $pbopt, $data,
+	"Place downgraded LATIN SMALL LETTER E WITH ACUTE on $where";
+
+    $pb->clear();
+    utf8::upgrade( $data );
+    $pb->copy( $data );
+    test_vs_pbpaste $pbopt, $data,
+	"Place upgraded LATIN SMALL LETTER E WITH ACUTE on $where";
+
+    $pb->clear();
+    $data = chr 0x3a3;	# GREEK CAPITAL LETTER SIGMA
+    $pb->copy( $data );
+    test_vs_pbpaste $pbopt, $data,
+	"Place GREEK CAPITAL LETTER SIGMA on $where";
+
+    $pb->clear;
+    $data = chr 0x3b1;	# GREEK SMALL LETTER ALPHA
+    $putsub->($data);
+    test_vs_pbpaste $pbopt, $data,
+	"Use $putter to put GREEK SMALL LETTER ALPHA on $where.";
 
 ##	The following test is bypassed because pbpaste actually finds
 ##	the data. I am not sure how this can be, since PasteboardPeeker

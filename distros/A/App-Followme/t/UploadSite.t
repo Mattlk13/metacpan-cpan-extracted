@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 use strict;
 
-use Cwd;
 use IO::File;
 use File::Path qw(rmtree);
 use File::Spec::Functions qw(catdir catfile rel2abs splitdir);
@@ -23,21 +22,23 @@ require App::Followme::UploadSite;
 
 my $test_dir = catdir(@path, 'test');
 my $local_dir = catdir(@path, 'test', 'local');
+my $sub_dir = catdir(@path, 'test', 'local', 'sub');
 my $remote_dir = catdir(@path, 'test', 'remote');
 my $state_dir = catdir(@path, 'test', 'local', '_state');
 
-rmtree($test_dir);
+rmtree($test_dir) if -e $test_dir;
 mkdir $test_dir or die $!;
 chmod 0755, $test_dir;
 mkdir $local_dir or die $!;
 chmod 0755, $local_dir;
+mkdir $sub_dir or die $!;
+chmod 0755, $sub_dir;
 mkdir $remote_dir or die $!;
 chmod 0755, $remote_dir;
 mkdir $state_dir or die $!;
 chmod 0755, $state_dir;
 
 chdir $local_dir or die $!;
-$local_dir = cwd();
 
 my %configuration = (
                      top_directory => $local_dir,
@@ -120,12 +121,10 @@ EOQ
 
     my $local = {};
     my $hash_ok = {};
-    my @dirs = ('', 'sub');
+    my %info = ('' => $local_dir, 'sub' => $sub_dir);
 
-    foreach my $dir (@dirs) {
+    while (my ($dir, $directory) = each %info) {
         if ($dir) {
-            mkdir $dir;
-            chmod 0755, $dir;
             $local->{$dir} = 1;
             $hash_ok->{$dir} = 'dir';
         }
@@ -135,11 +134,12 @@ EOQ
             $output =~ s/!!/$dir/g;
             $output =~ s/%%/$count/g;
 
-            my $filename = $dir ? catfile($dir, "$count.html") : "$count.html";
+            my $file = $dir ? catfile($dir, "$count.html") : "$count.html";
+            my $filename = catfile($directory, "$count.html");
             fio_write_page($filename, $output);
 
-            $local->{$filename} = 1;
-            $hash_ok->{$filename} = $up->{data}->build('checksum', $filename);
+            $local->{$file} = 1;
+            $hash_ok->{$file} = ${$up->{data}->build('checksum', $filename)};
 
             my $new_page = $up->rewrite_base_tag($page);
             like($new_page, qr(<base href="$up->{remote_url}"),

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-use 5.022;
+use 5.024;
 # Using Test2, important to specify which version of Test2
 # since later versions may break things.
 use Test2::V0;
@@ -13,6 +13,8 @@ use Vote::Count;
 use Vote::Count::ReadBallots 'read_ballots';
 use Vote::Count::Redact qw/RedactPair RedactBullet RedactSingle/;
 
+use Carp::Always;
+
 use feature qw /postderef signatures/;
 no warnings 'experimental';
 
@@ -24,6 +26,7 @@ $B1->{'BallotSet'}{'ballots'}{'testonly'} = {
   'votes' =>
     [qw( VOMIT STRAWBERRY CHOCOLATE LEMON TOAD VANILLA ORANGE MINTCHIP)],
   'count' => 1,
+  'votevalue' => 1,
 };
 
 my $newBallot1 = RedactPair( $B1->BallotSet(), 'VANILLA', 'CHOCOLATE' );

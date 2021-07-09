@@ -4,8 +4,8 @@
 #
 package PDL::Transform;
 
-@EXPORT_OK  = qw( apply invert map PDL::PP map unmap t_inverse t_compose t_wrap t_identity t_lookup t_linear t_scale t_offset  t_rot t_fits t_code  t_cylindrical t_radial t_quadratic t_cubic t_quadratic t_spherical t_projective );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(apply invert map PDL::PP map unmap t_inverse t_compose t_wrap t_identity t_lookup t_linear t_scale t_offset  t_rot t_fits t_code  t_cylindrical t_radial t_quadratic t_cubic t_quadratic t_spherical t_projective );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::Transform ;
 
@@ -54,12 +54,12 @@ part of the Transform object to keep track of arbitrary functions
 mapping R^N -> R^M with or without inverses.
 
 The simplest way to use a Transform object is to transform vector
-data between coordinate systems.  The L<apply|/apply> method
+data between coordinate systems.  The L</apply> method
 accepts a PDL whose 0th dimension is coordinate index (all other
 dimensions are threaded over) and transforms the vectors into the new
 coordinate system.
 
-Transform also includes image resampling, via the L<map|/map> method.
+Transform also includes image resampling, via the L</map> method.
 You define a coordinate transform using a Transform object, then use
 it to remap an image PDL.  The output is a remapped, resampled image.
 
@@ -68,7 +68,7 @@ all at once to an image.  The image is interpolated only once, when
 all the composed transformations are applied.
 
 In keeping with standard practice, but somewhat counterintuitively,
-the L<map|/map> engine uses the inverse transform to map coordinates
+the L</map> engine uses the inverse transform to map coordinates
 FROM the destination dataspace (or image plane) TO the source dataspace;
 hence PDL::Transform keeps track of both the forward and inverse transform.
 
@@ -189,7 +189,7 @@ e.g., the compose() method.
 =item itype
 
 An array containing the name of the quantity that is expected from the
-input piddle for the transform, for each dimension.  This field is advisory,
+input ndarray for the transform, for each dimension.  This field is advisory,
 and can be left blank if there's no obvious quantity associated with
 the transform.  This is analogous to the CTYPEn field used in FITS headers.
 
@@ -250,8 +250,8 @@ There are both operators and constructors.  The constructors are all
 exported, all begin with "t_", and all return objects that are subclasses
 of PDL::Transform.
 
-The L<apply|/apply>, L<invert|/invert>, L<map|/map>,
-and L<unmap|/unmap> methods are also exported to the C<PDL> package: they
+The L</apply>, L</invert>, L</map>,
+and L</unmap> methods are also exported to the C<PDL> package: they
 are both Transform methods and PDL methods.
 
 =cut
@@ -337,9 +337,9 @@ sub apply {
 
 Apply an inverse transformation to some input coordinates.
 
-In the example, C<$t> is a PDL::Transform and C<$data> is a piddle to
+In the example, C<$t> is a PDL::Transform and C<$data> is an ndarray to
 be interpreted as a collection of N-vectors (with index in the 0th
-dimension).  The output is a similar piddle.
+dimension).  The output is a similar ndarray.
 
 For convenience this is both a PDL method and a PDL::Transform method.
 
@@ -522,7 +522,7 @@ as in the L<PGPLOT|PDL::Graphics::PGPLOT> interface.)
 This is a way to modify the autoscaling.  It specifies the range of
 input scientific (not necessarily pixel) coordinates that you want to be
 mapped to the output image.  It can be either a nested array ref or
-a piddle.  The 0th dim (outside coordinate in the array ref) is
+an ndarray.  The 0th dim (outside coordinate in the array ref) is
 dimension index in the data; the 1st dim should have order 2.
 For example, passing in either [[-1,2],[3,4]] or pdl([[-1,2],[3,4]])
 limites the map to the quadrilateral in input space defined by the
@@ -701,19 +701,18 @@ Maybe that someone is you.
 
 BAD VALUES:
 
-If your PDL was compiled with bad value support, C<map()> supports
-bad values in the data array.  Bad values in the input array are
-propagated to the output array.  The 'g' and 'h' methods will do some
-smoothing over bad values:  if more than 1/3 of the weighted input-array
-footprint of a given output pixel is bad, then the output pixel gets marked
-bad.
+C<map()> supports bad values in the data array. Bad values in the input
+array are propagated to the output array.  The 'g' and 'h' methods will
+do some smoothing over bad values:  if more than 1/3 of the weighted
+input-array footprint of a given output pixel is bad, then the output
+pixel gets marked bad.
 
 
 
 =for bad
 
 map does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -767,7 +766,7 @@ sub map {
 
   $tmp = [$in->dims]  unless(defined($tmp));
 
-  # Generate an appropriate output piddle for values to go in
+  # Generate an appropriate output ndarray for values to go in
   my($out);
   my(@odims);
   my($ohdr);
@@ -801,10 +800,8 @@ sub map {
   $out = PDL::new_from_specification('PDL',$in->type,@odims);
   $out->sethdr($ohdr) if defined($ohdr);
 
-  if($PDL::Bad::Status) {
-    # set badflag on output all the time if possible, to account for boundary violations
-    $out->badflag(1);
-  }
+  # set badflag on output all the time if possible, to account for boundary violations
+  $out->badflag(1);
 
   ##############################
   ## Figure out the dimensionality of the
@@ -931,7 +928,7 @@ sub map {
           my $oc2  = $ocoords->range(
               which(
                   $ocoords->
-                  xchg(0,1)->
+                  transpose->
                   sumover->
                   isfinite
               )
@@ -1135,12 +1132,7 @@ sub map {
   $blur = $blur->at(0) if(ref $blur);
   $svmin =  $svmin->at(0)  if(ref $svmin);
 
-  my $bv;
-  if($PDL::Bad::Status  and $in->badflag){
-      $bv = $in->badvalue;
-  } else {
-      $bv = 0;
-  }
+  my $bv = $in->badflag ? $in->badvalue->sclr : 0;
 
   ### The first argument is a dummy to set $GENERIC.
   $idx = double($idx) unless($idx->type == double);
@@ -1181,7 +1173,7 @@ sub map {
 
 Map an image or N-D dataset using the inverse as a coordinate transform.
 
-This convenience function just inverts $t and calls L<map|/map> on
+This convenience function just inverts $t and calls L</map> on
 the inverse; everything works the same otherwise.  For convenience, it
 is both a PDL method and a PDL::Transform method.
 
@@ -1393,7 +1385,7 @@ sub compose {
 Shift a transform into a different space by 'wrapping' it with a second.
 
 This is just a convenience function for two
-L<t_compose|/t_compose> calls. C<< $x->wrap($y) >> is the same as
+L</t_compose> calls. C<< $x->wrap($y) >> is the same as
 C<(!$y) x $x x $y>: the resulting transform first hits the data with
 $y, then with $x, then with the inverse of $y.
 
@@ -2080,7 +2072,7 @@ sub PDL::Transform::Linear::stringify {
 
 =for ref
 
-Convenience interface to L<t_linear|/t_linear>.
+Convenience interface to L</t_linear>.
 
 t_scale produces a transform that scales around the origin by a fixed
 amount.  It acts exactly the same as C<t_linear(Scale=>\<scale\>)>.
@@ -2106,7 +2098,7 @@ sub t_scale {
 
 =for ref
 
-Convenience interface to L<t_linear|/t_linear>.
+Convenience interface to L</t_linear>.
 
 t_offset produces a transform that shifts the origin to a new location.
 It acts exactly the same as C<t_linear(Pre=>\<shift\>)>.
@@ -2133,7 +2125,7 @@ sub t_offset {
 
 =for ref
 
-Convenience interface to L<t_linear|/t_linear>.
+Convenience interface to L</t_linear>.
 
 t_rot produces a rotation transform in 2-D (scalar), 3-D (3-vector), or
 N-D (matrix).  It acts exactly the same as C<t_linear(Rot=>\<shift\>)>.
@@ -2485,7 +2477,7 @@ EXAMPLES
 
 These examples do transformations back into the same size image as they
 started from; by suitable use of the "transform" option to
-L<unmap|/unmap> you can send them to any size array you like.
+L</unmap> you can send them to any size array you like.
 
 Examine radial structure in M51:
 Here, we scale the output to stretch 2*pi radians out to the
@@ -2610,7 +2602,7 @@ Quadratic scaling -- cylindrical pincushion (n-d; with inverse)
 Quadratic scaling emulates pincushion in a cylindrical optical system:
 separate quadratic scaling is applied to each axis.  You can apply
 separate distortion along any of the principal axes.  If you want
-different axes, use L<t_wrap|/t_wrap> and L<t_linear|/t_linear> to rotate
+different axes, use L</t_wrap> and L</t_linear> to rotate
 them to the correct angle.  The scaling options may be scalars or
 vectors; if they are scalars then the expansion is isotropic.
 
@@ -2873,8 +2865,8 @@ and (as with t_quadratic) sign is preserved, making it an odd function
 although a true quartic transformation would be an even function.
 
 You can apply separate distortion along any of the principal axes.  If
-you want different axes, use L<t_wrap|/t_wrap> and
-L<t_linear|/t_linear> to rotate them to the correct angle.  The
+you want different axes, use L</t_wrap> and
+L</t_linear> to rotate them to the correct angle.  The
 scaling options may be scalars or vectors; if they are scalars then
 the expansion is isotropic.
 
@@ -2995,10 +2987,10 @@ and the prime meridian is in the +X direction.  The default is for
 theta and phi to be in radians; you can select degrees if you want
 them.
 
-Just as the L<t_radial|/t_radial> 2-D transform acts like a 3-D
+Just as the L</t_radial> 2-D transform acts like a 3-D
 cylindrical transform by ignoring third and higher dimensions,
 Spherical acts like a hypercylindrical transform in four (or higher)
-dimensions.  Also as with L<t_radial|/t_radial>, you must manually specify
+dimensions.  Also as with L</t_radial>, you must manually specify
 the origin if you want to use more dimensions than 3.
 
 To deal with latitude & longitude on the surface of a sphere (rather
@@ -3143,7 +3135,7 @@ whose lower-right corner value is 1.
 
 If the bottom row of the matrix consists of all zeroes, then the
 transformation reduces to a linear affine transformation (as in
-L<t_linear|/t_linear>).
+L</t_linear>).
 
 If the bottom row of the matrix contains nonzero elements, then the
 transformed x,y,z,etc. coordinates are related to the original coordinates

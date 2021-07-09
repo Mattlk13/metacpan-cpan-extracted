@@ -1,5 +1,5 @@
 package Photonic::Roles::UseMask;
-$Photonic::Roles::UseMask::VERSION = '0.014';
+$Photonic::Roles::UseMask::VERSION = '0.017';
 
 =encoding UTF-8
 
@@ -9,14 +9,14 @@ Photonic::Roles::UseMask
 
 =head1 VERSION
 
-version 0.014
+version 0.017
 
 =head1 COPYRIGHT NOTICE
 
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -73,7 +73,6 @@ reciprocal vector for each even dimension of reciprocal space.
 use namespace::autoclean;
 use PDL::Lite;
 use PDL::NiceSlice;
-use PDL::Complex;
 use Moose::Role;
 
 has 'use_mask'=>(is=>'ro', default=>1, documentation=>'Use mask if present');

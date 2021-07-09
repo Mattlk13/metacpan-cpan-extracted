@@ -1,4 +1,9 @@
-use strict; # be careful
+use strict;
+use PDL::Types qw(types ppdefs_complex ppdefs_all);
+
+my $T = [map $_->ppsym, grep $_->integer, types];
+my $C = [ppdefs_complex];
+my $A = [ppdefs_all];
 
 pp_addpm({At=>'Top'},<<'EOD');
 
@@ -16,7 +21,7 @@ C<accumulate> along a dimension. These all do their job across the
 first dimension but by using the slicing functions you can do it
 on any dimension.
 
-The L<PDL::Reduce|PDL::Reduce> module provides an alternative interface
+The L<PDL::Reduce> module provides an alternative interface
 to many of the functions in this module.
 
 =head1 SYNOPSIS
@@ -29,13 +34,6 @@ use PDL::Slices;
 use Carp;
 EOD
 
-# check for bad value support
-use PDL::Config;
-my $bvalflag = $PDL::Config{WITH_BADVAL} || 0;
-
-# should we use the finite() routine in libm ?
-# (is the Windows version _finite() ?)
-#
 pp_addhdr(<<'EOD');
 #define IsNaN(x) (x*0 != 0)
 EOD
@@ -51,7 +49,7 @@ sub projectdocs {
 
 Project via $name to N-1 dimensions
 
-This function reduces the dimensionality of a piddle
+This function reduces the dimensionality of an ndarray
 by one by taking the $name along the 1st dimension.
 
 By using L<xchg|PDL::Slices/xchg> etc. it is possible to use
@@ -63,7 +61,7 @@ I<any> dimension.
 
 =for example
 
- \$spectrum = $op \$image->xchg(0,1)
+ \$spectrum = $op \$image->transpose
 
 $extras
 
@@ -98,7 +96,7 @@ is the first element of the parameter.
 
 =for example
 
- \$spectrum = $op \$image->xchg(0,1)
+ \$spectrum = $op \$image->transpose
 
 $extras
 
@@ -113,8 +111,8 @@ EOD
 # which needs checking for since the bad value could evaluate to 
 # true or false (eg if the user has set it to 0)
 #
-# by setting CopyBadStatusCode to '', we stop the output piddle
-# from automatically being set bad if any of the input piddles are bad.
+# by setting CopyBadStatusCode to '', we stop the output ndarray
+# from automatically being set bad if any of the input ndarrays are bad.
 # - we can set the flag within BadCode if necessary
 #
 # This may NOT be sensible. Only time, and comments, will tell...
@@ -140,6 +138,7 @@ foreach my $func ( sort keys %over ) {
 	   $func,
 	   HandleBad => 1,
 	   Pars => 'a(n); int+ [o]b();',
+	   GenericTypes=>$A,
 	   Code => 
 	   '$GENERIC(b) tmp = ' . $init . ';
 	    loop(n) %{ tmp ' . $op . ' $a(); %}
@@ -155,7 +154,29 @@ foreach my $func ( sort keys %over ) {
 	   Doc => projectdocs( $name, $func, '' ),
 	   );
 
-    # as above, but in double precision
+    # as above, but in complex double precision
+    pp_def(
+	   "c$func",
+	   HandleBad => 1,
+	   GenericTypes=>$C,
+	   Pars => 'a(n); cdouble [o]b();',
+	   Code =>
+	   'complex double tmp = ' . $init . ';
+	    loop(n) %{ tmp ' . $op . ' $a(); %}
+	    $b() = tmp;',
+	   BadCode =>
+	   'complex double tmp = ' . $init . ';
+            int flag = 0;
+	    loop(n) %{
+               if ( $ISGOOD(a()) ) { tmp ' . $op . ' $a(); flag = 1; }
+            %}
+            if ( flag ) { $b() = tmp; }
+            else        { $SETBAD(b()); }',
+	   Doc => projectdocs( $name, "d$func",
+"Unlike L<$func|/$func>, the calculations are performed in complex double\n" .
+"precision." ),
+	   );
+
     pp_def(
 	   "d$func",
 	   HandleBad => 1,
@@ -173,7 +194,7 @@ foreach my $func ( sort keys %over ) {
             if ( flag ) { $b() = tmp; }
             else        { $SETBAD(b()); }',
 	   Doc => projectdocs( $name, "d$func", 
-"Unlike L<$func|/$func>, the calculations are performed in double\n" .
+"Unlike L</$func>, the calculations are performed in double\n" .
 "precision." ),
 	   );
 
@@ -182,6 +203,7 @@ foreach my $func ( sort keys %over ) {
 	   $cfunc,
 	   HandleBad => 1,
 	   Pars => 'a(n); int+ [o]b(n);',
+	   GenericTypes=>$A,
 	   Code => 
            '$GENERIC(b) tmp = ' . $init . ';
 	    loop(n) %{ 
@@ -221,10 +243,9 @@ foreach my $func ( sort keys %over ) {
                }
 	    %}',
 	   Doc => cumuprojectdocs( $name, $cfunc, 
-"Unlike L<cumu$func|/cumu$func>, the calculations are performed in double\n" .
+"Unlike L</cumu$func>, the calculations are performed in double\n" .
 "precision." ),
 	   );
-
 } # foreach: my $func
 
 
@@ -254,7 +275,7 @@ foreach my $func ( sort keys %over ) {
 
     my %extra = {};
     unless ( defined $over{$func}{alltypes} and $over{$func}{alltypes} ) {
-	$extra{GenericTypes} = ['B','S','U','L','N'];
+	$extra{GenericTypes} = $T,
     }
 
     pp_def(
@@ -391,6 +412,31 @@ pp_addpm(<<'EOD');
 EOD
 
 
+# do the above calculation, but in complex double precision
+pp_def(
+	'caverage',
+	HandleBad => 1,
+	Pars => 'a(n); cdouble [o]b();',
+	Code =>
+	'complex double tmp = 0;
+	if($SIZE(n)) {
+	 loop(n) %{ tmp += $a(); %}
+	 $b() = tmp / $SIZE(n);
+	}
+	  else { $b() = 0; }',
+	BadCode =>
+	'complex double tmp = 0;
+         PDL_Indx cnt = 0;
+	 loop(n) %{
+            if ( $ISGOOD(a()) ) { tmp += $a(); cnt++; }
+         %}
+         if ( cnt ) { $b() = tmp / cnt; }
+         else       { $SETBAD(b()); }',
+	Doc => projectdocs( 'average', 'daverage',
+"Unlike L<average|/average>, the calculation is performed in complex double\n" .
+"precision." ),
+	);
+
 # do the above calculation, but in double precision
 pp_def( 
 	'daverage',
@@ -412,7 +458,7 @@ pp_def(
          if ( cnt ) { $b() = tmp / cnt; }
          else       { $SETBAD(b()); }',
 	Doc => projectdocs( 'average', 'daverage', 
-"Unlike L<average|/average>, the calculation is performed in double\n" .
+"Unlike L</average>, the calculation is performed in double\n" .
 "precision." ),
 	);
 
@@ -437,10 +483,8 @@ EOD
 # note: we export them to the PDL Core structure for use in
 #       other modules (eg Image2D)
 
-for ( PDL::Types::typesrtkeys() ) {
-    my $ctype = $PDL::Types::typehash{$_}{ctype};
-    my $ppsym = $PDL::Types::typehash{$_}{ppsym};
-
+for ( grep $_->real, types() ) {
+    my ($ctype, $ppsym) = ($_->ctype, $_->ppsym);
     pp_add_boot( " PDL->qsort_${ppsym} = pdl_qsort_${ppsym};" .
 		 " PDL->qsort_ind_${ppsym} = pdl_qsort_ind_${ppsym};\n" );
 
@@ -509,7 +553,7 @@ for ( PDL::Types::typesrtkeys() ) {
 	/* Compare a vector in lexicographic order, returning the
 	 *  equivalent of "<=>". 
  	 */
-      signed char pdl_cmpvec_$ppsym($ctype *a, $ctype *b, PDL_Indx n) {
+      signed int pdl_cmpvec_$ppsym($ctype *a, $ctype *b, PDL_Indx n) {
 	PDL_Indx i;
 	for(i=0; i<n; a++,b++,i++) {
 	 if( *a < *b ) return -1;
@@ -610,15 +654,13 @@ FOO
 
 sub generic_qsort {
     my $pdl = shift;
-    return '$TBSULNQFD(pdl_qsort_B,pdl_qsort_S,pdl_qsort_U,
-             pdl_qsort_L,pdl_qsort_N,pdl_qsort_Q,pdl_qsort_F,pdl_qsort_D) ($P(' . $pdl . '), 0, nn);';
+    return 'pdl_qsort_$TBSULNQFD(B,S,U,L,N,Q,F,D) ($P(' . $pdl . '), 0, nn);';
 }
 
 sub generic_qsortvec {
     my $pdl = shift;
     my $ndim = shift;
-    return '$TBSULNQFD(pdl_qsortvec_B,pdl_qsortvec_S,pdl_qsortvec_U,
-             pdl_qsortvec_L,pdl_qsortvec_N,pdl_qsortvec_Q,pdl_qsortvec_F,pdl_qsortvec_D) ($P(' . $pdl . '), '. $ndim.', 0, nn);';
+    return 'pdl_qsortvec_$TBSULNQFD(B,S,U,L,N,Q,F,D) ($P(' . $pdl . '), '. $ndim.', 0, nn);';
 }
 
 
@@ -696,7 +738,7 @@ some circumstances.
 pp_def('modeover',
        HandleBad=>undef,
        Pars => 'data(n); [o]out(); [t]sorted(n);',
-       GenericTypes=>['B','S','U','L','Q','N'],
+       GenericTypes=>$T,
        Doc=>projectdocs('mode','modeover','
 
 The mode is the single element most frequently found in a 
@@ -717,7 +759,7 @@ BAD is the most common element, the returned value is also BAD.
 
                /* Copy input to buffer for sorting, and sort it */
                loop(n) %{ $sorted() = $data(); %}
-               PDL->$TBSULNQ(qsort_B,qsort_S,qsort_U,qsort_L,qsort_N,qsort_Q)($P(sorted),0,$SIZE(n)-1);
+               PDL->qsort_$TBSULNQ(B,S,U,L,N,Q)($P(sorted),0,$SIZE(n)-1);
       
                /* Walk through the sorted data and find the most common elemen */
                loop(n) %{
@@ -780,7 +822,7 @@ pp_def('pctover',
 
 Project via percentile to N-1 dimensions
 
-This function reduces the dimensionality of a piddle by one by finding
+This function reduces the dimensionality of an ndarray by one by finding
 the specified percentile (p) along the 1st dimension.  The specified
 percentile must be between 0.0 and 1.0.  When the specified percentile
 falls between data points, the result is interpolated.  Values outside
@@ -798,13 +840,13 @@ I<any> dimension.
 
 =for example
 
- $spectrum = pctover $image->xchg(0,1), $p
+ $spectrum = pctover $image->transpose, $p
 
 =cut
 
 
 ',
-        Code => '
+       Code => '
            double np, pp1, pp2;
            PDL_Indx nn2;
 	   ' . $copy_to_temp_good .
@@ -826,7 +868,7 @@ pp_def('oddpctover',
 
 Project via percentile to N-1 dimensions
 
-This function reduces the dimensionality of a piddle by one by finding
+This function reduces the dimensionality of an ndarray by one by finding
 the specified percentile along the 1st dimension.  The specified
 percentile must be between 0.0 and 1.0.  When the specified percentile
 falls between two values, the nearest data value is the result.
@@ -842,13 +884,13 @@ I<any> dimension.
 
 =for example
 
- $spectrum = oddpctover $image->xchg(0,1), $p
+ $spectrum = oddpctover $image->transpose, $p
 
 =cut
 
 
 ',
-        Code => '
+       Code => '
            PDL_Indx np;
 	   ' . $copy_to_temp_good . '
            np = (nn+1)*$p();
@@ -874,7 +916,7 @@ pp_addpm(<<"EOD");
 
 =for ref
 
-Return the specified percentile of all elements in a piddle. The
+Return the specified percentile of all elements in an ndarray. The
 specified percentile (p) must be between 0.0 and 1.0.  When the
 specified percentile falls between data points, the result is
 interpolated.
@@ -902,7 +944,7 @@ pp_addpm(<<"EOD");
 
 =for ref
 
-Return the specified percentile of all elements in a piddle. The
+Return the specified percentile of all elements in an ndarray. The
 specified percentile must be between 0.0 and 1.0.  When the specified
 percentile falls between two values, the nearest data value is the
 result.
@@ -958,30 +1000,19 @@ for my $op ( ['avg','average','average'],
 
 =for ref
 
-Return the $text of all elements in a piddle.
+Return the $text of all elements in an ndarray.
 
-See the documentation for L<$func|/$func> for more information.
+See the documentation for L</$func> for more information.
 
 =for usage
 
  \$x = $name(\$data);
 
-=cut
-
-EOD
-
-    if ( $bvalflag ) {
-	pp_addpm(<<"EOD");
 =for bad
 
 This routine handles bad values.
 
 =cut
-
-EOD
-} # if: bvalflag
-
-   pp_addpm(<<"EOD");
 
 *$name = \\&PDL::$name;
 sub PDL::$name {
@@ -1000,7 +1031,7 @@ pp_addpm(<<'EOPM');
 
 =for ref
 
-Return true if any element in piddle set
+Return true if any element in ndarray set
 
 Useful in conditional expressions:
 
@@ -1008,23 +1039,13 @@ Useful in conditional expressions:
 
  if (any $x>15) { print "some values are greater than 15\n" }
 
-=cut
-
-EOPM
-
-    if ( $bvalflag ) {
-	pp_addpm(<<'EOPM');
 =for bad
 
-See L<or|/or> for comments on what happens when all elements
+See L</or> for comments on what happens when all elements
 in the check are bad.
 
 =cut
 
-EOPM
-} # if: bvalflag
-
-pp_addpm(<<'EOPM');
 *any = \&or;
 *PDL::any = \&PDL::or;
 
@@ -1032,7 +1053,7 @@ pp_addpm(<<'EOPM');
 
 =for ref
 
-Return true if all elements in piddle set
+Return true if all elements in ndarray set
 
 Useful in conditional expressions:
 
@@ -1040,45 +1061,31 @@ Useful in conditional expressions:
 
  if (all $x>15) { print "all values are greater than 15\n" }
 
-=cut
-
-EOPM
-
-    if ( $bvalflag ) {
-	pp_addpm(<<'EOPM');
 =for bad
 
-See L<and|/and> for comments on what happens when all elements
+See L</and> for comments on what happens when all elements
 in the check are bad.
 
 =cut
 
-EOPM
-} # IF: BVALFLAG
-
-pp_addpm(<<'EOPM');
-
 *all = \&and;
 *PDL::all = \&PDL::and;
-
-EOPM
-
-pp_addpm(<<'EOD'
 
 =head2 minmax
 
 =for ref
 
-Returns an array with minimum and maximum values of a piddle.
+Returns a list with minimum and maximum values of an ndarray.
 
 =for usage
 
  ($mn, $mx) = minmax($pdl);
 
 This routine does I<not> thread over the dimensions of C<$pdl>; 
-it returns the minimum and maximum values of the whole array.
-See L<minmaximum|/minmaximum> if this is not what is required.
-The two values are returned as Perl scalars similar to min/max.
+it returns the minimum and maximum values of the whole ndarray.
+See L</minmaximum> if this is not what is required.
+The two values are returned as Perl scalars similar to min/max,
+and therefore ignore whether the values are bad.
 
 =for example
 
@@ -1096,12 +1103,10 @@ sub PDL::minmax {
   return map {$_->sclr} @arr[0,1]; # return as scalars !
 }
 
-EOD
-);
+EOPM
 
 pp_add_exported('', 'minmax');
 #pp_add_exported('', 'minmax_ind');
-
 
 # move all bad values to the end of the array
 #
@@ -1115,7 +1120,7 @@ pp_def(
      loop(n) %{ $b() = $a(); %}
      nn = $COMP(__n_size)-1;
      if ($PDL(a)->dims[0] != $PDL(b)->dims[0] && $PDL(a)->dims[0]!=0 && $PDL(b)->dims[0]!=1){
-        PDL->pdl_barf("You likely passed a scalar argument to qsort, when you should have passed a piddle (or nothing at all)");
+        barf("You likely passed a scalar argument to qsort, when you should have passed an ndarray (or nothing at all)");
      }
     ' . generic_qsort('b'),
     BadCode =>
@@ -1125,7 +1130,7 @@ pp_def(
         else                { $SETBAD(b(n=>nb)); nb--; }
      %}
      if ($PDL(a)->dims[0] != $PDL(b)->dims[0] && $PDL(b)->dims[0]!=0 && $PDL(b)->dims[0]!=1){
-        PDL->pdl_barf("You likely passed a scalar argument to qsort, when you should have passed a piddle (or nothing at all)");
+        barf("You likely passed a scalar argument to qsort, when you should have passed an ndarray (or nothing at all)");
      }
      if ( nn != 0 ) {
         nn -= 1;
@@ -1154,8 +1159,7 @@ Bad values are moved to the end of the array:
     ); # pp_def qsort
 
 sub generic_qsort_ind {
-    return '$TBSULNQFD(pdl_qsort_ind_B,pdl_qsort_ind_S,pdl_qsort_ind_U,
-            pdl_qsort_ind_L,pdl_qsort_ind_N,pdl_qsort_ind_Q,pdl_qsort_ind_F,pdl_qsort_ind_D) ($P(a), $P(indx),
+    return 'pdl_qsort_ind_$TBSULNQFD(B,S,U,L,N,Q,F,D) ($P(a), $P(indx),
             0, nn);';
 }
 
@@ -1170,7 +1174,7 @@ pp_def(
            $indx() = n; 
         %}
         if ($PDL(a)->dims[0] != $PDL(indx)->dims[0] && $PDL(a)->dims[0]!=0 && $PDL(indx)->dims[0]!=1){
-           PDL->pdl_barf("You likely passed a scalar argument to qsorti, when you should have passed a piddle (or nothing at all)");
+           barf("You likely passed a scalar argument to qsorti, when you should have passed an ndarray (or nothing at all)");
         }
        ' . generic_qsort_ind(),
        BadCode =>
@@ -1181,7 +1185,7 @@ pp_def(
            else                { $indx(n=>nb) = n; nb--; }
         %}
          if ($PDL(a)->dims[0] != $PDL(indx)->dims[0] && $PDL(a)->dims[0]!=0 && $PDL(indx)->dims[0]!=1){
-            PDL->pdl_barf("You likely passed a scalar argument to qsorti, when you should have passed a piddle (or nothing at all)");
+            barf("You likely passed a scalar argument to qsorti, when you should have passed an ndarray (or nothing at all)");
         }
         if ( nn != 0 ) {
            nn -= 1;
@@ -1225,7 +1229,7 @@ pp_def(
      nn = ($COMP(__m_size))-1;
      nd = $COMP(__n_size);
      if (($PDL(a)->dims[0] != $PDL(b)->dims[0] || $PDL(a)->dims[1] != $PDL(b)->dims[1]) && $PDL(a)->dims[1] !=0 && $PDL(b)->dims[1] != 1){
-        PDL->pdl_barf("You likely passed a scalar argument to qsortvec, when you should have passed a piddle (or nothing at all)");
+        barf("You likely passed a scalar argument to qsortvec, when you should have passed an ndarray (or nothing at all)");
      }
     ' . generic_qsortvec('b','nd'),
     Doc => '
@@ -1233,7 +1237,7 @@ pp_def(
 
 Sort a list of vectors lexicographically.
 
-The 0th dimension of the source piddle is dimension in the vector;
+The 0th dimension of the source ndarray is dimension in the vector;
 the 1st dimension is list order.  Higher dimensions are threaded over.
 
 =for example
@@ -1261,7 +1265,7 @@ Vectors with bad components should be moved to the end of the array:
 sub generic_qsortvec_ind {
     my $pdl = shift;
     my $ndim = shift;
-    return '$TBSULNQFD(pdl_qsortvec_ind_B,pdl_qsortvec_ind_S,pdl_qsortvec_ind_U,pdl_qsortvec_ind_L,pdl_qsortvec_ind_N,pdl_qsortvec_ind_Q,pdl_qsortvec_ind_F,pdl_qsortvec_ind_D) ($P(' . $pdl . '), $P(indx), '. $ndim.', 0, nn);';
+    return 'pdl_qsortvec_ind_$TBSULNQFD(B,S,U,L,N,Q,F,D) ($P(' . $pdl . '), $P(indx), '. $ndim.', 0, nn);';
 }
 
 pp_def(
@@ -1276,7 +1280,7 @@ pp_def(
      %}
      nd = $COMP(__n_size);
      if ($PDL(a)->ndims >1 && $PDL(a)->dims[1] != $PDL(indx)->dims[0] && $PDL(a)->dims[1]!=0 && $PDL(indx)->dims[0]!=1){
-        PDL->pdl_barf("You likely passed a scalar argument to qsortveci, when you should have passed a piddle (or nothing at all)");
+        barf("You likely passed a scalar argument to qsortveci, when you should have passed an ndarray (or nothing at all)");
      }
     ' . generic_qsortvec_ind('a','nd'),
     Doc => '
@@ -1319,19 +1323,13 @@ for my $which (
 	    '$GENERIC() cur;
 	     int flag = 0;
 	     loop(n) %{
-	 	if( !flag || ($a() '.$op.' cur ) || IsNaN(cur) ) { cur = $a(); flag = 1;}
+		if( !flag || ($a() '.$op.' cur ) || IsNaN(cur) ) { cur = $a(); flag = 1;}
 	     %}
 	     if(flag && !IsNaN(cur)) {
 	     	     $c() = cur;
              } else {
-	     ' . ($bvalflag ? '
 	             $SETBAD(c());
 		     $PDLSTATESETBAD(c);
-	     ' : '
-                     $c() = 0.25;
-                     if($c()>0)
-                       $c() = sqrt(-1);
-             ' ) . '
              }     
 		     ',
 	    BadCode => 
@@ -1346,7 +1344,7 @@ for my $which (
 	    Doc => projectdocs($name,$name),
 	    BadDoc => 
 'Output is set bad if all elements of the input are bad,
-otherwise the bad flag is cleared for the output piddle.
+otherwise the bad flag is cleared for the output ndarray.
 
 Note that C<NaNs> are considered to be valid values;
 see L<isfinite|PDL::Math/isfinite> and L<badmask|PDL::Math/badmask>
@@ -1363,23 +1361,14 @@ for ways of masking NaNs.
              PDL_Indx curind;
 	     int flag = 0;
 	     loop(n) %{
-	 	if(!flag || $a() '.$op.' cur || IsNaN(cur))
+		if(!flag || $a() '.$op.' cur || IsNaN(cur))
 		   {cur = $a(); curind = n;flag=1;}
 	     %}
 	     if(flag && !IsNaN(cur)) {
 	       $c() = curind;
-  	     } else { '
-	     . ($bvalflag ? '
+	     } else {
 	          $SETBAD(c());
                   $PDLSTATESETBAD(c);
-	     ' : '
-	       $c() = 0.25;      /* check for floatiness */
-	       if($c() == 0) {
-	          $c() = -1;     /* put a nonsensical value in */
-	       } else {
-	          $c() = sqrt(-1);  /* NaN if possible */
-	       }
-             ') . '
 	     }
 	       ',
 	    BadCode => 
@@ -1395,7 +1384,7 @@ for ways of masking NaNs.
 	    Doc => "Like $name but returns the index rather than the value",
 	    BadDoc => 
 'Output is set bad if all elements of the input are bad,
-otherwise the bad flag is cleared for the output piddle.',
+otherwise the bad flag is cleared for the output ndarray.',
 	    );
 
     pp_def( 
@@ -1514,23 +1503,13 @@ pp_addpm(<<'EOD');
 
 EOD
 
-# removed IsNaN handling, even from Code section
-# I think it was wrong, since it was
-#
-#   if (!n || ($a() < curmin) || IsNaN(curmin)) {curmin = $a(); curmin_ind = n;};
-#   if (!n || ($a() > curmax) || IsNaN(curmax)) {curmax = $a(); curmax_ind = n;};
-#
-# surely this succeeds if cur... is a NaN??
-#
 pp_def( 
 	'minmaximum',
 	HandleBad => 1,
 	Pars => 'a(n); [o]cmin(); [o] cmax(); indx [o]cmin_ind(); indx [o]cmax_ind();',
 	Code => 
-	'$GENERIC() curmin, curmax;
-         PDL_Indx curmin_ind, curmax_ind;
-
- 	 curmin = curmax = 0; /* Handle null piddle --CED */
+	'$GENERIC() curmin = 0, curmax = 0; /* Handle null ndarray --CED */
+         PDL_Indx curmin_ind = 0, curmax_ind = 0;
 
 	 loop(n) %{
             if ( !n ) {
@@ -1545,8 +1524,8 @@ pp_def(
          $cmax() = curmax; $cmax_ind() = curmax_ind;',
 	CopyBadStatusCode => '',
 	BadCode => 
-	'$GENERIC() curmin, curmax;
-         PDL_Indx curmin_ind, curmax_ind; int flag = 0;
+	'$GENERIC() curmin = 0, curmax = 0;
+         PDL_Indx curmin_ind = 0, curmax_ind = 0; int flag = 0;
 	
 	 loop(n) %{
             if ( $ISGOOD(a()) ) {
@@ -1560,7 +1539,7 @@ pp_def(
                }
             } /* ISGOOD */
 	 %}
-         if ( flag ) { /* Handle null piddle */
+         if ( flag ) { /* Handle null ndarray */
             $cmin() = curmin; $cmin_ind() = curmin_ind;
             $cmax() = curmax; $cmax_ind() = curmax_ind;
          } else {
@@ -1573,7 +1552,7 @@ pp_def(
 '
 =for ref
 
-Find minimum and maximum and their indices for a given piddle;
+Find minimum and maximum and their indices for a given ndarray;
 
 =for usage
 
@@ -1582,13 +1561,13 @@ Find minimum and maximum and their indices for a given piddle;
  pdl> p $min, $max, $min_ind, $max_ind
  [-2 0] [4 3] [0 1] [2 2]
 
-See also L<minmax|/minmax>, which clumps the piddle together.
+See also L</minmax>, which clumps the ndarray together.
 
 =cut
 
 ',
 	BadDoc =>
-'If C<a()> contains only bad data, then the output piddles will
+'If C<a()> contains only bad data, then the output ndarrays will
 be set bad, along with their bad flag.
 Otherwise they will have their bad flags cleared,
 since they will not contain any bad values.',

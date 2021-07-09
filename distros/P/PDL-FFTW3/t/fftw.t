@@ -2,8 +2,11 @@
 
 use strict;
 use warnings;
+use Test::More;
 use PDL::LiteF;
 use PDL::Types;
+use PDL::FFTW3;
+use PDL::Complex;
 
 # Please be careful about rearranging these tests, since they depend on the
 # global FFTW plan cache, and thus order can matter.
@@ -23,18 +26,18 @@ set_autopthread_size(0);
 # aligned data buffers this should be re-enabled.
 my $do_check_plan_creations = undef;
 
-use Test::More;
-
-BEGIN
-{
-  plan tests => 178;
-  use_ok( 'PDL::FFTW3' );
-}
-
 use constant approx_eps_double => 1e-8;
 use constant approx_eps_single => 1e-3;
 
 my $Nplans = 0;
+
+sub other2native {
+  my ($other) = @_;
+  my @other_dims = $other->dims;
+  shift @other_dims; # drop initial 2
+  $other = cplx $other if !UNIVERSAL::isa($other, 'PDL::Complex');
+  zeroes(cdouble, @other_dims) + $other->re + $other->im * PDL::_ci();
+}
 
 # 1D basic test
 {
@@ -61,8 +64,36 @@ my $Nplans = 0;
   ok_should_make_plan( all( approx( fft1(float $x), float($Xref), approx_eps_single) ),
                       "Basic 1D complex FFT - single precision" );
 
-  ok_should_make_plan( all( approx( ifft1(fft1($x)), $x , approx_eps_double) ),
+  my $x_cplx = cplx $x;
+  my $cplx_result = fft1($x_cplx);
+  ok_should_make_plan( all( approx( $cplx_result, $Xref->cplx, approx_eps_double) ),
+                      "Basic 1D complex FFT with PDL::Complex" );
+  isa_ok($cplx_result, 'PDL::Complex', "PDL::Complex return type");
+
+  ok_should_make_plan( all( approx( ifft1(fft1($x)), $x, approx_eps_double) ),
                       "Basic 1D complex FFT - inverse(forward) should be the same (normalized)" );
+
+  my $x_nat = other2native($x_cplx);
+  ok_should_make_plan( all( approx( fft1($x_nat), other2native($Xref), approx_eps_double) ),
+                      "Basic 1D native complex FFT" );
+
+  ok_should_make_plan( all( approx( ifft1(fft1($x_nat)), $x_nat, approx_eps_double) ),
+                      "Basic 1D native complex FFT - inverse" );
+}
+
+# ensure ifftn native and PDL::Complex are same
+{
+  my $x_cplx = zeroes(2, 11, 1)->complex;
+  $x_cplx->slice(':,0') .= 1;
+  my $x_nat = other2native($x_cplx);
+  my $with_cplx = ifft1($x_cplx);
+  my $with_nat = ifft1($x_nat);
+  ok all(approx $with_nat, other2native($with_cplx), approx_eps_double), 'ifft1 native matches PDL::Complex'
+    or diag "got:$with_nat\nexpected:$with_cplx";
+  $with_cplx = ifftn($x_cplx, 1);
+  $with_nat = ifftn($x_nat, 1);
+  ok all(approx $with_nat, other2native($with_cplx), approx_eps_double), 'ifftn native matches PDL::Complex'
+    or diag "got:$with_nat\nexpected:$with_cplx";
 }
 
 # 2D basic test
@@ -83,6 +114,10 @@ my $Nplans = 0;
   ok_should_make_plan( all( approx( fft2($x), $Xref, approx_eps_double) ),
      "Basic 2D complex FFT - double precision" );
 
+  my $x_nat = other2native($x);
+  ok_should_make_plan( all( approx( fft2($x_nat), other2native($Xref), approx_eps_double) ),
+     "Basic 2D native complex FFT - double precision" );
+
   ok_should_make_plan( all( approx( fft2(float $x), float($Xref), approx_eps_single) ),
      "Basic 2D complex FFT - single precision" );
 
@@ -102,10 +137,10 @@ my $Nplans = 0;
                   [[159.00000000000000,+17.40257062911774],[-3.87011652053375,+4.63147782374252],[-3.29187043104844,+1.20500010718478],[-3.00000000000000,-0.52218157372224],[-2.70812956895156,-2.25910150795298],[-2.12988347946625,-5.76082702167074]] );
 
   ok_should_make_plan( all( approx( fft1($x), $Xref, approx_eps_double) ),
-     "1D FFTs threaded inside a 2D piddle" );
+     "1D FFTs threaded inside a 2D ndarray" );
 
   ok_should_make_plan( all( approx( ifft1(fft1($x)), $x , approx_eps_double) ),
-                      "1D FFTs threaded inside a 2D piddle - inverse(forward) should be the same" );
+                      "1D FFTs threaded inside a 2D ndarray - inverse(forward) should be the same" );
 }
 
 # lots of 1D ffts threaded in a 3d array
@@ -141,10 +176,15 @@ my $Nplans = 0;
 
   my $f = fft1($x);
 
-  is( get_autopthread_actual(), 2, "1D FFTs threaded inside a 3D piddle - CPU threading should work" );
+  is( get_autopthread_actual(), 2, "1D FFTs threaded inside a 3D ndarray - CPU threading should work" );
 
   ok_should_reuse_plan( all( approx( $f, $Xref, approx_eps_double) ),
-     "1D FFTs threaded inside a 3D piddle" );
+     "1D FFTs threaded inside a 3D ndarray" );
+
+  my $x_nat = other2native($x);
+  my $f_nat = fft1($x_nat);
+  ok_should_reuse_plan( all( approx( $f_nat, other2native($Xref), approx_eps_double) ),
+     "1D native complex FFTs threaded inside a 3D ndarray" );
 }
 
 # try out some different ways of calling the module, make sure the argument
@@ -169,7 +209,7 @@ my $Nplans = 0;
   ok( $@, "Calling fft1(null) should fail.");
 
   eval( 'fft1( {} ))' );
-  ok( $@, "Calling fft1( {} ) should fail (want piddle input).");
+  ok( $@, "Calling fft1( {} ) should fail (want ndarray input).");
 
   eval( 'fft1(sequence(2,5), sequence(3,5) )' );
   ok( $@, "Calling fft1 with mismatched arguments should fail" );
@@ -263,10 +303,10 @@ my $Nplans = 0;
                    [[-1.17049392363129e+02,-2.46859689910763e+02],[2.39899060049070e-01,-1.38101687968226e-01],[1.59658915211960e-01,-6.48727639912472e-04],[1.20144019881925e-01,+6.82934899895806e-02],[8.10343889012709e-02,+1.37369911169460e-01],[4.03481145874271e-03,+2.75896474493798e-01]]] );
 
   ok_should_make_plan( all( approx( fft2($x), $Xref, approx_eps_double) ),
-     "2D FFTs threaded inside a 3D piddle" );
+     "2D FFTs threaded inside a 3D ndarray" );
 
   ok_should_make_plan( all( approx( fft2( float $x), float($Xref), approx_eps_single) ),
-     "2D FFTs threaded inside a 3D piddle - single precision" );
+     "2D FFTs threaded inside a 3D ndarray - single precision" );
 
 
   # Now I take a slice of the input matrix, and fft that. This makes sure the
@@ -308,16 +348,16 @@ my $Nplans = 0;
           [[-9.74417295843736e+01,-2.05659722932842e+02],[1.79920562610709e-01,-8.03744824636155e-02],[1.19169692096844e-01,+2.45697427068684e-02],[8.21878607839186e-02,+8.96232824108548e-02],[2.32671625274674e-02,+1.95170681256241e-01]]] );
 
   ok_should_make_plan( all( approx( fft2($x_slice1_severed), $X_slice1_ref, approx_eps_double) ),
-     "2D FFTs threaded inside a 3D piddle - slice1 - severed" );
+     "2D FFTs threaded inside a 3D ndarray - slice1 - severed" );
 
   ok_should_reuse_plan( all( approx( fft2($x_slice1_connected), $X_slice1_ref, approx_eps_double) ),
-     "2D FFTs threaded inside a 3D piddle - slice1 - connected" );
+     "2D FFTs threaded inside a 3D ndarray - slice1 - connected" );
 
   # now go again with single precision. If $P() didn't physicalize its input,
   # this would no longer be aligned like before, since the input has shifted by
   # 4 bytes
   ok_should_make_plan( all( approx( fft2(float $x_slice1_connected), float($X_slice1_ref), approx_eps_single) ),
-                       "2D FFTs threaded inside a 3D piddle - slice1 - connected - single precision" );
+                       "2D FFTs threaded inside a 3D ndarray - slice1 - connected - single precision" );
 
 
 
@@ -358,30 +398,30 @@ my $Nplans = 0;
           [[-9.76419555018576e+01,-2.05773543168977e+02],[1.78415452819879e-01,-7.93210083326257e-02],[1.18035987634609e-01,+2.45615120500224e-02],[8.12721813043989e-02,+8.89567757119387e-02],[2.26856083517065e-02,+1.93436447059624e-01]]] );
 
   ok_should_reuse_plan( all( approx( fft2($x_slice2_severed), $X_slice2_ref, approx_eps_double) ),
-                        "2D FFTs threaded inside a 3D piddle - slice2 - severed" );
+                        "2D FFTs threaded inside a 3D ndarray - slice2 - severed" );
 
   ok_should_reuse_plan( all( approx( fft2($x_slice2_connected), $X_slice2_ref, approx_eps_double) ),
-                        "2D FFTs threaded inside a 3D piddle - slice2 - connected" );
+                        "2D FFTs threaded inside a 3D ndarray - slice2 - connected" );
 
   # now go again with single precision. If $P() didn't physicalize its input,
   # this would no longer be aligned like before, since the input has shifted by
   # 4 bytes
   ok_should_reuse_plan( all( approx( fft2(float $x_slice2_connected), float($X_slice2_ref), approx_eps_single) ),
-                        "2D FFTs threaded inside a 3D piddle - slice2 - connected - single precision" );
+                        "2D FFTs threaded inside a 3D ndarray - slice2 - connected - single precision" );
 
 
   # I now try to fft INTO a slice. The out-of-slice pieces shouldn't be touched
   my $x_orig = $x->copy;
   fft2( $x_slice2_severed, $x_slice2_connected );
-  is( get_autopthread_actual(), 2, "1D FFTs threaded inside a 3D piddle - slice2 - connected - in-slice correct - CPU threading should work" );
+  is( get_autopthread_actual(), 2, "1D FFTs threaded inside a 3D ndarray - slice2 - connected - in-slice correct - CPU threading should work" );
   ok_should_reuse_plan( all( approx( $x_slice2_connected, $X_slice2_ref, approx_eps_double) ),
-                        "2D FFTs threaded inside a 3D piddle - slice2 - connected - in-slice correct" );
+                        "2D FFTs threaded inside a 3D ndarray - slice2 - connected - in-slice correct" );
 
   my $X_partialfft_ref = $x_orig->copy;
   $X_partialfft_ref->slice(':,1:5,:,:') .= $x_slice2_connected;
 
   ok( all( approx( $x, $X_partialfft_ref, approx_eps_double) ),
-      "2D FFTs threaded inside a 3D piddle - slice2 - connected - out-of-slice correct" );
+      "2D FFTs threaded inside a 3D ndarray - slice2 - connected - out-of-slice correct" );
 }
 
 # check the type logic
@@ -478,17 +518,23 @@ my $Nplans = 0;
                      [-5.90820611352046,-50.87477421602225] );
 
   my $fx6 = rfft1($x6);
-  ok_should_make_plan( all( approx( $fx6, $fx6_ref->slice(':,0:3'), approx_eps_double) ),
+  my $fx6_ref_input = $fx6_ref->slice(':,0:3');
+  ok_should_make_plan( all( approx( $fx6, $fx6_ref_input, approx_eps_double) ),
                        "rfft basic test - forward - 6long" );
+  my $fx6_nat = rNfft1($x6);
+  my $fx6_ref_input_nat = other2native($fx6_ref_input);
+  ok_should_reuse_plan( all( approx( $fx6_nat, $fx6_ref_input_nat, approx_eps_double) ),
+                       "rfft basic test - native forward - 6long" );
+
   my $fx7 = rfft1($x7);
   ok_should_make_plan( all( approx( $fx7, $fx7_ref->slice(':,0:3'), approx_eps_double) ),
                        "rfft basic test - forward - 7long" );
 
-  my $x6_back = irfft1($fx6_ref->slice(':,0:3'), zeros(6) );
+  my $x6_back = irfft1($fx6_ref_input, zeros(6) );
   ok_should_make_plan( all( approx( $x6, $x6_back, approx_eps_double) ),
                        "rfft basic test - backward - 6long - output in arglist" );
 
-  $x6_back = irfft1($fx6_ref->slice(':,0:3'));
+  $x6_back = irfft1($fx6_ref_input);
   ok_should_reuse_plan( all( approx( $x6, $x6_back, approx_eps_double) ),
                         "rfft basic test - backward - 6long - output returned" );
 
@@ -496,6 +542,26 @@ my $Nplans = 0;
   ok_should_make_plan( all( approx( $x7, $x7_back, approx_eps_double) ),
                        "rfft basic test - backward - 7long" );
 
+  my $x6_nat_back = irfft1($fx6_ref_input_nat, zeros(6));
+  ok_should_reuse_plan( all( approx( $x6_nat_back, $x6, approx_eps_double) ),
+                       "rfft basic test - native backward - 6long - output in arglist" )
+    or diag "Got: ($x6_nat_back)\nExpected ($x6)";
+
+  $x6_nat_back = irfft1($fx6_ref_input_nat);
+  ok_should_reuse_plan( all( approx( $x6_nat_back, $x6, approx_eps_double) ),
+                       "rfft basic test - native backward - 6long - output returned" )
+    or diag "Got: ($x6_nat_back)\nExpected ($x6)";
+
+  # Test real fft's with PDL::Complex arguments
+  my $fx6c=rfft1($x6, zeroes(2,4)->cplx);
+  isa_ok($fx6c, 'PDL::Complex', 'type of real to PDL::Complex forward transform');
+  ok_should_reuse_plan(all( approx($fx6c, $fx6_ref_input->cplx, approx_eps_double) ),
+		       'value of real to PDL::Complex forward transform');
+  my $x6c_back=irfft1($fx6c);
+  ok($x6c_back->isa('PDL') && !$x6c_back->isa('PDL::Complex'),
+     'type of PDL::Complex to real backward transform');
+  ok(all( approx($x6c_back, $x6, approx_eps_double) ),
+     'value of PDL::Complex to real backward transform');
 
   # Currently a single plan is made for ALL the thread slices. These tests are
   # meant to exercise cases where this is a bad assumption. I.e. where some
@@ -791,7 +857,7 @@ my $Nplans = 0;
 
 }
 
-# Alignment checks. Here I try to fft purposely-unaligned piddles to make sure
+# Alignment checks. Here I try to fft purposely-unaligned ndarrays to make sure
 # that PDL::FFTW3 both makes a new plan and computes the data correctly. I only
 # create an input offset
 #
@@ -818,10 +884,10 @@ if(0)
   my $length = length ${$x->get_dataref};
   for my $offset (4,8)
   {
-    # this assumes a 16-aligned piddle is created. This is true on my amd64 box
+    # this assumes a 16-aligned ndarray is created. This is true on my amd64 box
     my $x_offset = $x->copy;
 
-    # create an offset in the data inside the piddle
+    # create an offset in the data inside the ndarray
     ${$x_offset->get_dataref} .= ' ' x $offset;
     substr(${$x_offset->get_dataref}, 0, $offset) = "";
     substr(${$x_offset->get_dataref}, 0) = ${$x->get_dataref};
@@ -832,21 +898,24 @@ if(0)
   }
 }
 
-
-
+done_testing;
 
 sub ok_should_make_plan
 {
   my ($value, $planname) = @_;
-  ok( $value, $planname );
+  local $Test::Builder::Level = $Test::Builder::Level + 1;
+  my $ret = ok( $value, $planname );
   check_new_plan( $planname );
+  $ret;
 }
 
 sub ok_should_reuse_plan
 {
   my ($value, $planname) = @_;
-  ok( $value, $planname );
+  local $Test::Builder::Level = $Test::Builder::Level + 1;
+  my $ret = ok( $value, $planname );
   check_reused_plan( $planname );
+  $ret;
 }
 
 sub check_new_plan
@@ -855,6 +924,7 @@ sub check_new_plan
 
  SKIP: {
     skip "Plan creation checks disabled because pdl memory may be unaligned", 1 unless $do_check_plan_creations;
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
     ok( $PDL::FFTW3::_Nplans == $Nplans+1,
         "$planname: should make a new plan" );
   }
@@ -868,6 +938,7 @@ sub check_reused_plan
 
  SKIP: {
     skip "Plan creation checks disabled because pdl memory may be unaligned", 1 unless $do_check_plan_creations;
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
     ok( $PDL::FFTW3::_Nplans == $Nplans,
         "$planname: should reuse an existing plan" );
   }

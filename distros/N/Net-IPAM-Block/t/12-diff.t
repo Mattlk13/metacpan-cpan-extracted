@@ -29,9 +29,52 @@ foreach my $item (@inner_str) {
 }
 
 my @diff = $outer->diff( shuffle @inner );
-
 my @diff_str = map { $_->to_string } @diff;
 is_deeply( \@diff_str, \@expected_str, 'IPv4 diff' );
+
+my $diff = $outer->diff( shuffle @inner );
+@diff_str = map { $_->to_string } @$diff;
+is_deeply( \@diff_str, \@expected_str, 'IPv4 diff' );
+
+###############
+#
+$outer     = Net::IPAM::Block->new("::/0");
+@inner_str = qw(
+        0000::/8
+        0100::/8
+        0200::/7
+        0400::/6
+        0800::/5
+        1000::/4
+        2000::/3
+        4000::/3
+        8000::/3
+        a000::/3
+        c000::/3
+        e000::/4
+        f000::/5
+        f800::/6
+        fe00::/9
+        fe80::/10
+        fec0::/10
+        ff00::/8
+);
+
+@expected_str = qw(
+  6000::/3
+  fc00::/7
+);
+
+undef @inner;
+foreach my $item (@inner_str) {
+  push @inner, Net::IPAM::Block->new($item);
+}
+
+@diff = $outer->diff( shuffle @inner );
+$diff = $outer->diff( shuffle @inner );
+
+@diff_str = map { $_->to_string } @diff;
+is_deeply( \@diff_str, \@expected_str, 'IANAv6 blocks' );
 
 ###############
 #
@@ -56,6 +99,7 @@ foreach my $item (@inner_str) {
 }
 
 @diff = $outer->diff( shuffle @inner );
+$diff = $outer->diff( shuffle @inner );
 
 @diff_str = map { $_->to_string } @diff;
 is_deeply( \@diff_str, \@expected_str, 'IPv4 diff' );
@@ -78,6 +122,7 @@ foreach my $item (@inner_str) {
 }
 
 @diff = $outer->diff( shuffle @inner );
+$diff = $outer->diff( shuffle @inner );
 
 @diff_str = map { $_->to_string } @diff;
 is_deeply( \@diff_str, \@expected_str, 'IPv6 diff' );

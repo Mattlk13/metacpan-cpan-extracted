@@ -1,7 +1,6 @@
 package HTTP::API::Client;
-$HTTP::API::Client::VERSION = '0.08';
-use strict;
-use warnings;
+$HTTP::API::Client::VERSION = '1.04';
+use Moo;
 
 =head1 NAME
 
@@ -73,91 +72,122 @@ use HTTP::Headers;
 use HTTP::Request;
 use JSON::XS;
 use LWP::UserAgent;
-use Net::Curl::Simple;
-use Mouse;
 use Try::Tiny;
 use URI;
+use URI::Escape qw( uri_escape uri_unescape );
+use Scalar::Util qw( looks_like_number );
+use HTTP::API::DataTypeMarker;
+
+extends 'Exporter';
+
+our @EXPORT = qw( xCSV xBOOLEAN
+    xTRUE xFALSE
+    xTrue xFalse
+    xtrue xfalse
+    xt__e xf___e
+);
 
 has username => (
-    is         => "rw",
-    isa        => "Str",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
-sub _build_username { $ENV{HTTP_USERNAME} || qq{} }
+sub _build_username { _defor($ENV{HTTP_USERNAME}, '') }
 
 has password => (
-    is         => "rw",
-    isa        => "Str",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
-sub _build_password { $ENV{HTTP_PASSWORD} || qq{} }
+sub _build_password { _defor($ENV{HTTP_PASSWORD}, '') }
 
 has auth_token => (
-    is         => "rw",
-    isa        => "Str",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
-sub _build_auth_token { $ENV{HTTP_AUTH_TOKEN} || qq{} }
+sub _build_auth_token { _defor($ENV{HTTP_AUTH_TOKEN}, '') }
 
 has base_url => (
-    is  => "rw",
-    isa => "URI",
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
+
+sub _build_base_url {}
 
 has last_response => (
-    is  => "rw",
-    isa => "HTTP::Response",
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
+
+sub _build_last_response {}
 
 has charset => (
-    is         => "rw",
-    isa        => "Str",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
-sub _build_charset { $ENV{HTTP_CHARSET} || "utf8" }
+sub _build_charset { _defor($ENV{HTTP_CHARSET}, "utf8") }
 
 has browser_id => (
-    is         => "rw",
-    isa        => "Str",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
 sub _build_browser_id {
-    my $self = shift;
-    my $ver = $HTTP::API::Client::VERSION || -1;
+    my $ver = _defor($HTTP::API::Client::VERSION, -1);
     return "HTTP API Client v$ver";
 }
 
 has content_type => (
-    is         => "rw",
-    isa        => "Str",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
-sub _build_content_type {
-    my $self    = shift;
+sub _build_content_type {}
+
+sub get_content_type {
+    my ($self, %o) = @_;
+    my $content_type = $self->content_type;
+
+    if ($content_type) {
+        return $content_type;
+    }
+
+    my $method = ${$o{method}};
+
+    if ($method eq 'GET') {
+        return 'application/x-www-form-urlencoded';
+    }
+
     my $charset = $self->charset;
     return "application/json; charset=$charset";
 }
 
 has engine => (
     is      => "ro",
-    isa     => "Str",
-    default => "LWP::UserAgent",
+    lazy    => 1,
+    builder => 1,
 );
 
+sub _build_engine {"LWP::UserAgent"}
+
 has ua => (
-    is         => "rw",
-    isa        => "Any",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
 sub _build_ua {
-    my $self       = shift;
+    my ($self)     = @_;
     my $ssl_verify = $self->ssl_verify;
     my $engine     = $self->engine;
 
@@ -168,33 +198,32 @@ sub _build_ua {
         $ua->agent( $self->browser_id );
         $ua->timeout( $self->timeout );
     }
-    elsif ( $engine eq "CURL" ) {
-        $ua = Net::Curl::Simple->new( timeout => $self->timeout );
-        $ua->ua->setopt( useragent => $self->browser_id );
+    else {
+        $ua = $self->$engine($ssl_verify);
     }
 
     return $ua;
 }
 
 has ssl_verify => (
-    is         => "rw",
-    isa        => "Bool",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
 sub _build_ssl_verify {
-    return _smart_or( $ENV{SSL_VERIFY}, 0 );
+    return _defor( $ENV{SSL_VERIFY}, 0 );
 }
 
 has retry => (
-    is         => "rw",
-    isa        => "HashRef",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
 sub _build_retry {
-    my $self   = shift;
-    my %retry  = %{ $self->retry_config || {} };
+    my ($self) = @_;
+    my %retry  = %{ _defor($self->retry_config, {}) };
     my $count  = $retry{fail_response};
     my %status = map { $_ => 1 } split /,/, $retry{fail_status};
 
@@ -208,45 +237,45 @@ sub _build_retry {
 }
 
 has retry_config => (
-    is         => "rw",
-    isa        => "HashRef",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
 sub _build_retry_config {
     return {
-        fail_response => _smart_or( $ENV{RETRY_FAIL_RESPONSE}, 0 ),
-        fail_status => $ENV{RETRY_FAIL_STATUS} || q{},
-        delay => _smart_or( $ENV{RETRY_DELAY}, 5 ),
+        fail_response => _defor( $ENV{RETRY_FAIL_RESPONSE}, 0 ),
+        fail_status => _defor($ENV{RETRY_FAIL_STATUS}, ''),
+        delay => _defor( $ENV{RETRY_DELAY}, 5 ),
     };
 }
 
 has timeout => (
-    is         => "rw",
-    isa        => "Int",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
-sub _build_timeout { return $ENV{HTTP_TIMEOUT} || 60 }
+sub _build_timeout { _defor($ENV{HTTP_TIMEOUT}, 60) }
 
 has json => (
-    is         => "rw",
-    isa        => "JSON::XS",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
 sub _build_json {
-    my $self    = shift;
-    my $json    = JSON::XS->new->canonical(1);
+    my ($self)  = @_;
+    my $json    = JSON::XS->new->canonical->allow_nonref;
     my $charset = $self->charset;
     eval { $json->$charset };
     return $json;
 }
 
 has debug_flags => (
-    is         => "rw",
-    isa        => "HashRef",
-    lazy_build => 1,
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
 sub _build_debug_flags {
@@ -260,48 +289,83 @@ sub _build_debug_flags {
 }
 
 has pre_defined_data => (
-    is  => "rw",
-    isa => "HashRef",
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
+
+sub _build_pre_defined_data {{}}
 
 has pre_defined_headers => (
-    is  => "rw",
-    isa => "HashRef",
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
 );
 
-no Mouse;
+sub _build_pre_defined_headers {{}}
+
+has pre_defined_events => (
+    is      => "rw",
+    lazy    => 1,
+    builder => 1,
+);
+
+sub _build_pre_defined_events {{}}
 
 sub get {
-    my $self = shift;
-    return $self->send( GET => @_ );
+    my ($self, @args) = @_;
+    return $self->send( GET => @args );
 }
 
 sub post {
-    my $self = shift;
-    return $self->send( POST => @_ );
+    my ($self, @args) = @_;
+    return $self->send( POST => @args );
 }
 
 sub put {
-    my $self = shift;
-    return $self->send( PUT => @_ );
+    my ($self, @args) = @_;
+    return $self->send( PUT => @args );
 }
 
 sub head {
-    my $self = shift;
-    return $self->send( HEAD => @_ );
+    my ($self, @args) = @_;
+    return $self->send( HEAD => @args );
 }
 
 sub delete {
-    my $self = shift;
-    return $self->send( DELETE => @_ );
+    my ($self, @args) = @_;
+    return $self->send( DELETE => @args );
+}
+
+sub _execute_callbacks {
+    my ($self, $type, %options) = @_;
+
+    my $sth = $options{$type};
+
+    while (my ($key, $callback) = each %$sth) {
+        next if !defined $callback;
+        next if !UNIVERSAL::isa($callback, 'CODE');
+        $sth->{$key} = $self->$callback(key => $key, %options);
+    }
 }
 
 sub send {
-    my $self         = shift;
-    my $method       = shift || "GET";
-    my $path         = shift;
-    my $data         = shift || {};
-    my $headers      = shift || {};
+    my ($self, $method, $path,
+        $data, $headers, $events) = @_;
+
+    $method  = uc $method;
+    $data    = _defor( $data,    {} );
+    $headers = _defor( $headers, {} );
+    $events  = _defor( $events,  {} );
+
+    my $base_url     = $self->base_url;
+    my $url          = $base_url ? $base_url . $path : $path;
+    my $ua           = $self->ua;
+    my $retry_count  = _defor( $self->retry->{count}, 1 );
+    my $retry_delay  = _defor( $self->retry->{delay}, 5 );
+    my %retry_status = %{ _defor($self->retry->{status}, {}) };
+    my %debug        = %{ _defor($self->debug_flags, {}) };
+    my $eng          = $self->engine;
 
     if ( my $pd = $self->pre_defined_data ) {
         %$data = ( %$pd, %$data );
@@ -311,14 +375,21 @@ sub send {
         %$headers = ( %$ph, %$headers );
     }
 
-    my $ua           = $self->ua;
-    my $base_url     = $self->base_url;
-    my $url          = $base_url ? $base_url . $path : $path;
-    my $retry_count  = _smart_or( $self->retry->{count}, 1 );
-    my %retry_status = %{ $self->retry->{status} || {} };
-    my $retry_delay  = _smart_or( $self->retry->{delay}, 5 );
-    my %debug        = %{ $self->debug_flags || {} };
-    my $eng          = $self->engine;
+    if ( my $pe = $self->pre_defined_events ) {
+        %$events = ( %$pe, %$events );
+    }
+
+    my %options = (
+        method  => \$method,
+        url     => \$url,
+        path    => \$path,
+        data    => $data,
+        headers => $headers,
+        events  => $events,
+    );
+
+    $self->_execute_callbacks(data    => %options);
+    $self->_execute_callbacks(headers => %options);
 
     my $response;
 
@@ -327,11 +398,13 @@ sub send {
         my $started_time = time;
 
         if ( $eng eq 'LWP::UserAgent' ) {
-            my $req   = $self->_request( $method, $url, $data, $headers );
+            my $req = $self->new_request( %options );
+
+            if ($events->{test_request_object}) {
+                return $req;
+            }
+
             $response = $ua->request($req);
-        }
-        elsif ( $eng eq 'CURL' ) {
-            $response = $ua->$method
         }
 
         if ( $debug{in_out} || $debug{send_out} ) {
@@ -343,7 +416,7 @@ sub send {
             print STDERR "\n";
         }
 
-        my $debug_response = $debug{in_out} || $debug{response};
+        my $debug_response = _defor($debug{in_out}, $debug{response});
 
         $debug_response = 0
           if $debug{response_if_fail} && $response->is_success;
@@ -386,73 +459,144 @@ sub send {
 }
 
 sub json_response {
-    my $self     = shift;
-    my $response = shift;
-    try {
-        my $last_response = $self->last_response->decoded_content;
-        $response = $self->json->decode( $last_response || "{}" );
+    my ($self) = @_;
+
+    my $response = try {
+        my $content = _defor($self->last_response->decoded_content, '{}');
+        $self->json->decode($content);
     }
     catch {
         my $error = $_;
-        $response = { status => "error", error => $error };
+        { status => "error", error => $error };
     };
+
     return $response;
 }
 
-sub value_pair_response {
-    my $self = shift;
-    my @pairs = split /&/, $self->last_response->decoded_content || q{};
-    my $data =
-      { map { my ( $k, $v ) = split /=/, $_, 2; ( $k => $v ) } @pairs };
-    if ( my $error = "$@" ) {
-        $data = { status => "error", error => $error };
-    }
-    return $data;
+sub kvp_response {
+    my ($self) = @_;
+
+    my $content = $self->last_response->decoded_content
+        or return {};
+
+    my %data = map {
+        my ( $k, $v ) = map { uri_unescape($_) } split /=/, $_, 2;
+    } split /&/, $content;
+
+    return \%data;
 }
 
-sub _request {
-    my $self    = shift;
-    my $method  = uc shift;
-    my $url     = shift;
-    my $data    = shift;
-    my $headers = shift || {};
+sub new_request {
+    my ($self, %o) = @_;
 
-    my $create_req = sub {
-        my $uri = shift;
-        my $req = HTTP::Request->new( $method => $uri );
-        $req->content_type( $self->content_type )
-          if $method !~ /get/i;
-        if ( $self->username || $self->password ) {
-            _basic_authenticator( $req, $self->username, $self->password );
+    my ($method, $url) = map { $$_ } @o{qw(method url)};
+
+    my ($data, $headers, $events) = @o{qw(data headers events)};
+
+    my $content_type = $self->get_content_type(%o);
+
+    my $content = $self->convert_data(%o);
+
+    if ($content) {
+        if ($self->charset eq 'utf8') {
+            $content = _tune_utf8($content);
         }
-        elsif ( $self->auth_token ) {
-            $headers->{authorization} ||= $self->auth_token;
+    }
+
+    my $request;
+
+    if ($method eq 'GET') {
+        if ($content_type ne 'application/x-www-form-urlencoded') {
+            die "Unable to create a get request with content_type: $content_type";
         }
-        return $req;
-    };
-
-    my $req = $create_req->($url);
-
-    my $content = _tune_utf8( $self->_convert_data( $req, $data ) );
-
-    if ( $method =~ /get/i ) {
-        $req = $create_req->( $content ? "$url?$content" : $url );
+        elsif ($content) {
+            if ($url =~ m/\?/) {
+                $request = $self->prepare_request(%o, url => \"$url&$content");
+            }
+            else {
+                $request = $self->prepare_request(%o, url => \"$url?$content");
+            }
+        }
+        else {
+            $request = $self->prepare_request(%o);
+        }
+    }
+    elsif ($content) {
+        $request = $self->prepare_request(%o);
+        $request->content($content);
     }
 
-    foreach my $field ( keys %$headers ) {
-        $req->header( $field => $headers->{$field} );
+    %o = (%o,
+        request => $request,
+        content => \$content,
+    );
+
+    if (my $do = $events->{before_headers}) {
+        $self->$do(%o);
     }
 
-    if ( $method !~ /get/i ) {
-        $req->content($content);
+    my @keys;
+
+    if (my $keys = $events->{headers_keys}) {
+        @keys = $self->$keys(%o);
+    }
+    elsif (my $add = $events->{add_headers_keys}) {
+        @keys = sort $self->$add(%o), keys %$headers;
+    }
+    else {
+        @keys = sort keys %$headers;
     }
 
-    return $req;
+    foreach my $key ( @keys ) {
+        if (my $do = $events->{before_header}{$key}) {
+            $headers->{$key} = $self->$do(%o);
+        }
+
+        next if $o{skip_headers}{$key} || !exists $headers->{$key} || !defined $headers->{$key};
+
+        $request->header( $key => $headers->{$key} );
+
+        if (my $do = $events->{after_header}{$key}) {
+            $self->$do(%o);
+        }
+    }
+
+    if (my $do = $events->{after_header_keys}) {
+        $self->$do(%o);
+    }
+
+    return $request;
+}
+
+sub prepare_request {
+    my ($self, %o) = @_;
+
+    my ($method, $url) = map { $$_ } @o{qw(method url)};
+
+    my ($headers) = @o{qw(headers)};
+
+    my $request = HTTP::Request->new( $method => $url );
+
+    $request->content_type($self->get_content_type(%o));
+
+    my ($u, $p, $at) = map { _defor($self->$_, '') }
+        qw(username password auth_token);
+
+    if ($u || $p) {
+        $self->basic_authenticator($request, $u, $p);
+    }
+    elsif ($at) {
+        $headers->{authorization} = $at;
+    }
+
+    return $request;
 }
 
 sub _tune_utf8 {
-    my $content = shift;
+    my ($content) = @_;
+
     my $req = HTTP::Request->new( POST => "http://find-encoding.com" );
+
     try {
         $req->content($content);
     }
@@ -465,43 +609,195 @@ sub _tune_utf8 {
     return $content;
 }
 
-sub _convert_data {
-    my $self = shift;
-    my $req  = shift;
-    my $data = shift;
+sub convert_data {
+    my ($self, %o) = @_;
 
-    return $data
-      if !ref $data;
+    my ($data, $events) = @o{qw(data events)};
 
-    my $ct = $req->content_type
-      or return _hash_to_query_string(%$data);
+    my $content_type = $self->get_content_type(%o);
 
-    return $ct =~ /json/
-      ? $self->json->encode($data)
-      : _hash_to_query_string(%$data);
+    if ($content_type =~ m/json/) {
+        return $self->kvp2json(%o);
+    }
+    elsif ($content_type eq 'application/x-www-form-urlencoded') {
+        return $self->kvp2str(%o);
+    }
+    else {
+        return $data;
+    }
 }
 
-sub _hash_to_query_string {
-    my %hash = @_;
-    my $uri  = URI->new("http://parser.com");
-    $uri->query_form( \%hash );
-    my ( undef, $params ) = split /\?/, $uri->as_string;
-    return $params;
+sub kvp2json {
+    my ($self, %o) = @_;
+
+    my ($data, $events) = @o{qw(data events)};
+
+    my @keys;
+
+    if (my $do = $events->{keys}) {
+        @keys = $self->$do(%o);
+    }
+    else {
+        @keys = keys %$data;
+    }
+
+    my %data = ();
+
+    foreach my $key(@keys) {
+        if ($events->{not_include}{$key}) {
+            next
+        }
+        next if $o{skip_key}{$key} || !exists $data->{$key} || !defined $data->{$key};
+        $data{$key} = $self->kvp2json_each(%o, value => $data->{$key});
+    }
+
+    return $self->json->encode(\%data);
 }
 
-sub _basic_authenticator {
-    my $req      = shift;
-    my $username = shift;
-    my $password = shift;
-    $req->headers->authorization_basic( $username, $password );
+sub kvp2json_each {
+    my ($self, %o) = @_;
+
+    my ($v) = map { _defor($_, '') } @o{qw( value )};
+
+    if (UNIVERSAL::isa($v, 'CODE')) {
+        $v = $self->$v(%o);
+    }
+
+    if (!ref $v) {
+        return looks_like_number($v) ? $v+0 : $v;
+    }
+    elsif (ref $v eq 'BOOL') {
+        return $v->[0];
+    }
+    elsif (UNIVERSAL::isa($v, 'ARRAY')) {
+        my @parts;
+
+        foreach my $val(@$v) {
+            push @parts, $self->kvp2json_each(%o, value => $val);
+        }
+
+        return \@parts;
+    }
+    elsif (UNIVERSAL::isa($v, 'HASH')) {
+        my %parts;
+
+        foreach my $key(keys %$v) {
+            $parts{$key} = $self->kvp2json_each(%o, value => $v->{$key});
+        }
+
+        return \%parts;
+    }
+
+    return $v;
 }
 
-sub _smart_or {
-    my $default_value = shift;
-    my $or_value      = shift;
-    return
-      defined($default_value)
-      && length($default_value) ? $default_value : $or_value;
+sub kvp2str {
+    my ($self, %o) = @_;
+
+    my ($data, $events) = @o{qw(data events)};
+
+    my @keys;
+
+    if (my $do = $events->{before_sorting_keys}) {
+        $self->$do(%o, keys => \@keys);
+    }
+
+    if (my $do = $events->{keys}) {
+        @keys = $self->$do(%o);
+    }
+    else {
+        @keys = sort keys %$data;
+    }
+
+    if (my $do = $events->{after_sorting_keys}) {
+        $self->$do(%o, keys => \@keys);
+    }
+
+    my @parts;
+
+    foreach my $key(@keys) {
+        next if $o{skip_key}{$key} || !exists $data->{$key} || !defined $data->{$key};
+        push @parts, $self->kvp2str_each(%o, key => $key, value => $data->{$key});
+    }
+
+    return join '&', @parts;
 }
+
+sub kvp2str_each {
+    my ($self, %o) = @_;
+
+    my ($k, $v) = map { _defor($_, '') } @o{qw( key value )};
+
+    $k = uri_escape($k);
+
+    if (UNIVERSAL::isa($v, 'CODE')) {
+        $v = $self->$v(%o, key => $k);
+    }
+
+    if (!ref $v) {
+        $v = uri_escape($v);
+
+        $v = $v + 0 if looks_like_number($v);
+
+        if ($o{no_key}) {
+            return $v;
+        }
+        else {
+            return "$k=$v";
+        }
+    }
+    elsif (ref $v eq 'BOOL') {
+        return ref $v->[0] eq 'SCALAR'
+            ? "$k=${$v->[0]}"
+            : "$k=$v->[0]";
+
+    }
+    elsif (ref $v eq 'ARRAY') {
+        my @parts;
+
+        foreach my $val(@$v) {
+            push @parts, $self->kvp2str_each(%o, key => $k, value => $val, no_key => 0);
+        }
+
+        return ($o{no_key} ? '&' : '') . join '&', @parts;
+    }
+    elsif (ref $v eq 'CSV') {
+        my @csv;
+        my @parts;
+
+        foreach my $val(@$v) {
+            my $part = $self->kvp2str_each(%o, key => $k, value => $val, no_key => 1);
+
+            if ($part =~ m/&/) {
+                push @parts, $part;
+            }
+            else {
+                push @csv, $part;
+            }
+        }
+
+        my $csv = "$k=".join( ',', @csv);
+        
+        if (@parts) {
+            return join '&', $csv, @parts;
+        }
+
+        return $csv;
+    }
+
+    return $v;
+}
+
+sub basic_authenticator {
+    my ($self, $req, $u, $p) = @_;
+    return $req->headers->authorization_basic($u, $p);
+}
+
+sub _defor {
+    my ($default, $or) = @_;
+    return (defined($default) && length($default)) ? $default : $or;
+}
+
+no Moo;
 
 1;

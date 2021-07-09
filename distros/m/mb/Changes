@@ -1,5 +1,61 @@
 Revision history for this software.
 
+0.30  2021-06-28 00:00:00
+  - fix POD
+  - created by INABA Hitoshi
+
+0.29  2021-06-16 00:00:00
+  - fix print lc $_;
+  - created by INABA Hitoshi
+
+0.28  2021-05-25 00:00:00
+  - supports die <<HEREDOC, and more
+  - add SEE ALSO of POD
+  - created by INABA Hitoshi
+
+0.27  2021-04-24 00:00:00
+  - fix confess() and cluck() messages
+  - created by INABA Hitoshi
+
+0.26  2021-04-13 00:00:00
+  - fix return then /regexp/
+  - fix $any->split, etc
+  - created by INABA Hitoshi
+
+0.25  2021-03-15 00:00:00
+  - fix mb::_ignorecase()
+  - created by INABA Hitoshi
+
+0.24  2021-03-14 00:00:00
+  - supports print FILEHANDLE <<HEREDOC
+  - fix tr/A-Z/a-z/
+  - use subroutine prototype
+  - sorts POD document
+  - created by INABA Hitoshi
+
+0.23  2021-02-27 00:00:00
+  - fix parse_expr_balanced()
+  - fix cluck()
+  - removed package name from some variables
+  - created by INABA Hitoshi
+
+0.22  2021-02-21 00:00:00
+  - supports version strings
+  - removed package name from some variables
+  - created by INABA Hitoshi
+
+0.21  2021-02-14 00:00:00
+  - fix mb::reverse() with no parameters on scalar context
+  - local $_ in mb::chr, mb::_lstat, mb::_stat
+  - created by INABA Hitoshi
+
+0.20  2021-01-27 00:00:00
+  - removes $term and introduce parse_ambiguous_char()
+  - removes mb::PERL package
+  - CORE::split() acts as mb::split()
+  - supports stacking filetest with no space like -r-w-x
+  - created by INABA Hitoshi
+
 0.19  2021-01-10 00:00:00
   - supports free format of mb::use, mb::no
   - created by INABA Hitoshi

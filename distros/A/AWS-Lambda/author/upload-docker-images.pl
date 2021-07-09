@@ -11,8 +11,8 @@ use JSON qw/decode_json encode_json/;
 use File::Path qw/mkpath/;
 use Time::Piece;
 
-my $perl_versions = [qw/5.26 5.28 5.30 5.32/];
-my $perl_versions_al2 = [qw/5.32/];
+my $perl_versions = [qw/5.26 5.28 5.30 5.32 5.34/];
+my $perl_versions_al2 = [qw/5.32 5.34/];
 my $flavors = {
     'base' => {
         'dockerfile' => sub {
@@ -443,10 +443,10 @@ sub build {
             docker('tag', "perl:$tag", "shogo82148/p5-aws-lambda:$tag-$date");
             docker('push', "shogo82148/p5-aws-lambda:$tag-$date");
 
-            docker('tag', "perl:$tag", "public.ecr.aws/w2s0h5h2/p5-aws-lambda:$tag");
-            docker('push', "public.ecr.aws/w2s0h5h2/p5-aws-lambda:$tag");
-            docker('tag', "perl:$tag", "public.ecr.aws/w2s0h5h2/p5-aws-lambda:$tag-$date");
-            docker('push', "public.ecr.aws/w2s0h5h2/p5-aws-lambda:$tag-$date");
+            docker('tag', "perl:$tag", "public.ecr.aws/shogo82148/p5-aws-lambda:$tag");
+            docker('push', "public.ecr.aws/shogo82148/p5-aws-lambda:$tag");
+            docker('tag', "perl:$tag", "public.ecr.aws/shogo82148/p5-aws-lambda:$tag-$date");
+            docker('push', "public.ecr.aws/shogo82148/p5-aws-lambda:$tag-$date");
         }
     }
 

@@ -46,8 +46,8 @@ WriteMakefile(
         'Carp'                    => 0,
         'Exporter'                => 0,
         'List::Util'              => '1.33',
-        'Term::Choose'            => '1.711',
-        'Term::Choose::Util'      => '0.121',
+        'Term::Choose'            => '1.733',
+        'Term::Choose::Util'      => '0.125',
         %prereqs_os_specific,
     },
     dist  => {

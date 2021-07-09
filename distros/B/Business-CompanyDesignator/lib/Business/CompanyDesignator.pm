@@ -3,7 +3,7 @@ package Business::CompanyDesignator;
 # Require perl 5.010 because the 'track' functionality of Regexp::Assemble
 # is unsafe for earlier versions.
 use 5.010001;
-use Mouse;
+use Moose;
 use utf8;
 use warnings qw(FATAL utf8);
 use FindBin qw($Bin);
@@ -17,7 +17,16 @@ use Carp;
 use Business::CompanyDesignator::Record;
 use Business::CompanyDesignator::SplitResult;
 
-our $VERSION = '0.13';
+our $VERSION = '0.17';
+
+# Hardcode the set of languages that we treat as 'continuous'
+# i.e. their non-ascii designators don't require a word break
+# before/after.
+our %LANG_CONTINUA = map { $_ => 1 } qw(
+  zh
+  ja
+  ko
+);
 
 has 'datafile' => ( is => 'ro', default => sub {
   # Development/test version
@@ -29,7 +38,7 @@ has 'datafile' => ( is => 'ro', default => sub {
   return dist_file('Business-CompanyDesignator', 'company_designator.yml');
 });
 
-# data is the raw dataset as loaded from datafile
+# data is the raw dataset as loaded from datafile, keyed by long designator
 has data => ( is => 'ro', lazy_build => 1 );
 
 # regex_cache is a cache of regexes by language and type, since they're expensive to build
@@ -42,6 +51,9 @@ has 'abbr_long_map' => ( is => 'ro', isa => 'HashRef', lazy_build => 1 );
 # pattern_string_map is a hash mapping patterns back to their source string,
 # since we do things like add additional patterns without diacritics
 has 'pattern_string_map' => ( is => 'ro', isa => 'HashRef', default => sub { {} } );
+# pattern_string_map_lang is a hash of hashes, mapping language codes to hashes
+# of patterns back to their source string
+has 'pattern_string_map_lang' => ( is => 'ro', isa => 'HashRef', default => sub { {} } );
 
 sub _build_data {
   my $self = shift;
@@ -52,6 +64,10 @@ sub _build_abbr_long_map {
   my $self = shift;
   my $map = {};
   while (my ($long, $entry) = each %{ $self->data }) {
+    if (my $abbr = $entry->{abbr_std}) {
+      $map->{$abbr} ||= [];
+      push @{ $map->{$abbr} }, $long;
+    }
     my $abbr_list = $entry->{abbr} or next;
     $abbr_list = [ $abbr_list ] if ! ref $abbr_list;
     for my $abbr (@$abbr_list) {
@@ -102,17 +118,19 @@ sub records {
 
 # Add $string to regex assembler
 sub _add_to_assembler {
-  my ($self, $assembler, $string, $reference_string) = @_;
+  my ($self, $assembler, $lang, $string, $reference_string) = @_;
   $reference_string ||= $string;
+# printf "+ add_to_assembler (%s): '%s' => '%s'\n", join(',', @{ $lang || []}), $string, $reference_string;
 
   # FIXME: RA->add() doesn't work here because of known quantifier-escaping bugs:
   # https://rt.cpan.org/Public/Bug/Display.html?id=50228
   # https://rt.cpan.org/Public/Bug/Display.html?id=74449
   # $assembler->add($string)
   # Workaround by lexing and using insert()
+  my $optional1 = '\\.?,?\\s*';
   my @pattern = map {
     # Periods are treated as optional literals, with optional trailing commas and/or whitespace
-    /\./   ? '\\.?,?\\s*?' :
+    /\./   ? $optional1 :
     # Embedded spaces can be multiple, and include leading commas
     / /    ? ',?\s+' :
     # Escape other regex metacharacters
@@ -120,21 +138,73 @@ sub _add_to_assembler {
   } split //, $string;
   $assembler->insert(@pattern);
 
-  # Also add pattern => $string mapping to pattern_string_map
-  $self->pattern_string_map->{ join '', @pattern } = $reference_string;
+  # Also add pattern => $string mapping to pattern_string_map and pattern_string_map_lang
+  my $pattern_string = join '', @pattern;
+
+  # Special case - optional match characters can cause clashes between
+  # distinct pattern_strings e.g. /A\.?,?\s*S\.?,?\s*/ clashes with /AS/
+  # We need to handle such cases as ambiguous with extra checks
+  my $optional1e = "\Q$optional1\E";
+  my $alt_pattern_string1;
+  if ($pattern_string =~ /^(\w)(\w)$/) {
+    $alt_pattern_string1 = "$1$optional1$2$optional1";
+  } elsif ($pattern_string =~ /^(\w)$optional1e(\w)$optional1e$/) {
+    $alt_pattern_string1 = "$1$2";
+  }
+
+  # If $pattern_string already exists in pattern_string_map then the pattern is ambiguous
+  # across entries, and we can't unambiguously map back to a standard designator
+  if (exists $self->pattern_string_map->{ $pattern_string }) {
+    my $current = $self->pattern_string_map->{ $pattern_string };
+    if ($current && $current ne $reference_string) {
+      # Reset to undef to mark ambiguity
+      $self->pattern_string_map->{ $pattern_string } = undef;
+    }
+  }
+  # Also check for the existence of $alt_pattern_string1, since this is also an ambiguity
+  elsif ($alt_pattern_string1 && exists $self->pattern_string_map->{ $alt_pattern_string1 }) {
+    my $current = $self->pattern_string_map->{ $alt_pattern_string1 };
+    if ($current && $current ne $reference_string) {
+      # Reset both pairs to undef to mark ambiguity
+      $self->pattern_string_map->{ $pattern_string } = undef;
+      $self->pattern_string_map->{ $alt_pattern_string1 } = undef;
+    }
+  }
+  else {
+    $self->pattern_string_map->{ $pattern_string } = $reference_string;
+  }
+  if ($lang) {
+    for my $l (@$lang) {
+      if (exists $self->pattern_string_map_lang->{$l}->{ $pattern_string }) {
+        my $current = $self->pattern_string_map_lang->{$l}->{ $pattern_string };
+        if ($current && $current ne $reference_string) {
+          # Reset to undef to mark ambiguity
+          $self->pattern_string_map_lang->{$l}->{ $pattern_string } = undef;
+        }
+      }
+      else {
+        $self->pattern_string_map_lang->{$l}->{ $pattern_string } = $reference_string;
+      }
+    }
+  }
 
   # If $string contains unicode diacritics, also add a version without them for misspellings
   if ($string =~ m/\pM/) {
     my $stripped = $string;
     $stripped =~ s/\pM//g;
-    $self->_add_to_assembler($assembler, $stripped, $string);
+    $self->_add_to_assembler($assembler, $lang, $stripped, $reference_string);
   }
 }
 
-# Assemble designator regex
+# Assemble designator regexes
 sub _build_regex {
   my $self = shift;
   my ($type, $lang) = @_;
+
+  state $types = { map { $_ => 1 } qw(end end_cont begin) };
+  if (! $types->{$type}) {
+    croak "invalid regex type '$type'";
+  }
 
   # RA constructor - case insensitive, with match tracking
   my $assembler = Regexp::Assemble->new->flags('i')->track(1);
@@ -149,21 +219,26 @@ sub _build_regex {
 
   my $count = 0;
   while (my ($long, $entry) = each %{ $self->data }) {
-    # If $type is begin, restrict to 'lead' entries
-    next if $type eq 'begin' && ! $entry->{lead};
     # If $lang is set, restrict to entries that include $lang
     next if $lang_re && $entry->{lang} !~ $lang_re;
+    # If $type is 'begin', restrict to 'lead' entries
+    next if $type eq 'begin' && ! $entry->{lead};
+    # if $type is 'end_cont', restrict to languages in %LANG_CONTINUA
+    next if $type eq 'end_cont' && ! $LANG_CONTINUA{$entry->{lang}};
 
     $count++;
     my $long_nfd = NFD($long);
-    $self->_add_to_assembler($assembler, $long_nfd);
+    $self->_add_to_assembler($assembler, $lang, $long_nfd);
 
     # Add all abbreviations
     if (my $abbr_list = $entry->{abbr}) {
       $abbr_list = [ $abbr_list ] if ! ref $abbr_list;
       for my $abbr (@$abbr_list) {
+        # Only treat non-ascii abbreviations as continuous
+        next if $type eq 'end_cont' && $abbr =~ /^\p{ASCII}+$/;
         my $abbr_nfd = NFD($abbr);
-        $self->_add_to_assembler($assembler, $abbr_nfd);
+        my $abbr_std = NFD($entry->{abbr_std} || $abbr);
+        $self->_add_to_assembler($assembler, $lang, $abbr_nfd, $abbr_std);
       }
     }
   }
@@ -210,15 +285,22 @@ sub regex {
 # Helper to return split_designator results
 sub _split_designator_result {
   my $self = shift;
-  my ($before, $des, $after, $matched_pattern) = @_;
+  my ($lang, $before, $des, $after, $matched_pattern) = @_;
+
+  # $before can end in whitespace (that we don't want to consume in the RE
+  # for technical reasons around handling punctuation like '& Co' in designators)
+  # So trim here to handle that case.
+  $before =~ s/\s+$// if $before;
 
   my $des_std;
   if ($matched_pattern) {
-    $des_std = $self->pattern_string_map->{$matched_pattern}
-      or die "Cannot find matched pattern '$matched_pattern' in pattern_string_map";
-    # Always coalesce spaces and delete commas from $des_std
-    $des_std =~ s/,+/ /g;
-    $des_std =~ s/\s\s+/ /g;
+    $des_std = $self->pattern_string_map_lang->{$lang}->{$matched_pattern} if $lang;
+    $des_std ||= $self->pattern_string_map->{$matched_pattern};
+    if ($des_std) {
+      # Always coalesce spaces and delete commas from $des_std
+      $des_std =~ s/,+/ /g;
+      $des_std =~ s/\s\s+/ /g;
+    }
   }
 
   # Legacy interface - return a simple before / des / after tuple, plus $des_std
@@ -250,28 +332,54 @@ sub split_designator {
   my $company_name_match = NFD($company_name);
 
   # Handle older perls without XPosixPunct
-  state $punct_class = eval { '.' =~ m/\p{XPosixPunct}/ } ? '[\s\p{XPosixPunct}]' : '[\s[[:punct:]]]';
+  state $punct_class = eval { '.' =~ m/\p{XPosixPunct}/ } ?
+                       '[\s\p{XPosixPunct}]' :
+                       '[\s[:punct:]]';
 
-  my ($re, $assembler) = $self->regex('end', $lang);
-  my ($lead_re, $lead_assembler) = $self->regex('begin', $lang);
+  # Strip all brackets for continuous language matching
+  (my $company_name_match_cont_stripped = $company_name_match) =~ s/[()\x{ff08}\x{ff09}]//g;
 
-  if ($re) {
-    # Designators are usually final, so try that first
-    if ($company_name_match =~ m/^\s*(.*?)${punct_class}\s*($re)\s*$/) {
-      return $self->_split_designator_result($1, $2, undef, $assembler->source($^R));
+  my ($end_re, $end_asr, $end_cont_re, $end_cont_asr, $begin_re, $begin_asr);
+  if ($lang) {
+    if ($LANG_CONTINUA{$lang}) {
+      ($end_cont_re, $end_cont_asr) = $self->regex('end_cont', $lang);
+    } else {
+      ($end_re,      $end_asr)      = $self->regex('end',      $lang);
     }
-    # Not final - check for a lead designator instead (e.g. RU, NL, etc.)
-    elsif ($lead_re && $company_name_match =~ m/^\s*($lead_re)${punct_class}\s*(.*?)\s*$/) {
-      return $self->_split_designator_result(undef, $1, $2, $lead_assembler->source($^R));
-    }
-    # Not final - check for an embedded designator with trailing content
-    elsif ($allow_embedded && $company_name_match =~ m/(.*?)${punct_class}\s*($re)(?:\s+(.*?))?$/) {
-      return $self->_split_designator_result($1, $2, $3, $assembler->source($^R));
-    }
+    ($begin_re,    $begin_asr)      = $self->regex('begin',    $lang);
+  } else {
+    ($end_re,      $end_asr)      = $self->regex('end');
+    ($end_cont_re, $end_cont_asr) = $self->regex('end_cont');
+    ($begin_re,    $begin_asr)    = $self->regex('begin');
+  }
+
+  # Designators are usually final, so try $end_re first
+  if ($end_re &&
+      $company_name_match =~ m/^\s*(.*?)${punct_class}\s*\(?($end_re)\)?\s*$/) {
+    return $self->_split_designator_result($lang, $1, $2, undef, $end_asr->source($^R));
+  }
+
+  # No final designator - retry without a word break for the subset of languages
+  # that use continuous scripts (see %LANG_CONTINUA above)
+  if ($end_cont_re &&
+      $company_name_match_cont_stripped =~ m/^\s*(.*?)\(?($end_cont_re)\)?\s*$/) {
+    return $self->_split_designator_result($lang, $1, $2, undef, $end_cont_asr->source($^R));
+  }
+
+  # No final designator - check for a lead designator instead (e.g. RU, NL, etc.)
+  if ($begin_re &&
+      $company_name_match =~ m/^\s*\(?($begin_re)\)?${punct_class}\s*(.*?)\s*$/) {
+    return $self->_split_designator_result($lang, undef, $1, $2, $begin_asr->source($^R));
+  }
+
+  # No final or initial - check for an embedded designator with trailing content
+  if ($end_re && $allow_embedded &&
+      $company_name_match =~ m/(.*?)${punct_class}\s*\(?($end_re)\)?(?:\s+(.*?))?$/) {
+    return $self->_split_designator_result($lang, $1, $2, $3, $end_asr->source($^R));
   }
 
   # No match - return $company_name unchanged
-  return $self->_split_designator_result($company_name);
+  return $self->_split_designator_result($lang, $company_name);
 }
 
 1;
@@ -287,7 +395,7 @@ company designators appended to company names
 
 =head1 VERSION
 
-Version: 0.13.
+Version: 0.17.
 
 This module is considered a B<BETA> release. Interfaces may change and/or break
 without notice until the module reaches version 1.0.
@@ -352,6 +460,7 @@ for instance, looks like this:
       - Co.
       - '& Co.'
       - and Co.
+      - and Company
     lang: en
 
 Long designators are unique across the dataset, but abbreviations are not
@@ -503,7 +612,7 @@ Gavin Carr <gavin@profound.net>
 
 =head1 COPYRIGHT AND LICENCE
 
-Copyright (C) 2013-2016 Gavin Carr
+Copyright (C) 2013-2021 Gavin Carr
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

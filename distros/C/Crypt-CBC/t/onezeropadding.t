@@ -1,14 +1,16 @@
-#!/usr/local/bin/perl -Tw
+#!/usr/local/bin/perl
 
-use lib '..','../blib/lib','.','./blib/lib';
+use lib './lib','./blib/lib';
 
 my (@mods,@pads,@in,$tnum);
 
-@mods = qw/Rijndael
-           Blowfish
-           Blowfish_PP
-           IDEA
-           DES
+@mods = qw/
+    Cipher::AES
+    Rijndael
+    Blowfish
+    Blowfish_PP
+    IDEA
+    DES
           /;
 
 for $mod (@mods) {
@@ -37,9 +39,10 @@ test(\$tnum,!$@,"Couldn't load module");
 
 
 my $cipher = Crypt::CBC->new(
-			     -key    => 'aaab',
-			     -cipher => $in[0],
-			     -padding => "oneandzeroes",
+    -key    => 'aaab',
+    -cipher => $in[0],
+    -padding => "oneandzeroes",
+    -pbkdf   => 'opensslv2',
 );
 my $string = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAX';
 

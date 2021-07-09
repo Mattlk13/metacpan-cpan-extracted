@@ -13,19 +13,30 @@ WriteMakefile(
 	},
 
 	PREREQ_PM => {
-		"Moo" => "0",
+		"Moo" => "2.000000",
 		"Type::Tiny" => "1.004000",
 		"Import::Into" => "0",
 		"namespace::clean" => "0",
 	},
 
 	META_MERGE => {
+		'meta-spec' => { version => 2 },
 		resources => {
 			license => 'https://dev.perl.org/licenses',
-			homepage => 'https://metacpan.org/release/Form-Tiny',
-			bugtracker => 'https://github.com/brtastic/perl-form-tiny/issues',
-			repository => 'https://github.com/brtastic/perl-form-tiny',
+			homepage => 'https://brtastic.xyz/project/form-tiny',
+			bugtracker => {
+				web => 'https://github.com/brtastic/perl-form-tiny/issues',
+			},
+			repository => {
+				type => 'git',
+				url => 'https://github.com/brtastic/perl-form-tiny.git',
+				web => 'https://github.com/brtastic/perl-form-tiny',
+			},
 		},
+	},
+
+	test => {
+		TESTS => "t/*.t t/**/*.t"
 	},
 
 	ABSTRACT_FROM => 'lib/Form/Tiny.pm',

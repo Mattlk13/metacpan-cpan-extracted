@@ -4,8 +4,8 @@
 #
 package PDL::GSLSF::SYNCHROTRON;
 
-@EXPORT_OK  = qw( PDL::PP gsl_sf_synchrotron_1 PDL::PP gsl_sf_synchrotron_2 );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP gsl_sf_synchrotron_1 PDL::PP gsl_sf_synchrotron_2 );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::GSLSF::SYNCHROTRON ;
 
@@ -64,7 +64,7 @@ First synchrotron function: synchrotron_1(x) = x Integral[ K_{5/3}(t), {t, x, In
 =for bad
 
 gsl_sf_synchrotron_1 does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -93,7 +93,7 @@ Second synchroton function: synchrotron_2(x) = x * K_{2/3}(x)
 =for bad
 
 gsl_sf_synchrotron_2 does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

@@ -1,9 +1,9 @@
 package Role::TinyCommons::Tree::NodeMethods;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-04-14'; # DATE
+our $DATE = '2021-07-02'; # DATE
 our $DIST = 'Role-TinyCommons-Tree'; # DIST
-our $VERSION = '0.124'; # VERSION
+our $VERSION = '0.127'; # VERSION
 
 use Role::Tiny;
 use Role::Tiny::With;
@@ -33,7 +33,7 @@ Role::TinyCommons::Tree::NodeMethods - Role that provides tree node methods
 
 =head1 VERSION
 
-This document describes version 0.124 of Role::TinyCommons::Tree::NodeMethods (from Perl distribution Role-TinyCommons-Tree), released on 2020-04-14.
+This document describes version 0.127 of Role::TinyCommons::Tree::NodeMethods (from Perl distribution Role-TinyCommons-Tree), released on 2021-07-02.
 
 =head1 DESCRIPTION
 
@@ -46,6 +46,11 @@ L<Role::TinyCommons::Tree::Node>
 =head2 ancestors
 
 Return a list of ancestors, from the direct parent upwards to the root.
+
+=head2 retrieve_parent
+
+Return direct parent. Basically a standard way to call "get parent" method, as
+the latter can be customized.
 
 =head2 check
 
@@ -143,6 +148,20 @@ Return the sibling node directly before this node.
 Return all the previous siblings of this node, from the first to the one
 directly before.
 
+=head2 is_root
+
+=head2 has_min_children(m)
+
+Only select nodes that have at least I<m> direct children.
+
+=head2 has_max_children(n)
+
+Only select nodes that have at most I<n> direct children.
+
+=head2 has_children_between(m, n)
+
+Only select nodes that have between I<m> and I<n> direct children.
+
 =head2 remove
 
 Detach this node from its parent. Also set the parent of this node to undef.
@@ -187,7 +206,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2016 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2016 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

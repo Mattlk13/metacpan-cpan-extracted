@@ -6,7 +6,6 @@ use Config;
 
 use File::Spec;
 sub cdir { return File::Spec->catdir(@_)}
-sub cfile { return File::Spec->catfile(@_)}
 
 sub is_sys_func {
   my ( $code, $libs, $dir ) = @_;
@@ -95,9 +94,6 @@ $mmdir =~ s/\\/\\\\/g;
 my $dir = File::Spec->canonpath(cwd);
 $dir = cdir $dir, $mdir unless $dir =~ /$mmdir$/;
 
-die "TEMPDIR not found in %PDL::Config"
-  unless $PDL::Config{TEMPDIR} && $PDL::Config{TEMPDIR}; # avoid 'only once'
-
 foreach (@sfuncs) {
     $source{$_} = 'system' if is_sys_func( "$_();", $libs, $dir );
 }
@@ -119,16 +115,6 @@ foreach (@besbifuncs) {
     next if ! exists $source{$_};     # May have been deleted in buggy case
     $source{$_} = 'system' if is_sys_func( "$_(1,1.);", $libs, $dir );
 }
-
-print "Source of functions\nSystem:      ";
-foreach (@keys) {
-    print " $_" if $source{$_} eq 'system';
-}
-print "\nDistribution:";
-foreach (@keys) {
-    print " $_" if $source{$_} ne 'system';
-}
-print "\n";
 
 my @pack = (["math.pd", qw(Math PDL::Math)]);
 my %hash = pdlpp_stdargs_int(@pack);

@@ -1,5 +1,5 @@
 package Gherkin::TokenScanner;
-$Gherkin::TokenScanner::VERSION = '4.0.0';
+$Gherkin::TokenScanner::VERSION = '20.0.0';
 use strict;
 use warnings;
 
@@ -40,6 +40,7 @@ sub read {
     my $self = shift;
     $self->next_line();
     my $line = $self->fh->getline;
+    $line =~ s/\r$// if $line; # \n as well as \r\n are considered lines separators
     return Gherkin::Token->new(
         line => $line
         ? (

@@ -6,7 +6,7 @@ use warnings;
 
 use lib 't/lib';
 
-use MyTest tests => 265;
+use MyTest tests => 375;
 
 license_covered(
 	'aal',
@@ -504,6 +504,14 @@ BitTorrent Open Source License
 Version 1.0
 
 This BitTorrent Open Source License (the "License") applies to the BitTorrent client and related software products as well as any updates or maintenance releases of that software ("BitTorrent Products") that are distributed by BitTorrent, Inc. ("Licensor").
+
+4. Your Obligations Regarding Distribution.
+
+a. Application of This License to Your Modifications.  As an express condition for your use of the Licensed Product, you hereby agree that any Modifications that you create or to which you contribute, and which you distribute, are governed by the terms of this License including, without limitation, Section 2.  Any Modifications that you create or to which you contribute may be distributed only under the terms of this License or a future version of this License released under Section 7.  You must include a copy of this License with every copy of the Modifications you distribute.  You agree not to offer or impose any terms on any Source Code or executable version of the Licensed Product or Modifications that alter or restrict the applicable version of this License or the recipients' rights hereunder. However, you may include an additional document offering the additional rights described in Section 4(d).
+
+b. Availability of Source Code.  You must make available, under the terms of this License, the Source Code of the Licensed Product and any Modifications that you distribute, either on the same media as you distribute any executable or other form of the Licensed Product, or via a mechanism generally accepted in the software development community for the electronic transfer of data (an "Electronic Distribution Mechanism").  The Source Code for any version of Licensed Product or Modifications that you distribute must remain available for at least twelve (12) months after the date it initially became available, or at least six (6) months after a subsequent version of said Licensed Product or Modifications has been made available.  You are responsible for ensuring that the Source Code version remains available even if the Electronic Distribution Mechanism is maintained by a third party.
+
+c. Intellectual Property Matters.
 EOF
 );
 
@@ -519,6 +527,14 @@ BitTorrent Open Source License
 Version 1.1
 
 This BitTorrent Open Source License (the "License") applies to the BitTorrent client and related software products as well as any updates or maintenance releases of that software ("BitTorrent Products") that are distributed by BitTorrent, Inc. ("Licensor").
+
+4. Your Obligations Regarding Distribution.
+
+a. Application of This License to Your Modifications. As an express condition for your use of the Licensed Product, you hereby agree that any Modifications that you create or to which you contribute, and which you distribute, are governed by the terms of this License including, without limitation, Section 2. Any Modifications that you create or to which you contribute may be distributed only under the terms of this License or a future version of this License released under Section 7. You must include a copy of this License with every copy of the Modifications you distribute. You agree not to offer or impose any terms on any Source Code or executable version of the Licensed Product or Modifications that alter or restrict the applicable version of this License or the recipients' rights hereunder. However, you may include an additional document offering the additional rights described in Section 4(d).
+
+b. Availability of Source Code. You must make available, without charge, under the terms of this License, the Source Code of the Licensed Product and any Modifications that you distribute, either on the same media as you distribute any executable or other form of the Licensed Product, or via a mechanism generally accepted in the software development community for the electronic transfer of data (an "Electronic Distribution Mechanism"). The Source Code for any version of Licensed Product or Modifications that you distribute must remain available for as long as any executable or other form of the Licensed Product is distributed by you. You are responsible for ensuring that the Source Code version remains available even if the Electronic Distribution Mechanism is maintained by a third party.
+
+c. Intellectual Property Matters.
 EOF
 );
 
@@ -527,6 +543,28 @@ license_covered(
 	name => 'Borceux license',
 	text => <<EOF,
 You may freely use, modify, and/or distribute each of the files in this package without limitation.
+EOF
+);
+
+license_covered(
+	'bsd_0_clause',
+	name => 'BSD (0 clause)',
+	text => <<EOF,
+Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS.
+EOF
+);
+
+license_covered(
+	'bsd_1_clause',
+	name => 'BSD (1 clause)',
+	text => <<EOF,
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+THIS SOFTWARE IS PROVIDED BY Berkeley Software Design, Inc. ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL Berkeley Software Design, Inc. BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 EOF
 );
 
@@ -547,6 +585,78 @@ EOF
 );
 
 license_covered(
+	'bsd_2_clause_freebsd',
+	name => 'BSD 2-Clause FreeBSD License',
+	text => <<EOF,
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE FREEBSD PROJECT ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE FREEBSD PROJECT OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+The views and conclusions contained in the software and documentation are those of the authors and should not be interpreted as representing official policies, either expressed or implied, of the FreeBSD Project.
+EOF
+);
+
+license_covered(
+	'bsd_2_clause_netbsd',
+	name => 'BSD 2-Clause NetBSD License',
+	text => <<EOF,
+This code is derived from software contributed to The NetBSD Foundation by
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+EOF
+	TODO => [qw(name_name)]
+);
+
+license_covered(
+	'bsd_2_clause_patent',
+	name => 'BSD 2-clause Plus Patent License',
+	text => <<EOF,
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+Subject to the terms and conditions of this license, each copyright holder and contributor hereby grants to those receiving rights under this license a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable (except for failure to satisfy the conditions of this license) patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer this software, where such license applies only to those patent claims, already acquired or hereafter acquired, licensable by such copyright holder or contributor that are necessarily infringed by:
+
+(a) their Contribution(s) (the licensed copyrights of copyright holders and non-copyrightable additions of contributors, in source or binary form) alone; or
+
+(b) combination of their Contribution(s) with the work of authorship to which such Contribution(s) was added by such copyright holder or contributor, if, at the time the Contribution is added, such addition causes such combination to be necessarily infringed.
+The patent license shall not apply to any other combinations which include the Contribution.
+
+Except as expressly stated above, no rights or licenses from any copyright holder or contributor is granted under this license, whether expressly, by implication, estoppel or otherwise.
+EOF
+);
+
+license_covered(
+	'bsd_2_clause_views',
+	name => 'BSD 2-Clause with views sentence',
+	text => <<EOF,
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+The views and conclusions contained in the software and documentation are those of the authors and should not be interpreted as representing official policies, either expressed or implied, of the copyright holders or contributors.
+EOF
+);
+
+license_covered(
 	'bsd_3_clause',
 	name => 'BSD 3-Clause',
 	text => <<EOF,
@@ -562,6 +672,118 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 EOF
 	TODO => [qw(name_name)]
+);
+
+license_covered(
+	'bsd_3_clause_attribution',
+	name => 'BSD with attribution',
+	text => <<EOF,
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+4. Redistributions of any form whatsoever must retain the following acknowledgment: 'This product includes software developed by the "Universidad de Palermo, Argentina" (http://www.palermo.edu/).'
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+EOF
+);
+
+license_covered(
+	'bsd_3_clause_clear',
+	name => 'BSD 3-Clause Clear License',
+	text => <<EOF,
+* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+* Neither the name of [Owner Organization] nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE GRANTED BY THIS LICENSE.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+EOF
+);
+
+license_covered(
+	'bsd_3_clause_lbnl',
+	name => 'Lawrence Berkeley National Labs BSD variant license',
+	text => <<EOF,
+(2) Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+(3) Neither the name of the University of California, Lawrence Berkeley National Laboratory, U.S. Dept. of Energy nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+You are under no obligation whatsoever to provide any bug fixes, patches, or upgrades to the features, functionality or performance of the source code ("Enhancements") to anyone; however, if you choose to make your Enhancements available either publicly, or directly to Lawrence Berkeley National Laboratory, without imposing a separate written license agreement for such Enhancements, then you hereby grant the following license: a non-exclusive, royalty-free perpetual license to install, use, modify, prepare derivative works, incorporate into other computer software, distribute, and sublicense such Enhancements or derivative works thereof, in binary and source code form.
+EOF
+);
+
+license_covered(
+	'bsd_3_clause_modification',
+	name => 'BSD 3-Clause Modification',
+	text => <<EOF,
+2. Redistributions in binary form must reproduce the accompanying copyright notice, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Names of the copyright holders must not be used to endorse or promote products derived from this software without prior written permission from the copyright holders.
+
+4. If any files are modified, you must cause the modified files to carry prominent notices stating that you changed the files and the date of any change.
+
+Disclaimer
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+EOF
+);
+
+license_covered(
+	'bsd_3_clause_no_military_license',
+	name => 'BSD 3-Clause No Military License',
+	text => <<EOF,
+* Neither the name of Oracle Corporation nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+YOU ACKNOWLEDGE THAT THIS SOFTWARE IS NOT DESIGNED, LICENSED OR INTENDED FOR USE IN THE DESIGN, CONSTRUCTION, OPERATION OR MAINTENANCE OF ANY MILITARY FACILITY.
+EOF
+);
+
+license_covered(
+	'bsd_3_clause_no_nuclear_license',
+	name => 'BSD 3-Clause No Nuclear License',
+	text => <<EOF,
+* Neither the name of Sun Microsystems, Inc. or the names of contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+This software is provided "AS IS," without a warranty of any kind.
+ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND WARRANTIES, INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT, ARE HEREBY EXCLUDED.
+SUN MICROSYSTEMS, INC. ("SUN") AND ITS LICENSORS SHALL NOT BE LIABLE FOR ANY DAMAGES SUFFERED BY LICENSEE AS A RESULT OF USING, MODIFYING OR DISTRIBUTING THIS SOFTWARE OR ITS DERIVATIVES.
+IN NO EVENT WILL SUN OR ITS LICENSORS BE LIABLE FOR ANY LOST REVENUE, PROFIT OR DATA, OR FOR DIRECT, INDIRECT, SPECIAL, CONSEQUENTIAL, INCIDENTAL OR PUNITIVE DAMAGES, HOWEVER CAUSED AND REGARDLESS OF THE THEORY OF LIABILITY, ARISING OUT OF THE USE OF OR INABILITY TO USE THIS SOFTWARE, EVEN IF SUN HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+You acknowledge that this software is not designed, licensed or intended for use in the design, construction, operation or maintenance of any nuclear facility.
+EOF
+);
+
+license_covered(
+	'bsd_3_clause_no_nuclear_license_2014',
+	name => 'BSD 3-Clause No Nuclear License 2014',
+	text => <<EOF,
+* Neither the name of Oracle Corporation nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+You acknowledge that this software is not designed, licensed or intended for use in the design, construction, operation or maintenance of any nuclear facility.
+EOF
+);
+
+license_covered(
+	'bsd_3_clause_no_nuclear_warranty',
+	name => 'BSD 3-Clause No Nuclear Warranty',
+	text => <<EOF,
+- Neither the name of Sun Microsystems, Inc. or the names of contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+This software is provided "AS IS," without a warranty of any kind.
+ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND WARRANTIES, INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT, ARE HEREBY EXCLUDED.
+SUN MICROSYSTEMS, INC. ("SUN") AND ITS LICENSORS SHALL NOT BE LIABLE FOR ANY DAMAGES SUFFERED BY LICENSEE AS A RESULT OF USING, MODIFYING OR DISTRIBUTING THIS SOFTWARE OR ITS DERIVATIVES.
+IN NO EVENT WILL SUN OR ITS LICENSORS BE LIABLE FOR ANY LOST REVENUE, PROFIT OR DATA, OR FOR DIRECT, INDIRECT, SPECIAL, CONSEQUENTIAL, INCIDENTAL OR PUNITIVE DAMAGES, HOWEVER CAUSED AND REGARDLESS OF THE THEORY OF LIABILITY, ARISING OUT OF THE USE OF OR INABILITY TO USE THIS SOFTWARE, EVEN IF SUN HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+You acknowledge that this software is not designed or intended for use in the design, construction, operation or maintenance of any nuclear facility.
+EOF
 );
 
 license_covered(
@@ -632,6 +854,20 @@ license_covered(
 	name => 'bzip2 and libbzip2 License v1.0.6',
 	text => <<EOF,
 This program, "bzip2", the associated library "libbzip2", and all documentation, are copyright (C) 1996-2010 Julian R Seward. All rights reserved.
+EOF
+);
+
+license_covered(
+	'cal',
+	name => 'Cryptographic Autonomy License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'cal_1',
+	name => 'Cryptographic Autonomy License 1.0',
+	text => <<EOF,
+This Cryptographic Autonomy License (the “License”) applies to any Work whose owner has marked it with any of the following notices, or a similar demonstration of intent:
 EOF
 );
 
@@ -1393,6 +1629,14 @@ EOF
 );
 
 license_covered(
+	'cvw',
+	name => 'MITRE Collaborative Virtual Workspace License',
+	text => <<EOF,
+Redistribution of the CVW software or derived works must reproduce MITRE's copyright designation and this License in the documentation and/or other materials provided with the distribution.
+EOF
+);
+
+license_covered(
 	'dsdp',
 	name => 'DSDP License',
 	text => <<EOF,
@@ -1422,6 +1666,71 @@ license_covered(
 Licensed under the Educational Community License, Version 2.0 (the "License");
 EOF
 	TODO => [qw(not_iri_name subject_iri)]
+);
+
+license_covered(
+	'ecos_1_1',
+	name => 'Red Hat eCos Public License v1.1',
+	text => <<EOF,
+1.13. "Red Hat Branded Code" is code that Red Hat distributes and/or permits others to distribute under different terms than the Red Hat eCos Public License.
+Red Hat's Branded Code may contain part or all of the Covered Code.
+EOF
+);
+
+license_covered(
+	'ecos_2',
+	name => 'eCos license version 2.0',
+	text => <<EOF,
+eCos is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 or (at your option) any later version.
+
+eCos is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with eCos; if not, write to the Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+
+As a special exception, if other files instantiate templates or use macros or inline functions from this file, or you compile this file and link it with other works to produce a work based on this file, this file does not by itself cause the resulting work to be covered by the GNU General Public License.
+However the source code for this file must still be made available in accordance with section (3) of the GNU General Public License.
+
+This exception does not invalidate any other reasons why a work based on this file might be covered by the GNU General Public License.
+EOF
+);
+
+license_covered(
+	'efl',
+	name => 'Eiffel Forum License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'efl_1',
+	name => 'Eiffel Forum License, version 1',
+	text => <<EOF,
+- if the binary program depends on a modified version of this package, you must publicly release the modified version of this package
+
+THIS PACKAGE IS PROVIDED "AS IS" AND WITHOUT WARRANTY. ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+EOF
+);
+
+license_covered(
+	'efl_2',
+	name => 'Eiffel Forum License, version 2',
+	text => <<EOF,
+2. Permission is hereby also granted to distribute binary programs which depend on this package. If the binary program depends on a modified version of this package, you are encouraged to publicly release the modified version of this package.
+
+THIS PACKAGE IS PROVIDED "AS IS" AND WITHOUT WARRANTY. ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+EOF
+);
+
+license_covered(
+	'entessa',
+	name => 'Entessa Public License',
+	text => <<EOF,
+3.  The end-user documentation included with the redistribution, if any, must include the following acknowledgment:
+
+"This product includes open source software developed by openSEAL (http://www.openseal.org/)."
+
+Alternately, this acknowledgment may appear in the software itself, if and wherever such third-party acknowledgments normally appear.
+EOF
 );
 
 license_covered(
@@ -1465,6 +1774,14 @@ THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF THIS ECLIPSE PUBLIC LICE
 a) in the case of the initial Contributor, the initial content Distributed
 EOF
 	TODO => [qw(not_iri_name subject_iri)]
+);
+
+license_covered(
+	'eudatagrid',
+	name => 'EU DataGrid Software License',
+	text => <<EOF,
+This software includes voluntary contributions made to the EU DataGrid. For more information on the EU DataGrid, please see http://www.eu-datagrid.org/.
+EOF
 );
 
 license_covered(
@@ -1519,6 +1836,32 @@ If you use this software in a product, an acknowledgment in the product document
 3. You must not use any of the names of the authors or copyright holders of the original software for advertising or publicity pertaining to distribution without specific, written prior permission.
 4. If you change this software and redistribute parts or all of it in any form, you must make the source code of the altered version of this software available.
 5. This notice may not be removed or altered from any source distribution.
+EOF
+);
+
+license_covered(
+	'fair',
+	name => 'Fair License',
+	text => <<EOF,
+Usage of the works is permitted provided that this instrument is retained with the works, so that any entity that uses the works is notified of this instrument.
+EOF
+);
+
+license_covered(
+	'frameworx',
+	name => 'Frameworx License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'frameworx_1',
+	name => 'Frameworx License 1.0',
+	text => <<EOF,
+THE FRAMEWORX OPEN LICENSE 1.0
+
+This License Agreement, The Frameworx Open License 1.0, has been entered into between The Frameworx Company and you, the licensee hereunder, effective as of Your acceptance of the Frameworx Code Base or an Downstream Distribution (each as defined below).
+
+(v) contain an unaltered copy of the text file named the_frameworx_license.txt included within the Frameworx Code Base that includes a text copy of the form of this License Agreement; and
 EOF
 );
 
@@ -1670,6 +2013,26 @@ license_covered(
 );
 
 license_covered(
+	'hpnd',
+	name => 'Historical Permission Notice and Disclaimer',
+	text => <<EOF,
+Permission to use, copy, modify and distribute this software and its documentation for any purpose and without fee is hereby granted, provided that the above copyright notice appear in all copies, and that both that the copyright notice and this permission notice appear in supporting documentation, and that the name of <copyright holder> or <related entities> not be used in advertising or publicity pertaining to distribution of the software without specific, written prior permission.
+<copyright holder> makes no representations about the suitability of this software for any purpose.
+It is provided "as is" without express or implied warranty.
+EOF
+);
+
+license_covered(
+	'hpnd_sell',
+	name => 'Historical Permission Notice and Disclaimer - sell variant',
+	text => <<EOF,
+Permission to use, copy, modify, distribute, and sell this software and its documentation for any purpose is hereby granted without fee, provided that the above copyright notice appears in all copies and that both that copyright notice and this permission notice appear in supporting documentation, and that the name of OpenVision not be used in advertising or publicity pertaining to distribution of the software without specific, written prior permission.
+OpenVision makes no representations about the suitability of this software for any purpose.
+It is provided "as is" without express or implied warranty.
+EOF
+);
+
+license_covered(
 	'isc',
 	name => 'ISC License',
 	text => <<EOF,
@@ -1686,6 +2049,61 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF THIRD PARTY RIGHTS.
 IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 Except as contained in this notice, the name of a copyright holder shall not be used in advertising or otherwise to promote the sale, use or other dealings in this Software without prior written authorization of the copyright holder.
+EOF
+);
+
+license_covered(
+	'intel',
+	name => 'Intel Open Source License',
+	text => <<EOF,
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+• Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+• Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+• Neither the name of the Intel Corporation nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE INTEL OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+EXPORT LAWS: THIS LICENSE ADDS NO RESTRICTIONS TO THE EXPORT LAWS OF YOUR JURISDICTION.
+EOF
+	TODO => [qw(subject_iri)]
+);
+
+license_covered(
+	'ipa',
+	name => 'IPA Font License',
+	text => <<EOF,
+IPA Font License Agreement v1.0
+
+The Licensor provides the Licensed Program (as defined in Article 1 below) under the terms of this license agreement ("Agreement").  Any use, reproduction or distribution of the Licensed Program, or any exercise
+
+Article 1 (Definitions)
+EOF
+);
+
+license_covered(
+	'ipl',
+	name => 'IBM Public License 1.0',
+	text => <<EOF,
+IBM Public License Version 1.0
+
+THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF THIS IBM PUBLIC LICENSE ("AGREEMENT"). ANY USE, REPRODUCTION OR DISTRIBUTION OF THE PROGRAM CONSTITUTES RECIPIENT'S ACCEPTANCE OF THIS AGREEMENT.
+
+1. DEFINITIONS
+"Contribution" means:
+
+a.  in the case of International Business Machines Corporation ("IBM"), the Original Program, and
+EOF
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'jabberpl',
+	name => 'Jabber Open Source License',
+	text => <<EOF,
+This Jabber Open Source License (the "License") applies to Jabber Server and related software products as well as any updates or maintenance releases of that software ("Jabber Products") that are distributed by Jabber.Com, Inc. ("Licensor").
 EOF
 );
 
@@ -1811,6 +2229,55 @@ EOF
 );
 
 license_covered(
+	'lpl',
+	name => 'Lucent Public License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'lpl_1',
+	name => 'Lucent Public License v1.0',
+	text => <<EOF,
+Lucent Public License Version 1.0
+
+THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF THIS PUBLIC LICENSE ("AGREEMENT"). ANY USE, REPRODUCTION OR DISTRIBUTION OF THE PROGRAM CONSTITUTES RECIPIENT'S ACCEPTANCE OF THIS AGREEMENT.
+
+1. DEFINITIONS
+
+"Contribution" means:
+
+a.  in the case of <ORGANIZATION> ("<OWNER>"), the Original Program, and
+b.  in the case of each Contributor,
+
+i.  changes to the Program, and
+ii.  additions to the Program; where such changes and/or additions to the Program originate from and are "Contributed" by that particular Contributor.
+EOF
+);
+
+license_covered(
+	'lpl_1_02',
+	name => 'Lucent Public License v1.02',
+	text => <<EOF,
+Lucent Public License Version 1.02
+
+THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF THIS PUBLIC LICENSE ("AGREEMENT"). ANY USE, REPRODUCTION OR DISTRIBUTION OF THE PROGRAM CONSTITUTES RECIPIENT'S ACCEPTANCE OF THIS AGREEMENT.
+
+1. DEFINITIONS
+
+"Contribution" means:
+
+a.  in the case of Lucent Technologies Inc. ("LUCENT"), the Original Program, and
+b.  in the case of each Contributor,
+
+i.  changes to the Program, and
+ii.  additions to the Program;
+
+where such changes and/or additions to the Program were added to the Program by such Contributor itself or anyone acting on such Contributor's behalf, and the Contributor explicitly consents, in accordance with Section 3C, to characterization of the changes and/or additions as Contributions.
+EOF
+	TODO => [qw(name_name)]
+);
+
+license_covered(
 	'lppl',
 	name => 'LaTeX Project Public License',
 	TODO => [qw(subject_license)]
@@ -1856,6 +2323,86 @@ license_covered(
 LPPL Version 1.3c 2008-05-04 Copyright 1999 2002-2008 LaTeX3 Project
 EOF
 	TODO => [qw(name_name)]
+);
+
+license_covered(
+	'liliq_p',
+	name => 'Licence Libre du Québec – Permissive (LiLiQ-P)',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'liliq_p_1_1',
+	name => 'Licence Libre du Québec – Permissive (LiLiQ-P) version 1.1',
+	text => <<EOF,
+8. Responsabilité
+Le licencié est responsable de tout préjudice résultant de l'exercice des droits accordés par la licence.
+
+Le concédant ne saurait être tenu responsable de dommages subis par le licencié ou par des tiers, pour quelque cause que ce soit en lien avec la licence et les droits qui y sont accordés.
+
+9. Résiliation
+La présente licence est automatiquement résiliée dès que les droits qui y sont accordés ne sont pas exercés conformément aux termes qui y sont stipulés.
+
+Toutefois, si le défaut est corrigé dans un délai de 30 jours de sa prise de connaissance par la personne en défaut, et qu'il s'agit du premier défaut, la licence est accordée de nouveau.
+
+Pour tout défaut subséquent, le consentement exprès du concédant est nécessaire afin que la licence soit accordée de nouveau.
+EOF
+);
+
+license_covered(
+	'liliq_r',
+	name => 'Licence Libre du Québec – Réciprocité (LiLiQ-R)',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'liliq_r_1_1',
+	name =>
+		'Licence Libre du Québec – Réciprocité (LiLiQ-R) version 1.1',
+	text => <<EOF,
+4.1. Réciprocité
+Chaque fois que le licencié distribue le logiciel, le concédant offre au récipiendaire une concession sur le logiciel selon les termes de la présente licence.
+Le licencié doit offrir une concession selon les termes de la présente licence pour tout logiciel modifié qu'il distribue.
+
+Chaque fois que le licencié distribue le logiciel ou un logiciel modifié, ce dernier doit assumer l'obligation d'en distribuer le code source, de la manière prévue au troisième alinéa de l'article 3.
+EOF
+);
+
+license_covered(
+	'liliq_r_plus',
+	name => 'Licence Libre du Québec – Réciprocité forte (LiLiQ-R+)',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'liliq_r_plus_1_1',
+	name =>
+		'Licence Libre du Québec – Réciprocité forte (LiLiQ-R+) version 1.1',
+	text => <<EOF,
+4.1. Réciprocité
+Chaque fois que le licencié distribue le logiciel, le concédant offre au récipiendaire une concession sur le logiciel selon les termes de la présente licence.
+Le licencié doit offrir une concession selon les termes de la présente licence pour tout logiciel modifié ou dérivé qu'il distribue.
+
+Chaque fois que le licencié distribue le logiciel, un logiciel modifié, ou un logiciel dérivé, ce dernier doit assumer l'obligation d'en distribuer le code source, de la manière prévue au troisième alinéa de l'article 3.
+EOF
+);
+
+license_covered(
+	'miros',
+	name => 'MirOS Licence',
+	text => <<EOF,
+Provided that these terms and disclaimer and all copyright notices are retained or reproduced in an accompanying document, permission is granted to deal in this work without restriction, including unlimited rights to use, publicly perform, distribute, sell, modify, merge, give away, or sublicence.
+EOF
+);
+
+license_covered(
+	'mit_0',
+	name => 'MIT No Attribution',
+	text => <<EOF,
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+EOF
 );
 
 license_covered(
@@ -1957,6 +2504,39 @@ EOF
 );
 
 license_covered(
+	'mit_open_group',
+	name => 'MIT Open Group variant',
+	text => <<EOF,
+Permission to use, copy, modify, distribute, and sell this software and its documentation for any purpose is hereby granted without fee, provided that the above copyright notice appear in all copies and that both that copyright notice and this permission notice appear in supporting documentation.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+EOF
+);
+
+license_covered(
+	'motosoto',
+	name => 'Motosoto License',
+	iri  => 'https://opensource.org/licenses/Motosoto',
+	text => <<EOF,
+MOTOSOTO OPEN SOURCE LICENSE - Version 0.9.1
+
+This Motosoto Open Source License (the "License") applies to "Community Portal Server" and related software products as well as any updatesor maintenance releases of that software ("Motosoto Products") that are distributed by Motosoto.Com B.V. ("Licensor").
+Any Motosoto Product licensed pursuant to this License is a "Licensed Product." Licensed Product, in its entirety, is protected by Dutch copyright law.
+This License identifies the terms under which you may use, copy, distribute or modify Licensed Product and has been submitted to the Open Software Initiative (OSI) for approval.
+
+7. Versions of This License.
+
+a. Version.
+The Motosoto Open Source License is derived from the Jabber Open Source License.
+All changes are related to applicable law and the location of court.
+
+b. New Versions.
+Licensor may publish from time to time revised and/or new versions of the License.
+EOF
+	TODO => [qw(not_iri_name)]
+);
+
+license_covered(
 	'mpl',
 	name => 'Mozilla Public License',
 	iri  => 'https://www.mozilla.org/MPL',
@@ -2017,10 +2597,131 @@ license_covered(
 );
 
 license_covered(
+	'mulan',
+	name => 'Mulan Permissive Software License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'mulan',
+	name => '木兰宽松许可证',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'mulan_1',
+	name => 'Mulan Permissive Software License，Version 1',
+	iri  => 'https://license.coscl.org.cn/MulanPSL',
+	text => <<EOF,
+Your reproduction, use, modification and distribution of the Software shall be subject to Mulan PSL v1 (this License) with following terms and conditions
+EOF
+);
+
+license_covered(
+	'mulan_1',
+	name => '木兰宽松许可证， 第1版',
+	text => <<EOF,
+您对“软件”的复制、使用、修改及分发受木兰宽松许可证，第1版（“本许可证”）的如下条款的约束
+EOF
+	TODO => [qw(name_name)]
+);
+
+license_covered(
+	'mulan_2',
+	name => 'Mulan Permissive Software License，Version 2',
+	text => <<EOF,
+Your reproduction, use, modification and distribution of the Software shall be subject to Mulan PSL v2 (this License) with the following terms and conditions
+EOF
+);
+
+license_covered(
+	'mulan_2',
+	name => '木兰宽松许可证， 第2版',
+	text => <<EOF,
+您对“软件”的复制、使用、修改及分发受木兰宽松许可证，第2版（“本许可证”）的如下条款的约束
+EOF
+	TODO => [qw(name_name)]
+);
+
+license_covered(
+	'multics',
+	name => 'Multics License',
+	text => <<EOF,
+This edition of the Multics software materials and documentation is provided and donated to Massachusetts Institute of Technology by Group BULL including BULL HN Information Systems Inc. as a contribution to computer science knowledge.
+
+Permission to use, copy, modify, and distribute these programs and their documentation for any purpose and without fee is hereby granted,provided that the below copyright notice and historical background appear in all copies and that both the copyright notice and historical background and this permission notice appear in supporting documentation, and that the names of MIT, HIS, BULL or BULL HN not be used in advertising or publicity pertaining to distribution of the programs without specific prior written permission.
+EOF
+);
+
+license_covered(
+	'nasa',
+	name => 'NASA Open Source Agreement',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'nasa_1_3',
+	name => 'NASA Open Source Agreement 1.3',
+	text => <<EOF,
+A. "Contributor" means Government Agency, as the developer of the Original Software, and any entity that makes a Modification.
+EOF
+);
+
+license_covered(
+	'naumen',
+	name => 'Naumen Public License',
+	text => <<EOF,
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. The name NAUMEN (tm) must not be used to endorse or promote products derived from this software without prior written permission from NAUMEN.
+
+4. The right to distribute this software or to use it for any purpose does not give you the right to use Servicemarks (sm) or Trademarks (tm) of NAUMEN.
+
+5. If any files originating from NAUMEN or Contributors are modified, you must cause the modified files to carry prominent notices stating that you changed the files and the date of any change.
+
+Disclaimer:
+
+THIS SOFTWARE IS PROVIDED BY NAUMEN "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+EOF
+);
+
+license_covered(
+	'ncsa',
+	name => 'University of Illinois/NCSA Open Source License',
+	text => <<EOF,
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal with the Software without restriction, including withoutlimitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+* Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimers.
+
+* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimers in the documentation and/or other materials provided with the distribution.
+
+* Neither the names of <Name of Development Group, Name of Institution>, nor the names of its contributors may be used to endorse or promote products derived from this Software without specific prior written permission.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+EOF
+);
+
+license_covered(
 	'ngpl',
 	name => 'Nethack General Public License',
 	text => <<EOF,
 1. You may copy and distribute verbatim copies of NetHack source code as you receive it,
+EOF
+);
+
+license_covered(
+	'nokia',
+	name => 'Nokia Open Source License',
+	text => <<EOF,
+Nokia Open Source License (NOKOS License)
+
+Version 1.0a
+
+1. DEFINITIONS.
+
+"Affiliates" of a party shall mean an entity
+
+a) which is directly or indirectly controlling such party;
 EOF
 );
 
@@ -2051,6 +2752,21 @@ Netscape Public LIcense version 1.1
 AMENDMENTS
 
 The Netscape Public License Version 1.1 ("NPL") consists of the Mozilla Public License Version 1.1 with the following Amendments,
+EOF
+);
+
+license_covered(
+	'nposl',
+	name => 'Non-Profit Open Software License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'nposl_3',
+	name => 'Non-Profit Open Software License 3.0',
+	text => <<EOF,
+7) Warranty of Provenance and Disclaimer of Warranty.
+The Original Work is provided under this License on an "AS IS" BASIS and WITHOUT WARRANTY, either express or implied, including, without limitation, the warranties of non-infringement, merchantability or fitness for a particular purpose.
 EOF
 );
 
@@ -2149,10 +2865,398 @@ EOF
 );
 
 license_covered(
+	'ogc',
+	name => 'OGC Software License',
+	TODO => [qw(subject_iri subject_license)]
+);
+
+license_covered(
+	'ogc_1',
+	name => 'OGC Software License, Version 1.0',
+	text => <<EOF,
+OGC Software License, Version 1.0
+
+This OGC work (including software, documents, or other related items) is being provided by the copyright holders under the following license.
+By obtaining, using and/or copying this work, you (the licensee) agree that you have read, understood, and will comply with the following terms and conditions:
+
+Permission to use, copy, and modify this software and its documentation, with or without modification, for any purpose and without fee or royalty is hereby granted, provided that you include the following on ALL copies of the software and documentation or portions thereof, including modifications, that you make:
+
+1. The full text of this NOTICE in a location viewable to users of the redistributed or derivative work.
+
+2. Any pre-existing intellectual property disclaimers, notices, or terms and conditions.
+If none exist, a short notice of the following form (hypertext is preferred, text is permitted) should be used within the body of any redistributed or derivative code:
+"Copyright © [\$date-of-document] Open Geospatial Consortium, Inc.
+All Rights Reserved.
+http://www.ogc.org/ogc/legal (Hypertext is preferred, but a textual representation is permitted.)
+
+3. Notice of any changes or modifications to the OGC files, including the date changes were made.
+EOF
+	TODO => [qw(name_name)]
+);
+
+license_covered(
 	'ogtsl',
 	name => 'Open Group Test Suite License',
 	text => <<EOF,
 rename any non-standard executables and testcases so the names do not conflict with standard executables and testcases,
+EOF
+);
+
+license_covered(
+	'oldap',
+	name => 'Open LDAP Public License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'oldap_1_1',
+	name => 'Open LDAP Public License v1.1',
+	text => <<EOF,
+The OpenLDAP Public License
+
+Version 1.1, 25 August 1998 Copyright 1998, The OpenLDAP Foundation.
+All Rights Reserved.
+Note: This license is derived from the "Artistic License" as distributed with the Perl Programming Language.
+Its terms are different from those of the "Artistic License."
+
+PREAMBLE
+
+7. C subroutines supplied by you and linked into this Package in order to emulate subroutines and variables of the language defined by this Package shall not be considered part of this Package, but are the equivalent of input as in Paragraph 6, provided these subroutines do not change the language in any way that would cause it to fail the regression tests for the language.
+
+8. The name of the Copyright Holder may not be used to endorse or promote products derived from this software without specific prior written permission.
+EOF
+);
+
+license_covered(
+	'oldap_1_2',
+	name => 'Open LDAP Public License v1.2',
+	text => <<EOF,
+The OpenLDAP Public License
+
+Version 1.2, 1 September 1998 Copyright 1998, The OpenLDAP Foundation.
+All Rights Reserved.
+Note: This license is derived from the "Artistic License" as distributed with the Perl Programming Language.
+As differences may exist, the complete license should be read.
+
+PREAMBLE
+
+7. C subroutines supplied by you and linked into this Package in order to emulate subroutines and variables of the language defined by this Package shall not be considered part of this Package, but are the equivalent of input as in Paragraph 6, provided these subroutines do not change the language in any way that would cause it to fail the regression tests for the language.
+
+8. The name of the Copyright Holder may not be used to endorse or promote products derived from this software without specific prior written permission.
+EOF
+);
+
+license_covered(
+	'oldap_1_3',
+	name => 'Open LDAP Public License v1.3',
+	text => <<EOF,
+The OpenLDAP Public License
+Version 1.3, 17 January 1999
+
+Copyright 1998-1999, The OpenLDAP Foundation. All Rights Reserved.
+
+Note: This license is derived from the "Artistic License" as distributed with the Perl Programming Language. As significant differences exist, the complete license should be read.
+
+PREAMBLE
+
+7. C subroutines supplied by you and linked into this Package in order to emulate subroutines and variables defined by this Package shall not be considered part of this Package, but are the equivalent of input as in Paragraph 6, provided these subroutines do not change the behavior of the Package in any way that would cause it to fail the regression tests for the Package.
+
+8. Software supplied by you and linked with this Package in order to use subroutines and variables defined by this Package shall not be considered part of this Package and do not automatically fall under the copyright of this Package, and the executables produced by linking your software with this Package may be used and redistributed without restriction and may be sold commercially.
+EOF
+);
+
+license_covered(
+	'oldap_1_4',
+	name => 'Open LDAP Public License v1.4',
+	text => <<EOF,
+The OpenLDAP Public License
+Version 1.4, 18 January 1999
+
+Copyright 1998-1999, The OpenLDAP Foundation. All Rights Reserved.
+
+Note: This license is derived from the "Artistic License" as distributed with the Perl Programming Language. As significant differences exist, the complete license should be read.
+
+PREAMBLE
+
+7. C subroutines supplied by you and linked into this Package in order to emulate subroutines and variables defined by this Package shall not be considered part of this Package, but are the equivalent of input as in Paragraph 6, provided these subroutines do not change the behavior of the Package in any way that would cause it to fail the regression tests for the Package.
+
+8. Software supplied by you and linked with this Package in order to use subroutines and variables defined by this Package shall not be considered part of this Package and do not automatically fall under the copyright of this Package. Executables produced by linking your software with this Package may be used and redistributed without restriction and may be sold commercially so long as the primary function of your software is different than the package itself.
+EOF
+);
+
+license_covered(
+	'oldap_2',
+	name => 'Open LDAP Public License v2.0',
+	text => <<EOF,
+The OpenLDAP Public License
+Version 2.0, 7 June 1999
+
+Copyright 1999, The OpenLDAP Foundation, Redwood City, California, USA. All Rights Reserved.
+
+Redistribution and use of this software and associated documentation ("Software"), with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain copyright statements and notices. Redistributions must also contain a copy of this document.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. The name "OpenLDAP" must not be used to endorse or promote products derived from this Software without prior written permission of the OpenLDAP Foundation. For written permission, please contact foundation\@openldap.org.
+
+4. Products derived from this Software may not be called "OpenLDAP" nor may "OpenLDAP" appear in their names without prior written permission of the OpenLDAP Foundation. OpenLDAP is a registered trademark of the OpenLDAP Foundation.
+
+5. Due credit should be given to the OpenLDAP Project (http://www.openldap.org/).
+
+THIS SOFTWARE IS PROVIDED BY THE OPENLDAP FOUNDATION AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE OPENLDAP FOUNDATION OR ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+EOF
+);
+
+license_covered(
+	'oldap_2_0_1',
+	name => 'Open LDAP Public License v2.0.1',
+	text => <<EOF,
+The OpenLDAP Public License
+Version 2.0.1, 21 December 1999
+
+Copyright 1999, The OpenLDAP Foundation, Redwood City, California, USA. All Rights Reserved.
+
+Redistribution and use of this software and associated documentation ("Software"), with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain copyright statements and notices. Redistributions must also contain a copy of this document.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. The name "OpenLDAP" must not be used to endorse or promote products derived from this Software without prior written permission of the OpenLDAP Foundation. For written permission, please contact foundation\@openldap.org.
+
+4. Products derived from this Software may not be called "OpenLDAP" nor may "OpenLDAP" appear in their names without prior written permission of the OpenLDAP Foundation. OpenLDAP is a trademark of the OpenLDAP Foundation.
+
+5. Due credit should be given to the OpenLDAP Project (http://www.openldap.org/).
+
+THIS SOFTWARE IS PROVIDED BY THE OPENLDAP FOUNDATION AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE OPENLDAP FOUNDATION OR ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+EOF
+);
+
+license_covered(
+	'oldap_2_1',
+	name => 'Open LDAP Public License v2.1',
+	text => <<EOF,
+The OpenLDAP Public License
+Version 2.1, 29 February 2000
+
+Copyright 1999-2000, The OpenLDAP Foundation, Redwood City, California, USA. All Rights Reserved.
+
+Redistribution and use of this software and associated documentation ("Software"), with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain copyright statements and notices. Redistributions must also contain a copy of this document.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. The name "OpenLDAP" must not be used to endorse or promote products derived from this Software without prior written permission of the OpenLDAP Foundation. For written permission, please contact foundation\@openldap.org.
+
+4. Products derived from this Software may not be called "OpenLDAP" nor may "OpenLDAP" appear in their names without prior written permission of the OpenLDAP Foundation. OpenLDAP is a trademark of the OpenLDAP Foundation.
+
+5. Due credit should be given to the OpenLDAP Project (http://www.openldap.org/).
+
+6. The OpenLDAP Foundation may revise this license from time to time. Each revision is distinguished by a version number. You may use the Software under terms of this license revision or under the terms of any subsequent license revision.
+EOF
+);
+
+license_covered(
+	'oldap_2_2',
+	name => 'Open LDAP Public License v2.2',
+	text => <<EOF,
+The OpenLDAP Public License
+Version 2.2, 1 March 2000
+
+Redistribution and use of this software and associated documentation ("Software"), with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain copyright statements and notices. Redistributions must also contain a copy of this document.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. The name "OpenLDAP" must not be used to endorse or promote products derived from this Software without prior written permission of the OpenLDAP Foundation.
+
+4. Products derived from this Software may not be called "OpenLDAP" nor may "OpenLDAP" appear in their names without prior written permission of the OpenLDAP Foundation.
+
+5. Due credit should be given to the OpenLDAP Project (http://www.openldap.org/).
+
+6. The OpenLDAP Foundation may revise this license from time to time. Each revision is distinguished by a version number. You may use the Software under terms of this license revision or under the terms of any subsequent the license.
+EOF
+);
+
+license_covered(
+	'oldap_2_2_1',
+	name => 'Open LDAP Public License v2.2.1',
+	text => <<EOF,
+The OpenLDAP Public License
+Version 2.2.1, 1 March 2000
+
+Redistribution and use of this software and associated documentation ("Software"), with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain copyright statements and notices. Redistributions must also contain a copy of this document.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. The name "OpenLDAP" must not be used to endorse or promote products derived from this Software without prior written permission of the OpenLDAP Foundation.
+
+4. Products derived from this Software may not be called "OpenLDAP" nor may "OpenLDAP" appear in their names without prior written permission of the OpenLDAP Foundation.
+
+5. Due credit should be given to the OpenLDAP Project (http://www.openldap.org/).
+
+6. The OpenLDAP Foundation may revise this license from time to time. Each revision is distinguished by a version number. You may use the Software under terms of this license revision or under the terms of any subsequent revision of the license.
+EOF
+);
+
+license_covered(
+	'oldap_2_2_2',
+	name => 'Open LDAP Public License v2.2.2',
+	text => <<EOF,
+The OpenLDAP Public License
+Version 2.2.2, 28 July 2000
+
+Redistribution and use of this software and associated documentation ("Software"), with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain copyright statements and notices.
+
+2. Redistributions in binary form must reproduce applicable copyright statements and notices, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Redistributions must contain a verbatim copy of this document.
+
+4. The name "OpenLDAP" must not be used to endorse or promote products derived from this Software without prior written permission of the OpenLDAP Foundation.
+
+5. Products derived from this Software may not be called "OpenLDAP" nor may "OpenLDAP" appear in their names without prior written permission of the OpenLDAP Foundation.
+
+6. Due credit should be given to the OpenLDAP Project (http://www.openldap.org/).
+
+7. The OpenLDAP Foundation may revise this license from time to time. Each revision is distinguished by a version number. You may use the Software under terms of this license revision or under the terms of any subsequent revision of the license.
+EOF
+);
+
+license_covered(
+	'oldap_2_3',
+	name => 'Open LDAP Public License v2.3',
+	text => <<EOF,
+The OpenLDAP Public License
+Version 2.3, 28 July 2000
+
+Redistribution and use of this software and associated documentation ("Software"), with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain copyright statements and notices.
+
+2. Redistributions in binary form must reproduce applicable copyright statements and notices, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Redistributions must contain a verbatim copy of this document.
+
+4. The name "OpenLDAP" must not be used to endorse or promote products derived from this Software without prior written permission of the OpenLDAP Foundation.
+
+5. Products derived from this Software may not be called "OpenLDAP" nor may "OpenLDAP" appear in their names without prior written permission of the OpenLDAP Foundation.
+
+6. Due credit should be given to the OpenLDAP Project (http://www.openldap.org/).
+
+7. The OpenLDAP Foundation may revise this license from time to time. Each revision is distinguished by a version number. You may use the Software under terms of this license revision or under the terms of any subsequent revision of the license.
+EOF
+);
+
+license_covered(
+	'oldap_2_4',
+	name => 'Open LDAP Public License v2.4',
+	text => <<EOF,
+The OpenLDAP Public License
+Version 2.4, 8 December 2000
+
+Redistribution and use of this software and associated documentation ("Software"), with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain copyright statements and notices.
+
+2. Redistributions in binary form must reproduce applicable copyright statements and notices, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Redistributions must contain a verbatim copy of this document.
+
+4. The names and trademarks of the authors and copyright holders must not be used in advertising or otherwise to promote the sale, use or other dealing in this Software without specific, written prior permission.
+
+5. Due credit should be given to the OpenLDAP Project.
+
+6. The OpenLDAP Foundation may revise this license from time to time. Each revision is distinguished by a version number. You may use the Software under terms of this license revision or under the terms of any subsequent revision of the license.
+EOF
+);
+
+license_covered(
+	'oldap_2_5',
+	name => 'Open LDAP Public License v2.5',
+	text => <<EOF,
+The OpenLDAP Public License
+Version 2.5, 11 May 2001
+
+Redistribution and use of this software and associated documentation ("Software"), with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain copyright statements and notices.
+
+2. Redistributions in binary form must reproduce applicable copyright statements and notices, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Redistributions must contain a verbatim copy of this document.
+
+4. The names and trademarks of the authors and copyright holders must not be used in advertising or otherwise to promote the sale, use or other dealing in this Software without specific, written prior permission.
+
+5. Due credit should be given to the authors of the Software.
+
+6. The OpenLDAP Foundation may revise this license from time to time. Each revision is distinguished by a version number. You may use the Software under terms of this license revision or under the terms of any subsequent revision of the license.
+EOF
+);
+
+license_covered(
+	'oldap_2_6',
+	name => 'Open LDAP Public License v2.6',
+	text => <<EOF,
+The OpenLDAP Public License
+Version 2.6, 14 June 2001
+
+Redistribution and use of this software and associated documentation ("Software"), with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain copyright statements and notices.
+
+2. Redistributions in binary form must reproduce applicable copyright statements and notices, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Redistributions must contain a verbatim copy of this document.
+
+4. The names and trademarks of the authors and copyright holders must not be used in advertising or otherwise to promote the sale, use or other dealing in this Software without specific, written prior permission.
+
+5. The OpenLDAP Foundation may revise this license from time to time. Each revision is distinguished by a version number. You may use the Software under terms of this license revision or under the terms of any subsequent revision of the license.
+EOF
+);
+
+license_covered(
+	'oldap_2_7',
+	name => 'Open LDAP Public License v2.7',
+	text => <<EOF,
+1. Redistributions in source form must retain copyright statements and notices,
+
+2. Redistributions in binary form must reproduce applicable copyright statements and notices, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution, and
+
+3. Redistributions must contain a verbatim copy of this document.
+
+The OpenLDAP Foundation may revise this license from time to time. Each revision is distinguished by a version number. You may use this Software under terms of this license revision or under the terms of any subsequent revision of the license.
+
+THIS SOFTWARE IS PROVIDED BY THE OPENLDAP FOUNDATION AND ITS CONTRIBUTORS ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES,
+EOF
+);
+
+license_covered(
+	'oldap_2_8',
+	name => 'Open LDAP Public License v2.8',
+	text => <<EOF,
+The OpenLDAP Public License
+
+Version 2.8, 17 August 2003
+
+Redistribution and use of this software and associated documentation ("Software"), with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions in source form must retain copyright statements and notices,
+
+2. Redistributions in binary form must reproduce applicable copyright statements and notices, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution, and
+
+3. Redistributions must contain a verbatim copy of this document.
+
+The OpenLDAP Foundation may revise this license from time to time. Each revision is distinguished by a version number. You may use this Software under terms of this license revision or under the terms of any subsequent revision of the license.
+
+THIS SOFTWARE IS PROVIDED BY THE OPENLDAP FOUNDATION AND ITS CONTRIBUTORS ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES,
 EOF
 );
 
@@ -2162,7 +3266,8 @@ license_covered(
 	text => <<'EOF',
 6. Redistributions of any form whatsoever must retain the following acknowledgment: "This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit (http://www.openssl.org/)"
 
-THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE OpenSSL PROJECT OR ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE OpenSSL PROJECT OR ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 This product includes cryptographic software written by Eric Young (eay@cryptsoft.com). This product includes software written by Tim Hudson (tjh@cryptsoft.com).
 
@@ -2173,6 +3278,41 @@ Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com) All rights reserved.
 This package is an SSL implementation written by Eric Young (eay@cryptsoft.com). The implementation was written so as to conform with Netscapes SSL.
 
 This library is free for commercial and non-commercial use as long as the following conditions are aheared to.
+EOF
+);
+
+license_covered(
+	'opl',
+	name => 'Open Public License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'opl_1',
+	name => 'Open Public License v1.0',
+	text => <<EOF,
+OPEN PUBLIC LICENSE
+Version 1.0
+
+1. Definitions.
+
+1.13 "License Author" means Lutris Technologies, Inc.
+EOF
+);
+
+license_covered(
+	'oset_pl',
+	name => 'OSET Public License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'oset_pl_2_1',
+	name => 'OSET Public License version 2.1',
+	text => <<EOF,
+This license was prepared based on the Mozilla Public License (“MPL”), version 2.0.
+
+3.5.2 You may place additional conditions upon the rights granted in this License to the extent necessary due to statute, judicial order, regulation (including without limitation state and federal procurement regulation), national security, or public interest.
 EOF
 );
 
@@ -2255,6 +3395,65 @@ Licensed under the Open Software License version 3.0
 
 1) Grant of Copyright License.
 EOF
+);
+
+license_covered(
+	'php',
+	name => 'PHP License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'php_3',
+	name => 'PHP License 3.0',
+	text => <<EOF,
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. The name "PHP" must not be used to endorse or promote products derived from this software without prior written permission.
+For written permission, please contact group\@php.net.
+
+4. Products derived from this software may not be called "PHP", nor may "PHP" appear in their name, without prior written permission from group\@php.net.
+You may indicate that your software works in conjunction with PHP by saying "Foo for PHP" instead of calling it "PHP Foo" or "phpfoo"
+
+5. The PHP Group may publish revised and/or new versions of the license from time to time.
+Each version will be given a distinguishing version number.
+Once covered code has been published under a particular version of the license, you may always continue to use it under the terms of that version.
+You may also choose to use such covered code under the terms of any subsequent version of the license published by the PHP Group.
+No one other than the PHP Group has the right to modify the terms applicable to covered code created under this License.
+
+6. Redistributions of any form whatsoever must retain the following acknowledgment: "This product includes PHP, freely available from <http://www.php.net/>".
+
+THIS SOFTWARE IS PROVIDED BY THE PHP DEVELOPMENT TEAM ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+EOF
+);
+
+license_covered(
+	'php_3_01',
+	name => 'PHP License 3.01',
+	text => <<EOF,
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. The name "PHP" must not be used to endorse or promote products derived from this software without prior written permission.
+For written permission, please contact group\@php.net.
+
+4. Products derived from this software may not be called "PHP", nor may "PHP" appear in their name, without prior written permission from group\@php.net.
+You may indicate that your software works in conjunction with PHP by saying "Foo for PHP" instead of calling it "PHP Foo" or "phpfoo"
+
+5. The PHP Group may publish revised and/or new versions of the license from time to time.
+Each version will be given a distinguishing version number.
+Once covered code has been published under a particular version of the license, you may always continue to use it under the terms of that version.
+You may also choose to use such covered code under the terms of any subsequent version of the license published by the PHP Group.
+No one other than the PHP Group has the right to modify the terms applicable to covered code created under this License.
+
+6. Redistributions of any form whatsoever must retain the following acknowledgment: "This product includes PHP software, freely available from <http://www.php.net/software/>".
+
+THIS SOFTWARE IS PROVIDED BY THE PHP DEVELOPMENT TEAM ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+EOF
+	TODO => [qw(name_name)]
 );
 
 license_covered(
@@ -2370,6 +3569,66 @@ EOF
 );
 
 license_covered(
+	'simpl',
+	name => 'Simple Public License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'simpl_2',
+	name => 'Simple Public License 2.0',
+	text => <<EOF,
+Simple Public License (SimPL) 2.0
+
+The SimPL applies to the software's source and object code and comes with any rights that I have in it (other than trademarks).
+You agree to the SimPL by copying, distributing, or making a derivative work of the software.
+EOF
+);
+
+license_covered(
+	'simple_w3c',
+	name => 'Simple Public License',
+	TODO => [qw(subject_license subject_iri)]
+);
+
+license_covered(
+	'simple_w3c_1_1',
+	name => 'Simple Public License 1.1',
+	text => <<EOF,
+2. The name, servicemarks and trademarks of the copyright holders may NOT be used in advertising or publicity pertaining to the software without specific, written prior permission.
+EOF
+);
+
+license_covered(
+	'sissl',
+	name => 'Sun Industry Standards Source License',
+	TODO => [qw(subject_license subject_iri not_iri_name)]
+);
+
+license_covered(
+	'sissl_1_1',
+	name => 'Sun Industry Standards Source License - Version 1.1',
+	iri  => 'https://www.openoffice.org/licenses/sissl_license.html',
+	text => <<EOF,
+Sun Industry Standards Source License - Version 1.1
+
+1.0 DEFINITIONS
+EOF
+);
+
+license_covered(
+	'sissl_1_2',
+	name => 'SUN INDUSTRY STANDARDS SOURCE LICENSE Version 1.2',
+	iri =>
+		'http://gridscheduler.sourceforge.net/Gridengine_SISSL_license.html',
+	text => <<EOF,
+SUN INDUSTRY STANDARDS SOURCE LICENSE
+Version 1.2
+1.0 DEFINITIONS
+EOF
+);
+
+license_covered(
 	'sgi_b',
 	name => 'SGI Free Software License B',
 	iri  => 'https://www.sgi.com/projects/FreeB/',
@@ -2416,6 +3675,25 @@ EOF
 );
 
 license_covered(
+	'sleepycat',
+	name => 'Sleepycat License',
+	text => <<EOF,
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+- Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+- Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+- Redistributions in any form must be accompanied by information on how to obtain complete source code for the DB software and any accompanying software that uses the DB software.
+The source code must either be included in the distribution or be available for no more than the cost of distribution plus a nominal fee, and must be freely redistributable under reasonable conditions.
+For an executable file, complete source code means the source code for all modules it contains.
+It does not include source code for modules or files that typically accompany the major components of the operating system on which the executable file runs.
+
+THIS SOFTWARE IS PROVIDED BY SLEEPYCAT SOFTWARE ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT, ARE DISCLAIMED.
+EOF
+);
+
+license_covered(
 	'spl',
 	name => 'Sun Public License',
 	TODO => [qw(subject_license)]
@@ -2452,6 +3730,56 @@ EOF
 );
 
 license_covered(
+	'tosl',
+	name => 'Trusster Open Source License',
+	text => <<EOF,
+* Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+* Redistributions in any form must be accompanied by information on how to obtain complete source code for this software and any accompanying software that uses this software.
+The source code must either be included in the distribution or be available in a timely fashion for no more than the cost of distribution plus a nominal fee, and must be freely redistributable under reasonable and no more restrictive conditions.
+For an executable file, complete source code means the source code for all modules it contains.
+It does not include source code for modules or files that typically accompany the major components of the operating system on which the executable file runs.
+
+THIS SOFTWARE IS PROVIDED BY MIKE MINTZ AND ROBERT EKENDAHL ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT, ARE DISCLAIMED.
+EOF
+);
+
+license_covered(
+	'ucl',
+	name => 'Upstream Compatibility License',
+	TODO => [qw(subject_iri subject_license)]
+);
+
+license_covered(
+	'ucl_1',
+	name => 'Upstream Compatibility License v. 1.0',
+	text => <<EOF,
+Licensed under the Upstream Compatibility License 1.0
+
+1) Grant of Copyright License.
+EOF
+);
+
+license_covered(
+	'unicode_dfs_2015',
+	name => 'Unicode License Agreement - Data Files and Software (2015)',
+	text => <<EOF,
+(a) this copyright and permission notice appear with all copies of the Data Files or Software,
+(b) this copyright and permission notice appear in associated documentation, and
+(c) there is clear notice in each modified Data File or in the Software as well as in the documentation associated with the Data File(s) or Software that the data or software has been modified.
+EOF
+);
+
+license_covered(
+	'unicode_dfs_2016',
+	name => 'Unicode License Agreement - Data Files and Software (2016)',
+	text => <<EOF,
+(a) this copyright and permission notice appear with all copies of the Data Files or Software, or
+(b) this copyright and permission notice appear in associated Documentation.
+EOF
+);
+
+license_covered(
 	'unicode_strict',
 	text => <<EOF,
 This file is provided as-is by Unicode, Inc. (The Unicode Consortium).
@@ -2477,6 +3805,125 @@ license_covered(
 	text => <<EOF,
 This is free and unencumbered software released into the public domain.
 EOF
+);
+
+license_covered(
+	'upl',
+	name => 'Universal Permissive License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'upl_1',
+	name => 'Universal Permissive License 1.0',
+	text => <<EOF,
+This license is subject to the following condition:
+
+The above copyright notice and either this complete permission notice or at a minimum a reference to the UPL must be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+EOF
+);
+
+license_covered(
+	'vsl',
+	name => 'Vovida Software License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'vsl_1',
+	name => 'Vovida Software License v. 1.0',
+	text => <<EOF,
+For written permission, please contact vocal\@vovida.org.
+
+4. Products derived from this software may not be called "VOCAL", nor may "VOCAL" appear in their name, without prior written permission.
+
+THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT ARE DISCLAIMED.
+EOF
+);
+
+license_covered(
+	'w3c',
+	name => 'W3C License',
+	TODO => [qw(subject_license)]
+);
+
+license_covered(
+	'w3c_19980519',
+	name => 'W3C Software Notice and License (1998-05-19)',
+	text => <<EOF,
+This W3C software is being provided by the copyright holders under the following license.
+By obtaining, using and/or copying this software, you agree that you have read, understood, and will comply with the following terms and conditions:
+
+Permission to use, copy, modify, and distribute this software and its documentation for any purpose and without fee or royalty is hereby granted, provided that you include the following on ALL copies of the software and documentation or portions thereof, including modifications, that you make:
+
+1. A link or URL to the original W3C source.
+
+2. Any pre-existing intellectual property disclaimers.
+If none exist, then a notice of the form:
+"Copyright © World Wide Web Consortium, (Massachusetts Institute of Technology, Institut National de Recherche en Informatique et en Automatique, Keio University). All Rights Reserved."
+
+When space permits, inclusion of the full text of this NOTICE should be provided.
+EOF
+	TODO => [qw(name_name)]
+);
+
+license_covered(
+	'w3c_19980720',
+	name => 'W3C Software Notice and License (1998-07-20)',
+	text => <<EOF,
+This W3C work (including software, documents, or other related items) is being provided by the copyright holders under the following license.
+By obtaining, using and/or copying this work, you (the licensee) agree that you have read, understood, and will comply with the following terms and conditions:
+
+Permission to use, copy, modify, and distribute this software and its documentation, with or without modification,
+for any purpose and without fee or royalty is hereby granted, provided that you include the following on ALL copies of the software and documentation or portions thereof, including modifications, that you make:
+
+1. The full text of this NOTICE in a location viewable to users of the redistributed or derivative work.
+
+2. Any pre-existing intellectual property disclaimers, notices, or terms and conditions.
+If none exist, a short notice of the following form (hypertext is preferred, text is permitted) should be used within the body of any redistributed or derivative code:
+"Copyright © [\$date-of-software] World Wide Web Consortium, (Massachusetts Institute of Technology, Institut National de Recherche en Informatique et en Automatique, Keio University).
+All Rights Reserved.
+http://www.w3.org/Consortium/Legal/"
+
+3. Notice of any changes or modifications to the W3C files, including the date changes were made.
+EOF
+	TODO => [qw(name_name)]
+);
+
+license_covered(
+	'w3c_20021231',
+	name => 'W3C Software Notice and License (2002-12-31)',
+	text => <<EOF,
+By obtaining, using and/or copying this work, you (the licensee) agree that you have read, understood, and will comply with the following terms and conditions.
+
+Permission to copy, modify, and distribute this software and its documentation, with or without modification, for any purpose and without fee or royalty is hereby granted, provided that you include the following on ALL copies of the software and documentation or portions thereof, including modifications:
+
+The full text of this NOTICE in a location viewable to users of the redistributed or derivative work.
+
+Any pre-existing intellectual property disclaimers, notices, or terms and conditions.
+If none exist, the W3C Software Short Notice should be included (hypertext is preferred, text is permitted) within the body of any redistributed or derivative code.
+
+Notice of any changes or modifications to the files, including the date changes were made.
+EOF
+	TODO => [qw(name_name)]
+);
+
+license_covered(
+	'w3c_20150513',
+	name => 'W3C Software and Document Notice and License (2015-05-13)',
+	text => <<EOF,
+By obtaining and/or copying this work, you (the licensee) agree that you have read, understood, and will comply with the following terms and conditions.
+
+Permission to copy, modify, and distribute this work, with or without modification, for any purpose and without fee or royalty is hereby granted, provided that you include the following on ALL copies of the work or portions thereof, including modifications:
+
+• The full text of this NOTICE in a location viewable to users of the redistributed or derivative work.
+• Any pre-existing intellectual property disclaimers, notices, or terms and conditions.
+If none exist, the W3C Software and Document Short Notice should be included.
+• Notice of any changes or modifications, through a copyright statement on the new code or document such as "This software or document includes material copied from or derived from [title and URI of the W3C document]. Copyright (c) [YEAR] W3C® (MIT, ERCIM, Keio, Beihang)."
+EOF
+	TODO => [qw(name_name)]
 );
 
 license_covered(
@@ -2551,6 +3998,33 @@ EOF
 );
 
 license_covered(
+	'x11',
+	name => 'X11 License',
+	text => <<EOF,
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of the X Consortium shall not be used in advertising or otherwise to promote the sale, use or other dealings in this Software without prior written authorization from the X Consortium.
+
+X Window System is a trademark of X Consortium, Inc.
+EOF
+);
+
+license_covered(
+	'xnet',
+	name => 'X.Net License',
+	text => <<EOF,
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+This agreement shall be governed in all respects by the laws of the State of California and by the laws of the United States of America.
+EOF
+);
+
+license_covered(
 	'zlib',
 	name => 'zlib License',
 	iri  => 'http://zlib.net/zlib_license.html',
@@ -2605,14 +4079,40 @@ license_covered(
 	'zpl_2',
 	name => 'Zope Public License 2.0',
 	iri  => 'http://old.zope.org/Resources/License/ZPL-1.1',
-	TODO => [qw(subject_license)]
+	text => <<EOF,
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. The name Zope Corporation (tm) must not be used to endorse or promote products derived from this software without prior written permission from Zope Corporation.
+
+4. The right to distribute this software or to use it for any purpose does not give you the right to use Servicemarks (sm) or Trademarks (tm) of Zope Corporation.
+Use of them is covered in a separate agreement (see http://www.zope.com/Marks).
+
+5. If any files are modified, you must cause the modified files to carry prominent notices stating that you changed the files and the date of any change.
+
+Disclaimer
+
+THIS SOFTWARE IS PROVIDED BY ZOPE CORPORATION ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+EOF
 );
 
 license_covered(
 	'zpl_2_1',
 	name => 'Zope Public License 2.1',
 	iri  => 'http://old.zope.org/Resources/ZPL/',
-	TODO => [qw(subject_license)]
+	text => <<EOF,
+2.  Redistributions in binary form must reproduce the accompanying copyright notice, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3.  Names of the copyright holders must not be used to endorse or promote products derived from this software without prior written permission from the copyright holders.
+
+4.  The right to distribute this software or to use it for any purpose does not give you the right to use Servicemarks (sm) or Trademarks (tm) of the copyright holders.
+Use of them is covered by separate agreement with the copyright holders.
+
+5.  If any files are modified, you must cause the modified files to carry prominent notices stating that you changed the files and the date of any change.
+
+Disclaimer
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+EOF
 );
 
 license_covered(

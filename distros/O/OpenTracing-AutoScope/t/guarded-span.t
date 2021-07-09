@@ -134,4 +134,18 @@ global_tracer_cmp_easy(
     'sub names as default operations'
 );
 
+TODO: { local $TODO = "Calling close more than once ... undefined behavior.";
+
+warning_like {
+    OpenTracing::AutoScope->start_guarded_span('manual_close');
+
+    OpenTracing::GlobalTracer->get_global_tracer
+                             ->get_scope_manager
+                             ->get_active_scope->close();
+
+} qr/already closed/,
+'manually closing AutoScope does cause a warning on scope end';
+
+}
+
 done_testing();

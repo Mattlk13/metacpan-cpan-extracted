@@ -1,12 +1,12 @@
 #  You may distribute under the terms of either the GNU General Public License
 #  or the Artistic License (the same terms as Perl itself)
 #
-#  (C) Paul Evans, 2020 -- leonerd@leonerd.org.uk
+#  (C) Paul Evans, 2020-2021 -- leonerd@leonerd.org.uk
 
 use v5.26;
-use Object::Pad 0.35;
+use Object::Pad 0.41;  # :param
 
-package Device::Chip::Sensor 0.16;
+package Device::Chip::Sensor 0.19;
 
 use strict;
 use warnings;
@@ -91,6 +91,16 @@ The following named parameters are recognised:
 
 =over 4
 
+=item type => STRING
+
+Optional. A string specifying what overall type of data is being returned.
+Normally this is C<gauge> to indicate a quantity that is measured on every
+observation. A type of C<counter> instead indicates that the value will be an
+integer giving the total number of times some event has happened - typically
+used to count interrupt events from chips.
+
+A convenience function L</declare_sensor_counter> exists for making counters.
+
 =item units => STRING
 
 A string describing the units in which the value is returned. This should be
@@ -111,6 +121,11 @@ default will be created by prefixing C<"read_"> onto the sensor name.
 
 =back
 
+=head2 declare_sensor_counter $name => %params;
+
+Declares a sensor of the C<counter> type. This will pass C<undef> for the
+units and 0 for precision.
+
 =cut
 
 sub import ( @opts )
@@ -121,7 +136,7 @@ sub import ( @opts )
 
 sub declare_into ( $caller )
 {
-   my $classmeta = $caller->META;
+   my $classmeta = Object::Pad::MOP::Class->for_class( $caller );
 
    my $sensors = $SENSORS_FOR_CLASS{$classmeta->name} //= [];
 
@@ -139,6 +154,9 @@ sub declare_into ( $caller )
 
    no strict 'refs';
    *{"${caller}::declare_sensor"} = $declare;
+   *{"${caller}::declare_sensor_counter"} = sub {
+      $declare->( @_, type => "counter", units => undef, precision => 0 );
+   };
 }
 
 class Device::Chip::Sensor;
@@ -171,23 +189,26 @@ The L<Device::Chip> instance this sensor is a part of.
 
 =cut
 
-has $_name :reader;
-has $_units :reader;
-has $_precision :reader;
+my %TYPES = (
+   gauge   => 1,
+   counter => 1,
+);
+
+has $_type      :reader :param = "gauge";
+has $_name      :reader :param;
+has $_units     :reader :param = undef;
+has $_precision :reader :param = 0;
 
 has $_method;
 
-has $_chip :reader;
+has $_chip :reader :param = undef;
 
 BUILD ( %params )
 {
-   $_name      = $params{name};
-   $_units     = $params{units};
-   $_precision = $params{precision} // 0;
+   $TYPES{$_type} or
+      croak "Unrecognised sensor type '$_type'";
 
    $_method = $params{method} // "read_$_name";
-
-   $_chip = $params{chip};
 }
 
 method bind ( $chip )
@@ -195,6 +216,7 @@ method bind ( $chip )
    return Device::Chip::Sensor->new(
       chip   => $chip,
 
+      type      => $_type,
       name      => $_name,
       units     => $_units,
       precision => $_precision,
@@ -209,11 +231,14 @@ method bind ( $chip )
 Performs an actual read operation on the sensor chip to return the currently
 measured value.
 
+This method always returns a single scalar value, even if the underlying
+method on the sensor chip returned more than one.
+
 =cut
 
 async method read ()
 {
-   return await $_chip->$_method();
+   return scalar await $_chip->$_method();
 }
 
 =head2 format
@@ -226,6 +251,7 @@ Returns a string by formatting an observed value to the required precision.
 
 method format ( $value )
 {
+   return undef if !defined $value;
    return sprintf "%.*f", $_precision, $value;
 }
 

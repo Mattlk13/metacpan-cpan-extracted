@@ -1,10 +1,10 @@
 {
-   "abstract" : "render SVG into a Cairo surface",
+   "abstract" : "Render SVG into a Cairo surface",
    "author" : [
       "Ben Bullock <bkb@cpan.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 7.34, CPAN::Meta::Converter version 2.150010",
+   "generated_by" : "ExtUtils::MakeMaker version 7.62, CPAN::Meta::Converter version 2.150010",
    "license" : [
       "perl_5"
    ],
@@ -34,7 +34,8 @@
          "requires" : {
             "Cairo" : "0",
             "Carp" : "0",
-            "Image::SVG::Path" : "0.24",
+            "Image::SVG::Path" : "0.36",
+            "Math::Trig" : "0",
             "XML::Parser" : "0",
             "perl" : "5.006001"
          }
@@ -59,6 +60,6 @@
          "web" : "https://github.com/benkasminbullock/image-cairosvg"
       }
    },
-   "version" : "0.11",
-   "x_serialization_backend" : "JSON::PP version 2.97001"
+   "version" : "0.22",
+   "x_serialization_backend" : "JSON::PP version 4.06"
 }

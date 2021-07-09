@@ -30,7 +30,7 @@ use Test::Builder;
 	file_mtime_gt_ok file_mtime_lt_ok file_mtime_age_ok
 	);
 
-$VERSION = '1.444';
+$VERSION = '1.448';
 
 my $Test = Test::Builder->new();
 
@@ -152,11 +152,11 @@ sub file_not_exists_ok {
 
 =item file_empty_ok( FILENAME [, NAME ] )
 
-Ok if the file exists and has empty size, not ok if the
-file does not exist or exists with non-zero size.
+Ok if the file exists and has empty size, not ok if the file does not
+exist or exists with non-zero size.
 
 Previously this tried to test any sort of file. Sometime in the future
-this will fail if the argument is not a plain file.
+this will fail if the argument is not a plain file or is a directory.
 
 =cut
 
@@ -171,6 +171,10 @@ sub file_empty_ok {
 
 	unless( -f $filename ) {
 		$Test->diag( "File [$filename] is not a plain file, which is deprecated for file_empty_ok" );
+		}
+
+	if( -d $filename ) {
+		$Test->diag( "File [$filename] is a directory, which is deprecated for file_empty_ok" );
 		}
 
 	my $ok = -z $filename;
@@ -190,7 +194,7 @@ Ok if the file exists and has non-zero size, not ok if the file does
 not exist or exists with zero size.
 
 Previously this tried to test any sort of file. Sometime in the future
-this will fail if the argument is not a plain file.
+this will fail if the argument is not a plain file or is a directory.
 
 =cut
 
@@ -204,6 +208,10 @@ sub file_not_empty_ok {
 		}
 
 	unless( -f $filename ) {
+		$Test->diag( "File [$filename] is a directory, which is deprecated for file_not_empty_ok" );
+		}
+
+	if( -d $filename ) {
 		$Test->diag( "File [$filename] is a directory, which is deprecated for file_not_empty_ok" );
 		}
 
@@ -224,7 +232,7 @@ Ok if the file exists and has SIZE size in bytes (exactly), not ok if
 the file does not exist or exists with size other than SIZE.
 
 Previously this tried to test any sort of file. Sometime in the future
-this will fail if the argument is not a plain file.
+this will fail if the argument is not a plain file or is a directory.
 
 =cut
 
@@ -239,6 +247,10 @@ sub file_size_ok {
 		}
 
 	unless( -f $filename ) {
+		$Test->diag( "File [$filename] is a directory, which is deprecated for file_size_ok" );
+		}
+
+	if( -d $filename ) {
 		$Test->diag( "File [$filename] is a directory, which is deprecated for file_size_ok" );
 		}
 
@@ -263,7 +275,7 @@ ok if the file does not exist or exists with size greater than MAX
 bytes.
 
 Previously this tried to test any sort of file. Sometime in the future
-this will fail if the argument is not a plain file.
+this will fail if the argument is not a plain file or is a directory.
 
 =cut
 
@@ -278,6 +290,10 @@ sub file_max_size_ok {
 		}
 
 	unless( -f $filename ) {
+		$Test->diag( "File [$filename] is a directory, which is deprecated for file_max_size_ok" );
+		}
+
+	if( -d $filename ) {
 		$Test->diag( "File [$filename] is a directory, which is deprecated for file_max_size_ok" );
 		}
 
@@ -304,7 +320,7 @@ not ok if the file does not exist or exists with size less than MIN
 bytes.
 
 Previously this tried to test any sort of file. Sometime in the future
-this will fail if the argument is not a plain file.
+this will fail if the argument is not a plain file or is a directory.
 
 =cut
 
@@ -319,6 +335,10 @@ sub file_min_size_ok {
 		}
 
 	unless( -f $filename ) {
+		$Test->diag( "File [$filename] is a directory, which is deprecated for file_min_size_ok" );
+		}
+
+	if( -d $filename ) {
 		$Test->diag( "File [$filename] is a directory, which is deprecated for file_min_size_ok" );
 		}
 
@@ -347,7 +367,7 @@ This function uses the current value of C<$/> as the line ending and
 counts the lines by reading them and counting how many it read.
 
 Previously this tried to test any sort of file. Sometime in the future
-this will fail if the argument is not a plain file.
+this will fail if the argument is not a plain file or is a directory.
 
 =cut
 
@@ -377,6 +397,14 @@ sub file_line_count_is {
 		no warnings 'uninitialized';
 		shift || "$filename line count is $expected lines";
 		};
+
+	unless( ! -e $filename or -f $filename ) {
+		$Test->diag( "File [$filename] is not a plain file, which is deprecated for file_line_count_is" );
+		}
+
+	if( -d $filename ) {
+		$Test->diag( "File [$filename] is a directory, which is deprecated for file_line_count_is" );
+		}
 
 	unless( defined $expected && int( $expected ) == $expected ) {
 		no warnings 'uninitialized';
@@ -420,7 +448,7 @@ This function uses the current value of C<$/> as the line ending and
 counts the lines by reading them and counting how many it read.
 
 Previously this tried to test any sort of file. Sometime in the future
-this will fail if the argument is not a plain file.
+this will fail if the argument is not a plain file or is a directory.
 
 =cut
 
@@ -431,6 +459,14 @@ sub file_line_count_isnt {
 		no warnings 'uninitialized';
 		shift || "$filename line count is not $expected lines";
 		};
+
+	unless( ! -e $filename or -f $filename ) {
+		$Test->diag( "File [$filename] is not a plain file, which is deprecated for file_line_count_isnt" );
+		}
+
+	if( -d $filename ) {
+		$Test->diag( "File [$filename] is a directory, which is deprecated for file_line_count_isnt" );
+		}
 
 	unless( defined $expected && int( $expected ) == $expected ) {
 		no warnings 'uninitialized';
@@ -473,7 +509,7 @@ This function uses the current value of C<$/> as the line ending and
 counts the lines by reading them and counting how many it read.
 
 Previously this tried to test any sort of file. Sometime in the future
-this will fail if the argument is not a plain file.
+this will fail if the argument is not a plain file or is a directory.
 
 =cut
 
@@ -481,6 +517,14 @@ sub file_line_count_between {
 	my $filename = _normalize( shift );
 	my $min      = shift;
 	my $max      = shift;
+
+	unless( ! -e $filename or -f $filename ) {
+		$Test->diag( "File [$filename] is not a plain file, which is deprecated for file_line_count_between" );
+		}
+
+	if( -d $filename ) {
+		$Test->diag( "File [$filename] is a directory, which is deprecated for file_line_count_between" );
+		}
 
 	my $name = do {
 		no warnings 'uninitialized';
@@ -657,7 +701,7 @@ sub _file_contains {
 		return $Test->ok(0, $name);
 		}
 
-	unless( -f $filename ) {
+	if( -d $filename ) {
 		my $caller = ( caller(0) )[3];
 		$Test->diag( "File [$filename] is a directory, which is deprecated for $caller" );
 		}
@@ -1550,35 +1594,92 @@ sub group_isnt {
 	}
 
 sub _get_uid {
-	my $owner = shift;
-	my $owner_uid;
+	my $arg = shift;
 
-	if ($owner =~ /^\d+/) {
-		$owner_uid = $owner;
-		$owner = ( getpwuid $owner )[0];
-		}
-	else {
-		$owner_uid = (getpwnam($owner))[2];
-		}
+	# the name might be numeric (why would you do that?), so we need
+	# to figure out which of several possibilities we have. And, 0 means
+	# root, so we have to be very careful with the values.
 
-	$owner_uid;
+	# maybe the argument is a UID. First, it has to be numeric. If it's
+	# a UID, we'll get the same UID back. But, if we get back a value
+	# that doesn't mean that we are done. There might be a name with
+	# the same value.
+	#
+	# Don't use this value in comparisons! An undef could be turned
+	# into zero!
+	my $from_uid = (getpwuid($arg))[2] if $arg =~ /\A[0-9]+\z/;
+
+	# Now try the argument as a name. If it's a name, then we'll get
+	# back a UID. Maybe we get back nothing.
+	my $from_nam = (getpwnam($arg))[2];
+
+	return do {
+		# first case, we got back nothing from getpwnam but did get
+		# something from getpwuid. The arg is not a name and is a
+		# UID.
+		   if( defined $from_uid and not defined $from_nam ) { $arg }
+		# second case, we got back nothing from getpwuid but did get
+		# something from getpwnam. The arg is a name and is not a
+		# UID.
+		elsif( not defined $from_uid and defined $from_nam ) { $from_nam }
+		# Now, what happens if neither are defined? The argument does
+		# not correspond to a name or GID on the system. Since no such
+		# user exists, we return undef.
+		elsif( not defined $from_uid and not defined $from_nam ) { undef }
+		# But what if they are both defined? The argument could represent
+		# a UID and a name, and those could be different users! In this
+		# case, we'll choose the original argument. That might be wrong,
+		# so the best we can do is a warning.
+		else {
+			carp( "Found both a UID or name for <$arg>. Guessing the UID is <$arg>." );
+			$arg
+			}
+		};
 	}
 
 sub _get_gid {
-	my $group = shift;
-	my $group_uid;
+	my $arg = shift;
 
-	if ($group =~ /^\d+/) {
-		$group_uid = $group;
-		$group = ( getgrgid $group )[0];
-		}
-	else {
-		$group_uid = (getgrnam($group))[2];
-		}
+	# the name might be numeric (why would you do that?), so we need
+	# to figure out which of several possibilities we have. And, 0 means
+	# root, so we have to be very careful with the values.
 
-	$group_uid;
+	# maybe the argument is a GID. First, it has to be numeric. If it's
+	# a GID, we'll get the same GID back. But, if we get back a value
+	# that doesn't mean that we are done. There might be a name with
+	# the same value.
+	#
+	# Don't use this value in comparisons! An undef could be turned
+	# into zero!
+	my $from_gid = (getgrgid($arg))[2] if $arg =~ /\A[0-9]+\z/;
+
+	# Now try the argument as a name. If it's a name, then we'll get
+	# back a GID. Maybe we get back nothing.
+	my $from_nam = (getgrnam($arg))[2];
+
+	return do {
+		# first case, we got back nothing from getgrnam but did get
+		# something from getpwuid. The arg is not a name and is a
+		# GID.
+		   if( defined $from_gid and not defined $from_nam ) { $arg }
+		# second case, we got back nothing from getgrgid but did get
+		# something from getgrnam. The arg is a name and is not a
+		# GID.
+		elsif( not defined $from_gid and defined $from_nam ) { $from_nam }
+		# Now, what happens if neither are defined? The argument does
+		# not correspond to a name or GID on the system. Since no such
+		# user exists, we return undef.
+		elsif( not defined $from_gid and not defined $from_nam ) { undef }
+		# But what if they are both defined? The argument could represent
+		# a GID and a name, and those could be different users! In this
+		# case, we'll choose the original argument. That might be wrong,
+		# so the best we can do is a warning.
+		else {
+			carp( "Found both a GID or name for <$arg>. Guessing the GID is <$arg>." );
+			$arg;
+			}
+		};
 	}
-
 
 =item file_mtime_age_ok( FILE [, WITHIN_SECONDS ] [, NAME ] )
 
@@ -1702,13 +1803,14 @@ sub _stat_file {
 L<Test::Builder>,
 L<Test::More>
 
-If you are using the new C<Test2> stuff, see L<Test2::Tool::File>.
+If you are using the new C<Test2> stuff, see Test2::Tools::File
+(https://github.com/torbjorn/Test2-Tools-File).
 
 =head1 SOURCE AVAILABILITY
 
 This module is in Github:
 
-	git://github.com/briandfoy/test-file.git
+	https://github.com/briandfoy/test-file.git
 
 =head1 AUTHOR
 

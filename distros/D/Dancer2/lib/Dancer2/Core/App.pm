@@ -1,6 +1,6 @@
 # ABSTRACT: encapsulation of Dancer2 packages
 package Dancer2::Core::App;
-$Dancer2::Core::App::VERSION = '0.300004';
+$Dancer2::Core::App::VERSION = '0.301004';
 use Moo;
 use Carp               qw<croak carp>;
 use Scalar::Util       'blessed';
@@ -1109,6 +1109,8 @@ sub BUILD {
     my $self = shift;
     $self->init_route_handlers();
     $self->_init_hooks();
+
+    $self->log(core => 'Built config from files: ' . join(' ', @{$self->config_files}));
 }
 
 sub finish {
@@ -1273,6 +1275,14 @@ sub redirect {
     my $destination = shift;
     my $status      = shift;
 
+    if ($destination =~ m{^/(?!/)}) {
+        # If the app is mounted to something other than "/", we must
+        # preserve its path.
+        my $script_name = $self->request->script_name;
+        $script_name =~ s{/$}{}; # Remove trailing slash (if present).
+        $destination = $script_name . $destination;
+    }
+
     $self->response->redirect( $destination, $status );
 
     # Short circuit any remaining before hook / route code
@@ -1396,7 +1406,7 @@ sub to_app {
         # Use App::File to "serve" the static content
         my $static_app = Plack::App::File->new(
             root         => $self->config->{public_dir},
-            content_type => sub { $self->mime_type->for_name(shift) },
+            content_type => sub { $self->mime_type->for_file( $_[0] ) },
         )->to_app;
         # Conditionally use the static handler wrapped with ConditionalGET
         # when the file exists. Otherwise the request passes into our app.
@@ -1685,7 +1695,7 @@ Dancer2::Core::App - encapsulation of Dancer2 packages
 
 =head1 VERSION
 
-version 0.300004
+version 0.301004
 
 =head1 DESCRIPTION
 
@@ -1899,7 +1909,7 @@ Dancer Core Developers
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Alexis Sukrieh.
+This software is copyright (c) 2021 by Alexis Sukrieh.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

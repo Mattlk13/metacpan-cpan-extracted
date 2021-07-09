@@ -6,6 +6,14 @@ examples/entities.pl
 examples/fast.pl
 examples/hello-template.pl
 examples/hello.pl
+examples/login/lib/LoginApp.pm
+examples/login/lib/LoginApp/Controller/Login.pm
+examples/login/lib/LoginApp/Model/Users.pm
+examples/login/script/login_app
+examples/login/t/login.t
+examples/login/templates/layouts/default.html.ep
+examples/login/templates/login/index.html.ep
+examples/login/templates/login/protected.html.ep
 examples/microhttpd.pl
 examples/proxy.pl
 examples/responses.pl
@@ -36,7 +44,6 @@ lib/Mojo/HelloWorld.pm
 lib/Mojo/Home.pm
 lib/Mojo/IOLoop.pm
 lib/Mojo/IOLoop/Client.pm
-lib/Mojo/IOLoop/Delay.pm
 lib/Mojo/IOLoop/resources/server.crt
 lib/Mojo/IOLoop/resources/server.key
 lib/Mojo/IOLoop/Server.pm
@@ -125,7 +132,6 @@ lib/Mojolicious/resources/public/favicon.ico
 lib/Mojolicious/resources/public/mojo/bootstrap/bootstrap.css
 lib/Mojolicious/resources/public/mojo/bootstrap/bootstrap.js
 lib/Mojolicious/resources/public/mojo/failraptor.png
-lib/Mojolicious/resources/public/mojo/fontawesome/fontawesome.css
 lib/Mojolicious/resources/public/mojo/highlight.js/highlight-mojo-dark.css
 lib/Mojolicious/resources/public/mojo/highlight.js/highlight.min.js
 lib/Mojolicious/resources/public/mojo/highlight.js/mojolicious.min.js
@@ -138,21 +144,6 @@ lib/Mojolicious/resources/public/mojo/noraptor.png
 lib/Mojolicious/resources/public/mojo/notfound.png
 lib/Mojolicious/resources/public/mojo/pinstripe-dark.png
 lib/Mojolicious/resources/public/mojo/pinstripe-light.png
-lib/Mojolicious/resources/public/mojo/webfonts/fa-brands-400.eot
-lib/Mojolicious/resources/public/mojo/webfonts/fa-brands-400.svg
-lib/Mojolicious/resources/public/mojo/webfonts/fa-brands-400.ttf
-lib/Mojolicious/resources/public/mojo/webfonts/fa-brands-400.woff
-lib/Mojolicious/resources/public/mojo/webfonts/fa-brands-400.woff2
-lib/Mojolicious/resources/public/mojo/webfonts/fa-regular-400.eot
-lib/Mojolicious/resources/public/mojo/webfonts/fa-regular-400.svg
-lib/Mojolicious/resources/public/mojo/webfonts/fa-regular-400.ttf
-lib/Mojolicious/resources/public/mojo/webfonts/fa-regular-400.woff
-lib/Mojolicious/resources/public/mojo/webfonts/fa-regular-400.woff2
-lib/Mojolicious/resources/public/mojo/webfonts/fa-solid-900.eot
-lib/Mojolicious/resources/public/mojo/webfonts/fa-solid-900.svg
-lib/Mojolicious/resources/public/mojo/webfonts/fa-solid-900.ttf
-lib/Mojolicious/resources/public/mojo/webfonts/fa-solid-900.woff
-lib/Mojolicious/resources/public/mojo/webfonts/fa-solid-900.woff2
 lib/Mojolicious/resources/templates/mojo/debug.html.ep
 lib/Mojolicious/resources/templates/mojo/exception.html.ep
 lib/Mojolicious/resources/templates/mojo/not_found.html.ep
@@ -197,7 +188,6 @@ t/mojo/cookiejar.t
 t/mojo/daemon.t
 t/mojo/daemon_ipv6_tls.t
 t/mojo/date.t
-t/mojo/delay.t
 t/mojo/dom.t
 t/mojo/dynamic_methods.t
 t/mojo/eventemitter.t
@@ -310,6 +300,7 @@ t/mojolicious/lib/MojoliciousTest/Command/test_command.pm
 t/mojolicious/lib/MojoliciousTest/Controller/Foo/Bar.pm
 t/mojolicious/lib/MojoliciousTest/Exceptional.pm
 t/mojolicious/lib/MojoliciousTest/Foo.pm
+t/mojolicious/lib/MojoliciousTest/Plugin/DeploymentPlugin.pm
 t/mojolicious/lib/MojoliciousTest/Plugin/Test/SomePlugin2.pm
 t/mojolicious/lib/MojoliciousTest/Plugin/UPPERCASETestPlugin.pm
 t/mojolicious/lib/MojoliciousTest/PODTest.pm
@@ -318,7 +309,6 @@ t/mojolicious/lib/MojoliciousTest/SyntaxError.pm
 t/mojolicious/lib/MojoliciousTest2/Foo.pm
 t/mojolicious/lib/MojoliciousTest3/Bar.pm
 t/mojolicious/lib/MojoliciousTest3/Baz.pm
-t/mojolicious/lib/MojoliciousTestController.pm
 t/mojolicious/lib/PluginWithEmbeddedApp.pm
 t/mojolicious/lib/PluginWithTemplate.pm
 t/mojolicious/lib/SingleFileTestApp.pm

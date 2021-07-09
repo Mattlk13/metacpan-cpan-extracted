@@ -5,7 +5,7 @@ use utf8;
 
 package Neo4j::Driver::Result::JSON;
 # ABSTRACT: JSON/REST result handler
-$Neo4j::Driver::Result::JSON::VERSION = '0.20';
+$Neo4j::Driver::Result::JSON::VERSION = '0.25';
 
 use parent 'Neo4j::Driver::Result';
 
@@ -13,16 +13,20 @@ use Carp qw(carp croak);
 our @CARP_NOT = qw(Neo4j::Driver::Net::HTTP);
 use Try::Tiny;
 
-use JSON::MaybeXS 1.003003 ();
 use URI 1.31;
 
 
-our $MEDIA_TYPE = "application/json";
-our $ACCEPT_HEADER = "$MEDIA_TYPE";
+my ($TRUE, $FALSE);
+
+my $MEDIA_TYPE = "application/json";
+my $ACCEPT_HEADER = "$MEDIA_TYPE";
+my $ACCEPT_HEADER_POST = "$MEDIA_TYPE;q=0.5";
 
 
 sub new {
 	my ($class, $params) = @_;
+	
+	($TRUE, $FALSE) = @{ $params->{http_agent}->json_coder->decode('[true,false]') } unless $TRUE;
 	
 	my $json = $class->_parse_json($params);
 	
@@ -78,7 +82,8 @@ sub _parse_json {
 	
 	my @errors = ();
 	if (! $params->{http_header}->{success}) {
-		push @errors, "HTTP error: $params->{http_header}->{status} $params->{http_header}->{reason} on $params->{http_method} to $params->{http_path}";
+		my $reason_phrase = $params->{http_agent}->http_reason;
+		push @errors, "HTTP error: $params->{http_header}->{status} $reason_phrase on $params->{http_method} to $params->{http_path}";
 	}
 	
 	my $json;
@@ -222,7 +227,7 @@ sub _deep_bless {
 	if (ref $data eq '' && ref $rest eq '') {  # scalar
 		return $data;
 	}
-	if ( JSON::MaybeXS::is_bool($data) && JSON::MaybeXS::is_bool($rest) ) {  # boolean
+	if ( $data == $TRUE && $rest == $TRUE || $data == $FALSE && $rest == $FALSE ) {  # boolean
 		return $data;
 	}
 	
@@ -233,9 +238,12 @@ sub _deep_bless {
 # Return a list of the media types this module can handle, fit for
 # use in an HTTP Accept header field.
 sub _accept_header {
-	my (undef, $want_jolt, $http_method) = @_;
+	my (undef, $want_jolt, $method) = @_;
 	
+	# Note: Neo4j < 4.2 doesn't fail gracefully if Jolt is the only acceptable response type.
 	return if $want_jolt;
+	
+	return ($ACCEPT_HEADER_POST) if $method eq 'POST';
 	return ($ACCEPT_HEADER);
 }
 
@@ -262,12 +270,22 @@ Neo4j::Driver::Result::JSON - JSON/REST result handler
 
 =head1 VERSION
 
-version 0.20
+version 0.25
 
 =head1 DESCRIPTION
 
 The L<Neo4j::Driver::Result::JSON> package is not part of the
 public L<Neo4j::Driver> API.
+
+=head1 SEE ALSO
+
+=over
+
+=item * L<Neo4j::Driver::Net>
+
+=item * L<Neo4j::Driver::Result>
+
+=back
 
 =head1 AUTHOR
 

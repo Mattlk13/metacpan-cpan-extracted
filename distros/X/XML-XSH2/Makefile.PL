@@ -9,6 +9,9 @@ $| = 1;
 WriteMakefile(
     'NAME'      => 'XML::XSH2',
     'VERSION_FROM' => 'lib/XML/XSH2.pm',
+    META_MERGE => {
+        resources => { repository => 'https://github.com/choroba/xsh' }
+    },
     'EXE_FILES' => ['xsh'],
     'PREREQ_PM' => {
                     'URI' => 0,
@@ -38,7 +41,8 @@ WriteMakefile(
             map +( "lib/XML/XSH2/$_.pm" => '$(INST_LIB)/XML/XSH2/' . "$_.pm" ),
             qw( Help Functions Iterators Commands
                 Completion CompletionList LibXMLCompat XPathToXML
-                Grammar Parser )
+                Grammar Parser
+                Compile DummyXPathContext Inline )
     },
     depend => {
                 distdir => 'hide',
@@ -66,8 +70,6 @@ cvs:    xml
 	@echo "Please, re-run 'perl Makefile.PL' and 'make'"
 	@echo
 
-XSH2.pod: xml
-
 hide: lib/XML/XSH2/Parser.pm
 	$(PERL) tools/hide_packages.pl lib/XML/XSH2/Parser.pm "XML::XSH2::"
 
@@ -86,20 +88,20 @@ lib/XML/XSH2/Commands.pm: tools/gen_commands.pl src/xsh_grammar.xml
 lib/XML/XSH2/Help.pm: tools/gen_help.pl src/xsh_grammar.xml
 	$(PERL) tools/gen_help.pl src/xsh_grammar.xml > lib/XML/XSH2/Help.pm
 
-XSH2.pod: tools/gen_pod.pl src/xsh_grammar.xml
+XSH2.pod: xml tools/gen_pod.pl src/xsh_grammar.xml
 	$(PERL) tools/gen_pod.pl src/xsh_grammar.xml > XSH2.pod
 
 lib/XML/XSH2/CompletionList.pm: tools/gen_completions.pl src/xsh_grammar.xml
 	$(PERL) tools/gen_completions.pl src/xsh_grammar.xml > lib/XML/XSH2/CompletionList.pm
 
-xml: lib/XML/XSH2/Parser.pm lib/XML/XSH2/Commands.pm lib/XML/XSH2/Help.pm XSH2.pod lib/XML/XSH2/CompletionList.pm
+xml: lib/XML/XSH2/Parser.pm lib/XML/XSH2/Commands.pm lib/XML/XSH2/Help.pm lib/XML/XSH2/CompletionList.pm
 	$(MAKE) hide
 	$(PERL) -c lib/XML/XSH2/Parser.pm
 
 docs: all
 	podselect xsh > xsh.pod
-	pod2html --noindex --title "XSH2" --podroot=. --podpath=. --libpods=xsh < XSH2.pod > doc/XSH2.html
-	pod2html --noindex --title "xsh - XML Editing Shell" --podroot=.  --podpath=. --libpods=XSH2 < xsh > doc/xsh.html
+	pod2html --noindex --title "XSH2" --podroot=. --podpath=. < XSH2.pod > doc/XSH2.html
+	pod2html --noindex --title "xsh - XML Editing Shell" --podroot=.  --podpath=. < xsh > doc/xsh.html
 	$(PERL) ./xsh -l tools/gen_reference.xsh
 	$(PERL) ./xsh -l tools/gen_doc.xsh
 

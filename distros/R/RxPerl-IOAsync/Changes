@@ -1,5 +1,18 @@
 Revision history for Perl extension RxPerl-IOAsync
 
+v6.7.0 2021-03-08T00:44:23Z
+
+    - default promise class for first_value_from, last_value_from is Future
+    - wrote tests
+
+v6.6.0 2021-03-04T13:31:17Z
+
+    - allow RxPerl's first_value_from, last_value_from
+
+v6.0.1 2021-01-30T05:04:01Z
+
+    - updated version of RxPerl dependency
+
 v6.0.0 2020-09-24T17:19:59Z
 
     - no changes, release v6.0

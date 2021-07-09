@@ -1,0 +1,35 @@
+Fancazzista::Scrap version 0.01
+==============================
+
+This module only scrap :
+
+- website only "article" link and text
+- reddit posts link and text
+- dev.to posts link and text
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+This module requires these other modules and libraries:
+
+    LWP::UserAgent
+    HTTP::Request
+    Mojo::DOM
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2020 by Antoine MICELI
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.18.4 or,
+at your option, any later version of Perl 5 you may have available.
+
+

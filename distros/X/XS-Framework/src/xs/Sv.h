@@ -3,6 +3,7 @@
 #include <string>
 #include <panda/memory.h>
 #include <panda/traits.h>
+#include <panda/string.h>
 #include <panda/string_view.h>
 #include <panda/exception.h>
 
@@ -85,7 +86,7 @@ struct Sv {
     SV* operator-> () const { return sv; }
 
     bool   defined        () const { return sv && SvOK(sv); }
-    bool   is_true        () const { return SvTRUE_nomg(sv); }
+    bool   is_true        () const { return SvTRUE(sv); }
     svtype type           () const { return SvTYPE(sv); }
     bool   readonly       () const { return SvREADONLY(sv); }
     U32    use_count      () const { return sv ? SvREFCNT(sv) : 0; }
@@ -168,7 +169,7 @@ protected:
     friend void swap (Sv&, Sv&);
 
     inline bool is_undef() const { return (SvTYPE(sv) <= SVt_PVMG && !SvOK(sv)); }
-    inline bool is_scalar_unsafe() const { return (SvTYPE(sv) <= SVt_PVMG || SvTYPE(sv) == SVt_PVGV); }
+    inline bool is_scalar_unsafe() const { return (SvTYPE(sv) <= SVt_PVMG || SvTYPE(sv) == SVt_PVGV || SvTYPE(sv) == SVt_PVLV); }
     SV* sv;
 };
 
@@ -183,5 +184,18 @@ template <class T, typename = enable_if_rawsv_t<T>> inline bool operator!= (T* l
 inline void swap (Sv& lh, Sv& rh) { std::swap(lh.sv, rh.sv); }
 
 std::ostream& operator<< (std::ostream& os, const Sv& sv);
+
+
+struct PerlRuntimeException : std::exception {
+    Sv sv;
+
+    PerlRuntimeException(const Sv& sv) : sv(sv) {assert(sv);}
+
+    virtual const char* what() const noexcept override {
+        return SvPV_nolen(sv);
+    }
+};
+
+Sv eval (const panda::string& code);
 
 }

@@ -1,6 +1,106 @@
 ==================================================
-Changes from 2016-01-11 00:00:00 +0000 to present.
+Changes from 2016-06-21 00:00:00 +0000 to present.
 ==================================================
+
+-----------------------------------------------
+version 5.20210620 at 2021-06-20 11:21:22 +0000
+-----------------------------------------------
+
+  Change: 52e4d99fed80030d7264f41944a0448d8c2730fa
+  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
+  Date : 2021-06-20 12:21:22 +0000
+
+    Updated for v5.35.1 
+
+-----------------------------------------------
+version 5.20210521 at 2021-05-21 12:15:39 +0000
+-----------------------------------------------
+
+  Change: 262631aa56f0f85670eb75d33e0a96fd446b8c82
+  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
+  Date : 2021-05-21 13:15:39 +0000
+
+    Updated for v5.35.0 
+
+-----------------------------------------------
+version 5.20210520 at 2021-05-20 19:14:50 +0000
+-----------------------------------------------
+
+  Change: 41fd3ee9d7fa964ed77fd43726d71ffe0916332e
+  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
+  Date : 2021-05-20 20:14:50 +0000
+
+    Updated for v5.34.0 
+
+-----------------------------------------------
+version 5.20210515 at 2021-05-15 13:01:26 +0000
+-----------------------------------------------
+
+  Change: 8b6d37c848465dc30068d06f4496ff8081723a8e
+  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
+  Date : 2021-05-15 14:01:26 +0000
+
+    Updated for v5.34.0-RC2 
+
+-----------------------------------------------
+version 5.20210505 at 2021-05-05 08:43:14 +0000
+-----------------------------------------------
+
+  Change: b48425c08182c3f211968019d284edfb5f7d1b72
+  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
+  Date : 2021-05-05 09:43:14 +0000
+
+    Updated for v5.34.0-RC1 
+
+-----------------------------------------------
+version 5.20210420 at 2021-04-20 20:37:56 +0000
+-----------------------------------------------
+
+  Change: f42df136ab62e22996e6cbb313bcc3f21a9ac0d0
+  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
+  Date : 2021-04-20 21:37:56 +0000
+
+    Updated for v5.33.9 
+
+-----------------------------------------------
+version 5.20210320 at 2021-03-21 09:18:55 +0000
+-----------------------------------------------
+
+  Change: fcbb2a3785228275b204b55466997cb4ad351839
+  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
+  Date : 2021-03-21 09:18:55 +0000
+
+    Updated for v5.33.8 
+
+-----------------------------------------------
+version 5.20210220 at 2021-02-20 19:47:50 +0000
+-----------------------------------------------
+
+  Change: a95864081fcd9a9bedd52c1fb19d803bf560bf7f
+  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
+  Date : 2021-02-20 19:47:50 +0000
+
+    Updated for v5.33.7 
+
+-----------------------------------------------
+version 5.20210123 at 2021-01-24 13:31:55 +0000
+-----------------------------------------------
+
+  Change: 33fa0b6da1b7d8b9ef23f7b3a19b438260845488
+  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
+  Date : 2021-01-24 13:31:55 +0000
+
+    Updated for v5.32.1 
+
+-----------------------------------------------
+version 5.20210120 at 2021-01-21 09:25:46 +0000
+-----------------------------------------------
+
+  Change: 751286446f4d3fc7a80fa472853b0fc7f024b6ce
+  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
+  Date : 2021-01-21 09:25:46 +0000
+
+    Updated for v5.33.6 
 
 -----------------------------------------------
 version 5.20210109 at 2021-01-09 20:20:55 +0000
@@ -928,148 +1028,6 @@ version 2.82 at 2016-07-17 22:44:09 +0000
 
     Updated for v5.22.3-RC1 and v5.24.1-RC1 
 
------------------------------------------
-version 2.80 at 2016-06-20 20:52:25 +0000
------------------------------------------
-
-  Change: eb8b805edeb4683414b78f34eedb2f59d53e9a8c
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-06-20 21:52:25 +0000
-
-    Updated for v5.25.2 
-
------------------------------------------
-version 2.78 at 2016-05-20 21:38:09 +0000
------------------------------------------
-
-  Change: c3ba1f4bfde09a7a6fce199cc43fa4aff70ba9a0
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-05-20 22:38:09 +0000
-
-    Updated for v5.25.1 
-
------------------------------------------
-version 2.76 at 2016-05-09 12:00:14 +0000
------------------------------------------
-
-  Change: eb64735ffc1ef442fc42a6a5a4054cf946b94aa9
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-05-09 13:00:14 +0000
-
-    Updated for v5.24.0 and v5.25.0 
-
------------------------------------------
-version 2.74 at 2016-05-05 00:24:08 +0000
------------------------------------------
-
-  Change: af532382fea485250867568cd2eec9fd83c05a76
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-05-05 01:24:08 +0000
-
-    Updated for v5.24.0-RC5 
-
------------------------------------------
-version 2.72 at 2016-05-02 14:51:15 +0000
------------------------------------------
-
-  Change: a1662fc3255ce58680aeac4f08c31bae9b127c08
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-05-02 15:51:15 +0000
-
-    Updated for v5.24.0-RC4 
-
------------------------------------------
-version 2.70 at 2016-04-29 21:45:21 +0000
------------------------------------------
-
-  Change: 618bd9ca7c343a5df8658062a19368177edb4c86
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-04-29 22:45:21 +0000
-
-    Updated for v5.22.2 
-
------------------------------------------
-version 2.68 at 2016-04-27 12:04:52 +0000
------------------------------------------
-
-  Change: dd5c965665e4008157ec4ad262f4d9da165d913b
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-04-27 13:04:52 +0000
-
-    Updated for v5.24.0-RC3 (no .gz) 
-
------------------------------------------
-version 2.66 at 2016-04-23 21:07:26 +0000
------------------------------------------
-
-  Change: 557f9af72477b8a4034881d7e4b6d9d7196730f7
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-04-23 22:07:26 +0000
-
-    Updated for v5.24.0-RC2 
-
------------------------------------------
-version 2.64 at 2016-04-14 09:58:30 +0000
------------------------------------------
-
-  Change: 93fadc9cfc12f9a1a98191bec9e9808e952412fd
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-04-14 10:58:30 +0000
-
-    Updated for v5.24.0-RC1 
-
------------------------------------------
-version 2.62 at 2016-04-10 17:43:33 +0000
------------------------------------------
-
-  Change: a9fc7491237007a90931cf4572a9caa95d1f1855
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-04-10 18:43:33 +0000
-
-    Updated for v5.22.2-RC1 
-
------------------------------------------
-version 2.60 at 2016-03-20 18:29:24 +0000
------------------------------------------
-
-  Change: b898659a1ced0560f65088da253ccd1cf343953c
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-03-20 18:29:24 +0000
-
-    Updated for v5.23.9 
-
------------------------------------------
-version 2.58 at 2016-02-20 21:58:41 +0000
------------------------------------------
-
-  Change: 7abfc549182e85b37835ab155202476274b6028d
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-02-20 21:58:41 +0000
-
-    Updated for v5.23.8 
-
------------------------------------------
-version 2.56 at 2016-01-20 22:29:45 +0000
------------------------------------------
-
-  Change: e49a8ccdcab90da90f431b5852fa77a762fa2737
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-01-20 22:29:45 +0000
-
-    Updated with v5.23.7 
-
-  Change: eea8677292ef0f82c5375362311e27cbf517995f
-  Author: Chris 'BinGOs' Williams <chris@bingosnet.co.uk>
-  Date : 2016-01-20 22:29:45 +0000
-
-    Remove RJBS release candidates and v5.7.1
-
-    As per
-    http://www.nntp.perl.org/group/perl.perl5.porters/2016/01/msg233715.h
-    tml
-
-    v5.7.1 as well as it is AWOL 
-
 ==================================================
-Plus 125 releases after 2016-01-11 00:00:00 +0000.
+Plus 138 releases after 2016-06-21 00:00:00 +0000.
 ==================================================

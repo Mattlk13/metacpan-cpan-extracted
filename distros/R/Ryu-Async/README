@@ -31,6 +31,21 @@ DESCRIPTION
 
     This is an IO::Async::Notifier subclass for interacting with Ryu.
 
+Interaction with Ryu
+
+    On load, this module will provide a "$FUTURE_FACTORY" in Ryu::Source
+    which assigns Future instances from IO::Async::Loop.
+
+    You can override this behaviour by doing this instead:
+
+     BEGIN {
+      require Ryu::Source;
+      local $Ryu::Source::FUTURE_FACTORY = sub { };
+      require Ryu::Async;
+     }
+
+    to ensure the original factory function is preserved.
+
 METHODS
 
  from
@@ -54,6 +69,14 @@ METHODS
     Note that a stream which is not already attached to an
     IO::Async::Notifier will be added as a child of this instance.
 
+ to_stream
+
+    Provides a Ryu::Sink that will send data to an IO::Async::Stream
+    instance.
+
+    Requires the IO::Async::Stream and will return a new Ryu::Sink
+    instance.
+
  stdin
 
     Create a new Ryu::Source that wraps STDIN.
@@ -67,6 +90,10 @@ METHODS
  stdout
 
     Returns a new Ryu::Sink that wraps STDOUT.
+
+ stderr
+
+    Returns a new Ryu::Sink that wraps STDERR.
 
  timer
 
@@ -147,10 +174,10 @@ SEE ALSO
 
 AUTHOR
 
-    Tom Molesworth <TEAM@cpan.org>
+    Tom Molesworth TEAM@cpan.org with contributions from Eyad Arnabeh.
 
 LICENSE
 
-    Copyright Tom Molesworth 2011-2019. Licensed under the same terms as
+    Copyright Tom Molesworth 2011-2021. Licensed under the same terms as
     Perl itself.
 

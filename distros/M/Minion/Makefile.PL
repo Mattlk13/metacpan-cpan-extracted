@@ -13,9 +13,9 @@ WriteMakefile(
   LICENSE      => 'artistic_2',
   META_MERGE   => {
     dynamic_config => 0,
-    'meta-spec'    => {version => 2},
+    'meta-spec'    => {version   => 2},
     no_index       => {directory => ['t']},
-    prereqs        => {runtime => {requires => {perl => '5.016'}}},
+    prereqs        => {runtime   => {requires => {perl => '5.016'}}},
     resources      => {
       bugtracker => {web => 'https://github.com/mojolicious/minion/issues'},
       homepage   => 'https://mojolicious.org',
@@ -25,9 +25,9 @@ WriteMakefile(
         url  => 'https://github.com/mojolicious/minion.git',
         web  => 'https://github.com/mojolicious/minion',
       },
-      x_IRC => {url => 'irc://irc.freenode.net/#mojo', web => 'https://webchat.freenode.net/#mojo'}
+      x_IRC => {url => 'irc://irc.libera.chat/#mojo', web => 'https://web.libera.chat/#mojo'}
     },
   },
-  PREREQ_PM => {Mojolicious => '8.50'},
+  PREREQ_PM => {Mojolicious => '9.0', 'YAML::XS' => '0.67'},
   test      => {TESTS       => 't/*.t t/*/*.t'}
 );

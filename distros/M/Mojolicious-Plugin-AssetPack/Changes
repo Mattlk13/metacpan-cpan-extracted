@@ -1,4 +1,13 @@
-Revision history for perl distribution Mojolicious-Plugin-AssetPack
+
+2.13  2021-03-13
+  - Restored documentation.
+
+2.12  2021-03-11
+  - Mojolicious::Plugin::AssetPack is now maintained by the Mojolicious team.
+
+2.11 2021-02-19T10:23:04+0900
+ - Use 'partial(1)->to' instead of 'detour' which was deprecated in Mojolicious 9.0
+   Contributor: Marius Kittler
 
 2.10 2020-12-11T11:16:01+0900
  - Fixes warnings issued by latest Mojolicious

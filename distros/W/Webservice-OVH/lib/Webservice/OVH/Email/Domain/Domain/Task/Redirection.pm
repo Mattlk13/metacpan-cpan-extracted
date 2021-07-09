@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Carp qw{ carp croak };
 
-our $VERSION = 0.42;
+our $VERSION = 0.46;
 
 sub _new_existing {
 

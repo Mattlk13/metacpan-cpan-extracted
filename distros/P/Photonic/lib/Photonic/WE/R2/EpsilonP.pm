@@ -1,5 +1,5 @@
 package Photonic::WE::R2::EpsilonP;
-$Photonic::WE::R2::EpsilonP::VERSION = '0.014';
+$Photonic::WE::R2::EpsilonP::VERSION = '0.017';
 
 =encoding UTF-8
 
@@ -9,14 +9,14 @@ Photonic::WE::R2::EpsilonP
 
 =head1 VERSION
 
-version 0.014
+version 0.017
 
 =head1 COPYRIGHT NOTICE
 
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -45,7 +45,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
 
    use Photonic::WE::R2::EpsilonP;
    my $eps=Photonic::WE::R2::EpsilonP->new(haydock=>$h, nh=>$nh);
-   my $EpsTensor=$W->evaluate($epsB);
+   my $EpsP=$eps->evaluate($epsB);
 
 =head1 DESCRIPTION
 
@@ -82,7 +82,7 @@ NOTE: Only works along principal directions.
 
 =back
 
-=head1 ACCESORS (read only)
+=head1 ACCESSORS (read only)
 
 =over 4
 
@@ -99,19 +99,13 @@ The macroscopic dielectric projection of the last operation
 
 use namespace::autoclean;
 use PDL::Lite;
-use PDL::NiceSlice;
-use PDL::Complex;
-use PDL::MatrixOps;
-#use Storable qw(dclone);
-#use PDL::IO::Storable;
-#use Photonic::WE::R2::AllH;
 use Photonic::Types;
 use Moose;
 use MooseX::StrictConstructor;
 
 extends 'Photonic::WE::R2::WaveP';
 
-has 'epsilon' =>  (is=>'ro', isa=>'PDL::Complex', init_arg=>undef,
+has 'epsilon' =>  (is=>'ro', isa=>'Photonic::Types::PDLComplex', init_arg=>undef,
              writer=>'_epsilon',
              documentation=>'Wave projection from last evaluation');
 

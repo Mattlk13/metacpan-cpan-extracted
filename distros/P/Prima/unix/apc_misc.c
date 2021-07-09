@@ -62,8 +62,8 @@ update_quarks_cache( Handle self)
 	qClass = get_class_quark( self == application ? "Prima" : me-> self-> className);
 	qInstance = get_instance_quark( me-> name ? me-> name : "noname");
 
-	free( XX-> q_class_name); XX-> q_class_name = nil;
-	free( XX-> q_instance_name); XX-> q_instance_name = nil;
+	free( XX-> q_class_name); XX-> q_class_name = NULL;
+	free( XX-> q_instance_name); XX-> q_instance_name = NULL;
 
 	if ( me-> owner && me-> owner != self && PComponent(me-> owner)-> sysData && X(PComponent( me-> owner))-> q_class_name) {
 		UU = X(PComponent( me-> owner));
@@ -128,7 +128,7 @@ apc_fetch_resource( const char *className, const char *name,
 	char *s;
 	XColor clr;
 
-	if ( owner == nilHandle) {
+	if ( owner == NULL_HANDLE) {
 		classes           = backup_classes;
 		instances         = backup_instances;
 		nc = ni = 0;
@@ -138,7 +138,7 @@ apc_fetch_resource( const char *className, const char *name,
 		if (!XX) return false;
 		classes              = XX-> q_class_name;
 		instances            = XX-> q_instance_name;
-		if ( classes == nil || instances == nil) return false;
+		if ( classes == NULL || instances == NULL) return false;
 		nc                   = XX-> n_class_name;
 		ni                   = XX-> n_instance_name;
 	}
@@ -343,16 +343,16 @@ apc_component_destroy( Handle self)
 	DEFXX;
 	if ( XX-> q_instance_name) {
 		free( XX-> q_instance_name);
-		XX-> q_instance_name = nil;
+		XX-> q_instance_name = NULL;
 	}
 	if ( XX-> q_class_name) {
 		free( XX-> q_class_name);
-		XX-> q_class_name = nil;
+		XX-> q_class_name = NULL;
 	}
 
 	free( PComponent( self)-> sysData);
-	PComponent( self)-> sysData = nil;
-	X_WINDOW = nilHandle;
+	PComponent( self)-> sysData = NULL;
+	X_WINDOW = NULL_HANDLE;
 	return true;
 }
 
@@ -363,7 +363,7 @@ apc_component_fullname_changed_notify( Handle self)
 	PComponent me = PComponent( self);
 	int i, n;
 
-	if ( self == nilHandle) return false;
+	if ( self == NULL_HANDLE) return false;
 	if (!update_quarks_cache( self)) return false;
 
 	if ( me-> components && (n = me-> components-> count) > 0) {
@@ -580,72 +580,6 @@ apc_cursor_get_visible( Handle self)
 	return X(self)-> flags. cursor_visible;
 }
 
-/* File */
-
-void
-prima_rebuild_watchers( void)
-{
-	int i;
-	PFile f;
-
-	FD_ZERO( &guts.read_set);
-	FD_ZERO( &guts.write_set);
-	FD_ZERO( &guts.excpt_set);
-	FD_SET( guts.connection, &guts.read_set);
-	guts.max_fd = guts.connection;
-	for ( i = 0; i < guts.files->count; i++) {
-		f = (PFile)list_at( guts.files,i);
-		if ( f-> eventMask & feRead) {
-			FD_SET( f->fd, &guts.read_set);
-			if ( f->fd > guts.max_fd)
-				guts.max_fd = f->fd;
-		}
-		if ( f-> eventMask & feWrite) {
-			FD_SET( f->fd, &guts.write_set);
-			if ( f->fd > guts.max_fd)
-				guts.max_fd = f->fd;
-		}
-		if ( f-> eventMask & feException) {
-			FD_SET( f->fd, &guts.excpt_set);
-			if ( f->fd > guts.max_fd)
-				guts.max_fd = f->fd;
-		}
-	}
-}
-
-Bool
-apc_file_attach( Handle self)
-{
-	if ( PFile(self)->fd >= FD_SETSIZE ) return false;
-
-	if ( list_index_of( guts.files, self) >= 0) {
-		prima_rebuild_watchers();
-		return true;
-	}
-	protect_object( self);
-	list_add( guts.files, self);
-	prima_rebuild_watchers();
-	return true;
-}
-
-Bool
-apc_file_detach( Handle self)
-{
-	int i;
-	if (( i = list_index_of( guts.files, self)) >= 0) {
-		list_delete_at( guts.files, i);
-		unprotect_object( self);
-		prima_rebuild_watchers();
-	}
-	return true;
-}
-
-Bool
-apc_file_change_mask( Handle self)
-{
-	return apc_file_attach( self);
-}
-
 int
 apc_pointer_get_state( Handle self)
 {
@@ -686,7 +620,7 @@ close_msgdlg( struct MsgDlg * md)
 	md-> grab    = false;
 	XUnmapWindow( DISP, md-> w);
 	XFlush( DISP);
-	if ( md-> next == nil) {
+	if ( md-> next == NULL) {
 		XSetInputFocus( DISP, md-> focus, md-> focus_revertTo, CurrentTime);
 		XCHECKPOINT;
 	}
@@ -788,7 +722,7 @@ prima_msgdlg_event( XEvent * ev, struct MsgDlg * md)
 		{
 			char str_buf[256];
 			KeySym keysym;
-			int str_len = XLookupString( &ev-> xkey, str_buf, 256, &keysym, nil);
+			int str_len = XLookupString( &ev-> xkey, str_buf, 256, &keysym, NULL);
 			if (
 				( keysym == XK_Return) ||
 				( keysym == XK_Escape) ||
@@ -815,12 +749,10 @@ prima_msgdlg_event( XEvent * ev, struct MsgDlg * md)
 	}
 }
 
-extern char ** Drawable_do_text_wrap( Handle, TextWrapRec *);
-
 Bool
 apc_show_message( const char * message, Bool utf8)
 {
-	char ** wrapped;
+	int * wrapped;
 	Font f;
 	Point appSz, appPos;
 	Point textSz;
@@ -828,9 +760,10 @@ apc_show_message( const char * message, Bool utf8)
 	TextWrapRec twr;
 	int i;
 	struct MsgDlg md, **storage;
-	Bool ret = true;
-	PList font_abc_unicode = nil;
-	PFontABC font_abc_ascii = nil;
+	Bool ret = false;
+	PList font_abc_unicode = NULL;
+	PFontABC font_abc_ascii = NULL;
+	XFontStruct *fs = NULL;
 
 	if ( !DISP) {
 		warn( "%s", message);
@@ -840,35 +773,36 @@ apc_show_message( const char * message, Bool utf8)
 	if ( guts. grab_widget)
 		apc_widget_set_capture( guts. grab_widget, 0, 0);
 
-	appSz = apc_application_get_size( nilHandle);
+	appSz = apc_application_get_size( NULL_HANDLE);
 	appPos.x = 0;
 	appPos.y = 0;
 
 	/* multi-monitor centering */
 	{
 		int i, nrects = 0;
-		Box *best = nil, *rects = apc_application_get_monitor_rects( application, &nrects);
+		Box *best = NULL, *rects = apc_application_get_monitor_rects( application, &nrects);
 		for ( i = 0; i < nrects; i++) {
 				Box * curr = rects + i;
-				if ( best == nil || best-> x > curr->x || best->y > curr->y)
+				if ( best == NULL || best-> x > curr->x || best->y > curr->y)
 						best = curr;
 		}
 		if ( best ) {
-				appPos.x = best->x;
-				appPos.y = best->y;
-				appSz.x  = best->width;
-				appSz.y  = best->height;
+			appPos.x = best->x;
+			appPos.y = best->y;
+			appSz.x  = best->width;
+			appSz.y  = best->height;
 		}
 	}
 
 	/* acquiring message font and wrapping message text */
 	{
 		PCachedFont cf;
-		XFontStruct *fs;
 		int max;
 
 		apc_sys_get_msg_font( &f);
-		prima_core_font_pick( nilHandle, &f, &f);
+		f. pitch = fpDefault;
+#define DEBUG_FONT(font) font.height,font.width,font.size,font.name,font.encoding
+		prima_core_font_pick( NULL_HANDLE, &f, &f);
 		cf = prima_find_known_font( &f, false, false);
 		if ( !cf || !cf-> id) {
 			warn( "%s", message);
@@ -889,8 +823,9 @@ apc_show_message( const char * message, Bool utf8)
 		twr. options   = twNewLineBreak | twWordBreak | twReturnLines;
 		twr. ascii     = &font_abc_ascii;
 		twr. unicode   = &font_abc_unicode;
+		twr. count     = 0;
 		guts. font_abc_nil_hack = fs;
-		wrapped = Drawable_do_text_wrap( nilHandle, &twr);
+		wrapped = CDrawable->do_text_wrap( NULL_HANDLE, &twr, NULL, NULL);
 
 		if ( font_abc_ascii) free( font_abc_ascii);
 		if ( font_abc_unicode) {
@@ -900,41 +835,35 @@ apc_show_message( const char * message, Bool utf8)
 			plist_destroy( font_abc_unicode);
 		}
 
-		if ( !( md. widths  = malloc( twr. count * sizeof(int)))) {
-			XFreeFontInfo( nil, fs, 1);
-			warn( "%s", message);
-			return false;
-		}
-
-		if ( !( md. lengths = malloc( twr. count * sizeof(int)))) {
-			free( md. widths);
-			XFreeFontInfo( nil, fs, 1);
-			warn( "%s", message);
-			return false;
-		}
+		md.wrappedCount = md.count = twr.count / 4;
+		if ( !( md.widths  = malloc( md.count * sizeof(int))))
+			goto EXIT;
+		if ( !( md.lengths = malloc( md.count * sizeof(int))))
+			goto EXIT;
+		if ( !( md.wrapped = malloc( md.count * sizeof(char*))))
+			goto EXIT;
+		bzero(md.wrapped, md.count * sizeof(char*));
 
 		/* find text extensions */
 		max = 0;
-		for ( i = 0; i < twr. count; i++) {
-			if ( utf8) {
-				char * w;
-				md. lengths[i] = prima_utf8_length( wrapped[i], -1);
-				w = ( char *) prima_alloc_utf8_to_wchar( wrapped[i], md. lengths[i]);
-				if ( !w) goto EXIT;
-				free( wrapped[i]);
-				wrapped[i] = w;
-				md. widths[i] = XTextWidth16( fs, ( XChar2b*) wrapped[i], md. lengths[i]);
+		for ( i = 0; i < md.count; i+=4) {
+			md.lengths[i] = wrapped[i+3];
+			if (utf8) {
+				if (!(md.wrapped[i] = (char*)prima_alloc_utf8_to_wchar( message + wrapped[i], md.lengths[i])))
+					goto EXIT;
+				md.widths[i] = XTextWidth16( fs, (XChar2b*) md.wrapped[i], md.lengths[i]);
 			} else {
-				md. widths[i] = XTextWidth( fs, wrapped[i],
-					md. lengths[i] = strlen( wrapped[i]));
+				if (!(md.wrapped[i] = malloc( md.lengths[i] + 1)))
+					goto EXIT;
+				memcpy(md.wrapped[i], message + wrapped[i], md.lengths[i]);
+				md.wrapped[i][md.lengths[i]] = 0;
+				md. widths[i] = XTextWidth( fs, md.wrapped[i], md.lengths[i]);
 			}
 			if ( md. widths[i] > max) max = md. widths[i];
 		}
 		textSz. x = max;
-		textSz. y = twr. count * ( f. height + f. externalLeading);
+		textSz. y = md.count * ( f. height + f. externalLeading);
 
-		md. wrapped       = wrapped;
-		md. wrappedCount  = twr. count;
 		md. font          = &f;
 		md. fontId        = cf-> id;
 		md. OKwidth       = XTextWidth( fs, "OK", 2);
@@ -955,13 +884,11 @@ apc_show_message( const char * message, Bool utf8)
 		md. textPos. x = 2;
 		md. textPos. y = f. height * 3 / 2 + 2;
 		md. winSz = winSz;
-
-		XFreeFontInfo( nil, fs, 1);
 	}
 
 	md. wide    = utf8;
 	md. active  = true;
-	md. next    = nil;
+	md. next    = NULL;
 	md. pressed = false;
 	md. grab    = false;
 	XGetInputFocus( DISP, &md. focus, &md. focus_revertTo);
@@ -988,10 +915,7 @@ apc_show_message( const char * message, Bool utf8)
 			winSz.x, winSz.y, 0, CopyFromParent, InputOutput,
 			CopyFromParent, CWEventMask | CWOverrideRedirect, &attrs);
 		XCHECKPOINT;
-		if ( !md. w) {
-			ret = false;
-			goto EXIT;
-		}
+		if ( !md. w) goto EXIT;
 		XSetWMProtocols( DISP, md. w, &WM_DELETE_WINDOW, 1);
 		XCHECKPOINT;
 		xs. flags = PMinSize | PMaxSize | USPosition;
@@ -1016,12 +940,12 @@ apc_show_message( const char * message, Bool utf8)
 	*storage = &md;
 
 	{
-#define CLR(x) prima_allocate_color( nilHandle,prima_map_color(x,nil),nil)
+#define CLR(x) prima_allocate_color( NULL_HANDLE,prima_map_color(x,NULL),NULL)
 		XGCValues gcv;
 		gcv. font = md. fontId;
 		md. gc = XCreateGC( DISP, md. w, GCFont, &gcv);
 		md. fg  = CLR(clFore | wcDialog);
-		prima_allocate_color( nilHandle, prima_map_color(clBack | wcDialog,nil), &md. bg);
+		prima_allocate_color( NULL_HANDLE, prima_map_color(clBack | wcDialog,NULL), &md. bg);
 		md. l3d = CLR(clLight3DColor | wcDialog);
 		md. d3d = CLR(clDark3DColor  | wcDialog);
 #undef CLR
@@ -1040,12 +964,16 @@ apc_show_message( const char * message, Bool utf8)
 	XFreeGC( DISP, md. gc);
 	XDestroyWindow( DISP, md. w);
 	*storage = md. next;
+	ret = true;
 EXIT:
-	free( md. widths);
-	free( md. lengths);
-	for ( i = 0; i < twr. count; i++)
-		free( wrapped[i]);
-	free( wrapped);
+	XFreeFontInfo( NULL, fs, 1);
+	if ( md.widths ) free( md.widths);
+	if ( md.lengths) free( md.lengths);
+	if ( md.wrapped ) {
+		for ( i = 0; i < md.count; i++) 
+			free(md.wrapped[i]);
+		free(md.wrapped);
+	}
 
 	return ret;
 }
@@ -1161,7 +1089,6 @@ apc_sys_get_value( int v)  /* XXX one big XXX */
 	case svCanUTF8_Output:       return 1;
 	case svCompositeDisplay:     return is_composite_display();
 	case svLayeredWidgets:       return guts. argb_visual. visual != NULL;
-	case svDWM:                  return 0;
 	case svFixedPointerSize:     return
 #ifdef HAVE_X11_XCURSOR_XCURSOR_H
 		0
@@ -1217,7 +1144,7 @@ apc_beep_tone( int freq, int duration)
 
 	timeout. tv_sec  = duration / 1000;
 	timeout. tv_usec = 1000 * (duration % 1000);
-	select( 0, nil, nil, nil, &timeout);
+	select( 0, NULL, NULL, NULL, &timeout);
 
 	return true;
 }
@@ -1264,7 +1191,7 @@ apc_system_action( const char *s)
 			if ( guts. use_gtk )
 				return prima_gtk_openfile(( char*) s);
 #endif
-			return nil;
+			return NULL;
 		}
 		break;
 	case 'r':
@@ -1277,16 +1204,16 @@ apc_system_action( const char *s)
 			}
 			guts. resolution. x = dx;
 			guts. resolution. y = dy;
-			return nil;
+			return NULL;
 		}
 		break;
 	case 's':
 		if ( strcmp( "synchronize", s) == 0) {
 			XSynchronize( DISP, true);
-			return nil;
+			return NULL;
 		}
 		if ( strncmp( "setfont ", s, 8) == 0) {
-			Handle self = nilHandle;
+			Handle self = NULL_HANDLE;
 			char font[1024];
 			XWindow win;
 			int i = sscanf( s + 8, "%lu %s", &win, font);
@@ -1296,7 +1223,7 @@ apc_system_action( const char *s)
 			}
 			if ( !opt_InPaint) return 0;
 			XSetFont( DISP, X(self)-> gc, XLoadFont( DISP, font));
-			return nil;
+			return NULL;
 		}
 		if ( strcmp( "shaper", s) == 0) {
 			char shaper[64] = "";
@@ -1312,7 +1239,7 @@ apc_system_action( const char *s)
 		break;
 	case 't':
 		if ( strncmp( "textout16 ", s, 10) == 0) {
-			Handle self = nilHandle;
+			Handle self = NULL_HANDLE;
 			unsigned char text[1024];
 			XWindow win;
 			int x, y, len;
@@ -1325,7 +1252,7 @@ apc_system_action( const char *s)
 			len = strlen((char*) text);
 			for ( i = 0; i < len; i++) if ( text[i]==255) text[i] = 0;
 			XDrawString16( DISP, win, X(self)-> gc, x, y, ( XChar2b *) text, len / 2);
-			return nil;
+			return NULL;
 		}
 		break;
 	case 'u':
@@ -1339,7 +1266,7 @@ apc_system_action( const char *s)
 			if ( guts. use_quartz )
 				return prima_cocoa_system_action(( char*) s);
 #endif
-			return nil;
+			return NULL;
 		}
 		break;
 	case 'X':
@@ -1355,7 +1282,7 @@ apc_system_action( const char *s)
 		break;
 	}
 	warn("Unknown sysaction:%s", s);
-	return nil;
+	return NULL;
 }
 
 Bool
@@ -1384,60 +1311,6 @@ apc_dl_export(char *path)
 {
 	/* XXX */
 	return true;
-}
-
-PList
-apc_getdir( const char *dirname, Bool is_utf8)
-{
-	DIR *dh;
-	struct dirent *de;
-	PList dirlist = nil;
-	char *type;
-	char path[ 2048];
-	struct stat s;
-
-	if (( dh = opendir( dirname)) && (dirlist = plist_create( 50, 50))) {
-		while (( de = readdir( dh))) {
-			list_add( dirlist, (Handle)duplicate_string( de-> d_name));
-#if defined(DT_REG) && defined(DT_DIR)
-			switch ( de-> d_type) {
-			case DT_FIFO:	type = "fifo";	break;
-			case DT_CHR:	type = "chr";	break;
-			case DT_DIR:	type = "dir";	break;
-			case DT_BLK:	type = "blk";	break;
-			case DT_REG:	type = "reg";	break;
-			case DT_LNK:	type = "lnk";	break;
-			case DT_SOCK:	type = "sock";	break;
-#ifdef DT_WHT
-			case DT_WHT:	type = "wht";	break;
-#endif
-			default:
-#endif
-								snprintf( path, 2047, "%s/%s", dirname, de-> d_name);
-								type = nil;
-								if ( stat( path, &s) == 0) {
-									switch ( s. st_mode & S_IFMT) {
-									case S_IFIFO:        type = "fifo";  break;
-									case S_IFCHR:        type = "chr";   break;
-									case S_IFDIR:        type = "dir";   break;
-									case S_IFBLK:        type = "blk";   break;
-									case S_IFREG:        type = "reg";   break;
-									case S_IFLNK:        type = "lnk";   break;
-									case S_IFSOCK:       type = "sock";  break;
-#ifdef S_IFWHT
-									case S_IFWHT:        type = "wht";   break;
-#endif
-									}
-								}
-								if ( !type)     type = "unknown";
-#if defined(DT_REG) && defined(DT_DIR)
-			}
-#endif
-			list_add( dirlist, (Handle)duplicate_string( type));
-		}
-		closedir( dh);
-	}
-	return dirlist;
 }
 
 void
@@ -1506,7 +1379,7 @@ prima_alloc_utf8_to_wchar( const char * utf8, int length_chars)
 {
 	XChar2b * ret;
 	if ( length_chars < 0) length_chars = prima_utf8_length( utf8, -1) + 1;
-	if ( !( ret = malloc( length_chars * sizeof( XChar2b)))) return nil;
+	if ( !( ret = malloc( length_chars * sizeof( XChar2b)))) return NULL;
 	prima_utf8_to_wchar( utf8, ret, strlen(utf8), length_chars);
 	return ret;
 }
@@ -1537,20 +1410,15 @@ prima_char2wchar( XChar2b * dest, char * src, int lim)
 	}
 }
 
-char *
-apc_last_error( void )
-{
-	return NULL;
-}
 /* printer stubs */
 
 Bool   apc_prn_create( Handle self) { return false; }
 Bool   apc_prn_destroy( Handle self) { return true; }
 Bool   apc_prn_select( Handle self, const char* printer) { return false; }
-char * apc_prn_get_selected( Handle self) { return nil; }
+char * apc_prn_get_selected( Handle self) { return NULL; }
 Point  apc_prn_get_size( Handle self) { Point r = {0,0}; return r; }
 Point  apc_prn_get_resolution( Handle self) { Point r = {0,0}; return r; }
-char * apc_prn_get_default( Handle self) { return nil; }
+char * apc_prn_get_default( Handle self) { return NULL; }
 Bool   apc_prn_setup( Handle self) { return false; }
 Bool   apc_prn_begin_doc( Handle self, const char* docName) { return false; }
 Bool   apc_prn_begin_paint_info( Handle self) { return false; }
@@ -1563,7 +1431,7 @@ Bool   apc_prn_set_option( Handle self, char * option, char * value) { return fa
 
 Bool apc_prn_get_option( Handle self, char * option, char ** value)
 {
-	*value = nil;
+	*value = NULL;
 	return false;
 }
 
@@ -1577,6 +1445,12 @@ PrinterInfo *
 apc_prn_enumerate( Handle self, int * count)
 {
 	*count = 0;
-	return nil;
+	return NULL;
+}
+
+char *
+apc_last_error( void )
+{
+	return NULL;
 }
 

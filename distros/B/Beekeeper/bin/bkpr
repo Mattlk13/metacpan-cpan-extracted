@@ -1,0 +1,87 @@
+#!/usr/bin/perl -wT
+
+use strict;
+use warnings;
+
+our $VERSION = '0.07';
+
+$ENV{PATH} = '/bin'; # untaint
+
+BEGIN {
+
+    unless (eval { require Beekeeper }) {
+        # Modules not installed yet
+        unshift @INC, ($ENV{'PERL5LIB'} =~ m/([^:]+)/g);
+    }
+}
+
+use Beekeeper::WorkerPool;
+
+Beekeeper::WorkerPool->new->run;
+
+
+__END__
+
+=pod
+
+=encoding utf8
+
+=head1 NAME
+
+bkpr - Start, restart or stop worker pools
+
+=head1 VERSION
+
+Version 0.07
+
+=head1 SYNOPSIS
+
+  $ bkpr --pool MyPool start
+  Starting pool of MyApp workers: beekeeper-MyPool.
+  
+  $ bkpr --pool MyPool stop
+  Stopping pool of MyApp workers: beekeeper-MyPool.
+  
+  $ bkpr --help
+  Usage: bkpr [options] {start|stop|restart|reload|check}
+   --foreground      Run in foreground (do not daemonize)
+   --pool       str  Worker pool name (mandatory)
+   --user       str  Run as specified user
+   --group      str  Run as specified group
+   --config-dir str  Path to directory containing config files
+   --debug           Turn on workers debug flag
+   --help            Display this help and exit
+
+=head1 DESCRIPTION
+
+This command line tool is used to start, restart or stop worker pools of persistent
+L<Beekeeper::Worker> processes which receive RPC requests from the message bus.
+
+When started it daemonizes itself (unless C<--foreground> option is passed) and forks
+all worker processes, then keeps monitoring those forked processes and immediately
+respawns defunct ones.
+
+Beekeeper applications use config files C<pool.config.json> and C<bus.config.json> to
+define how clients, workers and brokers connect to each other. These files are looked
+for in ENV C<BEEKEEPER_CONFIG_DIR>, C<~/.config/beekeeper>and then C</etc/beekeeper>.
+
+=head1 SEE ALSO
+ 
+L<Beekeeper::WorkerPool>, L<Beekeeper::Config>.
+
+=head1 AUTHOR
+
+José Micó, C<jose.mico@gmail.com>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2015-2021 José Micó.
+
+This is free software; you can redistribute it and/or modify it under the same 
+terms as the Perl 5 programming language itself.
+
+This software is distributed in the hope that it will be useful, but it is 
+provided “as is” and without any express or implied warranties. For details, 
+see the full text of the license in the file LICENSE.
+
+=cut

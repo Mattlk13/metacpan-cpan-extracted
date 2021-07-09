@@ -4,7 +4,7 @@
       "Graham Ollis <plicease@cpan.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Dist::Zilla version 6.015, CPAN::Meta::Converter version 2.150010",
+   "generated_by" : "Dist::Zilla version 6.022, CPAN::Meta::Converter version 2.150010",
    "license" : [
       "perl_5"
    ],
@@ -30,18 +30,21 @@
             "ExtUtils::MakeMaker" : "7.12",
             "ExtUtils::ParseXS" : "3.30",
             "IPC::Cmd" : "0",
+            "JSON::PP" : "0",
+            "parent" : "0",
             "perl" : "5.006"
          }
       },
       "develop" : {
          "requires" : {
+            "Convert::Binary::C" : "0",
             "Devel::Hide" : "0",
             "Devel::PPPort" : "3.28",
             "FindBin" : "0",
             "Perl::Critic" : "0",
-            "Test2::Require::Module" : "0.000060",
+            "Test2::Require::Module" : "0.000121",
             "Test2::Tools::PerlCritic" : "0",
-            "Test2::V0" : "0.000060",
+            "Test2::V0" : "0.000121",
             "Test::CPAN::Changes" : "0",
             "Test::EOL" : "0",
             "Test::Fixme" : "0.07",
@@ -49,6 +52,7 @@
             "Test::NoTabs" : "0",
             "Test::Pod" : "0",
             "Test::Pod::Coverage" : "0",
+            "Test::Script" : "0",
             "Test::Spelling" : "0",
             "Test::Strict" : "0",
             "YAML" : "0"
@@ -63,13 +67,15 @@
             "JSON::PP" : "0",
             "List::Util" : "1.45",
             "constant" : "1.32",
+            "parent" : "0",
             "perl" : "5.008004"
          }
       },
       "test" : {
          "requires" : {
             "Capture::Tiny" : "0",
-            "Test::More" : "0.98",
+            "Test2::API" : "1.302015",
+            "Test2::V0" : "0.000121",
             "perl" : "5.008004"
          }
       }
@@ -87,7 +93,7 @@
       },
       "x_IRC" : "irc://irc.perl.org/#native"
    },
-   "version" : "1.34",
+   "version" : "1.52",
    "x_contributors" : [
       "Graham Ollis <plicease@cpan.org>",
       "Bakkiaraj Murugesan (bakkiaraj)",
@@ -100,14 +106,17 @@
       "Shlomi Fish (shlomif)",
       "Damyan Ivanov",
       "Ilya Pavlov (Ilya33)",
-      "Petr Pisar (ppisar)",
+      "Petr P\u00edsa\u0159 (ppisar)",
       "Mohammad S Anwar (MANWAR)",
       "H\u00e5kon H\u00e6gland (hakonhagland, HAKONH)",
       "Meredith (merrilymeredith, MHOWARD)",
-      "Diab Jerius (DJERIUS)"
+      "Diab Jerius (DJERIUS)",
+      "Eric Brine (IKEGAMI)",
+      "szTheory",
+      "Jos\u00e9 Joaqu\u00edn Atria (JJATRIA)"
    ],
-   "x_generated_by_perl" : "v5.32.0",
-   "x_serialization_backend" : "Cpanel::JSON::XS version 4.19",
+   "x_generated_by_perl" : "v5.34.0",
+   "x_serialization_backend" : "Cpanel::JSON::XS version 4.26",
    "x_spdx_expression" : "Artistic-1.0-Perl OR GPL-1.0-or-later",
    "x_use_unsafe_inc" : 0
 }

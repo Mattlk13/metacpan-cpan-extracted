@@ -79,13 +79,45 @@ subtest "work() wheel with autoconfig" => sub {
     my $count;
     $worker->autoconfig(sub{
         my $worker = shift;
-        $worker->add_queue('test2', 'test3');
+        unless ( $count ) {
+            my $id    = $worker->id;
+            my $start = $worker->started;
+            ok( $worker->add_queue('test2', 'test3'), 'Dinamically add queues' );
+            ok( $worker->refresh_id, 'Refresh worker-id' );
+            isnt( $worker->id, $id, 'Worker-id was updated' );
+            ok( !$worker->find($id), 'Old ID does not exists now' );
+            is( $worker->started, $start, 'started() was persisted' );
+        }
         $worker->shutdown_please if ++$count >= 3;
     });
 
     $worker->work;
 
     ok( ! $worker->reserve, 'All jobs were consumed by the work() loop!' );
+};
+
+subtest "work() wheel with blocking mode" => sub {
+    isa_ok( my $worker = $r->worker, 'Resque::Worker' );
+    ok( $worker->cant_fork(1), 'Prevent worker from fork()');
+    ok( $worker->cant_poll(1), 'Set blocking mode with cant_poll()');
+    ok( $worker->timeout(1), 'Set blocking mode with cant_poll()');
+    push_job($r);
+
+    my $start = time;
+
+    my $count;
+    $worker->autoconfig(sub{
+        my $worker = shift;
+        $worker->add_queue('test2', 'test3') unless $count;
+        $worker->shutdown_please if ++$count >= 3;
+    });
+
+    $worker->work;
+
+    ok( time - $start < 1, 'work() finish without waiting' );
+    $start = time;
+    ok( ! $worker->reserve, 'All jobs were consumed by the work() loop!' );
+    ok( time - $start >= 1, 'reserve() blocked timeout() seconds' );
 };
 
 sub push_job {

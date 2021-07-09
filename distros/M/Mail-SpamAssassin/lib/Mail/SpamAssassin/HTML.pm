@@ -377,6 +377,9 @@ sub html_uri {
     if (defined $attr->{href}) {
       $self->push_uri($tag, $attr->{href});
     }
+    if (defined $attr->{'data-saferedirecturl'}) {
+      $self->push_uri($tag, $attr->{'data-saferedirecturl'});
+    }
   }
   elsif ($tag =~ /^(?:img|frame|iframe|embed|script|bgsound)$/) {
     if (defined $attr->{src}) {
@@ -523,6 +526,10 @@ sub text_style {
             elsif ($value eq 'inherit') {
               # do nothing, just prevent parsing of the valid
               # CSS3 property value as 'invalid color' (Bug 7778)
+            }
+            elsif ($value eq '!important') {
+              # do nothing, just prevent parsing of the valid
+              # CSS3 property value as 'invalid color' (Bug 7892)
             }
 	    else {
 	      $new{$whcolor} = name_to_rgb($value);

@@ -1,0 +1,114 @@
+MODE: INLINE
+#include <xs/uri.h>
+
+namespace {
+    struct XSRequest : Request, Backref {
+        using Request::Request;
+        
+        ResponseSP new_response () const override { return make_backref<Response>(); }
+        
+        ~XSRequest () { Backref::dtor(); }
+    };
+}
+
+MODULE = Protocol::HTTP              PACKAGE = Protocol::HTTP::Request
+PROTOTYPES: DISABLE
+
+BOOT {
+    using M = Request::Method;
+    using E = Request::EncType;
+    Stash s(__PACKAGE__);
+    s.inherit("Protocol::HTTP::Message");
+    xs::exp::create_constants(s, {
+        {"METHOD_UNSPECIFIED", int(M::Unspecified)},
+        {"METHOD_OPTIONS",     int(M::Options)    },
+        {"METHOD_GET",         int(M::Get)        },
+        {"METHOD_HEAD",        int(M::Head)       },
+        {"METHOD_POST",        int(M::Post)       },
+        {"METHOD_PUT",         int(M::Put)        },
+        {"METHOD_DELETE",      int(M::Delete)     },
+        {"METHOD_TRACE",       int(M::Trace)      },
+        {"METHOD_CONNECT",     int(M::Connect)    },
+
+        {"ENCODING_MULTIPART", int(E::Multipart)},
+        {"ENCODING_URL",       int(E::UrlEncoded)},
+    });
+    xs::exp::autoexport(s);
+}
+
+RequestSP Request::new (Hash params = Hash()) {
+    RETVAL = new XSRequest();
+    if (params) {
+        fill(RETVAL, params);
+        fill_form(RETVAL, params["form"]);
+    }
+}
+
+int Request::method_raw (SV* newval = NULL) {
+    if (newval) {
+        set_method(THIS, newval);
+        XSRETURN_UNDEF;
+    }
+    RETVAL = int(THIS->method_raw());
+}
+
+int Request::method(SV* newval = NULL) {
+    if (newval) {
+        set_method(THIS, newval);
+        XSRETURN_UNDEF;
+    }
+    RETVAL = int(THIS->method());
+}
+
+string method_str (Sv item) {
+    int value = -1;
+    if (item.is_simple()) {
+        value = Simple(item).as_number<int>();
+    } else {
+        auto req = xs::in<Request*>(item);
+        auto method = req->method();
+        value = static_cast<int>(method);
+    }
+    RETVAL = Request::method_str(static_cast<Request::Method>(value));
+}
+
+URISP Request::uri (URISP newval = NULL) {
+    if (newval) {
+        THIS->uri = newval;
+        XSRETURN_UNDEF;
+    }
+    RETVAL = THIS->uri;
+}
+
+Hash Request::cookies (Hash new_cookies = Hash()) {
+    if (new_cookies) {
+        set_request_cookies(THIS, new_cookies);
+        XSRETURN_UNDEF;
+    }
+
+    RETVAL = Hash::create(THIS->cookies.size());
+    for (const auto& elem : THIS->cookies.fields) RETVAL.store(elem.name, xs::out(elem.value));
+}
+
+string Request::cookie (string_view name, SV* val = nullptr) {
+    if (val) {
+        if (!SvOK(val)) THIS->cookies.remove(name);
+        else            THIS->cookies.set(string(name), xs::in<string>(val));
+        XSRETURN_UNDEF;
+    }
+
+    auto it = THIS->cookies.find(name);
+    if (it == THIS->cookies.end()) XSRETURN_UNDEF;
+    RETVAL = it->value;
+}
+
+void Request::allow_compression (SV*, ...) {
+    for (int i = 1; i < items; ++i) {
+        uint8_t val = SvIV(ST(i));
+        if (is_valid_compression(val)) THIS->allow_compression((Compression::Type)val);
+    }
+}
+
+int Request::allowed_compression (bool inverse = false)
+
+string Request::to_string ()

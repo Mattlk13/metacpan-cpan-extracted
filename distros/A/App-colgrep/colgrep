@@ -1,0 +1,236 @@
+#!/usr/bin/perl
+use 5.014 ; use strict ; use warnings ; 
+use Getopt::Std ; getopts ':~!=c:e:f:i:u:y2:' , \my%o ; 
+use Encode qw/decode_utf8 encode_utf8/ ;
+use Term::ANSIColor qw/:constants/ ; $Term::ANSIColor::AUTORESET = 1 ;
+use FindBin qw[ $Script ] ;
+
+my @target_columns = & build_target_columns ( ) ; #
+my $tgt_col = $target_columns [0] ;# どの列を検索するか。 -cの指定が1始まりであるのとは異なり、0始まり <--- ??? 
+my $search_pattern = build_sp () ; 
+my $lineproc ; # どういう処理をするかを、init関数の中で定義する。
+my %words ; # 検索パターンを複数。
+my $o_inv = $o{'~'} ? 1 : 0 ; # 検索条件を反転するかどうか # -~にしたいかも。 inverse
+my $optu0 = exists $o{u} && $o{u} eq 0 ; # -u 0 が指定されているか否か。
+my $opt20 = exists $o{2} && $o{2} eq 0 ; # -u 0 が指定されているか否か。
+my $isep = $o{i} // "\t" ; # -i で指定される入力列区切り文字
+my $tgt_str ; # 検索対象となる文字列をここに格納する変数。
+
+$| = 1 if $o{'!'} ;
+
+& build_subs ; # 関数を柔軟に指定する。高速化のため
+do { my $header = <> ; print "=:\t" if $o{':'} ; print ! $o{y} ? $header :  "=\n" } if $o{'='} ; 
+& main ; 
+exit 0 ; 
+
+
+## オプション -c の内容を読み取って、@target_columnsに格納する。
+sub build_target_columns ( ) { 
+  my @temp ; 
+  my @ranges = split /,/ , $o{c} // '' , -1 ; 
+  grep { $_ = $_ . ".." . $_ unless m/\.\./ }  @ranges ; # <--
+  do { m/^(.+)\.\.(.+)/ ; push @temp , map { $_ > 0 ? $_ - 1 : $_ } $1 .. $2 } for @ranges ; 
+  return @temp ;
+}
+
+## 検索する正規表現の構成 sp はサーチパターンの略
+sub build_sp {  
+  return $optu0 ? $o{e} : decode_utf8 $o{e} if exists $o{e} ;  
+  if ( defined $o{f} ) { 
+    open my $fh , '<' , $o{f} or die "File `$o{f}' including the search words missing.  " , $! ;  
+    while ( <$fh> ) { chomp ; $words{ decode_utf8( $_ ) } = 1 } ; close $fh ; 
+    return join '|' , keys %words ; 
+  }
+}
+
+
+## main で使う3個の関数
+sub Select ( ); 
+sub LineProc ( $ ) ;
+sub Match (  ) ;
+
+## 関数3個を動的に設定する。毎行読んで処理する際の高速化のため。最初のオーバーヘッドは高いかも知れないが。
+sub build_subs ( ) { 
+    # 行全体から文字列を切り出す関数
+  sub Select0  { $tgt_str = $_ } ; 
+  sub Select0u { $tgt_str = decode_utf8 $_ } ; 
+  sub Selectc  { $tgt_str = [split/$isep/o,$_,-1]->[ $tgt_col ] } ;
+  sub Selectcu { $tgt_str = decode_utf8 [split/$isep/o,$_,-1]->[ $tgt_col ] } ;
+  sub SelectC  { $tgt_str = join $isep, @{[split/$isep/o,$_,-1]}[ @target_columns ] } ;
+  sub SelectCu { $tgt_str = decode_utf8 join $isep, @{[split/$isep/o,$_,-1]}[ @target_columns ] } ;
+  * Select = * Select0  ; # <-- - @tartget_columns == 0 に相当
+  * Select = * Select0u if ! $optu0 ; # <-- - @tartget_columns == 0 に相当
+  * Select = * Selectc  if @target_columns == 1 ; 
+  * Select = * Selectcu if @target_columns == 1 && ! $optu0 ; 
+  * Select = * SelectC  if @target_columns >= 2 ;  
+  * Select = * SelectCu if @target_columns >= 2 && ! $optu0 ;
+
+  # マッチの判定をする関数
+  sub matchP { $tgt_str =~ m/$search_pattern/o } ; 
+  sub matchN { $tgt_str !~ m/$search_pattern/o } ; 
+  sub matchEP { $words { $tgt_str } }  ; 
+  sub matchEN { $words { $tgt_str } ? 0 : 1 } ; 
+  * Match = * matchP ; 
+  * Match = * matchN if $o_inv ; 
+  * Match = * matchEP if $o{f} ;
+  * Match = * matchEN if $o_inv && $o{f} ;
+
+  # 下記の関数は printもするし、個数も返す。
+  sub L0  { $_[0] ? do { say $_ ; 1 } : 0 } # (encode_utf8 が以前問題を起こしていた。)
+  sub Ln  { $_[0] ? do { say "$.:\t$_" ; 1 } : 0 } # 行番号も出力
+  sub Ly  { my $y =  $_[0] ? 1 : 0 ; say $y ; return $y } # 0/1だけ表示
+  sub Lny { my $y =  $_[0] ? 1 : 0 ; say "$.:\t$y" ; return $y } # 0/1の前に行番号も出力
+  * LineProc = * L0 ; 
+  * LineProc = * Ln if $o{':'} ; 
+  * LineProc = * Ly if $o{'y'} ; 
+  * LineProc = * Lny if $o{':'} && $o{'y'} ; 
+}
+
+## メインの部分の処理
+sub main ( ) {
+  my $oL ; # 条件に適合したので、出力をした行数
+  my $tL ; # 読み込んだ行数
+  while ( <> ) { 
+    chomp ; 
+    Select ()  ; # $tgt_str が操作されていることに注意。$_ から部分列を きりだす。
+    $oL +=  LineProc Match ;
+    $tL ++ ;
+  }
+  print STDERR CYAN FAINT BOLD ITALIC sprintf "match:%d unmatch:%d total:%d ($Script)\n",$oL,$tL-$oL,$tL unless $opt20 ; 
+  return ;
+}
+
+# 主にコマンドの引数の部分の処理
+
+# ヘルプの扱い
+sub VERSION_MESSAGE {}
+sub HELP_MESSAGE {
+    use FindBin qw[ $Script ] ; 
+    my ($a1,$L,$opt,@out) = ($ARGV[1]//'',0,'^o(p(t(i(o(ns?)?)?)?)?)?$') ;
+    open my $FH , '<' , $0 ;
+    while(<$FH>){
+        s/\$0/$Script/g ;
+        $out[$L] .= $_ if s/^=head1\s*(.*)\n/$1/s .. s/^=cut\n//s && ++$L and $a1 =~ /$opt/i ? m/^\s+\-/ : 1 ;
+    }
+    close $FH ;
+    print $ENV{LANG} =~ m/^ja/ ? $out[0] : $out[1] // $out[0] ;
+    exit 0 ;
+}
+
+
+=encoding utf8
+
+=head1
+
+ $0 -e regex   
+
+   指定した列に指定した正規表現が合致する場合に、その行全体を出力する。
+   主要な動作の後に、標準エラー出力に処理した行数などを出力。
+ 
+  $0 -c 列番号  -e 正規表現       # 最も想定されている使い方。
+  $0 -c 列番号 -f ファイル名   # ファイルの各行に検索したい正規表現があると見なされる。
+  $0 正規表現                 #  列を指定しないで、行全体からマッチすれば、その行を出力
+  $0 -~ -c 列番号 -e 正規表現     # -v の指定により、マッチしない行を出力する。
+  
+ オプション : 
+  -c num : 検索対象を探す列を指定する。最左列は1、最右列は-1であり、右に向かうほど1ずつ増加。, や..も使える。
+  -e str ; 正規表現の指定。grep と違って -e は1個しか指定できない。(正規表現なので"|"でつなぐとよい。)
+  -f filename : 検索する文字列(正規表現では無い)が含まれているファイルの指定。各行がOR条件で検索されることになる。
+
+  -i str : 入力区切り文字の指定。未指定なら、タブ文字。
+  -u 0 ; デフォルトで文字列の比較は utf8で行うはずが、それをしない(ASCII文字であるかのように扱う。)
+
+  -~ : 行の選択が反転する(マッチしない行が選択される)。
+  -y : マッチするかどうかで 1/0のみ各行に出力する。
+  -2 0 : 何行マッチした、などの付加情報を標準エラー出力に出力しない。
+
+  -= ; 先頭行をヘッダと見なし、これに応じた処理をする。
+  -: ; データの番号を出力する。
+
+開発メモ: 
+  * -f による指定は、各列の各値が完全一致のみであるという不便がある。
+  * -e による指定は、'^...$' のようにすると完全一致で検索するという説明をする必要のある不便さがある。
+
+=cut
+
+=head1 NAME
+
+  $0 - pattern searcher given which column to seek together with regular expression
+
+SYNOPSIS
+  $0 -c $tgt_col_num -e $regex  # The most usual usage
+  $0 -c $tgt_col_num -f $filename
+  $0 -e $regex 
+  $0 -v -c .. .. # unmatch ; reverse the matching condition.
+
+OPTIONS
+    You can specify the options which appears as follows . 
+
+  -c number 
+      Specify the column number. Note that the leftest column is numbered as 1.
+
+  -f filename       
+      The file specified by filename is regarded to contain elements separated 
+      by line breaks each of which are to specify the pattern to be matched.
+
+=cut
+
+=for comment
+changeset:   318:85a987ce61ff
+user:        Toshiyuki Shimono
+date:        Mon Mar 07 20:00:34 2016 +0900
+summary:     --help で --help opt でオプション指定だけのヘルプを表示する様にした。このことはヘルプの本文に記載していない。また、$ARGV[1]未定義警告が出る可能性が残っている。
+
+=for comment
+changeset:   285:f6fef6826533
+user:        Toshiyuki Shimono
+date:        Wed Mar 02 14:51:45 2016 +0900
+summary:     いくつかのファイルを改名
+
+=for comment
+changeset:   268:31b37274f835
+user:        Toshiyuki Shimono <tulamili@gmail.com>
+date:        Fri Feb 26 07:51:05 2016 +0000
+summary:     colgrep.pl マニュアルの編集
+
+=for comment
+changeset:   266:3318723ff27e
+user:        Toshiyuki Shimono <tulamili@gmail.com>
+date:        Fri Feb 26 07:34:14 2016 +0000
+summary:     colgrep.pl edited online with Bitbucket
+
+=for comment
+changeset:   265:7c3930e1a0d5
+user:        Toshiyuki Shimono <tulamili@gmail.com>
+date:        Thu Feb 25 08:38:58 2016 +0000
+summary:     colgrep.pl edited online with Bitbucket
+
+=for comment
+changeset:   264:388169015481
+user:        Toshiyuki Shimono <tulamili@gmail.com>
+date:        Thu Feb 25 08:37:14 2016 +0000
+summary:     colgrep.pl に -y情報を付加。そして、カラーで処理行数など標準エラー出力に出力するようにした。
+
+=for comment
+changeset:   261:25d722a70050
+user:        Toshiyuki Shimono <tulamili@gmail.com>
+date:        Thu Feb 25 06:10:26 2016 +0000
+summary:     colgrep.pl の使い方がわかるようにマニュアルを書いた。
+
+=for comment
+changeset:   242:69fc8767704f
+user:        Tulamili
+date:        Sat Feb 20 16:01:35 2016 +0900
+summary:     colgrep デバグ
+
+=for comment
+changeset:   241:4a44f1bf06c0
+user:        Toshiyuki Shimono <tulamili@gmail.com>
+date:        Fri Feb 19 13:27:53 2016 +0000
+summary:     colgrep.pl created
+
+
+=cut
+
+
+

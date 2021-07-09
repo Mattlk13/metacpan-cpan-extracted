@@ -1,3 +1,23 @@
+0.20 2021-05-30
+- also export mpinv
+- fix RedoDimsCode for native-complex
+- fix matrix-multiplication overload to work with native-complex
+
+0.19 2021-05-24
+- change to PDL 2.047 with native complex i()
+
+0.18 2021-05-03
+- stop loading PDL::Complex and overriding PDL:: functions
+
+0.17 2021-04-01
+- handle native complex data
+
+0.16 2021-03-23
+- fix pp_setversion calls now that preserves string
+
+0.15 2021-03-04
+- add [c]gtsv functions
+
 0.14 2019-12-09
 - updated build-file perms - thanks @manwar
 - support Lapack >= 3.7.0 - thanks Grégory Vanuxem

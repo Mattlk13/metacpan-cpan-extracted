@@ -2,40 +2,62 @@ package UUID::FFI;
 
 use strict;
 use warnings;
-use FFI::Platypus 0.56;
+use 5.008001;
+use FFI::Platypus 1.00;
 use FFI::Platypus::Memory ();
 use FFI::CheckLib ();
 use Carp qw( croak );
 use overload '<=>' => sub { $_[0]->compare($_[1]) },
              '""'  => sub { shift->as_hex         },
-             fallback => 1;
+             bool => sub { 1 }, fallback => 1;
 
 # TODO: as_bin or similar
 
 # ABSTRACT: Universally Unique Identifiers FFI style
-our $VERSION = '0.07'; # VERSION
+our $VERSION = '0.10'; # VERSION
 
 
-my $ffi = FFI::Platypus->new;
+my $ffi = FFI::Platypus->new( api => 1 );
 
 $ffi->lib(sub {
-  my $lib = FFI::CheckLib::find_lib(lib => 'uuid');
-  return $lib if $lib;
-  require Alien::libuuid;
-  Alien::libuuid->dynamic_libs;
+  my @lib = eval {
+    require Alien::libuuid;
+    Alien::libuuid->VERSION('0.05');
+    Alien::libuuid->dynamic_libs;
+  };
+  return @lib if @lib;
+  @lib = FFI::CheckLib::find_lib(
+    lib => 'uuid',
+    symbol => [
+      'uuid_generate_random',
+      'uuid_generate_time',
+      'uuid_unparse',
+      'uuid_parse',
+      'uuid_copy',
+      'uuid_clear',
+      'uuid_type',
+      'uuid_variant',
+      'uuid_time',
+      'uuid_is_null',
+      'uuid_compare',
+    ]
+  );
+  die "Unable to find system libuuid with required symbols.  Try installing or upgrading Alien::libuuid"
+    unless @lib;
+  return @lib;
 });
 
-$ffi->attach( [uuid_generate_random => '_generate_random'] => ['pointer']            => 'void'   => '$'  );
-$ffi->attach( [uuid_generate_time   => '_generate_time']   => ['pointer']            => 'void'   => '$'  );
-$ffi->attach( [uuid_unparse         => '_unparse']         => ['pointer', 'pointer'] => 'void'   => '$$' );
-$ffi->attach( [uuid_parse           => '_parse']           => ['string',  'pointer'] => 'int'    => '$$' );
-$ffi->attach( [uuid_copy            => '_copy']            => ['pointer', 'pointer'] => 'void'   => '$$' );
-$ffi->attach( [uuid_clear           => '_clear']           => ['pointer']            => 'void'   => '$'  );
-$ffi->attach( [uuid_type            => '_type']            => ['pointer']            => 'int'    => '$'  );
-$ffi->attach( [uuid_variant         => '_variant']         => ['pointer']            => 'int'    => '$'  );
-$ffi->attach( [uuid_time            => '_time']            => ['pointer', 'pointer'] => 'time_t' => '$$' );
-$ffi->attach( [uuid_is_null         => '_is_null']         => ['pointer']            => 'int'    => '$'  );
-$ffi->attach( [uuid_compare         => '_compare']         => ['pointer', 'pointer'] => 'int'    => '$$' );
+$ffi->attach( [uuid_generate_random => '_generate_random'] => ['opaque']           => 'void'   => '$'  );
+$ffi->attach( [uuid_generate_time   => '_generate_time']   => ['opaque']           => 'void'   => '$'  );
+$ffi->attach( [uuid_unparse         => '_unparse']         => ['opaque', 'opaque'] => 'void'   => '$$' );
+$ffi->attach( [uuid_parse           => '_parse']           => ['string', 'opaque'] => 'int'    => '$$' );
+$ffi->attach( [uuid_copy            => '_copy']            => ['opaque', 'opaque'] => 'void'   => '$$' );
+$ffi->attach( [uuid_clear           => '_clear']           => ['opaque']           => 'void'   => '$'  );
+$ffi->attach( [uuid_type            => '_type']            => ['opaque']           => 'int'    => '$'  );
+$ffi->attach( [uuid_variant         => '_variant']         => ['opaque']           => 'int'    => '$'  );
+$ffi->attach( [uuid_time            => '_time']            => ['opaque', 'opaque'] => 'time_t' => '$$' );
+$ffi->attach( [uuid_is_null         => '_is_null']         => ['opaque']           => 'int'    => '$'  );
+$ffi->attach( [uuid_compare         => '_compare']         => ['opaque', 'opaque'] => 'int'    => '$$' );
 
 
 sub new
@@ -44,7 +66,7 @@ sub new
   croak "usage: UUID::FFI->new($hex)" unless $hex;
   my $self = bless \FFI::Platypus::Memory::malloc(16), $class;
   my $r = _parse($hex, $$self);
-  croak "$hex is not a valid hex UUID" if $r != 0; 
+  croak "$hex is not a valid hex UUID" if $r != 0;
   $self;
 }
 
@@ -150,7 +172,7 @@ UUID::FFI - Universally Unique Identifiers FFI style
 
 =head1 VERSION
 
-version 0.07
+version 0.10
 
 =head1 SYNOPSIS
 

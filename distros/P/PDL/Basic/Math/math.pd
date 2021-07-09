@@ -1,6 +1,12 @@
-
 use strict;
 use Config;
+use PDL::Types qw(ppdefs ppdefs_complex types);
+
+my $R = [ppdefs()];
+my $F = [map $_->ppsym, grep $_->real && !$_->integer, types()];
+my $C = [ppdefs_complex()];
+my @Rtypes = grep $_->real, types();
+my @Ctypes = grep !$_->real, types();
 
 pp_addpm({At=>'Top'},<<'EOD');
 =head1 NAME
@@ -43,11 +49,13 @@ sub doco {
   for (@funcs) { $doco{$_} = $doc }
 }
 
-doco (qw/acos asin atan tan/,
-'The usual trigonometric function.');
+doco (qw/acos asin atan tan/, <<'EOF');
+The usual trigonometric function.
+EOF
 
-doco (qw/cosh sinh tanh acosh asinh atanh/,
-'The standard hyperbolic function.');
+doco (qw/cosh sinh tanh acosh asinh atanh/, <<'EOF');
+The standard hyperbolic function.
+EOF
 
 doco (qw/ceil floor/,
 'Round to integer values in floating-point format.');
@@ -66,7 +74,7 @@ rounding half-integers up or away from zero.
 
 If you are looking to round half-integers up (regardless of sign), try
 C<floor($x+0.5)>.  If you want to round half-integers away from zero,
-try C<< floor(abs($x)+0.5)*($x<=>0) >>./);
+try C<< ceil(abs($x)+0.5)*($x<=>0) >>./);
 
 doco( 'pow',"Synonym for `**'.");
 
@@ -78,7 +86,7 @@ doco ('ndtri',
 
 The value for which the area under the
 Gaussian probability density function (integrated from
-minus infinity) is equal to the argument (cf L<erfi|/erfi>).");
+minus infinity) is equal to the argument (cf L</erfi>).");
 
 doco(qw/bessj0 bessj1/,
      "The regular Bessel function of the first kind, J_n" );
@@ -110,7 +118,7 @@ doco( 'lgamma' ,<<'EOD');
 
 log gamma function
 
-This returns 2 piddles -- the first set gives the log(gamma) values,
+This returns 2 ndarrays -- the first set gives the log(gamma) values,
 while the second set, of integer values, gives the sign of the gamma
 function.  This is useful for determining factorials, amongst other
 things.
@@ -122,23 +130,10 @@ EOD
 pp_addhdr('
 #include <math.h>
 #include "protos.h"
-/* Change names when fixing glibc-2.1 bug */
-#ifdef MY_FIXY0
-#define y0(a) fixy0(a)
-extern double fixy0(double a);
-#endif
-#ifdef MY_FIXYN
-#define yn(a,b) fixyn(a,b)
-extern double fixyn(int a, double b);
-#endif
 ');
 
-## handle various cases of 'finite'
-#
 if ($^O =~ /MSWin/) {
-# _finite in VC++ 4.0
 pp_addhdr('
-#define finite _finite
 #include <float.h>
 #ifdef _MSC_VER
 double rint (double);
@@ -146,18 +141,9 @@ double rint (double);
 ');
 }
 
-# patch from Albert Chin
-if ($^O =~ /hpux|darwin/) {
-pp_addhdr('
-#ifdef isfinite
-#define finite isfinite
-#endif
-');
-}
-
 # Standard `-lm'
 my (@ufuncs1) = qw(acos asin atan cosh sinh tan tanh); # F,D only
-my (@ufuncs1g) = qw(ceil floor rint); # Any type
+my (@ufuncs1g) = qw(ceil floor rint); # Any real type
 
 # Note:
 #  ops.pd has a power() function that does the same thing
@@ -172,22 +158,41 @@ my (@besufuncs) = qw(j0 j1 y0 y1); # "
 my (@besbifuncs) = qw(jn yn); # "
 # Need igamma, ibeta, and a fall-back implementation of the above
 
-sub code_ufunc    { return '$b() = ' . $_[0] . '($a());'; }
+sub code_ufunc {
+    my ($name) = @_;
+    my $got_complex = PDL::Core::Dev::got_complex_version($name, 1);
+    my $complex_bit = join "\n",
+      map 'types('.$_->ppsym.') %{$b() = c'.$name.$_->floatsuffix.'($a());%}',
+      @Ctypes;
+    my $real_bit = join "\n",
+      map 'types('.$_->ppsym.') %{$b() = '.$name.'($a());%}',
+      @Rtypes;
+    ($got_complex ? $complex_bit : '') . $real_bit;
+}
 sub badcode_ufunc {
-    my $name = $_[0];
-    return 'if ( $ISBAD(a()) ) { $SETBAD(b()); } else { $b() = ' . $name . '($a()); }';
+    'if ( $ISBAD(a()) ) { $SETBAD(b()); } else {' . "\n" .
+	code_ufunc(@_) .
+    "}\n";
 }
 
 sub code_bifunc {
     my $name = $_[0]; my $x = $_[1] || 'a'; my $y = $_[2] || 'b';
     my $c = $_[3] || 'c';
-    return "\$$c() = $name(\$$x(),\$$y());";
+    my $got_complex = PDL::Core::Dev::got_complex_version($name, 2);
+    my $complex_bit = join "\n",
+      map 'types('.$_->ppsym.') %{$'.$c.'() = c'.$name.$_->floatsuffix.'($'.$x.'(),$'.$y.'());%}',
+      @Ctypes;
+    my $real_bit = join "\n",
+      map 'types('.$_->ppsym.') %{$'.$c.'() = '.$name.'($'.$x.'(),$'.$y.'());%}',
+      @Rtypes;
+    ($got_complex ? $complex_bit : '') . $real_bit;
 }
 sub badcode_bifunc {
     my $name = $_[0]; my $x = $_[1] || 'a'; my $y = $_[2] || 'b';
     my $c = $_[3] || 'c';
-    return 'if ( $ISBAD('.$x.'()) || $ISBAD('.$y.'()) ) { $SETBAD('.$c.'()); } else { ' .
-	"\$$c() = $name(\$$x(),\$$y()); }";
+    'if ( $ISBAD('.$x.'()) || $ISBAD('.$y.'()) ) { $SETBAD('.$c.'()); } else {' . "\n" .
+	code_bifunc(@_) .
+    "}\n";
 }
 
 sub inplace_doc {
@@ -195,12 +200,24 @@ sub inplace_doc {
     return "$doco{$func} Works inplace.";
 }
 
-my $func;
-foreach $func (@ufuncs1) {
+foreach my $func (@ufuncs1) {
+    my $got_complex = PDL::Core::Dev::got_complex_version($func, 1);
     pp_def($func,
 	   HandleBad => 1,
 	   NoBadifNaN => 1,
-	   GenericTypes => ['F','D'],
+	   GenericTypes => [($got_complex ? @$C : ()), @$F],
+	   Pars => 'a(); [o]b();',
+	   Inplace => 1,
+	   Doc => inplace_doc( $func ),
+	   Code => code_ufunc($func),
+	   BadCode => badcode_ufunc($func),
+	   );
+}
+# real types
+foreach my $func (@ufuncs1g) {
+    pp_def($func,
+	   HandleBad => 1,
+	   NoBadifNaN => 1,
 	   Pars => 'a(); [o]b();',
 	   Inplace => 1,
 	   Doc => inplace_doc( $func ),
@@ -209,24 +226,14 @@ foreach $func (@ufuncs1) {
 	   );
 }
 
-foreach $func (@ufuncs1g) {
-    pp_def($func,
-	   HandleBad => 1,
-	   NoBadifNaN => 1,
-	   Pars => 'a(); [o]b();',
-	   Inplace => 1,
-	   Doc => inplace_doc( $func ),
-	   Code => code_ufunc($func),
-	   BadCode => badcode_ufunc($func),
-	   );
-}
-
-foreach $func (@bifuncs1) {
+foreach my $func (@bifuncs1) {
+    my $got_complex = PDL::Core::Dev::got_complex_version($func, 2);
     pp_def($func,
 	   HandleBad => 1,
 	   NoBadifNaN => 1,
 	   Pars => 'a(); b(); [o]c();',
 	   Inplace => [ 'a' ],
+	   GenericTypes => [($got_complex ? @$C : ()), @$R],
 	   Doc => inplace_doc( $func ),
 	   Code => code_bifunc($func),
 	   BadCode => badcode_bifunc($func),
@@ -234,11 +241,11 @@ foreach $func (@bifuncs1) {
 }
 
 # Functions provided by extended -lm
-foreach $func (@ufuncs2) {
+foreach my $func (@ufuncs2) {
     pp_def($func,
 	   HandleBad => 1,
 	   NoBadifNaN => 1,
-	   GenericTypes => ['F','D'],
+	   GenericTypes => $F,
 	   Pars => 'a(); [o]b();',
 	   Inplace => 1,
 	   Doc => inplace_doc( $func ),
@@ -247,12 +254,12 @@ foreach $func (@ufuncs2) {
 	   );
 }
 
-foreach $func (@besufuncs) {
+foreach my $func (@besufuncs) {
     my $fname = "bess$func";
     pp_def($fname,
 	   HandleBad => 1,
 	   NoBadifNaN => 1,
-	   GenericTypes => ['F','D'],
+	   GenericTypes => $F,
 	   Pars => 'a(); [o]b();',
 	   Inplace => 1,
 	   Doc => inplace_doc( $fname ),
@@ -261,12 +268,12 @@ foreach $func (@besufuncs) {
 	   );
 }
 
-foreach $func (@besbifuncs) {
+foreach my $func (@besbifuncs) {
     my $fname = "bess$func";
     pp_def($fname,
 	   HandleBad => 1,
 	   NoBadifNaN => 1,
-	   GenericTypes => ['F','D'],
+	   GenericTypes => $F,
 	   Pars => 'a(); int n(); [o]b();',
 	   Inplace => [ 'a' ],
 	   Doc => inplace_doc( $fname ),
@@ -319,9 +326,9 @@ pp_def(
        Inplace => [ 'a' ],
        HandleBad => 1,
        Code =>
-       '$c() = finite($a()) ? $a() : $b();',
+       '$c() = isfinite((double) $a()) ? $a() : $b();',
        BadCode =>
-       '$c() = ( finite($a()) && $ISGOOD(a()) ) ? $a() : $b();',
+       '$c() = ( isfinite((double) $a()) && $ISGOOD(a()) ) ? $a() : $b();',
        CopyBadStatusCode =>
        'if ( a == c && $ISPDLSTATEBAD(a) )
            PDL->propagate_badflag( c, 0 );  /* propagate badflag if inplace AND its changed */
@@ -348,9 +355,9 @@ pp_def(
        Inplace => 1,
        HandleBad => 1,
        Code =>
-       '$mask() = finite((double) $a()) != 0;',
+       '$mask() = isfinite((double) $a()) != 0;',
        BadCode =>
-       '$mask() = finite((double) $a()) != 0 && $ISGOOD($a());',
+       '$mask() = isfinite((double) $a()) != 0 && $ISGOOD($a());',
        CopyBadStatusCode =>
        'if ( a == mask && $ISPDLSTATEBAD(a) )
            PDL->propagate_badflag( mask, 0 );  /* propagate badflag if inplace AND its changed */
@@ -367,7 +374,7 @@ pp_def(
        "erfi",
        HandleBad => 1,
        NoBadifNaN => 1,
-       GenericTypes => ['F','D'],
+       GenericTypes => $F,
        Pars => 'a(); [o]b()',
        Inplace => 1,
        Doc => inplace_doc( "erfi" ),
@@ -384,7 +391,7 @@ pp_def(
        "ndtri",
        HandleBad => 1,
        NoBadifNaN => 1,
-       GenericTypes => ['F','D'],
+       GenericTypes => $F,
        Pars => 'a(); [o]b()',
        Inplace => 1,
        Doc => inplace_doc( "ndtri" ),
@@ -399,12 +406,12 @@ pp_def(
 
 pp_def("polyroots",
       Pars => 'cr(n); ci(n); [o]rr(m); [o]ri(m);',
-      RedoDimsCode => 'int sn = $PDL(cr)->dims[0]; $SIZE(m) = sn-1;',
+      RedoDimsCode => '$SIZE(m) = $PDL(cr)->dims[0]-1;',
       GenericTypes => ['D'],
       Code => '
               extern int cpoly( double *cr, double *ci, int deg,
                     double *rr, double *ri );
-              int deg = $SIZE(n)-1, i;
+              int deg = (int)$SIZE(n)-1;
               if (cpoly($P(cr), $P(ci), deg, $P(rr), $P(ri)))
                  barf("PDL::Math::polyroots failed");
 ',

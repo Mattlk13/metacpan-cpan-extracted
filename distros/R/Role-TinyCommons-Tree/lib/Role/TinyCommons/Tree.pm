@@ -1,9 +1,9 @@
 package Role::TinyCommons::Tree;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-04-14'; # DATE
+our $DATE = '2021-07-02'; # DATE
 our $DIST = 'Role-TinyCommons-Tree'; # DIST
-our $VERSION = '0.124'; # VERSION
+our $VERSION = '0.127'; # VERSION
 
 1;
 # ABSTRACT: Roles related to object tree
@@ -20,7 +20,7 @@ Role::TinyCommons::Tree - Roles related to object tree
 
 =head1 VERSION
 
-This document describes version 0.124 of Role::TinyCommons::Tree (from Perl distribution Role-TinyCommons-Tree), released on 2020-04-14.
+This document describes version 0.127 of Role::TinyCommons::Tree (from Perl distribution Role-TinyCommons-Tree), released on 2021-07-02.
 
 =head1 DESCRIPTION
 
@@ -47,6 +47,12 @@ implemented in L<Code::Includable::Tree::NodeMethods>, so you can import them to
 your class manually or just call the routines as a normal function call if you
 do not want to involve L<Role::Tiny>. See an example of this usage in
 L<Data::CSel>.
+
+=head1 CONTRIBUTOR
+
+=for stopwords perlancar (@pc-office)
+
+perlancar (@pc-office) <perlancar@gmail.com>
 
 =head1 HOMEPAGE
 
@@ -76,7 +82,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2016 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2016 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

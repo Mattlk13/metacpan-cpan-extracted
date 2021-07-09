@@ -20,7 +20,7 @@ has connect_timeout    => sub { $ENV{MOJO_CONNECT_TIMEOUT} || 10 };
 has cookie_jar         => sub { Mojo::UserAgent::CookieJar->new };
 has inactivity_timeout => sub { $ENV{MOJO_INACTIVITY_TIMEOUT} // 40 };
 has insecure           => sub { $ENV{MOJO_INSECURE} };
-has [qw(local_address max_response_size)];
+has 'max_response_size';
 has ioloop          => sub { Mojo::IOLoop->new };
 has key             => sub { $ENV{MOJO_KEY_FILE} };
 has max_connections => 5;
@@ -28,6 +28,7 @@ has max_redirects   => sub { $ENV{MOJO_MAX_REDIRECTS} || 0 };
 has proxy           => sub { Mojo::UserAgent::Proxy->new };
 has request_timeout => sub { $ENV{MOJO_REQUEST_TIMEOUT} // 0 };
 has server          => sub { Mojo::UserAgent::Server->new(ioloop => shift->ioloop) };
+has socket_options  => sub { {} };
 has transactor      => sub { Mojo::UserAgent::Transactor->new };
 
 # Common HTTP methods
@@ -42,7 +43,7 @@ for my $name (qw(DELETE GET HEAD OPTIONS PATCH POST PUT)) {
   };
 }
 
-sub DESTROY { Mojo::Util::_global_destruction() or shift->_cleanup }
+sub DESTROY { shift->_cleanup unless ${^GLOBAL_PHASE} eq 'DESTRUCT' }
 
 sub build_tx           { shift->transactor->tx(@_) }
 sub build_websocket_tx { shift->transactor->websocket(@_) }
@@ -88,7 +89,7 @@ sub websocket_p {
 sub _cleanup {
   my $self = shift;
   delete $self->{pid};
-  $self->_finish($_, 1) for keys %{$self->{connections} || {}};
+  $self->_finish($_, 1) for keys %{$self->{connections} // {}};
   return $self;
 }
 
@@ -101,8 +102,8 @@ sub _connect {
   my %options = (timeout => $self->connect_timeout);
   if   ($proto eq 'http+unix') { $options{path}             = $host }
   else                         { @options{qw(address port)} = ($host, $port) }
-  if (my $local = $self->local_address) { $options{local_address} = $local }
-  $options{handle} = $handle if $handle;
+  $options{socket_options} = $self->socket_options;
+  $options{handle}         = $handle if $handle;
 
   # SOCKS
   if ($proto eq 'socks') {
@@ -115,7 +116,7 @@ sub _connect {
   # TLS
   if ($options{tls} = $proto eq 'https') {
     map { $options{"tls_$_"} = $self->$_ } qw(ca cert key);
-    $options{tls_verify} = 0x00 if $self->insecure;
+    $options{tls_options}{SSL_verify_mode} = 0x00 if $self->insecure;
   }
 
   weaken $self;
@@ -197,7 +198,7 @@ sub _connection {
 sub _dequeue {
   my ($self, $loop, $name, $test) = @_;
 
-  my $old = $self->{queue}{$loop} ||= [];
+  my $old = $self->{queue}{$loop} //= [];
   my ($found, @new);
   for my $queued (@$old) {
     push @new, $queued and next if $found || !grep { $_ eq $name } @$queued;
@@ -299,7 +300,7 @@ sub _reuse {
   return $self->_remove($id) if $close || !$tx || !$max || !$tx->keep_alive || $tx->error;
 
   # Keep connection alive
-  my $queue = $self->{queue}{$c->{ioloop}} ||= [];
+  my $queue = $self->{queue}{$c->{ioloop}} //= [];
   $self->_remove(shift(@$queue)->[1]) while @$queue && @$queue >= $max;
   push @$queue, [join(':', $self->transactor->endpoint($tx)), $id];
 }
@@ -346,7 +347,7 @@ sub _write {
   return unless length $chunk;
 
   weaken $self;
-  $c->{ioloop}->stream($id)->write($chunk => sub { $self->_write($id) });
+  $c->{ioloop}->stream($id)->write($chunk => sub { $self && $self->_write($id) });
 }
 
 1;
@@ -400,7 +401,7 @@ Mojo::UserAgent - Non-blocking I/O HTTP and WebSocket user agent
 
   # Follow redirects to download Mojolicious from GitHub
   $ua->max_redirects(5)
-    ->get('https://www.github.com/mojolicious/mojo/tarball/master')
+    ->get('https://www.github.com/mojolicious/mojo/tarball/main')
     ->result->save_to('/home/sri/mojo.tar.gz');
 
   # Non-blocking request
@@ -559,13 +560,6 @@ Event loop object to use for blocking I/O operations, defaults to a L<Mojo::IOLo
 
 Path to TLS key file, defaults to the value of the C<MOJO_KEY_FILE> environment variable.
 
-=head2 local_address
-
-  my $address = $ua->local_address;
-  $ua         = $ua->local_address('127.0.0.1');
-
-Local address to bind to.
-
 =head2 max_connections
 
   my $max = $ua->max_connections;
@@ -646,6 +640,13 @@ Application server relative URLs will be processed with, defaults to a L<Mojo::U
 
   # Port currently used for processing relative URLs non-blocking
   say $ua->server->nb_url->port;
+
+=head2 socket_options
+
+  my $options = $ua->socket_options;
+  $ua         = $ua->socket_options({LocalAddr => '127.0.0.1'});
+
+Additional options for L<IO::Socket::IP> when opening new connections.
 
 =head2 transactor
 

@@ -1,5 +1,8 @@
-use ExtUtils::MakeMaker;
+use strict;
+use warnings;
 use Config;
+use ExtUtils::MakeMaker;
+
 require 5.006;
 
 $| = 1;
@@ -10,8 +13,8 @@ our $INC = $args{ INC };
 
 print "\nThis module requires gmp-4.2.0 (or later)\n\n";
 
-$use_64_bit_int = 0; # Let perl decide whether to include 64-bit 'long long' support
-$use_long_double = 0;# Let perl decide whether to include 'long double' support
+my $use_64_bit_int = 0; # Let perl decide whether to include 64-bit 'long long' support
+my $use_long_double = 0;# Let perl decide whether to include 'long double' support
 
 #$use_64_bit_int = -1; # Force exclusion of 64-bit 'long long' support
 #$use_long_double = -1;# Force exclusion of 'long double' support
@@ -59,6 +62,8 @@ print "If this is wrong, see the \"64-bit support\" section in the README\n\n";
 
 if($^O =~ /MSWin32/i && $] < 5.022) {$defines .= " -D_WIN32_BIZARRE_INFNAN"}
 
+# Assume that if the next condition is true, then the UV can hold a value
+# that will overflow mp_bitcnt_t.
 if($Config{longsize} < $Config{ivsize}) {$defines .= " -D_GMP_INDEX_OVERFLOW"}
 
 if($Config{sizesize} < $Config{ivsize}) {$defines .= " -D_GMP_SIZE_T_OVERFLOW"}
@@ -68,12 +73,14 @@ my %options = (
   AUTHOR => 'Sisyphus (sisyphus at (@) cpan dot (.) org)',
   ABSTRACT => 'Perl interface to the GMP integer functions',
   DEFINE   => $defines,
+
   LIBS => [
     '-lgmp'
   ],
+
   LICENSE  => 'perl',
   VERSION_FROM => 'GMPz.pm',
-  PREREQ_PM => {'Exporter' => '5.58'}, # avoid test failures on pre perl-5.8.4
+
   clean   => { FILES => 'out1.txt out2.txt out3.txt out4.txt out5.txt out6.txt out7.txt out21.txt out22.txt' },
   META_MERGE => {
    'meta-spec' => { version => 2 },
@@ -86,8 +93,22 @@ my %options = (
     },
   },
 );
+
+my $prereq =  { 'Test::More' => '0.88',
+                'Test::Warn' => '0.36',
+                'Exporter'   => '5.58', # avoid test failures on pre perl-5.8.4
+              };
+
+if($ExtUtils::MakeMaker::VERSION < 6.64) {
+  $options{PREREQ_PM} = $prereq;
+}
+else {
+  $options{TEST_REQUIRES} = $prereq;
+}
+
 WriteMakefile(%options);
 
-## Remove the Makefile dependency. Causes problems on a few systems.
-sub MY::makefile { '' }
+## We used to remove the Makefile dependency as it could cause problems on a few systems.
+# But now we comment out the line that effected that removal. (No problems, so far.)
+# sub MY::makefile { '' }
 

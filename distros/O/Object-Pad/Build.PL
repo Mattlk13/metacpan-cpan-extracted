@@ -2,6 +2,7 @@ use strict;
 use warnings;
 
 use Module::Build;
+use XS::Parse::Keyword::Builder;
 use XS::Parse::Sublike::Builder;
 
 my @extra_compiler_flags = qw( -Ihax );
@@ -20,7 +21,10 @@ my $build = Module::Build->new(
          () :
          ( 'indirect' => 0 ) ),
 
-      'perl' => '5.016', # pad_add_name_pvn, pad_add_name_pvs, gv_init_pvn
+      'perl' => '5.018', # pad_add_name_pvn, pad_add_name_pvs, gv_init_pvn
+         # Technically probably would work on 5.16 but doesn't:
+         #   https://rt.cpan.org/Ticket/Display.html?id=132930
+      'XS::Parse::Keyword' => '0.08',
       'XS::Parse::Sublike' => '0.10', # hookdata
    },
    test_requires => {
@@ -31,6 +35,7 @@ my $build = Module::Build->new(
    },
    configure_requires => {
       'Module::Build' => '0.4004', # test_requires
+      'XS::Parse::Keyword::Builder' => '0.08',
       'XS::Parse::Sublike::Builder' => '0.10',
    },
    license => 'perl',
@@ -39,6 +44,8 @@ my $build = Module::Build->new(
 
    extra_compiler_flags => \@extra_compiler_flags,
 );
+
+XS::Parse::Keyword::Builder->extend_module_build( $build );
 
 XS::Parse::Sublike::Builder->extend_module_build( $build );
 

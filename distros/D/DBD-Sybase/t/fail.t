@@ -19,39 +19,46 @@ use vars qw($Pwd $Uid $Srv $Db);
 
 ($Uid, $Pwd, $Srv, $Db) = _test::get_info();
 
-my $dbh = DBI->connect("dbi:Sybase:server=$Srv;database=$Db", $Uid, $Pwd, {PrintError => 0, syb_flush_finish => 1});
+my $dbh = DBI->connect("dbi:Sybase:$Srv;database=$Db", $Uid, $Pwd, {PrintError => 0, syb_flush_finish => 1});
 
 ok(defined($dbh), 'Connect');
 
 if(!$dbh) {
-    warn "No connection - did you set the user, password and server name correctly in PWD?\n";
-    for (4 .. 12) {
-	ok(0);
-    }
-    exit(0);
+  warn "No connection - did you set the user, password and server name correctly in PWD?\n";
+  for (4 .. 12) {
+	  ok(0);
+  }
+  exit(0);
 }
 
 
 my $rc;
+my $sth;
 #DBI->trace(4);
-my $sth = $dbh->prepare("
+# This test only works with Sybase - apparently MS-SQL will not compile the whole batch (the 3 sql statements)
+# in one go, and therefore won't flag the error until the second SELECT is executed.
+# Sybase compiles the batch in one go, and will return the error immediately.
+SKIP: {
+  skip 1, "Test does not work with MS-SQL" if $dbh->{syb_server_version} eq 'Unknown' || $dbh->{syb_server_version} eq 'MS-SQL';
+  my $sth = $dbh->prepare("
 select * from sysusers
 select * from no_such_table
 select * from master..sysdatabases
 ");
-$rc = $sth->execute;
+  $rc = $sth->execute;
 
-ok(!defined($rc), 'Missing table');
+  ok(!defined($rc), 'Missing table');
+}
 
 $sth = $dbh->prepare("select * from sysusers\n");
 $rc = $sth->execute;
 ok(defined($rc), 'Sysusers');
 
 while(my $d = $sth->fetch) {
-    ;
+  ;
 }
 
-$rc = $dbh->do("create table #test(one int not null primary key, two int not null, three int not null check(two != three))");
+$rc = $dbh->do("create table #test(one int not null primary key, two int not null, three int not null, check(two != three))");
 
 ok(defined($rc), 'Create table');
 
@@ -83,7 +90,7 @@ $rc = $sth->execute;
 ok(defined($rc), 'select');
 
 while(my $d = $sth->fetch) {
-    print "@$d\n";
+  print "@$d\n";
 }
 #print "ok 11\n";
 
@@ -96,9 +103,9 @@ insert #test(one, two, three) values (11, 12, 13)
 $rc = $sth->execute;
 ok(defined($rc), 'prepare/execute multi');
 do {
-    while(my $d = $sth->fetch) {
-	print "@$d\n";
-    }
+  while(my $d = $sth->fetch) {
+    print "@$d\n";
+  }
 } while($sth->{syb_more_results});
 
 $dbh->do("drop table #test");

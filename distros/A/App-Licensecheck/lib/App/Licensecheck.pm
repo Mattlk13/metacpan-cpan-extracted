@@ -1,12 +1,13 @@
 package App::Licensecheck;
 
 use utf8;
-use strictures;
+use strict;
+use warnings;
 use autodie;
 
 use version;
 use Log::Any qw($log);
-use List::SomeUtils qw(nsort_by);
+use List::SomeUtils qw(nsort_by uniq);
 use Path::Iterator::Rule;
 use Path::Tiny;
 use Try::Tiny;
@@ -31,6 +32,13 @@ use Regexp::Pattern 0.2.12 (
 		-lacks_tag_matching => '^type:trait:exception(?:\z|:)',
 	),
 	'License::version' => (
+		engine     => 'RE2',
+		capture    => 'named',
+		subject    => 'trait',
+		anchorleft => 1,
+		-prefix    => 'ANCHORLEFT_NAMED_',
+	),
+	'License::version_later' => (
 		engine     => 'RE2',
 		capture    => 'named',
 		subject    => 'trait',
@@ -90,7 +98,7 @@ use MooX::Struct File => [
 	TO_STRING => sub { $_[0]->path->stringify }
 	],
 	Thing => [
-	qw( $name! +begin! +end! $file ),
+	qw( $name! +begin! +end! $file! ),
 	BUILDARGS => sub {
 		$log->tracef( 'detected something: %s: %d-%d', @{ $_[1] } );
 		return MooX::Struct::BUILDARGS(@_);
@@ -115,33 +123,41 @@ use MooX::Struct File => [
 	Exception => [
 	qw( %id! +begin! +end! $file ),
 	BUILDARGS => sub {
-		$log->tracef( 'detected exception: %s: %d-%d', @{ $_[1] } );
+		$log->tracef(
+			'detected exception: %s: %d-%d',
+			@{ $_[1] }[0]->{caption},
+			@{ $_[1] }[ 1 .. 2 ]
+		);
 		return MooX::Struct::BUILDARGS(@_);
 	},
 	],
 	Flaw => [
 	qw( %id! +begin! +end! $file ),
 	BUILDARGS => sub {
-		$log->tracef( 'detected flaw: %s: %d-%d', @{ $_[1] } );
+		$log->tracef(
+			'detected flaw: %s: %d-%d',
+			@{ $_[1] }[0]->{caption},
+			@{ $_[1] }[ 1 .. 2 ]
+		);
 		return MooX::Struct::BUILDARGS(@_);
 	},
 	],
 	Licensing => [
-	-extends  => ['Thing'], qw(@traits),
+	qw( $name! ),
 	BUILDARGS => sub {
 		$log->debugf( 'collected some licensing: %s: %d-%d', @{ $_[1] } );
 		return MooX::Struct::BUILDARGS(@_);
 	}
 	],
 	Fulltext => [
-	-extends  => ['Licensing'],
+	-extends  => ['Thing'], qw(@traits),
 	BUILDARGS => sub {
 		$log->debugf( 'collected fulltext: %s: %d-%d', @{ $_[1] } );
 		return MooX::Struct::BUILDARGS(@_);
 	}
 	],
 	Grant => [
-	-extends  => ['Licensing'],
+	-extends  => ['Thing'], qw(@traits),
 	BUILDARGS => sub {
 		$log->debugf(
 			'collected grant: %s: %d-%d "%s"',
@@ -166,11 +182,11 @@ App::Licensecheck - functions for a simple license checker for source files
 
 =head1 VERSION
 
-Version v3.1.1
+Version v3.2.3
 
 =cut
 
-our $VERSION = version->declare('v3.1.1');
+our $VERSION = version->declare('v3.2.3');
 
 =head1 SYNOPSIS
 
@@ -190,25 +206,11 @@ See the script for casual usage.
 
 =cut
 
-# TODO: make naming scheme configurable
-my %L = licensepatterns(qw(debian spdx));
+my %L;
 
 my @RE_EXCEPTION = sort map /^EXCEPTION_(.*)/, keys(%RE);
 my @RE_LICENSE   = sort map /^LICENSE_(.*)/,   keys(%RE);
 my @RE_NAME      = sort map /^NAME_(.*)/,      keys(%RE);
-my @L_family_cc  = sort keys %{ $L{family}{cc} };
-my @L_type_usage = sort keys %{ $L{type}{usage} };
-my @L_type_singleversion = sort keys %{ $L{type}{singleversion} };
-my @L_type_versioned     = sort keys %{ $L{type}{versioned} };
-my @L_type_unversioned   = sort keys %{ $L{type}{unversioned} };
-my @L_type_combo         = sort keys %{ $L{type}{combo} };
-my @L_type_group         = sort keys %{ $L{type}{group} };
-
-my @L_contains_bsd = grep {
-	$Regexp::Pattern::License::RE{$_}{tags}
-		and grep /^license:contains:license:bsd_2_clause/,
-		@{ $Regexp::Pattern::License::RE{$_}{tags} }
-} keys(%Regexp::Pattern::License::RE);
 
 my $default_check_regex = q!
 	/[\w-]+$ # executable scripts or README like file
@@ -268,6 +270,18 @@ has log => (
 	default => sub { Log::Any->get_logger },
 );
 
+# resolve patterns
+
+has shortname_scheme => (
+	is     => 'ro',
+	coerce => sub {
+		[ split /[\s,]+/, $_[0] || '' ];
+	},
+	default => sub { [qw(debian spdx)] if $_[0]->deb_machine },
+);
+
+# select
+
 has check_regex => (
 	is     => 'rw',
 	lazy   => 1,
@@ -298,6 +312,8 @@ has recursive => (
 	is => 'rw',
 );
 
+# parse
+
 has lines => (
 	is      => 'rw',
 	default => sub {60},
@@ -315,6 +331,8 @@ has encoding => (
 	},
 );
 
+# report
+
 has verbose => (
 	is => 'rw',
 );
@@ -323,15 +341,32 @@ has skipped => (
 	is => 'rw',
 );
 
-has deb_fmt => (
-	is      => 'rw',
-	lazy    => 1,
-	default => sub { $_[0]->deb_machine },
-);
-
 has deb_machine => (
 	is => 'rw',
 );
+
+sub list_licenses
+{
+	my ($self) = @_;
+
+	my %L = $self->licensepatterns;
+
+	print "$_\n" for sort map { $L{name}{$_} } @RE_LICENSE;
+}
+
+sub list_naming_schemes
+{
+	my ($self) = @_;
+
+	my %L     = $self->licensepatterns;
+	my $_prop = '(?:[a-z][a-z0-9_]*)';
+	my $_any  = '[a-z0-9_.()]';
+
+	print "$_\n"
+		for uniq sort map {/^(?:name|caption)\.alt\.org\.($_prop)$_any*/}
+		map               { keys %{ $Regexp::Pattern::License::RE{$_} } }
+		grep              {/^[a-z]/} keys %Regexp::Pattern::License::RE;
+}
 
 sub find
 {
@@ -559,20 +594,36 @@ sub clean_cruft_and_spaces
 	return $_;
 }
 
+sub best_value
+{
+	my ( $self, $hashref, @keys ) = @_;
+	my $value;
+
+	for my $key (@keys) {
+		for my $org ( @{ $self->shortname_scheme } ) {
+			$value ||= $hashref->{"$key.alt.org.$org"};
+			$value ||= $hashref->{"$key.alt.org.$org.synth.nogrant"};
+		}
+		$value ||= $hashref->{$key};
+	}
+
+	return $value;
+}
+
 sub licensepatterns
 {
-	my @org = @_;
+	my ($self) = @_;
+
+	# reuse if already resolved
+	return %L if %L;
 
 	my %list;
 
 	foreach my $key ( grep {/^[a-z]/} keys(%Regexp::Pattern::License::RE) ) {
 		my $val = $Regexp::Pattern::License::RE{$key};
-		foreach (@org) {
-			$list{name}{$key}    ||= $val->{"name.alt.org.$_"};
-			$list{caption}{$key} ||= $val->{"caption.alt.org.$_"};
-		}
-		$list{name}{$key}    ||= $val->{name}    || $key;
-		$list{caption}{$key} ||= $val->{caption} || $val->{name} || $key;
+		$list{name}{$key} = $self->best_value( $val, 'name' ) || $key;
+		$list{caption}{$key}
+			= $self->best_value( $val, 'caption' ) || $val->{name} || $key;
 		foreach ( @{ $val->{tags} } ) {
 			/^(family|type):([a-z][a-z0-9_]*)(?::([a-z][a-z0-9_]*))?/;
 			$list{family}{$2}{$key} = 1
@@ -618,10 +669,10 @@ sub licensepatterns
 	$list{re_grant_license}{local}{LEFTANCHOR_version_of} = qr/^ of /;
 	#>>>
 
-	return %list;
+	return %L = %list;
 }
 
-# grant pattern can be auto-skipped only stepwise, atomic scan is mandatory
+# license objects where atomic scan must always be applied
 my %L_grant_stepwise_incomplete = (
 
 	# usage
@@ -638,7 +689,7 @@ my %L_grant_stepwise_incomplete = (
 	public_domain => 1,
 );
 
-# grant pattern can be auto-skipped for only one of stepwise or atomic
+# license objects where stepwise scan cannot be skipped
 my %L_grant_atomic_incomplete = (
 	afl_1_1    => 1,
 	afl_1_2    => 1,
@@ -661,15 +712,32 @@ my %L_grant_atomic_incomplete = (
 	zpl_2_1    => 1,
 );
 
-# auto-skip by default; enable to test pattern coverage
-my $force_stepwise = 1;
-my $force_atomic   = 0;
+# scan for grants first stepwise and if not found then also atomic
+# flip either of these flags to test stepwise/atomic pattern coverage
+my $skip_stepwise = 0;
+my $force_atomic  = 0;
 
 sub parse_license
 {
 	my ( $self, $licensetext, $path, $position ) = @_;
 
 	my $file = File [ $path, $licensetext ];
+
+	my %L = $self->licensepatterns;
+
+	my @L_family_cc          = sort keys %{ $L{family}{cc} };
+	my @L_type_usage         = sort keys %{ $L{type}{usage} };
+	my @L_type_singleversion = sort keys %{ $L{type}{singleversion} };
+	my @L_type_versioned     = sort keys %{ $L{type}{versioned} };
+	my @L_type_unversioned   = sort keys %{ $L{type}{unversioned} };
+	my @L_type_combo         = sort keys %{ $L{type}{combo} };
+	my @L_type_group         = sort keys %{ $L{type}{group} };
+
+	my @L_contains_bsd = grep {
+		$Regexp::Pattern::License::RE{$_}{tags}
+			and grep /^license:contains:license:bsd_2_clause/,
+			@{ $Regexp::Pattern::License::RE{$_}{tags} }
+	} keys(%Regexp::Pattern::License::RE);
 
 	my $license = "";
 	my @spdx_gplver;
@@ -730,7 +798,7 @@ sub parse_license
 			$v2    ? "(v$v2)"    : (),
 		);
 		my $expr = join( ' or ', sort @spdx );
-		push @expressions, Licensing [ $expr, -1, -1 ];
+		push @expressions, Licensing [$expr];
 		$license = join( ' ', $L{caption}{$legacy} || $legacy, $license );
 	};
 
@@ -779,7 +847,9 @@ sub parse_license
 			$coverage->get_range( $pos, $pos_license{$pos}{$license}->end )
 				->get_element(0) );
 		$coverage->set_range(
-			@{ $pos_license{$pos}{$license}->TO_ARRAY }[ 1, 2 ], $license );
+			@{ $pos_license{$pos}{$license}->TO_ARRAY }[ 1, 2 ],
+			$pos_license{$pos}{$license}
+		);
 		$license{$license} = 1;
 	}
 
@@ -797,19 +867,19 @@ sub parse_license
 		}
 	}
 	LICENSED_UNDER:
-	foreach my $pos (
-		(   sort { $a <=> $b } map { $_->end }
+	foreach my $licensed_under (
+		(   sort { $a->end <=> $b->end }
 			grep { $_->name eq 'license_label_trove' } @clues
 		),
-		(   sort { $a <=> $b } map { $_->end }
+		(   sort { $a->end <=> $b->end }
 			grep { $_->name eq 'license_label' } @clues
 			),
-		(   sort { $a <=> $b } map { $_->end }
+		(   sort { $a->end <=> $b->end }
 			grep { $_->name eq 'licensed_under' } @clues
 			),
 		)
 	{
-		my $pos_begin = $pos;
+		my $pos = $licensed_under->end;
 
 		# possible grant names
 		my @grant_types = (
@@ -868,7 +938,7 @@ sub parse_license
 				$coverage->get_range( $pos, $match{$name}{name}{$pos}->end )
 					->get_element(0)
 			)
-			and ( $force_stepwise or $L_grant_atomic_incomplete{$name} )
+			and ( !$skip_stepwise or $L_grant_atomic_incomplete{$name} )
 			)
 		{
 			my $pos_end = $pos = $match{$name}{name}{$pos}->end;
@@ -893,6 +963,19 @@ sub parse_license
 					}
 				}
 			}
+			elsif ( !$version and grep { $_ eq $name } @L_type_singleversion )
+			{
+				substr( $licensetext, $pos )
+					=~ $RE{ANCHORLEFT_NAMED_version_later};
+				if ( $+{version_later} ) {
+					push @clues, Trait [
+						'or_later',
+						$pos + $-[1], $pos + $+[1], $file
+					];
+					$later   = $+{version_later};
+					$pos_end = $pos + $+[1];
+				}
+			}
 			if ($version) {
 				$version =~ s/(?:\.0)+$//;
 				$version =~ s/\./_/g;
@@ -900,12 +983,16 @@ sub parse_license
 			}
 			if ($later) {
 				my $latername = "${name}_or_later";
-				push @clues, Trait [ $latername, $pos_begin, $pos_end ];
-				$grant{$latername} = 1;
+				push @clues, Trait [
+					$latername, $licensed_under->begin, $pos_end, $file,
+				];
+				$grant{$latername} = $clues[-1];
 				next LICENSED_UNDER if grep { $grant{$_} } @RE_NAME;
 			}
-			$grant{$name}
-				= Trait [ "grant($name)", $pos_begin, $pos_end, $file ];
+			$grant{$name} = Trait [
+				"grant($name)", $licensed_under->begin, $pos_end,
+				$file
+			];
 			push @clues, $grant{$name};
 		}
 	}
@@ -937,6 +1024,7 @@ sub parse_license
 				$Regexp::Pattern::License::RE{$_}, $-[0], $+[0],
 				$file,
 			];
+			$coverage->set_range( $-[0], $+[0], $exception );
 			push @exceptions, $exception;
 		}
 	}
@@ -1039,6 +1127,12 @@ sub parse_license
 			}
 			break if ( $license{bsd_2_clause} );
 			when ( $RE{TRAIT_clause_reproduction} ) {
+				break
+					if (
+					defined(
+						$coverage->get_range( $-[0], $+[0] )->get_element(0)
+					)
+					);
 				my $grant
 					= Trait [ 'clause_reproduction', $-[0], $+[0], $file ];
 				$gen_license->('bsd_2_clause');
@@ -1127,6 +1221,10 @@ sub parse_license
 		}
 
 		if ( $grant{$id} ) {
+			$coverage->set_range(
+				$grant{$id}->begin, $grant{$id}->end,
+				$grant{$id}
+			);
 			$gen_license->( $id2patterns->($id) );
 
 			# skip singleversion and unversioned equivalents
@@ -1170,6 +1268,10 @@ sub parse_license
 		}
 
 		if ( $license{$id} or $grant{$id} ) {
+			$coverage->set_range(
+				$grant{$id}->begin, $grant{$id}->end,
+				$grant{$id}
+			) if $grant{$id};
 			$gen_license->( $id2patterns->($id) )
 				unless ( $match{$id}{custom} );
 
@@ -1220,6 +1322,10 @@ sub parse_license
 		}
 
 		if ( $grant{$id} ) {
+			$coverage->set_range(
+				$grant{$id}->begin, $grant{$id}->end,
+				$grant{$id}
+			);
 			$gen_license->($id);
 		}
 	}
@@ -1259,6 +1365,10 @@ sub parse_license
 			}
 		}
 		if ( $license{$id} or $grant{$id} ) {
+			$coverage->set_range(
+				$grant{$id}->begin, $grant{$id}->end,
+				$grant{$id}
+			) if $grant{$id};
 			$gen_license->($id);
 		}
 	}
@@ -1271,31 +1381,21 @@ sub parse_license
 			if ( @expressions > 1 );
 		$expr .= ' with ' . join(
 			'_AND_',
-			sort map {
-					   $_->{id}{'name.alt.org.debian'}
-					|| $_->{id}{'name.alt.org.spdx'}
-					|| $_->{id}{name}
-			} @exceptions
+			sort map { $self->best_value( $_->{id}, 'name' ) } @exceptions
 		) . ' exception';
 	}
 	if (@flaws) {
 		$license .= ' [' . join(
 			', ',
-			sort map {
-					   $_->{id}{'caption.alt.org.debian'}
-					|| $_->{id}{'caption.alt.org.spdx'}
-					|| $_->{id}{caption}
-					|| $_->{id}{'name.alt.org.debian'}
-					|| $_->{id}{'name.alt.org.spdx'}
-					|| $_->{id}{name}
-			} @flaws
+			sort map { $self->best_value( $_->{id}, qw(caption name) ) }
+				@flaws
 		) . ']';
 	}
 	$self->log->infof(
 		'resolved license expression: %s [%s]', $expr,
 		$file
 	);
-	return ( $self->deb_fmt ? $expr : $license ) || 'UNKNOWN';
+	return ( @{ $self->shortname_scheme } ? $expr : $license ) || 'UNKNOWN';
 }
 
 =encoding UTF-8

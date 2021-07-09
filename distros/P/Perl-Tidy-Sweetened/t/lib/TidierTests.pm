@@ -6,8 +6,9 @@ use Perl::Tidy::Sweetened;
 use Test::Most;
 
 use Exporter;
-@TidierTests::ISA    = qw(Exporter);
-@TidierTests::EXPORT = qw(run_test);
+@TidierTests::ISA       = qw(Exporter);
+@TidierTests::EXPORT    = qw(run_test);
+@TidierTests::EXPORT_OK = qw($indent_tc $indent_csc);
 
 sub run_test {
     my ( $raw, $expected, $msg, $todo, @args ) = @_;
@@ -49,5 +50,12 @@ sub check_test {
 
     return $ok_log && $ok_tidy;
 }
+
+# Handle changes in spacing between versions
+require Perl::Tidy;
+## Perl::Tidy changed spacing for trailing comments in v v20200907
+our $indent_tc = ' ' x ( ( $Perl::Tidy::VERSION < 20200907 ) ? 8 : 4 );
+## Perl::Tidy changed spacing for  closing side comments in v20200110
+our $indent_csc = ' ' x ( ( $Perl::Tidy::VERSION < 20200110 ) ? 4 : 1 );
 
 1;

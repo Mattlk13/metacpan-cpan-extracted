@@ -15,6 +15,7 @@ use strict;
 use ExtUtils::MakeMaker;
 use Getopt::Long;
 use Config;
+use File::Spec;
 
 my $is_developer = (-d '.git');
 
@@ -59,7 +60,7 @@ utime time(), time(), "t/test40pmc.pmc"
 
 # --- Discover how much of stdio is implemented
 
-my $cpp = $Config{cpp} || do {
+my $cpp = $Config{cpprun} || do {
     warn "Warning: cpp not found in your perl config.  Falling back to 'cat'\n";
     'cat';
 };
@@ -111,7 +112,7 @@ $mm_opts{LICENSE}  = 'perl' if $ExtUtils::MakeMaker::VERSION >= 6.3002;
 $mm_opts{OPTIMIZE} = '-g'   if $opt_g;
 $mm_opts{CCFLAGS}  = "-pg"  if $opt_pg;
 
-if( $ExtUtils::MakeMaker::VERSION >= 6.45 ) {
+if( $ExtUtils::MakeMaker::VERSION >= 6.46 ) {
     $mm_opts{META_MERGE} = {
     	"meta-spec" => { version => 2 },
 	no_index => {
@@ -122,11 +123,9 @@ if( $ExtUtils::MakeMaker::VERSION >= 6.45 ) {
             homepage    => 'https://code.google.com/p/perl-devel-nytprof/',
             bugtracker  => {
                 web    => 'https://github.com/timbunce/devel-nytprof/issues',
-                # old => 'http://rt.cpan.org/Public/Dist/Display.html?Name=Devel-NYTProf',
-                mailto => 'bug-devel-nytprof@rt.cpan.org',
             },
             repository  => {
-                url  => 'git://github.com/timbunce/devel-nytprof.git',
+                url  => 'https://github.com/timbunce/devel-nytprof.git',
                 web  => 'https://github.com/timbunce/devel-nytprof',
                 type => 'git',
             },
@@ -136,10 +135,35 @@ if( $ExtUtils::MakeMaker::VERSION >= 6.45 ) {
     }
 }
 
+$mm_opts{PREREQ_PM} = {
+    'List::Util'   => 0,
+    'File::Which'  => '1.09',
+    'XSLoader'     => 0,
+    'Getopt::Long' => 0,
+    'JSON::MaybeXS' => 0,
+};
+$mm_opts{TEST_REQUIRES} = {
+    'Test::More'   => '0.84',
+    'Test::Differences' => '0.60',
+    'Capture::Tiny' => 0,
+};
+
+$mm_opts{BUILD_REQUIRES} = {
+    %{$mm_opts{BUILD_REQUIRES} || {}},
+    %{delete $mm_opts{TEST_REQUIRES}}
+} if $ExtUtils::MakeMaker::VERSION < 6.63_03;
+
+$mm_opts{PREREQ_PM} = {
+    %{$mm_opts{PREREQ_PM}},
+    %{delete $mm_opts{BUILD_REQUIRES}}
+} if $ExtUtils::MakeMaker::VERSION < 6.55_01;
+
+
 if (my $gccversion = $Config{gccversion}) {    # ask gcc to be more pedantic
     print "Your perl was compiled with gcc (version $Config{gccversion}), okay.\n";
     $gccversion =~ s/[^\d\.]//g;               # just a number please
-    $mm_opts{DEFINE} .= ' -W -Wall -Wpointer-arith -Wbad-function-cast';
+    $mm_opts{DEFINE} .= ' -W -Wall -Wpointer-arith';
+    $mm_opts{DEFINE} .= ' -Wbad-function-cast' unless $Config{d_cplusplus};
     $mm_opts{DEFINE} .= ' -Wno-comment -Wno-sign-compare -Wno-cast-qual';
     $mm_opts{DEFINE} .= ' -Wmissing-noreturn -Wno-unused-parameter' if $gccversion ge "3.0";
     if ($is_developer && $opt_g) {
@@ -156,15 +180,6 @@ WriteMakefile(
     ABSTRACT_FROM => 'lib/Devel/NYTProf.pm',         # retrieve abstract from module
     AUTHOR    => 'Tim Bunce <timb@cpan.org>',
     LICENSE => 'perl',
-    PREREQ_PM => {
-        'List::Util'   => 0,
-        'Test::More'   => '0.84',
-        'File::Which'  => '1.09',
-        'Test::Differences' => '0.60',
-        'XSLoader'     => 0,
-        'Getopt::Long' => 0,
-        'JSON::MaybeXS' => 0,
-    },
     LIBS      => [join ' ', @libs],
     OBJECT    => q/$(O_FILES)/,
     FUNCLIST => ['boot_Devel__NYTProf', 'boot_Devel__NYTProf__FileHandle'],
@@ -175,19 +190,14 @@ WriteMakefile(
         FILES => join(" ",
             "nytprof demo-out",
             map { ("t/$_", "xt/$_") } qw(
-                nytprof nytprof*.out nytprof*.out.* *_outdir test*.*_new auto
+                nytprof nytprof*.out *_outdir test*.*_new auto *.rdt_newp
             ))
     },
     dist  => {
-        DIST_DEFAULT => 'clean distcheck disttest tardist',
+        DIST_DEFAULT => 'clean distcheck disttest_author tardist',
         PREOP        => '$(MAKE) -f Makefile.old distdir',
         COMPRESS     => 'gzip -v9',
         SUFFIX       => 'gz',
-    },
-    META_MERGE => {
-      resources => {
-        repository => 'https://github.com/timbunce/devel-nytprof',
-      },
     },
     %mm_opts,
 );
@@ -274,14 +284,27 @@ perltidy:
 ctidy_bcpp:
 	bcpp -f 2 -i 4 -bcl -qb 10 -ylcnc -yb NYTProf.xs
 
+test_short:
+	NYTPROF_TEST_SHORT=1 NYTPROF_AUTHOR_TESTING=1 make test
+
+test_author:
+	NYTPROF_AUTHOR_TESTING=1 make test
+
+atest: test_author
+
+disttest_author :: distdir
+	cd $(DISTVNAME) && $(ABSPERLRUN) Makefile.PL
+	cd $(DISTVNAME) && $(MAKE) $(PASTHRU)
+	cd $(DISTVNAME) && $(MAKE) test_author $(PASTHRU)
+
 }
 }
 
 sub dynamic {
     my $make = shift->SUPER::dynamic(@_);
 
-    my $xsl_dest_dir = '$(INST_LIB)/$(PARENT_NAME)/auto/$(FULLEXT)';
-    my $xsl_dest     = '$(XSL_DEST_DIR)/$(DLBASE).$(DLEXT)';
+    my $xsl_dest_dir = File::Spec->catdir('$(INST_LIB)', '$(PARENT_NAME)', 'auto', '$(FULLEXT)');
+    my $xsl_dest     = File::Spec->catdir('$(XSL_DEST_DIR)', '$(DLBASE).$(DLEXT)');
 
     if($^O eq 'VMS'){
         $xsl_dest_dir = File::Spec->catdir('blib','lib','Devel','auto','Devel','NYTProf');

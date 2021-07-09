@@ -1,6 +1,6 @@
 package Business::CompanyDesignator::Record;
 
-use Mouse;
+use Moose;
 use utf8;
 use warnings qw(FATAL utf8);
 use Carp;
@@ -15,8 +15,11 @@ has 'abbr'                  => ( is => 'ro', isa => 'ArrayRef[Str]', lazy => 1, 
 
 sub _build_abbr {
   my $self = shift;
-  my $abbr = $self->record->{abbr} or return [];
-  return ref $abbr ? $abbr : [ $abbr ];
+  my $abbr_std = $self->record->{abbr_std};
+  my $abbr = $self->record->{abbr} || [];
+  $abbr = [ $abbr ] if ! ref $abbr;
+  push @$abbr, $abbr_std if $abbr_std;
+  return $abbr;
 }
 
 sub _build_abbr1 {

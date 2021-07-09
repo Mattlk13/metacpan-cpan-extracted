@@ -1,4 +1,17 @@
 
+1.17  2021-03-23
+  - Fixed Mojolicious 9.11 compatibility.
+
+1.16  2021-03-18
+  - Updated ui with more consistent Mojolicious design.
+
+1.15  2021-02-20
+  - Improved Mojolicious::Plugin::Status to log if server is not supported.
+  - Improved template design.
+
+1.14  2021-02-09
+  - Switched back to Sereal for serialization in Mojo::MemoryMap to reduce memory usage.
+
 1.13  2020-12-10
   - Updated examples to use signatures.
 

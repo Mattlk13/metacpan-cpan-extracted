@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# Copyright (C) 2018–2020  Alex Schroeder <alex@gnu.org>
+# Copyright (C) 2018–2021  Alex Schroeder <alex@gnu.org>
 
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -63,18 +63,47 @@ sub query_gemini {
   return <$socket>;
 }
 
-say "This is the client waiting for the server to start...";
-sleep 1;
+my $total = 0;
+my $ok = 0;
+
+# What I'm seeing is that $@ is the empty string and $! is "Connection refused"
+# even though I thought $@ would be set. Oh well.
+say "This is the client waiting for the server to start on port $port...";
+for (qw(1 1 1 1 2 2 3 4 5)) {
+  if (not $total or $!) {
+    diag "$!: waiting ${_}s..." if $total > 0;
+    $total += $_;
+    sleep $_;
+    eval { query_gemini("gemini://$host:$port/") };
+  } else {
+    $ok = 1;
+    last;
+  }
+}
+
+die "$!: giving up after ${total}s\n" unless $ok;
 
 my $page = query_gemini("gemini://$host:$port/");
 like($page, qr"^20 text/gemini; charset=UTF-8\r\n", "Gemini header");
 like($page, qr/Welcome to Lupa Pona!/, "Title");
-like($page, qr/=> basic.t/, "one file shown");
-is(scalar(() = $page =~ m/=>/g), 1, "exactly one link");
+like($page, qr/=> basic\.t/, "basic.t");
+like($page, qr/=> test\.gmi/, "test.gmi");
+like($page, qr/=> test\.txt/, "test.txt");
+is(scalar(() = $page =~ m/=>/g), 3, "three links");
 
 $page = query_gemini("gemini://$host:$port/basic.t");
-like($page, qr"^20 text/gemini; charset=UTF-8\r\n", "File header");
+# the MIME type can be application/x-perl or text/troff, depending on the system
+# the test runs on…
+like($page, qr"^20 (application/x-perl|text/(troff|gemini); charset=UTF-8)\r\n", "File header");
 like($page, qr"GNU General Public License", "File content");
+
+$page = query_gemini("gemini://$host:$port/test.txt");
+like($page, qr"^20 text/plain; charset=UTF-8\r\n", "File header");
+like($page, qr"Alex Schröder", "File content");
+
+$page = query_gemini("gemini://$host:$port/test.gmi");
+like($page, qr"^20 text/gemini; charset=UTF-8\r\n", "File header");
+like($page, qr"Hallo", "File content");
 
 $page = query_gemini("gemini://$host:$port/cert.pem");
 like($page, qr"^50 ", "Do not serve cert.pem");

@@ -14,7 +14,7 @@ use Perl::Critic::Utils qw< :booleans :characters hashify :severities >;
 
 use base 'Perl::Critic::Policy';
 
-our $VERSION = '0.002';
+our $VERSION = '0.004';
 # The problem we are solving with the following is that older Perls do
 # not like the underscore in a development version number. I do not
 # believe this violates the spirit of the disabled policy.
@@ -291,12 +291,10 @@ __END__
 
 Perl::Critic::Policy::RegularExpressions::ProhibitEmptyAlternatives - Beware empty alternatives, because they always match.
 
-
 =head1 AFFILIATION
 
 This Policy is stand-alone, and is not part of the core
 L<Perl::Critic|Perl::Critic>.
-
 
 =head1 DESCRIPTION
 
@@ -373,13 +371,20 @@ your F<.perlcriticrc> file:
 
 The value is a regular expression.
 
+=head1 SUPPORT
+
+Support is by the author. Please file bug reports at
+L<https://rt.cpan.org/Public/Dist/Display.html?Name=Perl-Critic-Policy-RegularExpressions-ProhibitEmptyAlternatives>,
+L<https://github.com/trwyant/perl-Perl-Critic-Policy-RegularExpressions-ProhibitEmptyAlternatives/issues>, or in
+electronic mail to the author.
+
 =head1 AUTHOR
 
 Thomas R. Wyant, III F<wyant at cpan dot org>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2020 Thomas R. Wyant, III
+Copyright (C) 2020-2021 Thomas R. Wyant, III
 
 =head1 LICENSE
 

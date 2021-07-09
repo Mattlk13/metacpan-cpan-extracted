@@ -22,7 +22,7 @@ use base qw(Number::Phone::StubCountry);
 use strict;
 use warnings;
 use utf8;
-our $VERSION = 1.20201204215954;
+our $VERSION = 1.20210602223257;
 
 my $formatters = [
                 {
@@ -80,51 +80,51 @@ my $validators = {
                 'voip' => ''
               };
 my %areanames = ();
-$areanames{de} = {"4132", "Biel\/Neuenburg\/Solothurn\/Jura",
-"4144", "Zürich",
-"4126", "Freiburg",
-"4143", "Zürich",
-"4127", "Sitten",
+$areanames{de} = {"4141", "Luzern",
 "4122", "Genf",
+"4144", "Zürich",
+"4127", "Sitten",
+"4126", "Freiburg",
 "4131", "Bern",
-"4141", "Luzern",};
+"4132", "Biel\/Neuenburg\/Solothurn\/Jura",
+"4143", "Zürich",};
 $areanames{fr} = {"4171", "St\.\ Gall",
 "4152", "Winterthour",
+"4181", "Coire",
 "4122", "Genève",
 "4133", "Thoune",
-"4161", "Bâle",
-"4181", "Coire",};
-$areanames{en} = {"4156", "Baden",
-"4143", "Zurich",
+"4161", "Bâle",};
+$areanames{en} = {"4134", "Burgdorf\/Langnau\ i\.E\.",
 "4126", "Fribourg",
-"4121", "Lausanne",
-"4133", "Thun",
+"4171", "St\.\ Gallen",
+"4127", "Sion",
+"4155", "Rapperswil",
+"4156", "Baden",
+"4131", "Berne",
 "4132", "Bienne\/Neuchâtel\/Soleure\/Jura",
-"4134", "Burgdorf\/Langnau\ i\.E\.",
+"4143", "Zurich",
+"4191", "Bellinzona",
+"4121", "Lausanne",
+"4122", "Geneva",
+"4161", "Basel",
+"4141", "Lucerne",
+"4162", "Olten",
+"4133", "Thun",
 "4181", "Chur",
 "4144", "Zurich",
-"4161", "Basel",
-"4162", "Olten",
-"4171", "St\.\ Gallen",
-"4131", "Berne",
-"4141", "Lucerne",
-"4155", "Rapperswil",
-"4124", "Yverdon\/Aigle",
-"4122", "Geneva",
-"4191", "Bellinzona",
-"4127", "Sion",
-"4152", "Winterthur",};
-$areanames{it} = {"4126", "Friburgo",
-"4143", "Zurigo",
-"4121", "Losanna",
-"4132", "Bienne\/Neuchâtel\/Soletta\/Giura",
-"4144", "Zurigo",
+"4152", "Winterthur",
+"4124", "Yverdon\/Aigle",};
+$areanames{it} = {"4144", "Zurigo",
 "4181", "Coira",
-"4161", "Basilea",
-"4171", "San\ Gallo",
-"4131", "Berna",
+"4122", "Ginevra",
+"4121", "Losanna",
 "4141", "Lucerna",
-"4122", "Ginevra",};
+"4161", "Basilea",
+"4143", "Zurigo",
+"4132", "Bienne\/Neuchâtel\/Soletta\/Giura",
+"4131", "Berna",
+"4171", "San\ Gallo",
+"4126", "Friburgo",};
 
     sub new {
       my $class = shift;

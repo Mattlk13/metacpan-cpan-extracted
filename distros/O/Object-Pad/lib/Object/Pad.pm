@@ -3,17 +3,15 @@
 #
 #  (C) Paul Evans, 2019-2020 -- leonerd@leonerd.org.uk
 
-package Object::Pad;
+package Object::Pad 0.43;
 
 use v5.14;
 use warnings;
 
-our $VERSION = '0.35';
-
 use Carp;
 
 require XSLoader;
-XSLoader::load( __PACKAGE__, $VERSION );
+XSLoader::load( __PACKAGE__, our $VERSION );
 
 # So that feature->import will work in `class`
 require feature;
@@ -24,6 +22,8 @@ if( $] >= 5.020 ) {
 
 require mro;
 
+require Object::Pad::MOP::Class;
+
 =head1 NAME
 
 C<Object::Pad> - a simple syntax for lexical slot-based objects
@@ -33,12 +33,8 @@ C<Object::Pad> - a simple syntax for lexical slot-based objects
    use Object::Pad;
 
    class Point {
-      has $x = 0;
-      has $y = 0;
-
-      BUILD {
-        ($x, $y) = @_;
-      }
+      has $x :param = 0;
+      has $y :param = 0;
 
       method move ($dX, $dY) {
          $x += $dX;
@@ -50,20 +46,19 @@ C<Object::Pad> - a simple syntax for lexical slot-based objects
       }
    }
 
-   Point->new(5,10)->describe;
+   Point->new(x => 5, y => 10)->describe;
 
 =head1 DESCRIPTION
 
 This module provides a simple syntax for creating object classes, which uses
 private variables that look like lexicals as object member fields.
 
-B<WARNING> This module is still very experimental. The parts that currently
-exist do seem to work reliably but much of the design is still evolving, and
-many features and have yet to be implemented. I don't yet guarantee I won't
-have to change existing details in order to continue its development. Feel
-free to try it out in experimental or newly-developed code, but don't complain
-if a later version is incompatible with your current code and you'll have to
-change it.
+B<WARNING> This module is still experimental. The parts that currently exist
+do seem to work reliably but much of the design is still evolving, and many
+features and have yet to be implemented. I don't yet guarantee I won't have to
+change existing details in order to continue its development. Feel free to try
+it out in experimental or newly-developed code, but don't complain if a later
+version is incompatible with your current code and you'll have to change it.
 
 That all said, please do get in contact if you find the module overall useful.
 The more feedback you provide in terms of what features you are using, what
@@ -73,12 +68,11 @@ hopefully eventual stability of the design. See the L</FEEDBACK> section.
 =head2 Automatic Construction
 
 Classes are automatically provided with a constructor method, called C<new>,
-which helps create the object instances.
+which helps create the object instances. This may respond to passed arguments,
+automatically assigning values of slots, and invoking other blocks of code
+provided by the class. It proceeds in the following stages:
 
-As part of the construction process, the C<BUILD> block of every component
-class will be invoked, passing in the list of arguments the constructor was
-invoked with. Each class should perform its required setup behaviour, but does
-not need to chain to the C<SUPER> class first; this is handled automatically.
+=head3 BUILDARGS
 
 If the class provides a C<BUILDARGS> class method, that is used to mangle the
 list of arguments before the C<BUILD> blocks are called. Note this must be a
@@ -86,6 +80,31 @@ class method not an instance method (and so implemented using C<sub>). It
 should perform any C<SUPER> chaining as may be required.
 
    @args = $class->BUILDARGS( @_ )
+
+=head3 Slot assignment
+
+If any slot in the class has the C<:param> attribute, then the constructor
+will expect to receive its argmuents in an even-sized list of name/value
+pairs. This applies even to slots inherited from the parent class or applied
+roles. It is therefore a good idea to shape the parameters to the constructor
+in this way in roles, and in classes if you intend your class to be extended.
+
+The constructor will also check for required parameters (these are all the
+parameters for slots that do not have default initialisation expressions). If
+any of these are missing an exception is thrown.
+
+=head3 BUILD
+
+As part of the construction process, the C<BUILD> block of every component
+class will be invoked, passing in the list of arguments the constructor was
+invoked with. Each class should perform its required setup behaviour, but does
+not need to chain to the C<SUPER> class first; this is handled automatically.
+
+=head3 ADJUST
+
+Finally, before the new object is returned from the constructor, the C<ADJUST>
+block of every component class is invoked. This happens after the slots are
+assigned their initial values and the C<BUILD> blocks have been run.
 
 =head1 KEYWORDS
 
@@ -113,15 +132,20 @@ sets the value of the package's C<$VERSION> variable.
 
    class Name VERSION;
 
-A single superclass is supported by the keyword C<extends>
+A single superclass is supported by the keyword C<isa>
 
-   class Name extends BASECLASS {
+I<Since version 0.41.>
+
+   class Name isa BASECLASS {
       ...
    }
 
-   class Name extends BASECLASS BASEVER {
+   class Name isa BASECLASS BASEVER {
       ...
    }
+
+(prior to version 0.41 this was called C<extends>, which is currently
+recognised as a compatibility synonym).
 
 If a package providing the superclass does not exist, an attempt is made to
 load it by code equivalent to
@@ -139,18 +163,21 @@ An optional version check can also be supplied; it performs the equivalent of
 
    BaseClass->VERSION( $ver )
 
-An optional list of attributes may be supplied in similar syntax as for subs
-or lexical variables. (These are annotations about the class itself; the
-concept should not be confused with per-object-instance data, which here is
-called "slots").
+One or more roles can be composed into the class by the keyword C<does>
 
-One or more roles can be composed into the class by the keyword C<implements>
+I<Since version 0.41.>
 
-   class Name implements ROLE, ROLE,... {
+   class Name does ROLE, ROLE,... {
       ...
    }
 
-The following class attributes are supported:
+(prior to version 0.41 this was called C<implements>, which is currently
+recognised as a compatibility synonym).
+
+An optional list of attributes may be supplied in similar syntax as for subs
+or lexical variables. (These are annotations about the class itself; the
+concept should not be confused with per-object-instance data, which here is
+called "slots"). The following class attributes are supported:
 
 =head3 :repr(TYPE)
 
@@ -200,6 +227,24 @@ instance is a blessed hash reference or some other kind.
 This achieves the best combination of DWIM while still allowing the common
 forms of hash reference to be inspected by C<Data::Dumper>, etc. This is the
 default representation type, and does not have to be specifically requested.
+
+=head3 :strict(params)
+
+I<Since version 0.43.>
+
+Can only be applied to classes that contain no C<BUILD> blocks. If set, then
+the constructor will complain about any unrecognised named arguments passed to
+it (i.e. names that do not correspond to the C<:param> of any defined slot).
+
+Since C<BUILD> blocks can inspect the arguments arbitrarily, the presence of
+any such block means the constructor cannot determine which named arguments
+are not recognised.
+
+This attribute is a temporary stepping-stone for compatibility with existing
+code. It is recommended to enable this whenever possible, as a later version
+of this module will likely perform this behaviour unconditionally whenever no
+C<BUILD> blocks are present. How to handle other named arguments that are not
+simply assigned to slots remains an unanswered design question.
 
 =head2 role
 
@@ -294,7 +339,7 @@ to store references to anonymous arrays or hashes.
 Member fields are private to a class or role. They are not visible to users of
 the class, nor to subclasses, nor to any class that a role is applied to. In
 order to provide access to them a class may wish to use L</method> to create
-an accessor.
+an accessor, or use the attributes such as L</:reader> to get one generated.
 
 A scalar slot may provide a expression that gives an initialisation value,
 which will be assigned into the slot of every instance during the constructor
@@ -356,6 +401,26 @@ I<Since version 0.28> all of these generated accessor methods will include
 argument checking similar to that used by subroutine signatures, to ensure the
 correct number of arguments are passed - usually zero, but exactly one in the
 case of a C<:writer> method.
+
+=head3 :param, :param(NAME)
+
+I<Since version 0.41.>
+
+Sets this slot to be initialised automatically in the generated constructor.
+This is only permitted on scalar slots. If no name is given, the name of the
+slot is used. A single prefix character C<_> will be removed if present.
+
+Any slot that has C<:param> but does not have a default initialisation
+expression becomes a required argument to the constructor. Attempting to
+invoke the constructor without a named argument for this will throw an
+exception. In order to make a parameter optional, make sure to give it a
+default expression - even if that expression is C<undef>:
+
+   has $x :param;          # this is required
+   has $z :param = undef;  # this is optional
+
+Values for slots are assigned by the constructor before any C<BUILD> blocks
+are invoked.
 
 =head2 method
 
@@ -432,10 +497,27 @@ subroutine signature syntax, as for methods, to assist in unpacking its
 arguments. A build block is not a subroutine and thus is not permitted to use
 subroutine attributes (for example C<:lvalue>).
 
-Currently attempts to create a method named C<BUILD> (i.e. with syntax
-C<method BUILD {...}>) will create a builder block instead. As of version 0.31
-such attempts will print a warning at compiletime, and a later version may
-remove this altogether.
+Note that a C<BUILD> block is a named phaser block and not a method. Attempts
+to create a method named C<BUILD> (i.e. with syntax C<method BUILD {...}>)
+will fail with a compiletime error, to avoid this confusion.
+
+=head2 ADJUST
+
+   ADJUST {
+      ...
+   }
+
+I<Since version 0.43.>
+
+Declares an adjust block for this component class. This block of code runs
+within the constructor, after any C<BUILD> blocks and automatic slot value
+assignment. It can make any final adjustments to the instance (such as
+initialising slots from calculated values). No additional parameters are
+passed.
+
+An adjust block is not a subroutine and thus is not permitted to use
+subroutine attributes. Note that an C<ADJUST> block is a named phaser block
+and not a method; it does not use the C<sub> or C<method> keyword.
 
 =head2 requires
 
@@ -445,7 +527,13 @@ Declares that this role requires a method of the given name from any class
 that implements it. It is an error at compiletime if the implementing class
 does not provide such a method.
 
-=head1 IMPLIED PRAGMATA
+=head1 CREPT FEATURES
+
+While not strictly part of being an object system, this module has
+nevertheless gained a number of behaviours by feature creep, as they have been
+found useful.
+
+=head2 Implied Pragmata
 
 In order to encourage users to write clean, modern code, the body of the
 C<class> block acts as if the following pragmata are in effect:
@@ -465,6 +553,12 @@ within the body. As long as you write code that is in a clean, modern style
 find any new restrictions to be majorly problematic. Either the code will
 continue to run unaffected, or you may have to make some small alterations to
 bring it into a conforming style.
+
+=head2 Yield True
+
+A C<class> statement or block will yield a true boolean value. This means that
+it can be used directly inside a F<.pm> file, avoiding the need to explicitly
+yield a true value from the end of it.
 
 =head1 SUBCLASSING CLASSIC PERL CLASSES
 
@@ -496,7 +590,7 @@ For example; in the following
       sub get_value { return "A" }
    }
 
-   class DerivedClass extends ClassicPerlBaseClass {
+   class DerivedClass isa ClassicPerlBaseClass {
       has $_value = "B";
       BUILD {
          $_value = "C";
@@ -625,6 +719,7 @@ sub begin_class
    my $class = shift;
    my ( $name, %args ) = @_;
 
+   # TODO: Do we accept an `isa` arg ?
    Object::Pad::_begin_class( $name, $args{extends} );
 }
 
@@ -761,6 +856,26 @@ The RT queue at L<https://rt.cpan.org/Dist/Display.html?Name=Object-Pad>.
 The C<#cor> IRC channel on C<irc.perl.org>.
 
 =back
+
+=cut
+
+=head1 SPONSORS
+
+With thanks to the following sponsors, who have helped me be able to spend
+time working on this module and other perl features.
+
+=over 4
+
+=item *
+
+Oetiker+Partner AG L<https://www.oetiker.ch/en/>
+
+=back
+
+Additional details may be found at
+L<https://github.com/Ovid/Cor/wiki/Sponsors>.
+
+=cut
 
 =head1 AUTHOR
 

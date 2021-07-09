@@ -1,5 +1,64 @@
 Revision history for Perl extension Sub-Meta
 
+0.13 2021-05-01T04:28:01Z
+    - update cpanfile and github action #43
+
+0.12 2021-04-28T14:39:12Z
+    [IMPROVEMENTS]
+    - feat: add is_relaxed_same_interface and relaxed_error_message #40 #41
+    - improve many tests #34 #35 #36 #37 #38 #39
+
+    [INCOMPATIBLE CHANGES]
+    - rename interface_error_message to error_message #40
+
+0.11 2021-04-07T15:17:42Z
+    [IMPROVEMENTS]
+    - feat: add interface_error_message method #32
+    - feat: add has_xxx methods #33
+    - improve document
+
+0.10 2021-03-29T14:56:13Z
+    - use Perl::Critic & support severity 3 #29 #30 #31
+
+0.09 2021-03-26T14:42:12Z
+    [IMPROVEMENTS]
+    - feat: display of Sub::Meta #26
+    - improve Sub::Meta#new #26
+    - improve test #24
+
+0.08 2021-03-14T14:38:46Z
+    [IMPROVEMENTS]
+    - feat: add Sub::Meta::Library methods
+        - remove #17
+        - get_by_stash_subname, get_all_subnames_by_stash, get_all_submeta_by_stash #23
+    - feat: add Sub::Meta#apply_meta #20
+    - feat: add alias of invocant #21
+    - feat Sub::Meta::Creator, Sub::Meta::Finder #22
+
+    [INCOMPATIBLE CHANGES]
+    - Fixed: invocant feature. #19
+
+0.07 2021-03-08T00:50:45Z
+    [IMPROVEMENTS]
+    - feat: Sub::Meta::Library #16
+
+0.06 2021-03-06T02:14:13Z
+    [BUG FIXES]
+    - is_same_interface supports is_method option #14
+
+    [IMPROVEMENTS]
+    - add `is_same_interface_inlined` method #15
+
+0.05 2021-03-03T14:59:40Z
+    [IMPROVEMENTS]
+    - use github actions #7
+    - customize sub meta class #12
+
+    [INCOMPATIBLE CHANGES]
+    - Improved Sub::Meta#new, S:M:Parameters#new, S:M:Param#new #8, #13
+    - Improved is_same_interface can take undef or obj #10
+    - Improved slurpy take Sub::Meta::Param #11
+
 0.04 2019-07-08T15:13:22Z
     - add `is_same_interface` method #4
     - allow `required`, `positional` args #5

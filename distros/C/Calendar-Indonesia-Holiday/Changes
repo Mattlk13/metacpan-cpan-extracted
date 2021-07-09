@@ -1,3 +1,65 @@
+0.341   2021-05-12  Released-By: PERLANCAR; Urgency: medium
+
+	- [bugfix] Fix clash between --query and --year (both specified
+	  pos=0). We now remove --query's pos.
+
+
+0.340   2021-04-12  Released-By: PERLANCAR; Urgency: low
+
+	- [bugfix] Fix typo: May 14 2021 is day 2 of Eid Ul-Fitr, not day 1.
+
+
+0.339   2021-03-09  Released-By: PERLANCAR; Urgency: low
+
+	- [doc] Add FAQ item.
+
+	- [ux] list_idn_workdays(): tweak argument metadata for CLI
+	  convenience.
+
+
+0.338   2021-03-09  Released-By: PERLANCAR; Urgency: medium; Backward-Incompatible: yes
+
+	[INCOMPATIBLE CHANGES]
+
+	- Rename enum_idn_workdays() to list_idn_workdays() for consistency;
+	  Fix/tweak examples in Synopsi sand description.
+
+        - Remove support for old deprecated names: list_id_holidays(),
+	  count_id_workdays(), is_id_holiday().
+
+        [ENHANCEMENTS]
+
+	- Add function: is_idn_workday().
+
+
+0.337   2021-03-09  Released-By: PERLANCAR; Urgency: medium
+
+	- Revise joint leave days for 2021 (reduced from 7 to 2).
+
+
+0.336   2021-03-07  Released-By: PERLANCAR; Urgency: low
+
+	- No functional changes.
+
+	- [ux] Add Abstract for list_idn_workdays().
+
+
+0.335   2021-01-16  Released-By: PERLANCAR; Urgency: medium
+
+        - Rename functions (_id_ infix to _idn_ for less ambiguity), old
+	  names are still available but deprecated and not documented.
+
+	- [doc] Note that list_idn_holidays() can also be used to check
+	  whether a certain date is a holiday, but show example in Synopsis
+	  using is_idn_holiday() instead.
+
+        [DEPRECATION]
+
+        - As mentioned above, old function names are now deprecated:
+          list_id_holidays(), count_id_workdays(), enum_id_workdays(), and
+          is_id_holiday(). Use the new names.
+
+
 0.334   2021-01-14  Released-By: PERLANCAR; Urgency: medium
 
         [Enhancements]

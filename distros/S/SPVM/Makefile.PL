@@ -23,6 +23,18 @@ use SPVM::Builder::Util;
     die "OS unsupported\n";
   }
 
+  # SVPM support only 64bit System
+  if ($Config{uname} =~ /\b(i386|i686|IA-32)\b/i) {
+    warn "SPVM support only 64bit System";
+    die "OS unsupported\n";
+  }
+  
+  # SVPM support only Windows 10+
+  if ($Config{osname} eq 'MSWin32' && $Config{osvers} < 10) {
+    warn "SPVM support only Windows 10+";
+    die "OS unsupported\n";
+  }
+
   # SPVM only support NetBSD 7+
   if ($Config{osname} eq 'netbsd' && $Config{osvers} < 7) {
     warn "SPVM don't support NetBSD 6, 5, 4, 3, 2, 1";
@@ -37,7 +49,28 @@ use SPVM::Builder::Util;
   
   # old FreeBSD don't support some C99 complex functions
   if ($Config{osname} eq 'freebsd' && $Config{osvers} < 11.4) {
-    warn "SPVM don't support NetBSD before version 11.4";
+    warn "SPVM don't support FreeBSD before version 11.4";
+    die "OS unsupported\n";
+  }
+
+  # old OpenBSD don't support some C99 complex functions
+  # SPVM drop support solaris because I can't fix OpenBDS bugs by myself
+  if ($Config{osname} eq 'openbsd' && $Config{osvers} < 6.8) {
+    warn "SPVM don't support OpenBSD before version 6.8";
+    die "OS unsupported\n";
+  }
+
+  # SPVM don't support OpenBSD because I can't fix OpenBSD bugs by myself
+  # http://matrix.cpantesters.org/?dist=SPVM%200.9006
+  if ($Config{osname} eq 'openbsd') {
+    warn "SPVM don't support OpenBSD before version 6.8";
+    die "OS unsupported\n";
+  }
+
+  # SPVM don't support solaris because I can't fix make error by myself
+  # http://www.cpantesters.org/cpan/report/6b54513a-c10b-11eb-bc66-57723b537541
+  if ($Config{osname} eq 'solaris') {
+    warn "SPVM don't support solaris";
     die "OS unsupported\n";
   }
 }
@@ -86,7 +119,7 @@ WriteMakefile(
     OBJECT            => '$(O_FILES)', # link all the C files too
     INC => $inc,
     test => {TESTS => 't/*.t t/*/*.t t/*/*/*.t'},
-    clean => {FILES => "SPVM.o lib/SPVM/Builder/src/*.o .spvm_build t/default/.spvm_build t/precompile t/test_files_tmp "},
+    clean => {FILES => "SPVM.o lib/SPVM/Builder/src/*.o .spvm_build t/.spvm_build t/default/.spvm_build t/precompile t/test_files_tmp t/exe/.spvm_build"},
     DEFINE => "@defines -o \$@",
     META_MERGE => {
         'meta-spec' => { version => 2 },
@@ -98,6 +131,7 @@ WriteMakefile(
             },
         },
     },
+    EXE_FILES => ['script/spvmcc'],
 );
 
 # Create precompile test
@@ -112,22 +146,18 @@ sub MY::postamble {
   
   unless (grep { $_ eq '-DSPVM_DONT_COMPILE_CORE_MODULES' } @defines) {
     # Native compile make rule
-    $make_rule .= SPVM::Builder::Util::create_make_rule_native('SPVM::Util');
+    $make_rule .= SPVM::Builder::Util::create_make_rule_native('SPVM::NumberUtil');
+    $make_rule .= SPVM::Builder::Util::create_make_rule_native('SPVM::StringUtil');
+    $make_rule .= SPVM::Builder::Util::create_make_rule_native('SPVM::ArrayUtil');
     $make_rule .= SPVM::Builder::Util::create_make_rule_native('SPVM::Math');
     $make_rule .= SPVM::Builder::Util::create_make_rule_native('SPVM::Hash');
     $make_rule .= SPVM::Builder::Util::create_make_rule_native('SPVM::Time');
     $make_rule .= SPVM::Builder::Util::create_make_rule_native('SPVM::Unicode');
-    $make_rule .= SPVM::Builder::Util::create_make_rule_native('SPVM::Sort');
-    $make_rule .= SPVM::Builder::Util::create_make_rule_native('SPVM::IO::Stdout');
-    $make_rule .= SPVM::Builder::Util::create_make_rule_native('SPVM::IO::Stderr');
     
     # Precompile make rule
-    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::Util');
-    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::Sort');
-    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::Regex');
-    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::Unicode');
-    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::Hash');
-    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::StringBuffer');
+    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::NumberUtil');
+    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::StringUtil');
+    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::ArrayUtil');
     $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::List');
     $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::ByteList');
     $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::ShortList');
@@ -136,6 +166,10 @@ sub MY::postamble {
     $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::FloatList');
     $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::DoubleList');
     $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::StringList');
+    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::StringBuffer');
+    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::Hash');
+    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::Unicode');
+    $make_rule .= SPVM::Builder::Util::create_make_rule_precompile('SPVM::Regex');
   }
   
   return $make_rule;

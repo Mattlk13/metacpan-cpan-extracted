@@ -20,6 +20,8 @@ my %WriteMakefileArgs = (
     "script/srtscale",
     "script/srtshift",
     "script/srtsplit",
+    "script/subscale",
+    "script/subshift",
     "script/vtt2srt"
   ],
   "LICENSE" => "perl",
@@ -40,7 +42,7 @@ my %WriteMakefileArgs = (
     "IPC::Open3" => 0,
     "Test::More" => 0
   },
-  "VERSION" => "0.003",
+  "VERSION" => "0.005",
   "test" => {
     "TESTS" => "t/*.t"
   }

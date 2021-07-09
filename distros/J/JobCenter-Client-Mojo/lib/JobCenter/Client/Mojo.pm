@@ -1,7 +1,7 @@
 package JobCenter::Client::Mojo;
 use Mojo::Base 'Mojo::EventEmitter';
 
-our $VERSION = '0.40'; # VERSION
+our $VERSION = '0.45'; # VERSION
 
 #
 # Mojo's default reactor uses EV, and EV does not play nice with signals
@@ -29,11 +29,14 @@ use Storable;
 use Sys::Hostname;
 
 # from cpan
-use JSON::RPC2::TwoWay 0.02;
+use JSON::RPC2::TwoWay 0.05;
 # JSON::RPC2::TwoWay depends on JSON::MaybeXS anyways, so it can be used here
 # without adding another dependency
-use JSON::MaybeXS qw(JSON decode_json encode_json);
+use JSON::MaybeXS qw(JSON);
 use MojoX::NetstringStream 0.06; # for the enhanced close
+
+# us
+use JobCenter::Client::Mojo::Steps;
 
 has [qw(
 	actions address auth clientid conn debug ioloop jobs json
@@ -70,6 +73,8 @@ sub new {
 	$self->{debug} = $args{debug} // 1;
 	$self->{jobs} = {};
 	$self->{json} = $json;
+	$self->{jsonobject} = $args{jsonobject} //
+		JSON::MaybeXS->new(utf8 => 1, allow_nonref => 1),
 	$self->{ping_timeout} = $args{ping_timeout} // 300;
 	$self->{log} = $log;
 	$self->{method} = $method;
@@ -104,7 +109,10 @@ sub connect {
 		$self->ioloop->stop;
 	});
 
-	my $rpc = JSON::RPC2::TwoWay->new(debug => $self->{debug}) or croak 'no rpc?';
+	my $rpc = JSON::RPC2::TwoWay->new(
+		debug => $self->{debug},
+		json => $self->{jsonobject},
+	) or croak 'no rpc?';
 	$rpc->register('greetings', sub { $self->rpc_greetings(@_) }, notification => 1);
 	$rpc->register('job_done', sub { $self->rpc_job_done(@_) }, notification => 1);
 	$rpc->register('ping', sub { $self->rpc_ping(@_) });
@@ -182,29 +190,29 @@ sub is_connected {
 
 sub rpc_greetings {
 	my ($self, $c, $i) = @_;
-	$self->ioloop->delay(
-		sub {
-			my $d = shift;
-			die "wrong api version $i->{version} (expected 1.1)" unless $i->{version} eq '1.1';
-			$self->log->info('got greeting from ' . $i->{who});
-			$c->call('hello', {who => $self->who, method => $self->method, token => $self->token}, $d->begin(0));
-		},
-		sub {
-			my ($d, $e, $r) = @_;
-			my $w;
-			#say 'hello returned: ', Dumper(\@_);
-			die "hello returned error $e->{message} ($e->{code})" if $e;
-			die 'no results from hello?' unless $r;
-			($r, $w) = @$r;
-			if ($r) {
-				$self->log->info("hello returned: $r, $w");
-				$self->{auth} = 1;
-			} else {
-				$self->log->error('hello failed: ' . ($w // ''));
-				$self->{auth} = 0; # defined but false
-			}
+	#$self->ioloop->delay(
+	JobCenter::Client::Mojo::Steps->new(ioloop => $self->ioloop)->steps([
+	sub {
+		my $steps = shift;
+		die "wrong api version $i->{version} (expected 1.1)" unless $i->{version} eq '1.1';
+		$self->log->info('got greeting from ' . $i->{who});
+		$c->call('hello', {who => $self->who, method => $self->method, token => $self->token}, $steps->next());
+	},
+	sub {
+		my ($steps, $e, $r) = @_;
+		my $w;
+		#say 'hello returned: ', Dumper(\@_);
+		die "hello returned error $e->{message} ($e->{code})" if $e;
+		die 'no results from hello?' unless $r;
+		($r, $w) = @$r;
+		if ($r) {
+			$self->log->info("hello returned: $r, $w");
+			$self->{auth} = 1;
+		} else {
+			$self->log->error('hello failed: ' . ($w // ''));
+			$self->{auth} = 0; # defined but false
 		}
-	)->catch(sub {
+	}], sub {
 		my ($err) = @_;
 		$self->log->error('something went wrong in handshake: ' . $err);
 		$self->{auth} = '';
@@ -215,7 +223,7 @@ sub rpc_job_done {
 	my ($self, $conn, $i) = @_;
 	my $job_id = $i->{job_id};
 	my $outargs = $i->{outargs};
-	my $outargsj = encode_json($outargs);
+	my $outargsj = $self->{jsonobject}->encode($outargs);
 	$outargs = $outargsj if $self->{json};
 	$outargsj = decode_utf8($outargsj); # for debug printing
 	my $rescb = delete $self->{jobs}->{$job_id};
@@ -263,20 +271,20 @@ sub call_nb {
 
 	if ($self->{json}) {
 		$inargsj = $inargs;
-		$inargs = decode_json($inargs);
+		$inargs = $self->{jsonobject}->decode($inargs);
 		croak 'inargs is not a json object' unless ref $inargs eq 'HASH';
 		if ($clenv) {
-			$clenv = decode_json($clenv);
+			$clenv = $self->{jsonobject}->decode($clenv);
 			croak 'clenv is not a json object' unless ref $clenv eq 'HASH';
 		}
 		if ($reqauth) {
-			$reqauth = decode_json($reqauth);
+			$reqauth = $self->{jsonobject}->decode($reqauth);
 			croak 'reqauth is not a json object' unless ref $reqauth eq 'HASH';
 		}
 	} else {
 		croak 'inargs should be a hashref' unless ref $inargs eq 'HASH';
 		# test encoding
-		$inargsj = encode_json($inargs);
+		$inargsj = $self->{jsonobject}->encode($inargs);
 		if ($clenv) {
 			croak 'clenv should be a hashref' unless ref $clenv eq 'HASH';
 		}
@@ -288,44 +296,43 @@ sub call_nb {
 	$inargsj = decode_utf8($inargsj);
 	$self->log->debug("calling $wfname with '" . $inargsj . "'" . (($vtag) ? " (vtag $vtag)" : ''));
 
-	$self->ioloop->delay(
-		sub {
-			my $d = shift;
-			$self->conn->call('create_job', {
-				wfname => $wfname,
-				vtag => $vtag,
-				inargs => $inargs,
-				timeout => $timeout,
-				($clenv ? (clenv => $clenv) : ()),
-				($reqauth ? (reqauth => $reqauth) : ()),
-			}, $d->begin(0));
-		},
-		sub {
-			my ($d, $e, $r) = @_;
-			my ($job_id, $msg);
-			if ($e) {
-				$self->log->error("create_job returned error: $e->{message} ($e->{code}");
-				$msg = "$e->{message} ($e->{code}"
-			} else {
-				($job_id, $msg) = @$r; # fixme: check for arrayref?
-				if ($msg) {
-					$self->log->error("create_job returned error: $msg");
-				} elsif ($job_id) {
-					$self->log->debug("create_job returned job_id: $job_id");
-					$self->jobs->{$job_id} = $rescb;
-				}
-			}
+	JobCenter::Client::Mojo::Steps->new(ioloop => $self->ioloop)->steps([
+	sub {
+		my $steps = shift;
+		$self->conn->call('create_job', {
+			wfname => $wfname,
+			vtag => $vtag,
+			inargs => $inargs,
+			timeout => $timeout,
+			($clenv ? (clenv => $clenv) : ()),
+			($reqauth ? (reqauth => $reqauth) : ()),
+		}, $steps->next());
+	},
+	sub {
+		my ($steps, $e, $r) = @_;
+		my ($job_id, $msg);
+		if ($e) {
+			$self->log->error("create_job returned error: $e->{message} ($e->{code}");
+			$msg = "$e->{message} ($e->{code}"
+		} else {
+			($job_id, $msg) = @$r; # fixme: check for arrayref?
 			if ($msg) {
-				$msg = {error => $msg} unless ref $msg;
-				$msg = encode_json($msg) if $self->{json};
+				$self->log->error("create_job returned error: $msg");
+			} elsif ($job_id) {
+				$self->log->debug("create_job returned job_id: $job_id");
+				$self->jobs->{$job_id} = $rescb;
 			}
-			$callcb->($job_id, $msg);
 		}
-	)->catch(sub {
+		if ($msg) {
+			$msg = {error => $msg} unless ref $msg;
+			$msg = $self->{jsonobject}->encode($msg) if $self->{json};
+		}
+		$callcb->($job_id, $msg);
+	}], sub {
 		my ($err) = @_;
 		$self->log->error("Something went wrong in call_nb: $err");
 		$err = { error => $err };
-		$err = encode_json($err) if $self->{json};
+		$err = $self->{jsonobject}->encode($err) if $self->{json};
 		$callcb->(undef, $err);
 	});
 }
@@ -344,30 +351,29 @@ sub find_jobs {
 	croak('no filter?') unless $filter;
 
 	#print 'filter: ', Dumper($filter);
-	$filter = encode_json($filter) if ref $filter eq 'HASH';
+	$filter = $self->{jsonobject}->encode($filter) if ref $filter eq 'HASH';
 
 	my ($done, $err, $jobs);
-	$self->ioloop->delay(
+	JobCenter::Client::Mojo::Steps->new(ioloop => $self->ioloop)->steps([
 	sub {
-		my $d = shift;
+		my $steps = shift;
 		# fixme: check results?
-		$self->conn->call('find_jobs', { filter => $filter }, $d->begin(0));
+		$self->conn->call('find_jobs', { filter => $filter }, $steps->next());
 	},
 	sub {
 		#say 'find_jobs call returned: ', Dumper(\@_);
-		my ($d, $e, $r) = @_;
+		my ($steps, $e, $r) = @_;
+		$done++; # received something so done waiting
 		if ($e) {
 			$self->log->error("find_jobs got error $e->{message} ($e->{code})");
 			$err = $e->{message};
-			$done++;
 			return;
 		}
 		$jobs = $r;
-		$done++;
-	})->catch(sub {
+	}], sub {
 		my ($err) = @_;
-		$self->log->error("something went wrong with get_job_status: $err");
 		$done++;
+		$self->log->error("something went wrong with get_job_status: $err");
 	});
 
 	$self->_loop(sub { !$done });
@@ -376,29 +382,71 @@ sub find_jobs {
 	return $err;
 }
 
+sub check_if_lock_exists {
+	my ($self, $locktype, $lockvalue) = @_;
+	croak('no locktype?') unless $locktype;
+	croak('no lockvalue?') unless $lockvalue;
+
+	my ($done, $err, $found);
+	JobCenter::Client::Mojo::Steps->new(ioloop => $self->ioloop)->steps([
+	sub {
+		my $steps = shift;
+		# fixme: check results?
+		$self->conn->call(
+			'check_if_lock_exists',
+			{ locktype => $locktype, lockvalue => $lockvalue },
+			$steps->next()
+		);
+	},
+	sub {
+		#say 'find_jobs call returned: ', Dumper(\@_);
+		my ($steps, $e, $r) = @_;
+		$done++; # received something so done waiting
+		if ($e) {
+			$self->log->error("find_jobs got error $e->{message} ($e->{code})");
+			$err = $e->{message};
+			return;
+		}
+		$found = $r;
+	}], sub {
+		my ($err) = @_;
+		$done++;
+		$self->log->error("something went wrong with check_if_lock_exists: $err");
+	});
+
+	$self->_loop(sub { !$done });
+
+	$found = $self->{jsonobject}->encode($found) if $self->{json};
+	return $found;
+}
+
 sub get_api_status {
 	my ($self, $what) = @_;
 	croak('no what?') unless $what;
 
-	my $result;
-	$self->ioloop->delay(
+	my ($done, $result);
+	JobCenter::Client::Mojo::Steps->new(ioloop => $self->ioloop)->steps([
 	sub {
-		my $d = shift;
-		$self->conn->call('get_api_status', { what => $what }, $d->begin(0));
+		my $steps = shift;
+		$self->conn->call('get_api_status', { what => $what }, $steps->next());
 	},
 	sub {
 		#say 'call returned: ', Dumper(\@_);
 		my ($d, $e, $r) = @_;
+		$done++; # received something so done waiting
 		if ($e) {
 			$self->log->error("get_api_status got error $e->{message} ($e->{code})");
 			$result = $e->{message};
 			return;
 		}
 		$result = $r;
-	})->catch(sub {
+	}], sub {
 		my ($err) = @_;
+		$done++;
 		$self->log->eror("something went wrong with get_api_status: $err");
-	})->wait();
+	});
+
+	$self->_loop(sub { !$done });
 
 	return $result;
 }
@@ -434,20 +482,20 @@ sub get_job_status_nb {
 		if $notifycb and ref $notifycb ne 'CODE';
 
 	#my ($done, $job_id2, $outargs);
-	$self->ioloop->delay(
+	JobCenter::Client::Mojo::Steps->new(ioloop => $self->ioloop)->steps([
 	sub {
-		my $d = shift;
+		my $steps = shift;
 		# fixme: check results?
 		$self->conn->call(
 			'get_job_status', {
 				job_id => $job_id,
 				notify => ($notifycb ? JSON->true : JSON->false),
-			}, $d->begin(0)
+			}, $steps->next()
 		);
 	},
 	sub {
 		#say 'call returned: ', Dumper(\@_);
-		my ($d, $e, $r) = @_;
+		my ($steps, $e, $r) = @_;
 		#$self->log->debug("get_job_satus_nb got job_id: $res msg: $msg");
 		if ($e) {
 			$self->log->error("get_job_status got error $e->{message} ($e->{code})");
@@ -458,14 +506,14 @@ sub get_job_status_nb {
 		if ($notifycb and !$job_id2 and !$outargs) {
 			$self->jobs->{$job_id} = $notifycb;
 		}
-		$outargs = encode_json($outargs) if $self->{json} and ref $outargs;
+		$outargs = $self->{jsonobject}->encode($outargs) if $self->{json} and ref $outargs;
 		$statuscb->($job_id2, $outargs);
 		return;
-	})->catch(sub {
+	}], sub {
 		my ($err) = @_;
 		$self->log->error("Something went wrong in get_job_status_nb: $err");
 		$err = { error => $err };
-		$err = encode_json($err) if $self->{json};
+		$err = $self->{jsonobject}->encode($err) if $self->{json};
 		$statuscb->(undef, $err);
 	});
 }
@@ -537,25 +585,29 @@ sub create_slotgroup {
 	my ($self, $name, $slots) = @_;
 	croak('no slotgroup name?') unless $name;
 
-	my $result;
-	$self->ioloop->delay(
+	my ($done, $result);
+	JobCenter::Client::Mojo::Steps->new(ioloop => $self->ioloop)->steps([
 	sub {
-		my $d = shift;
-		$self->conn->call('create_slotgroup', { name => $name, slots => $slots }, $d->begin(0));
+		my $steps = shift;
+		$self->conn->call('create_slotgroup', { name => $name, slots => $slots }, $steps->next());
 	},
 	sub {
 		#say 'call returned: ', Dumper(\@_);
-		my ($d, $e, $r) = @_;
+		my ($steps, $e, $r) = @_;
+		$done++; # received something so done waiting
 		if ($e) {
 			$self->log->error("create_slotgroup got error $e->{message}");
 			$result = $e->{message};
 			return;
 		}
 		$result = $r;
-	})->catch(sub {
+	}], sub {
 		my ($err) = @_;
+		$done++;
 		$self->log->eror("something went wrong with create_slotgroup: $err");
-	})->wait();
+	});
+
+	$self->_loop(sub { !$done });
 
 	return $result;
 }
@@ -573,22 +625,22 @@ sub announce {
 
 	croak "already have action $actionname" if $self->actions->{$actionname};
 
-	my $err;
-	$self->ioloop->delay(
+	my ($done, $err);
+	JobCenter::Client::Mojo::Steps->new(ioloop => $self->ioloop)->steps([
 	sub {
-		my $d = shift;
-		# fixme: check results?
+		my $steps = shift;
 		$self->conn->call('announce', {
 				 workername => $workername,
 				 actionname => $actionname,
 				 slotgroup => $args{slotgroup},
 				 slots => $args{slots},
 				 (($args{filter}) ? (filter => $args{filter}) : ()),
-			}, $d->begin(0));
+			}, $steps->next());
 	},
 	sub {
 		#say 'call returned: ', Dumper(\@_);
-		my ($d, $e, $r) = @_;
+		my ($steps, $e, $r) = @_;
+		$done++; # received something so done waiting
 		if ($e) {
 			$self->log->error("announce got error: $e->{message}");
 			$err = $e->{message};
@@ -603,11 +655,13 @@ sub announce {
 			addenv => $args{addenv} // 0,
 		} if $res;
 		$err = $msg unless $res;
-	})->catch(sub {
+	}], sub {
 		($err) = @_;
+		$done++;
 		$self->log->error("something went wrong with announce: $err");
-	})->wait();
+	});
 
+	$self->_loop(sub { !$done });
 	return $err;
 }
 
@@ -629,12 +683,13 @@ sub rpc_task_ready {
 	}
 
 	$self->log->debug("got task_ready for $actionname job_id $job_id calling get_task");
-	$self->ioloop->delay(sub {
-		my $d = shift;
-		$c->call('get_task', {actionname => $actionname, job_id => $job_id}, $d->begin(0));
+	JobCenter::Client::Mojo::Steps->new(ioloop => $self->ioloop)->steps([
+	sub {
+		my $steps = shift;
+		$c->call('get_task', {actionname => $actionname, job_id => $job_id}, $steps->next());
 	},
 	sub {
-		my ($d, $e, $r) = @_;
+		my ($steps, $e, $r) = @_;
 		#say 'get_task returned: ', Dumper(\@_);
 		if ($e) {
 			$$self->log->debug("got $e->{message} ($e->{code}) calling get_task");
@@ -670,7 +725,7 @@ sub rpc_task_ready {
 		} else {
 			die "unkown mode $action->{mode}";
 		}
-	})->catch(sub {
+	}], sub {
 		my ($err) = @_;
 		$self->log->error("something went wrong with rpc_task_ready: $err");
 	});
@@ -877,6 +932,10 @@ Valid arguments are:
 when true expects the inargs to be valid json, when false a perl hashref is
 expected and json encoded.  (default true)
 
+=item - jsonobject: json encoder/decoder object to use
+
+(per default a new L<JSON::MaybeXS> object is created)
+
 =item - log: L<Mojo::Log> object to use
 
 (per default a new L<Mojo::Log> object is created)
@@ -987,6 +1046,16 @@ this callback will be called on completion of the job.
 
 =back
 
+=head2 check_if_lock_exists
+
+$found = $client->find_jobs($locktype, $lockvalue);
+
+Checks if a lock with the given locktype and lockvalue exists. (I.e. a job
+is currently running that holds that lock.
+
+Returns true if the lock exists, null if the locktype does not exist, false
+otherwise.
+
 =head2 find_jobs
 
 ($err, @jobs) = $client->find_jobs({'foo'=>'bar'});
@@ -1017,6 +1086,9 @@ $client->create_slotgroup($name, $slots)
 
 A 'slotgroup' is a way of telling the JobCenter API how many taskss the
 worker can do at once.  The number of slots should be a positive integer.
+Slotgroups names starting with a _ (underscore) are reserved for internal
+use.  Returns a error message when then was an error, the empty string
+otherwise.
 
 =head2 announce
 

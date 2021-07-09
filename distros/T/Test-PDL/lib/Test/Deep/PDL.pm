@@ -2,8 +2,8 @@ use strict;
 use warnings;
 
 package Test::Deep::PDL;
-$Test::Deep::PDL::VERSION = '0.14';
-# ABSTRACT: Test piddles inside data structures with Test::Deep
+$Test::Deep::PDL::VERSION = '0.16';
+# ABSTRACT: Test ndarrays inside data structures with Test::Deep
 
 
 use Test::Deep::Cmp;
@@ -14,7 +14,7 @@ sub init
 {
 	my $self = shift;
 	my $expected = shift;
-	die "Supplied value is not a piddle" unless eval { $expected->isa('PDL') };
+	die "Supplied value is not a ndarray" unless eval { $expected->isa('PDL') };
 	$self->{expected} = $expected;
 }
 
@@ -31,7 +31,7 @@ sub diag_message
 {
 	my $self = shift;
 	my $where = shift;
-	return "Comparing $where as a piddle:\n" . $self->data->{diag};
+	return "Comparing $where as a ndarray:\n" . $self->data->{diag};
 }
 
 sub renderExp
@@ -59,11 +59,11 @@ __END__
 
 =head1 NAME
 
-Test::Deep::PDL - Test piddles inside data structures with Test::Deep
+Test::Deep::PDL - Test ndarrays inside data structures with Test::Deep
 
 =head1 VERSION
 
-version 0.14
+version 0.16
 
 =head1 DESCRIPTION
 
@@ -87,7 +87,7 @@ Edward Baudrez <ebaudrez@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2019 by Edward Baudrez.
+This software is copyright (c) 2021 by Edward Baudrez.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

@@ -3,7 +3,7 @@
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -31,29 +31,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
 use strict;
 use warnings;
 use PDL;
-use PDL::NiceSlice;
-use PDL::Complex;
-use Photonic::Geometry::FromB;
 use Photonic::LE::S::AllH;
 use Photonic::LE::S::Field;
 
-use Machine::Epsilon;
-use List::Util;
-
 use Test::More tests => 2;
-
-#my $pi=4*atan2(1,1);
-
-sub Cagree {
-    my $a=shift;
-    my $b=shift//0;
-    return (($a-$b)->Cabs2)->sum<=1e-7;
-}
-sub Cdif {
-    my $a=shift;
-    my $b=shift//0;
-    return (($a-$b)->Cabs2)->sum;
-}
+use lib 't/lib';
+use TestUtils;
 
 my $ea=1+2*i;
 my $eb=3+4*i;
@@ -69,7 +52,7 @@ my $fla=1/$ea;
 my $flb=1/$eb;
 my $fproml=$fla*(1-$gl->f)+$flb*($gl->f);
 ($fla, $flb)=map {$_/$fproml} ($fla, $flb);
-my $flx=pdl([$fla*(1-$B)+$flb*$B])->complex->mv(1,-1);
+my $flx=($fla*(1-$B)+$flb*$B)->transpose;
 ok(Cagree($flv, $flx), "1D long field");
 
 #View 2D from 1D superlattice.
@@ -80,5 +63,5 @@ my $nt=Photonic::LE::S::AllH->new(geometry=>$gt, nh=>10,
 				  keepStates=>1, epsilon=>$epsilont);
 my $fto=Photonic::LE::S::Field->new(nr=>$nt, nh=>10);
 my $ftv=$fto->evaluate;
-my $ftx=pdl(r2C(1), r2C(0))->complex;
+my $ftx=r2C(pdl [1, 0]);
 ok(Cagree($ftv, $ftx), "1D trans field");

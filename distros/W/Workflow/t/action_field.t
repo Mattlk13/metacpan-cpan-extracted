@@ -1,9 +1,7 @@
-# -*-perl-*-
-
-# $Id$
+#!/usr/bin/env perl
 
 use strict;
-use lib 't';
+use lib qw(../lib lib ../t t);
 use TestUtil;
 use Test::Exception;
 use Test::More  tests => 16;
@@ -16,7 +14,7 @@ dies_ok { $action = Workflow::Action::InputField->new({}) };
 
 ok($action = Workflow::Action::InputField->new({
     name        => 'test',
-    is_required => 'yes', 
+    is_required => 'yes',
 }));
 
 isa_ok($action, 'Workflow::Action::InputField');
@@ -42,7 +40,7 @@ is($action->is_optional, 'no');
 
 ok($action = Workflow::Action::InputField->new({
     name        => 'test',
-    is_required => 'no', 
+    is_required => 'no',
 }));
 
 is($action->is_required, 'no');

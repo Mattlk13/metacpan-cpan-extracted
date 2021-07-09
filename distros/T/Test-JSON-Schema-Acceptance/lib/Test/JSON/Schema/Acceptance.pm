@@ -1,21 +1,24 @@
 use strict;
 use warnings;
-package Test::JSON::Schema::Acceptance; # git description: v1.002-6-g278f665
+package Test::JSON::Schema::Acceptance; # git description: v1.010-2-g99c3f3d
 # vim: set ts=8 sts=2 sw=2 tw=100 et :
 # ABSTRACT: Acceptance testing for JSON-Schema based validators like JSON::Schema
 
-our $VERSION = '1.003';
+our $VERSION = '1.011';
 
-use 5.014;
+use 5.016;
 no if "$]" >= 5.031009, feature => 'indirect';
+no if "$]" >= 5.033001, feature => 'multidimensional';
+no if "$]" >= 5.033006, feature => 'bareword_filehandles';
+use strictures 2;
 use Test2::API ();
 use Test2::Todo;
 use Test2::Tools::Compare ();
-use Try::Tiny;
 use JSON::MaybeXS 1.004001;
 use Storable 3.00 ();
 use File::ShareDir 'dist_dir';
 use Moo;
+use Feature::Compat::Try;
 use MooX::TypeTiny 0.002002;
 use Types::Standard 1.010002 qw(Str InstanceOf ArrayRef HashRef Dict Any HasMethods Bool Optional);
 use Types::Common::Numeric 'PositiveOrZeroInt';
@@ -27,17 +30,28 @@ has specification => (
   is => 'ro',
   isa => Str,
   lazy => 1,
-  default => 'draft2019-09',
+  default => 'draft2020-12',
   predicate => '_has_specification',
 );
+
+# specification version => metaschema URI
+use constant METASCHEMA => {
+  'draft2020-12'  => 'https://json-schema.org/draft/2020-12/schema',
+  'draft2019-09'  => 'https://json-schema.org/draft/2019-09/schema',
+  'draft7'        => 'http://json-schema.org/draft-07/schema#',
+  'draft6'        => 'http://json-schema.org/draft-06/schema#',
+  'draft4'        => 'http://json-schema.org/draft-04/schema#',
+};
 
 has test_dir => (
   is => 'ro',
   isa => InstanceOf['Path::Tiny'],
   coerce => sub { path($_[0])->absolute('.') },
   lazy => 1,
-  default => sub { path(dist_dir('Test-JSON-Schema-Acceptance'), 'tests', $_[0]->specification) },
+  builder => '_build_test_dir',
+  predicate => '_has_test_dir',
 );
+sub _build_test_dir { path(dist_dir('Test-JSON-Schema-Acceptance'), 'tests', $_[0]->specification) };
 
 has additional_resources => (
   is => 'ro',
@@ -59,6 +73,19 @@ has include_optional => (
   default => 0,
 );
 
+has skip_dir => (
+  is => 'ro',
+  isa => ArrayRef[Str],
+  coerce => sub { ref($_[0]) ? $_[0] : [ $_[0] ] },
+  lazy => 1,
+  default => sub { [] },
+);
+
+has test_schemas => (
+  is => 'ro',
+  isa => Bool,
+);
+
 has results => (
   is => 'rwp',
   init_arg => undef,
@@ -68,10 +95,18 @@ has results => (
          ]],
 );
 
+has results_text => (
+  is => 'ro',
+  init_arg => undef,
+  isa => Str,
+  lazy => 1,
+  builder => '_build_results_text',
+);
+
 around BUILDARGS => sub {
   my ($orig, $class, @args) = @_;
   my %args = @args % 2 ? ( specification => 'draft'.$args[0] ) : @args;
-  $args{specification} = 'draft2019-09' if ($args{specification} // '') eq 'latest';
+  $args{specification} = 'draft2020-12' if ($args{specification} // '') eq 'latest';
   $class->$orig(\%args);
 };
 
@@ -94,7 +129,7 @@ sub acceptance {
 
   my $ctx = Test2::API::context;
 
-  if ($options->{add_resource}) {
+  if ($options->{add_resource} and -d $self->additional_resources) {
     my $base = 'http://localhost:1234'; # TODO? make this customizable
     $ctx->note('adding resources from '.$self->additional_resources.' with the base URI "'.$base.'"...');
     $self->additional_resources->visit(
@@ -110,7 +145,8 @@ sub acceptance {
     );
   }
 
-  $ctx->note('running tests in '.$self->test_dir.'...');
+  $ctx->note('running tests in '.$self->test_dir.' against '
+    .($self->_has_specification ? $self->specification : 'unknown version').'...');
   my $tests = $self->_test_data;
 
   # [ { file => .., pass => .., fail => .. }, ... ]
@@ -130,6 +166,33 @@ sub acceptance {
         and not grep $_ eq $test_group->{description},
           (ref $options->{tests}{group_description} eq 'ARRAY'
             ? @{$options->{tests}{group_description}} : $options->{tests}{group_description});
+
+      my $todo;
+      $todo = Test2::Todo->new(reason => 'Test marked TODO via "todo_tests"')
+        if $options->{todo_tests}
+          and any {
+            my $o = $_;
+            (not $o->{file} or grep $_ eq $one_file->{file}, (ref $o->{file} eq 'ARRAY' ? @{$o->{file}} : $o->{file}))
+              and
+            (not $o->{group_description} or grep $_ eq $test_group->{description}, (ref $o->{group_description} eq 'ARRAY' ? @{$o->{group_description}} : $o->{group_description}))
+              and not $o->{test_description}
+          }
+          @{$options->{todo_tests}};
+
+      if ($self->test_schemas) {
+        die 'specification_version unknown: cannot evaluate schema against metaschema'
+          if not $self->_has_specification;
+
+        my $metaspec_uri = METASCHEMA->{$self->specification};
+        my $result = $options->{validate_data}
+          ? $options->{validate_data}->($metaspec_uri, $test_group->{schema})
+          # we use the decoder here so we don't prettify the string
+          : $options->{validate_json_string}->($metaspec_uri, $self->_json_decoder->encode($test_group->{schema}));
+        if (not $result) {
+          $ctx->fail('schema for '.$one_file->{file}.': "'.$test_group->{description}.'" fails to validate against '.$metaspec_uri.':');
+          $ctx->note($self->_json_encoder->encode($result));
+        }
+      }
 
       foreach my $test (@{$test_group->{tests}}) {
         next if $options->{tests} and $options->{tests}{test_description}
@@ -167,34 +230,19 @@ sub acceptance {
   $self->_set_results(\@results);
 
   my $diag = $self->verbose ? 'diag' : 'note';
+  $ctx->$diag("\n\n".$self->results_text);
+  $ctx->$diag('');
 
-  $ctx->$diag("\n\n".'Results using '.ref($self).' '.$self->VERSION);
-
-  my $submodule_status = path(dist_dir('Test-JSON-Schema-Acceptance'), 'submodule_status');
-  if ($submodule_status->exists and $submodule_status->parent->subsumes($self->test_dir)) {
-    chomp(my ($commit, $url) = $submodule_status->lines);
-    $ctx->$diag('with commit '.$commit);
-    $ctx->$diag('from '.$url.':');
-  }
-  if ($self->_has_specification) {
-    $ctx->$diag('specification version: '.$self->specification);
+  if ($self->test_dir !~ m{\boptional\b}
+      and grep +($_->{file} !~ m{^optional/} && $_->{todo_fail} + $_->{fail}), @results) {
+    # non-optional test failures will always be visible, even when not in verbose mode.
+    $ctx->diag('WARNING: some non-optional tests are failing! This implementation is not fully compliant with the specification!');
+    $ctx->diag('');
   }
   else {
-    $ctx->$diag('using custom test directory: '.$self->test_dir);
+    $ctx->$diag('Congratulations, all non-optional tests are passing!');
+    $ctx->$diag('');
   }
-  $ctx->$diag('optional tests included: '.($self->include_optional ? 'yes' : 'no'));
-
-  $ctx->$diag('');
-  my $length = max(10, map length $_->{file}, @$tests);
-  $ctx->$diag(sprintf('%-'.$length.'s  pass  todo-fail  fail', 'filename'));
-  $ctx->$diag('-'x($length + 23));
-  $ctx->$diag(sprintf('%-'.$length.'s % 5d       % 4d  % 4d', @{$_}{qw(file pass todo_fail fail)}))
-    foreach @results;
-
-  my $total = +{ map { my $type = $_; $type => sum0(map $_->{$type}, @results) } qw(pass todo_fail fail) };
-  $ctx->$diag('-'x($length + 23));
-  $ctx->$diag(sprintf('%-'.$length.'s % 5d      % 5d % 5d', 'TOTAL', @{$total}{qw(pass todo_fail fail)}));
-  $ctx->$diag('');
 
   $ctx->release;
 }
@@ -219,6 +267,7 @@ sub _run_test {
 
         $result = $options->{validate_data}
           ? $options->{validate_data}->($test_group->{schema}, $test->{data})
+            # we use the decoder here so we don't prettify the string
           : $options->{validate_json_string}->($test_group->{schema}, $self->_json_decoder->encode($test->{data}));
 
         {
@@ -234,7 +283,7 @@ sub _run_test {
         my $expected = $test->{valid} ? 'true' : 'false';
         if ($result xor $test->{valid}) {
           my $got = $result ? 'true' : 'false';
-          $ctx->fail('test failed', 'expected '.$expected.'; got '.$got);
+          $ctx->fail('evaluation result is incorrect', 'expected '.$expected.'; got '.$got);
           $pass = 0;
         }
         else {
@@ -249,8 +298,8 @@ sub _run_test {
 
         $ctx->release;
       }
-      catch {
-        chomp(my $exception = $_);
+      catch ($e) {
+        chomp(my $exception = $e);
         my $ctx = Test2::API::context;
         $ctx->fail('died: '.$exception);
         $ctx->release;
@@ -267,6 +316,18 @@ has _json_decoder => (
   isa => HasMethods[qw(encode decode)],
   lazy => 1,
   default => sub { JSON::MaybeXS->new(allow_nonref => 1, utf8 => 1) },
+);
+
+# used for pretty-printing diagnostics
+has _json_encoder => (
+  is => 'ro',
+  isa => HasMethods['encode'],
+  lazy => 1,
+  default => sub {
+    my $encoder = shift->_json_decoder->convert_blessed->canonical->pretty;
+    $encoder->indent_length(2) if $encoder->can('indent_length');
+    $encoder;
+  },
 );
 
 # see JSON::MaybeXS::is_bool
@@ -299,6 +360,7 @@ sub _build__test_data {
   $self->test_dir->visit(
     sub {
       my ($path) = @_;
+      return if any { $self->test_dir->child($_)->subsumes($path) } @{ $self->skip_dir };
       return if not $path->is_file;
       return if $path !~ /\.json$/;
       my $data = $self->_json_decoder->decode($path->slurp_raw);
@@ -322,6 +384,50 @@ sub _build__test_data {
   ];
 }
 
+sub _build_results_text {
+  my $self = shift;
+
+  my @lines;
+  push @lines, 'Results using '.ref($self).' '.$self->VERSION;
+
+  my $submodule_status = path(dist_dir('Test-JSON-Schema-Acceptance'), 'submodule_status');
+  if ($submodule_status->exists and $submodule_status->parent->subsumes($self->test_dir)) {
+    chomp(my ($commit, $url) = $submodule_status->lines);
+    push @lines, 'with commit '.$commit;
+    push @lines, 'from '.$url.':';
+  }
+
+  push @lines, 'specification version: '.($self->specification//'unknown');
+
+  my $test_dir = $self->test_dir;
+  my $orig_dir = $self->_build_test_dir;
+  if ($test_dir ne $orig_dir) {
+    if ($orig_dir->subsumes($test_dir)) {
+      $test_dir = '<base test directory>/'.substr($test_dir, length($orig_dir)+1);
+    }
+    elsif (Path::Tiny->cwd->subsumes($test_dir)) {
+      $test_dir = $test_dir->relative;
+    }
+    push @lines, 'using custom test directory: '.$test_dir;
+  }
+  push @lines, 'optional tests included: '.($self->include_optional ? 'yes' : 'no');
+  push @lines, map 'skipping directory: '.$_, @{ $self->skip_dir };
+
+  push @lines, '';
+  my $length = max(40, map length $_->{file}, @{$self->results});
+
+  push @lines, sprintf('%-'.$length.'s  pass  todo-fail  fail', 'filename');
+  push @lines, '-'x($length + 23);
+  push @lines, map sprintf('%-'.$length.'s % 5d       % 4d  % 4d', @{$_}{qw(file pass todo_fail fail)}),
+    @{$self->results};
+
+  my $total = +{ map { my $type = $_; $type => sum0(map $_->{$type}, @{$self->results}) } qw(pass todo_fail fail) };
+  push @lines, '-'x($length + 23);
+  push @lines, sprintf('%-'.$length.'s % 5d      % 5d % 5d', 'TOTAL', @{$total}{qw(pass todo_fail fail)});
+
+  return join("\n", @lines, '');
+}
+
 1;
 
 __END__
@@ -338,7 +444,7 @@ Test::JSON::Schema::Acceptance - Acceptance testing for JSON-Schema based valida
 
 =head1 VERSION
 
-version 1.003
+version 1.011
 
 =head1 SYNOPSIS
 
@@ -375,8 +481,8 @@ cases in the JSON Schema Test Suite, except for those listed in C<$skip_tests>.
 L<JSON Schema|http://json-schema.org> is an IETF draft (at time of writing) which allows you to
 define the structure of JSON.
 
-From the overview of the L<draft 2019-09 version of the
-specification|https://json-schema.org/draft/2019-09/json-schema-core.html#rfc.section.3>:
+From the overview of the L<draft 2020-12 version of the
+specification|https://json-schema.org/draft/2020-12/json-schema-core.html#rfc.section.3>:
 
 =over 4
 
@@ -436,7 +542,15 @@ C<draft2019-09>
 
 =item *
 
-C<latest> (alias for C<draft2019-09>)
+C<draft2020-12>
+
+=item *
+
+C<latest> (alias for C<draft2020-12>)
+
+=item *
+
+C<draft-future>
 
 =back
 
@@ -469,6 +583,56 @@ during C<make test> or C<prove>.
 =head2 include_optional
 
 Optional. When true, tests in subdirectories (most notably F<optional/> are also included.
+
+=head2 skip_dir
+
+Optional. Pass a string or arrayref consisting of relative path name(s) to indicate directories
+(within the test directory as specified above with C<specification> or C<test_dir>) which will be
+skipped. Note that this is only useful currently with C<include_optional => 1>, as otherwise all
+subdirectories would be skipped anyway.
+
+=head2 results
+
+After calling L</acceptance>, a list of test results are provided here. It is an arrayref of
+hashrefs with four keys:
+
+=over 4
+
+=item *
+
+file - the filename
+
+=item *
+
+pass - the number of pass results for that file
+
+=item *
+
+todo_fail - the number of fail results for that file that were marked TODO
+
+=item *
+
+fail - the number of fail results for that file (not including TODO tests)
+
+=back
+
+=head2 results_text
+
+After calling L</acceptance>, a text string tabulating the test results are provided here. This is
+the same table that is printed at the end of the test run.
+
+=head2 test_schemas
+
+=for stopwords metaschema
+
+Optional. A boolean that, when true, will test every schema against its
+specification metaschema. (When set, C<specification> must also be set.)
+
+This normally should not be set as the official test suite has already been
+sanity-tested, but you may want to set this in development environments if you
+are using your own test files.
+
+Defaults to false.
 
 =head1 SUBROUTINES/METHODS
 
@@ -511,7 +675,7 @@ associated with that URI, for use in some tests that use additional resources (s
 not provide this option, you will be responsible for ensuring that those additional resources are
 made available to your implementation for the successful execution of the tests that rely on them.
 
-For more information, see <https://json-schema.org/draft/2019-09/json-schema-core.html#rfc.section.8.2.4.5>.
+For more information, see <https://json-schema.org/draft/2020-12/json-schema-core.html#rfc.section.9.1.2>.
 
 =head3 tests
 
@@ -562,31 +726,6 @@ the same hashref structure as L</tests> above, which are ORed together.
     { file => 'boolean_schema.json', test_description => 'array is invalid' },
     # .. etc
   ]
-
-=head2 results
-
-After calling L</acceptance>, a list of test results are provided here. It is an arrayref of
-hashrefs with four keys:
-
-=over 4
-
-=item *
-
-file - the filename
-
-=item *
-
-pass - the number of pass results for that file
-
-=item *
-
-todo_fail - the number of fail results for that file that were marked TODO
-
-=item *
-
-fail - the number of fail results for that file (not including TODO tests)
-
-=back
 
 =head1 ACKNOWLEDGEMENTS
 

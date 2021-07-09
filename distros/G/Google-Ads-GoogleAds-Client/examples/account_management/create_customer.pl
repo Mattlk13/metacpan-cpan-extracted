@@ -29,7 +29,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 use Google::Ads::GoogleAds::Client;
 use Google::Ads::GoogleAds::Utils::GoogleAdsHelper;
-use Google::Ads::GoogleAds::V6::Resources::Customer;
+use Google::Ads::GoogleAds::V8::Resources::Customer;
 
 use Getopt::Long qw(:config auto_help);
 use Pod::Usage;
@@ -51,20 +51,20 @@ sub create_customer {
   my ($api_client, $manager_customer_id) = @_;
 
   # Initialize a customer to be created.
-  my $customer = Google::Ads::GoogleAds::V6::Resources::Customer->new({
+  my $customer = Google::Ads::GoogleAds::V8::Resources::Customer->new({
       descriptiveName => "Account created with CustomerService on #" . uniqid(),
 
       # For a list of valid currency codes and time zones, see this documentation:
-      # https://developers.google.com/adwords/api/docs/appendix/codes-formats
+      # https://developers.google.com/google-ads/api/reference/data/codes-formats
       currencyCode => "USD",
       timeZone     => "America/New_York",
 
       # The below values are optional. For more information about URL options, see:
       # https://support.google.com/google-ads/answer/6305348
       trackingUrlTemplate => "{lpurl}?device={device}",
-      finalUrlSuffix =>
-        "keyword={keyword}&matchtype={matchtype}&adgroupid={adgroupid}",
-      hasPartnersBadge => to_boolean(0)});
+      finalUrlSuffix      =>
+        "keyword={keyword}&matchtype={matchtype}&adgroupid={adgroupid}"
+  });
 
   # Create the customer client.
   my $create_customer_client_response =

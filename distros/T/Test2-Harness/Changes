@@ -1,3 +1,92 @@
+1.000062  2021-07-07 15:34:34-07:00 America/Los_Angeles
+
+    - Add info on where/why 'claim_file' was called
+
+1.000061  2021-07-07 12:53:11-07:00 America/Los_Angeles
+
+    - Add even more support for notification plugins
+
+1.000060  2021-07-06 09:51:45-07:00 America/Los_Angeles
+
+    - Add support for html email
+
+1.000059  2021-07-01 13:56:29-07:00 America/Los_Angeles
+
+    - Add support for custom email/slack text
+
+1.000058  2021-06-15 15:38:16-07:00 America/Los_Angeles
+
+    - Add support for new yathui direct db coverage/duration plugin
+    - Add option to disable bail-out abortion
+
+1.000057  2021-06-04 15:59:24-07:00 America/Los_Angeles
+
+    - Add ability to provide a diff for changed files
+    - Add ability to filter files with changes
+
+1.000056  2021-05-24 14:26:45-07:00 America/Los_Angeles
+
+    - Fix warnings from preloader
+
+1.000055  2021-05-18 13:05:20-07:00 America/Los_Angeles
+
+    - Run 'conficting' tests sooner
+
+1.000054  2021-05-04 08:58:25-07:00 America/Los_Angeles
+
+    - Add option to dump depmaps
+
+1.000053  2021-04-30 11:22:30-07:00 America/Los_Angeles
+
+    - Be smarter about what can or cannot be reloaded in 'reload' mode
+
+1.000052  2021-04-30 10:37:56-07:00 America/Los_Angeles
+
+    - Add --reload option to 'start' command to reload moduels in-place when possible
+    - Make Test2::Plugin::Cover optional again
+
+1.000051  2021-04-29 07:40:33-07:00 America/Los_Angeles
+
+    - Fix an edge-case warning from git plugin
+
+1.000050  2021-04-27 09:22:25-07:00 America/Los_Angeles
+
+    - Allow a default coverage manager to be provided
+    - Move Test2::Require::Module to dev requirements
+    - Update some modules from 'base' to 'parent'
+
+1.000049  2021-04-26 08:08:05-07:00 America/Los_Angeles
+
+    - Fully require Test2::Plugin::Cover at a sufficient version
+
+1.000048  2021-04-23 11:54:37-07:00 America/Los_Angeles
+
+    - Require updated Test2::Plugin::Cover
+    - Better coverage handling, sync with newer Test2::Plguin::Cover
+
+1.000047  2021-04-20 11:42:49-07:00 America/Los_Angeles
+
+    - Remove some coverage data that was nto intended to be present (false data)
+
+1.000046  2021-04-20 09:25:24-07:00 America/Los_Angeles
+
+    - Remove debugging print statement
+
+1.000045  2021-04-20 09:14:01-07:00 America/Los_Angeles
+
+    - Change how coverage and changed-files data works
+
+1.000044  2021-03-11 20:08:54-08:00 America/Los_Angeles
+
+    - Add plugin support for providing coverage/duration data
+    - Fix running t/integration tests with ./ in path (#215)
+    - Add a fixme/todo test for #216 (Tap subtest parsing)
+
+1.000043  2021-03-05 07:47:04-08:00 America/Los_Angeles
+
+    - Minor documentation correction
+    - Add 'signal()' method to Renderer base class
+
 1.000042  2020-11-17 22:44:35-08:00 America/Los_Angeles
 
     - Fix pipe size setting to actually use the value we want

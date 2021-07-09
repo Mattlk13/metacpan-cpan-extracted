@@ -1,5 +1,51 @@
 Revision history for Pg-Explain
 
+1.11    2021/07/04
+        - Added parsing of Buffers info
+
+1.10    2021/06/08
+        - Add a way to get total number of rows returned by node over multiple
+          loops or workers ($node->total_rows)
+        - Add method (total_removed_rows) which shows how many rows were
+          removed in given node by one of:
+            - Conflict Filter
+            - Filter
+            - Index Recheck
+            - Join Filter
+
+1.09    2021/06/07
+        - Fix parsing of planning/execution time in case of "quoted" plans and
+          no trailing new line.
+        - Add extraction of:
+          - Conflicting Tuples
+          - Conflict Arbiter Indexes
+          - Conflict Filter
+          - Conflict Resolution
+          - Filter
+          - Join Filter
+          - Recheck Cond
+          - Rows Removed by Conflict Filter
+          - Rows Removed by Filter
+          - Rows Removed by Index Recheck
+          - Rows Removed by Join Filter
+          - Tuples Inserted
+          from non-text plans.
+
+1.08    2021/05/15
+        - Provide links to bugtracker and homepage for CPAN
+        per report from Eugen Konkov
+
+1.07    2021/04/14
+        - Parse query text from auto-explain plans.
+        Missing functionality reported by Jamey Courtney.
+
+1.06    2021/03/03
+        - Fixed handling of Backward (Index|Index Only) Scans in non-text plans.
+        Bug reported by Yaroslav Schekin (ysch) on IRC.
+
+1.05    2021/02/18
+        - Add parsing of JIT information from plans in all four formats (text, json, yaml, xml)
+
 1.04    2020/12/21
         - Add handling of autoexplain plans in non-text formats.
         Apparently autoexplain logs plans that are different from normal

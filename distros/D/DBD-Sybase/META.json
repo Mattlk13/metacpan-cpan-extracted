@@ -4,13 +4,13 @@
       "Michael Peppler (mpeppler@peppler.org)"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 6.84, CPAN::Meta::Converter version 2.120351",
+   "generated_by" : "ExtUtils::MakeMaker version 7.60, CPAN::Meta::Converter version 2.150010",
    "license" : [
       "unknown"
    ],
    "meta-spec" : {
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
-      "version" : "2"
+      "version" : 2
    },
    "name" : "DBD-Sybase",
    "no_index" : {
@@ -31,9 +31,22 @@
          }
       },
       "runtime" : {
-         "requires" : {}
+         "requires" : {
+            "DBI" : "0"
+         }
       }
    },
    "release_status" : "stable",
-   "version" : "1.16"
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/mpeppler/DBD-Sybase/issues"
+      },
+      "repository" : {
+         "type" : "git",
+         "url" : "https://github.com/mpeppler/DBD-Sybase.git",
+         "web" : "https://github.com/mpeppler/DBD-Sybase"
+      }
+   },
+   "version" : "1.18",
+   "x_serialization_backend" : "JSON::PP version 4.04"
 }

@@ -41,6 +41,7 @@ sub validate {
     while (@_) {
 	my ($key, $value) = (shift, shift);
 	if ($key eq 'INTERNAL' or
+	    $key eq 'PACKAGE' or
 	    $key eq 'BLESS'
 	   ) {
 	    $o->{ILSM}{$key} = $value;
@@ -194,22 +195,24 @@ sub write_Makefile_PL {
         MAN3PODS => {},
         PM => {},
     );
+    my @postamblepack = ("$modfname.pd", $modfname, $module);
+    push @postamblepack, $o->{ILSM}{PACKAGE} if $o->{ILSM}{PACKAGE};
+    local $Data::Dumper::Terse = 1;
+    local $Data::Dumper::Indent = 1;
     open my $fh, ">", "$o->{API}{build_dir}/Makefile.PL" or croak;
     print $fh <<END;
 use strict;
 use warnings;
 use ExtUtils::MakeMaker;
 use PDL::Core::Dev;
-my \@pack = [ "$modfname.pd", "$modfname", "$module" ];
+my \$pack = @{[ Data::Dumper::Dumper(\@postamblepack) ]};
 my %options = %\{
 END
-    local $Data::Dumper::Terse = 1;
-    local $Data::Dumper::Indent = 1;
-    print $fh Data::Dumper::Dumper(\ %options);
+    print $fh Data::Dumper::Dumper(\%options);
     print $fh <<END;
 \};
 WriteMakefile(%options);
-sub MY::postamble { pdlpp_postamble$coredev_suffix(\@pack); }
+sub MY::postamble { pdlpp_postamble$coredev_suffix(\$pack); }
 END
     close $fh;
 }
@@ -316,7 +319,7 @@ from an external library (here from Numerical Recipes). All the
 relevant information regarding include files, libraries and boot
 code is specified in a config call to C<Inline>. For more experienced
 Perl hackers it might be helpful to know that the format is
-similar to that used with L<ExtUtils::MakeMaker|ExtUtils::MakeMaker>. The
+similar to that used with L<ExtUtils::MakeMaker>. The
 keywords are largely equivalent to those used with C<Inline::C>. Please
 see below for further details on the usage of C<INC>,
 C<LIBS>, C<AUTO_INCLUDE> and C<BOOT>.
@@ -382,6 +385,8 @@ to C<PDL> if omitted.
 
     use Inline Pdlpp => Config => BLESS => 'PDL::Complex';
 
+cf L</PACKAGE>, equivalent for L<PDL::PP/pp_addxs>.
+
 =head2 BOOT
 
 Specifies C code to be executed in the XS BOOT section. Corresponds to
@@ -444,6 +449,17 @@ This controls the MakeMaker OPTIMIZE setting. By setting this value to
 extensions. This will allow you to be able to set breakpoints in your
 C code using a debugger like gdb.
 
+=head2 PACKAGE
+
+Controls into which package the created XSUBs from L<PDL::PP/pp_addxs>
+go. E.g.:
+
+    use Inline Pdlpp => 'DATA', => PACKAGE => 'Other::Place';
+
+will put the created routines into C<Other::Place>, not the calling
+package (which is the default). Note this differs from L</BLESS>, which
+is where L<PDL::PP/pp_def>s go.
+
 =head2 TYPEMAPS
 
 Specifies extra typemap files to use. Corresponds to the MakeMaker parameter.
@@ -485,13 +501,13 @@ to include an C<Inline-E<gt>init> call in your script, e.g.
 =head2 C<PDL::NiceSlice> and C<Inline::Pdlpp>
 
 There is currently an undesired interaction between
-L<PDL::NiceSlice|PDL::NiceSlice> and C<Inline::Pdlpp>.
+L<PDL::NiceSlice> and C<Inline::Pdlpp>.
 Since PP code generally contains expressions
-of the type C<$var()> (to access piddles, etc)
-L<PDL::NiceSlice|PDL::NiceSlice> recognizes those incorrectly as
+of the type C<$var()> (to access ndarrays, etc)
+L<PDL::NiceSlice> recognizes those incorrectly as
 slice expressions and does its substitutions. For the moment
 (until hopefully the parser can deal with that) it is best to
-explicitly switch L<PDL::NiceSlice|PDL::NiceSlice> off before
+explicitly switch L<PDL::NiceSlice> off before
 the section of inlined Pdlpp code. For example:
 
   use PDL::NiceSlice;

@@ -1,4 +1,32 @@
 
+10.22  2021-06-10
+  - Add perform_jobs_in_foreground method to Minion.
+
+10.21  2021-03-20
+  - Fixed YAML::XS dependency.
+
+10.20  2021-03-13
+  - Removed experimental status from expiring jobs feature.
+  - Added Minion::Guide.
+  - Improved admin ui and job command to use YAML::XS to make job information easier to read.
+
+10.19  2021-03-10
+  - Improved admin ui to include search feature on all pages.
+
+10.18  2021-03-09
+  - Improved admin ui with search feature.
+
+10.17  2021-03-05
+  - Added support for high priority fast lane.
+  - Added each method to Minion::Iterator.
+  - Added min_priority option to dequeue methods in Minion::Worker and Minion::Backend::Pg.
+  - Added spare and spare_min_priority options to run method in Minion::Worker.
+  - Added -s and -S options to worker command.
+  - Added --retry-failed and --remove-failed options to job command.
+
+10.16  2021-02-16
+  - Fixed Mojolicious 9.0 compatibility.
+
 10.15  2020-12-10
   - Updated examples to use signatures.
 

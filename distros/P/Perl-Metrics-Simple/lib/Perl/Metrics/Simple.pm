@@ -7,14 +7,14 @@ use Carp qw(cluck confess);
 use Data::Dumper;
 use English qw(-no_match_vars);
 use File::Basename qw(fileparse);
-use File::Find qw(find);
-use IO::File;
-use PPI;
+use File::Find 1.01 qw(find);
+use IO::File 1.14;
+use PPI 1.113;
 use Perl::Metrics::Simple::Analysis;
 use Perl::Metrics::Simple::Analysis::File;
-use Readonly;
+use Readonly 1.03;
 
-our $VERSION = '0.18';
+our $VERSION = 'v1.0.1';
 
 Readonly::Scalar our $PERL_FILE_SUFFIXES => qr{ \. (:? pl | pm | t ) }sxmi;
 Readonly::Scalar our $SKIP_LIST_REGEX    => qr{ \.svn | \. git | _darcs | CVS }sxmi;
@@ -127,10 +127,6 @@ Perl::Metrics::Simple - Count packages, subs, lines, etc. of many files.
   $lines         = $analysis->lines;
   $main_stats    = $analysis->main_stats;
   $file_stats    = $analysis->file_stats;
-
-=head1 VERSION
-
-This is VERSION 0.12
 
 =head1 DESCRIPTION
 

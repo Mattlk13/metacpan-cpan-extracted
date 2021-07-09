@@ -1,11 +1,13 @@
 use strict;
 use warnings;
-use 5.014;
+use 5.020;
 
-package Dist::Zilla::Plugin::InsertExample 0.09 {
+package Dist::Zilla::Plugin::InsertExample 0.14 {
 
   use Moose;
+  use Encode qw( encode );
   use List::Util qw( first );
+  use experimental qw( signatures postderef );
 
   # ABSTRACT: Insert example into your POD from a file
 
@@ -18,16 +20,13 @@ package Dist::Zilla::Plugin::InsertExample 0.09 {
   has remove_boiler => (is => 'ro', isa => 'Int');
   has indent        => (is => 'ro', isa => 'Int', default => 1);
 
-  sub munge_files
+  sub munge_files ($self)
   {
-    my($self) = @_;
-    $self->munge_file($_) for @{ $self->found_files };
+    $self->munge_file($_) for $self->found_files->@*;
   }
 
-  sub munge_file
+  sub munge_file ($self, $file)
   {
-    my($self, $file) = @_;
-  
     my $content = $file->content;
     if($content =~ s{^#\s*EXAMPLE:\s*(.*)\s*$}{$self->_slurp_example($1)."\n"}meg)
     {
@@ -36,36 +35,37 @@ package Dist::Zilla::Plugin::InsertExample 0.09 {
     }
   }
 
-  sub _slurp_example
+  sub _slurp_example ($self, $filename)
   {
-    my($self, $filename) = @_;
- 
     my $fh;
 
-    if(my $file = first { $_->name eq $filename } @{ $self->zilla->files })
+    if(my $file = first { $_->name eq $filename } $self->zilla->files->@*)
     {
-      my $content = $file->content;
-      open $fh, '<', \$content;
+      my $content = encode 'UTF-8', $file->content;
+      open $fh, '<', \$content
+        or $self->log_fatal("unable to open content of @{[ $file->name ]} as in memory string");
+      binmode $fh, ':utf8';
     }
     elsif($file = $self->zilla->root->child($filename))
     {
       $self->log_fatal("no such example file $filename") unless -r $file;
-      $fh = $file->openr;  
+      $fh = $file->openr_utf8;
     }
 
     my $indent = ' ' x $self->indent;
 
-    while(<$fh>)
+    while(my $line = <$fh>)
     {
       if($self->remove_boiler)
       {
-        next if /^\s*$/;
-        next if /^#!\/usr\/bin\/perl/;
-        next if /^use strict;$/;
-        next if /^use warnings;$/;
+        next if $line =~ /^\s*$/;
+        next if $line =~ /^#!\/usr\/bin\/perl/;
+        next if $line =~ /^#!\/usr\/bin\/env perl/;
+        next if $line =~ /^use strict;$/;
+        next if $line =~ /^use warnings;$/;
         return '' if eof $fh;
       }
-      return join "\n", map { "$indent$_" } split /\n/, $_ . do { local $/; my $rest = <$fh>; defined $rest ? $rest : '' };
+      return join "\n", map { "$indent$_" } split /\n/, $line . do { local $/; my $rest = <$fh>; defined $rest ? $rest : '' };
     }
 
   }
@@ -87,7 +87,7 @@ Dist::Zilla::Plugin::InsertExample - Insert example into your POD from a file
 
 =head1 VERSION
 
-version 0.09
+version 0.14
 
 =head1 SYNOPSIS
 
@@ -126,7 +126,7 @@ This plugin takes examples included in your distribution and
 inserts them in your POD where you have an EXAMPLE directive.
 This allows you to keep a version in the distribution which
 can be run by you and your users, as well as making it
-available in your POD documentation, without the need for 
+available in your POD documentation, without the need for
 updating example scripts in multiple places.
 
 When the example is inserted into your pod a space will be appended

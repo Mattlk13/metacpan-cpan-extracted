@@ -1,0 +1,28 @@
+Revision history for Catalyst::Plugin::PrometheusTiny
+
+0.006 - 2021-06-20
+
+    * refresh README, fixup META resources
+
+0.005 - 2021-06-08
+
+    * add META resources
+    * add optional controller and action labels to the metrics
+
+0.004 - 2021-06-06
+
+    * allow simple configuration of endpoint path
+    * bump deps on Prometheus::Tiny and ::Shared
+    * more tests
+
+0.003 - 2021-06-05
+
+    * bump min Perl version to 5.10.1 due to upstream deps
+
+0.002 - 2021-06-05
+
+    * remove a regexp modifier added in Perl 5.22
+
+0.001 - 2021-06-05
+
+    * Initial release

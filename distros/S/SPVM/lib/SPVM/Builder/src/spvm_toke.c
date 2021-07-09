@@ -23,7 +23,7 @@
 #include "spvm_basic_type.h"
 #include "spvm_my.h"
 #include "spvm_string_buffer.h"
-#include "spvm_sub.h"
+#include "spvm_method.h"
 #include "spvm_package.h"
 
 SPVM_OP* SPVM_TOKE_newOP(SPVM_COMPILER* compiler, int32_t type) {
@@ -97,8 +97,8 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
   int32_t minus = 0;
   
   // Expect sub name
-  int32_t expect_sub_name = compiler->expect_sub_name;
-  compiler->expect_sub_name = 0;
+  int32_t expect_method_name = compiler->expect_method_name;
+  compiler->expect_method_name = 0;
   
   // Before token is arrow
   int32_t before_token_is_arrow = compiler->before_token_is_arrow;
@@ -113,9 +113,11 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
   compiler->state_var_expansion = SPVM_TOKE_C_STATE_VAR_EXPANSION_DEFAULT;
 
   while(1) {
+
     if (compiler->bufptr == NULL) {
       compiler->bufptr = "";
     }
+    
     // Get current character
     char ch = *compiler->bufptr;
     
@@ -135,67 +137,87 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
     else if (state_var_expansion == SPVM_TOKE_C_STATE_VAR_EXPANSION_DOUBLE_QUOTE) {
       ch = '"';
     }
-    
-    // line end
-    switch (ch) {
-      case '\0': {
-        compiler->cur_file = NULL;
-        free(compiler->cur_src);
-        compiler->cur_src = NULL;
-        compiler->bufptr = NULL;
-        compiler->befbufptr = NULL;
-        compiler->line_start_ptr = NULL;
-        
-        // If there are more module, load it
-        SPVM_LIST* op_use_stack = compiler->op_use_stack;
-        
-        while (1) {
-          if (op_use_stack->length == 0) {
-            return 0;
+
+    // '\0' means end of file, so try to read next module source
+    if (ch == '\0') {
+      compiler->cur_file = NULL;
+      free(compiler->cur_src);
+      compiler->cur_src = NULL;
+      compiler->bufptr = NULL;
+      compiler->befbufptr = NULL;
+      compiler->line_start_ptr = NULL;
+      
+      // If there are more module, load it
+      SPVM_LIST* op_use_stack = compiler->op_use_stack;
+      
+      while (1) {
+        if (op_use_stack->length == 0) {
+          return 0;
+        }
+        else if (op_use_stack->length > 0) {
+          SPVM_OP* op_use = SPVM_LIST_shift(op_use_stack);
+          
+          const char* package_name = op_use->uv.use->op_type->uv.type->basic_type->name;
+          
+          SPVM_PACKAGE* found_package = SPVM_HASH_fetch(compiler->package_symtable, package_name, strlen(package_name));
+          
+          if (found_package) {
+            continue;
           }
-          else if (op_use_stack->length > 0) {
-            SPVM_OP* op_use = SPVM_LIST_shift(op_use_stack);
+          else {
+            // Create moudle relative file name from package name by changing :: to / and add ".spvm"
+            int32_t cur_rel_file_length = (int32_t)(strlen(package_name) + 6);
+            char* cur_rel_file = SPVM_COMPILER_ALLOCATOR_safe_malloc_zero(compiler, cur_rel_file_length + 1);
+            const char* bufptr_orig = package_name;
+            char* bufptr_to = cur_rel_file;
+            while (*bufptr_orig) {
+              if (*bufptr_orig == ':' && *(bufptr_orig + 1) == ':') {
+                *bufptr_to = '/';
+                bufptr_orig += 2;
+                bufptr_to++;
+              }
+              else {
+                *bufptr_to = *bufptr_orig;
+                bufptr_orig++;
+                bufptr_to++;
+              }
+            }
+            strncpy(bufptr_to, ".spvm", 5);
+            bufptr_to += 5;
+            *bufptr_to = '\0';
+
+            char* cur_file = NULL;
             
-            const char* package_name = op_use->uv.use->op_type->uv.type->basic_type->name;
-            
-            SPVM_PACKAGE* found_package = SPVM_HASH_fetch(compiler->package_symtable, package_name, strlen(package_name));
-            
-            if (found_package) {
-              continue;
+            // Do directry module search
+            int32_t do_directry_module_search;
+
+            // SPVM::Byte, SPVM::Short, SPVM::Int, SPVM::Long, SPVM::Float, SPVM::Double is already registered in module source symtable
+            if (
+              strcmp(package_name, "SPVM::Byte") == 0 ||
+              strcmp(package_name, "SPVM::Short") == 0 ||
+              strcmp(package_name, "SPVM::Int") == 0 ||
+              strcmp(package_name, "SPVM::Long") == 0 ||
+              strcmp(package_name, "SPVM::Float") == 0 ||
+              strcmp(package_name, "SPVM::Double") == 0
+            )
+            {
+              do_directry_module_search = 0;
             }
             else {
-              // change :: to / and add ".spvm"
-              int32_t cur_rel_file_length = (int32_t)(strlen(package_name) + 6);
-              char* cur_rel_file = SPVM_COMPILER_ALLOCATOR_safe_malloc_zero(compiler, cur_rel_file_length + 1);
-              const char* bufptr_orig = package_name;
-              char* bufptr_to = cur_rel_file;
-              while (*bufptr_orig) {
-                if (*bufptr_orig == ':' && *(bufptr_orig + 1) == ':') {
-                  *bufptr_to = '/';
-                  bufptr_orig += 2;
-                  bufptr_to++;
-                }
-                else {
-                  *bufptr_to = *bufptr_orig;
-                  bufptr_orig++;
-                  bufptr_to++;
-                }
-              }
-              strncpy(bufptr_to, ".spvm", 5);
-              bufptr_to += 5;
-              *bufptr_to = '\0';
-              
+              do_directry_module_search = !compiler->no_directry_module_search;
+            }
+            
+            if (do_directry_module_search) {
               // Search module file
-              char* cur_file = NULL;
               FILE* fh = NULL;
-              int32_t module_include_pathes_length = compiler->module_include_pathes->length;
-              for (int32_t i = 0; i < module_include_pathes_length; i++) {
-                const char* include_path = (const char*) SPVM_LIST_fetch(compiler->module_include_pathes, i);
+              int32_t module_dirs_length = compiler->module_dirs->length;
+              for (int32_t i = 0; i < module_dirs_length; i++) {
+                const char* include_dir = (const char*) SPVM_LIST_fetch(compiler->module_dirs, i);
                 
                 // File name
-                int32_t file_name_length = (int32_t)(strlen(include_path) + 1 + strlen(cur_rel_file));
+                int32_t file_name_length = (int32_t)(strlen(include_dir) + 1 + strlen(cur_rel_file));
                 cur_file = SPVM_COMPILER_ALLOCATOR_safe_malloc_zero(compiler, file_name_length + 1);
-                sprintf(cur_file, "%s/%s", include_path, cur_rel_file);
+                sprintf(cur_file, "%s/%s", include_dir, cur_rel_file);
                 cur_file[file_name_length] = '\0';
                 
                 // \ is replaced to /
@@ -204,118 +226,142 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
                     cur_file[i] = '/';
                   }
                 }
+
+                // Add module file symtable
+                SPVM_HASH_insert(compiler->loaded_module_file_symtable, package_name, strlen(package_name), (void*)cur_file);
                 
                 // Open source file
                 fh = fopen(cur_file, "rb");
                 if (fh) {
-                  compiler->cur_file = cur_file;
                   break;
                 }
                 errno = 0;
               }
               
+              // Module not found
               if (!fh) {
-                if (op_use->uv.use->is_require) {
-                  op_use->uv.use->load_fail = 1;
-                  SPVM_OP* op_package = SPVM_OP_new_op(compiler, SPVM_OP_C_ID_PACKAGE, op_use->file, op_use->line);
-                  SPVM_TYPE* type = SPVM_TYPE_new(compiler);
-                  type->basic_type = op_use->uv.use->op_type->uv.type->basic_type;
-                  SPVM_OP* op_type = SPVM_OP_new_op_type(compiler, type, op_use->file, op_use->line);
-                  type->basic_type->fail_load = 1;
-                  
-                  SPVM_OP_build_package(compiler, op_package, op_type, NULL, NULL);
-                  
-                  continue;
-                }
-                else {
-                  fprintf(stderr, "Can't locate %s in @INC (@INC contains:", cur_rel_file);
-                  for (int32_t i = 0; i < module_include_pathes_length; i++) {
-                    const char* include_path = (const char*) SPVM_LIST_fetch(compiler->module_include_pathes, i);
-                    fprintf(stderr, " %s", include_path);
+                if (!op_use->uv.use->is_require) {
+                  fprintf(stderr, "[CompileError]Can't locate %s in @INC (@INC contains:", cur_rel_file);
+                  for (int32_t i = 0; i < module_dirs_length; i++) {
+                    const char* include_dir = (const char*) SPVM_LIST_fetch(compiler->module_dirs, i);
+                    fprintf(stderr, " %s", include_dir);
                   }
                   fprintf(stderr, ") at %s line %d\n", op_use->file, op_use->line);
                   compiler->error_count++;
                   return 0;
                 }
               }
-              
-              // Skip if already loaded
-              const char* found_module_file = SPVM_HASH_fetch(compiler->module_file_symtable, compiler->cur_file, strlen(compiler->cur_file));
-              if (found_module_file) {
-                continue;
-              }
+              // Module found
               else {
-                // Add module file symtable
-                SPVM_HASH_insert(compiler->module_file_symtable, cur_file, strlen(compiler->cur_file), (char*)compiler->cur_file);
+                // Read file content
+                fseek(fh, 0, SEEK_END);
+                int32_t file_size = (int32_t)ftell(fh);
+                if (file_size < 0) {
+                  SPVM_COMPILER_error(compiler, "Can't read file %s at %s line %d\n", cur_file, op_use->file, op_use->line);
+                  return 0;
+                }
+                fseek(fh, 0, SEEK_SET);
+                char* original_src = SPVM_UTIL_ALLOCATOR_safe_malloc_zero(file_size + 1);
+                if ((int32_t)fread(original_src, 1, file_size, fh) < file_size) {
+                  SPVM_COMPILER_error(compiler, "Can't read file %s at %s line %d\n", cur_file, op_use->file, op_use->line);
+                  return 0;
+                }
+                fclose(fh);
+                original_src[file_size] = '\0';
+                
+                // Save module source
+                SPVM_HASH_insert(compiler->module_source_symtable, package_name, strlen(package_name), original_src);
               }
+            }
+            
+            // Search module source
+            char* found_module_source = SPVM_HASH_fetch(compiler->module_source_symtable, package_name, strlen(package_name));
+            char* original_src = NULL;
+            int32_t file_size = 0;
+            int32_t module_not_found = 0;
+            if (found_module_source) {
+              original_src = found_module_source;
+              file_size = strlen(original_src);
+            }
+            else {
+              module_not_found = 1;
+            }
+            
+            // If module not found and that is if (requre Foo) syntax, syntax is ok.
+            if (module_not_found && op_use->uv.use->is_require) {
+              op_use->uv.use->load_fail = 1;
+              SPVM_OP* op_package = SPVM_OP_new_op(compiler, SPVM_OP_C_ID_PACKAGE, op_use->file, op_use->line);
+              SPVM_TYPE* type = SPVM_TYPE_new(compiler);
+              type->basic_type = op_use->uv.use->op_type->uv.type->basic_type;
+              SPVM_OP* op_type = SPVM_OP_new_op_type(compiler, type, op_use->file, op_use->line);
+              type->basic_type->fail_load = 1;
               
-              compiler->cur_file = cur_file;
+              SPVM_OP_build_package(compiler, op_package, op_type, NULL, NULL);
+              
+              continue;
+            }
+            else {
+              
+              // Copy original source to current source because original source is used at other places(for example, SPVM::Builder::Exe)
+              compiler->cur_src = SPVM_UTIL_ALLOCATOR_safe_malloc_zero(file_size + 1);
+              memcpy(compiler->cur_src, original_src, file_size + 1);
               compiler->cur_rel_file = cur_rel_file;
               compiler->cur_rel_file_package_name = package_name;
+                  
+              // If we get current module file path, set it, otherwise set module relative file path
+              if (cur_file) {
+                compiler->cur_file = cur_file;
+              }
+              else {
+                compiler->cur_file = cur_rel_file;
+              }
               
-              // Read file content
-              fseek(fh, 0, SEEK_END);
-              int32_t file_size = (int32_t)ftell(fh);
-              if (file_size < 0) {
-                SPVM_COMPILER_error(compiler, "Can't read file %s at %s line %d\n", cur_file, op_use->file, op_use->line);
-                return 0;
-              }
-              fseek(fh, 0, SEEK_SET);
-              char* cur_src = SPVM_UTIL_ALLOCATOR_safe_malloc_zero(file_size + 1);
-              if ((int32_t)fread(cur_src, 1, file_size, fh) < file_size) {
-                SPVM_COMPILER_error(compiler, "Can't read file %s at %s line %d\n", cur_file, op_use->file, op_use->line);
-                return 0;
-              }
-              fclose(fh);
-              cur_src[file_size] = '\0';
-
               // Convert \r\n to \n
-              char* cur_src_nl = SPVM_UTIL_ALLOCATOR_safe_malloc_zero(file_size + 1);
-              int32_t nl_merge_count = 0;
               int32_t cur_src_pos = 0;
-              int32_t cur_src_nl_pos = 0;
-              while (cur_src_pos < file_size) {
-                int32_t ch = cur_src[cur_src_pos];
-                int32_t ch_next = cur_src[cur_src_pos + 1];
+              int32_t nl_merge_count = 0;
+              int32_t cur_src_len = strlen(compiler->cur_src);
+              while (cur_src_pos < cur_src_len) {
+                int32_t ch = compiler->cur_src[cur_src_pos];
+                int32_t ch_next = compiler->cur_src[cur_src_pos + 1];
                 
                 if (ch == '\r' && ch_next == '\n') {
-                  cur_src_nl[cur_src_pos - nl_merge_count] = '\n';
+                  compiler->cur_src[cur_src_pos - nl_merge_count] = '\n';
                   nl_merge_count++;
                   cur_src_pos += 2;
                 }
                 else if (ch == '\r') {
-                  cur_src_nl[cur_src_pos - nl_merge_count] = '\n';
+                  compiler->cur_src[cur_src_pos - nl_merge_count] = '\n';
                   cur_src_pos++;
                 }
                 else {
-                  cur_src_nl[cur_src_pos - nl_merge_count] = ch;
+                  compiler->cur_src[cur_src_pos - nl_merge_count] = ch;
                   cur_src_pos++;
                 }
-                cur_src_nl_pos++;
               }
-              cur_src_nl[cur_src_nl_pos] = '\0';
-              free(cur_src);
-              cur_src = cur_src_nl;
+              compiler->cur_src[cur_src_pos - nl_merge_count] = '\0';
               
-              compiler->cur_src = cur_src;
-              compiler->bufptr = cur_src;
-              compiler->befbufptr = cur_src;
-              compiler->line_start_ptr = cur_src;
+              // Set initial information for tokenization
+              compiler->bufptr = compiler->cur_src;
+              compiler->befbufptr = compiler->cur_src;
+              compiler->line_start_ptr = compiler->cur_src;
               compiler->cur_line = 1;
-              break;
             }
+            break;
           }
-          else {
-            assert(0);
-          }
-        }
-        if (compiler->cur_src) {
-          continue;
         }
         else {
-          return 0;
+          assert(0);
         }
       }
+      if (compiler->cur_src) {
+        continue;
+      }
+      else {
+        return 0;
+      }
+    }
+    
+    switch (ch) {
       // Skip space character
       case ' ':
       case '\t':
@@ -403,7 +449,7 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
         else if (*compiler->bufptr == '>') {
           compiler->bufptr++;
           yylvalp->opval = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_NULL);
-          compiler->expect_sub_name = 1;
+          compiler->expect_method_name = 1;
           compiler->before_token_is_arrow = 1;
           
           return ARROW;
@@ -416,7 +462,7 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
         else if (*compiler->bufptr == '=') {
           compiler->bufptr++;
           SPVM_OP* op_special_assign = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_SPECIAL_ASSIGN);
-          op_special_assign->flag = SPVM_OP_C_FLAG_SPECIAL_ASSIGN_SUBTRACT;
+          op_special_assign->flag = SPVM_OP_C_FLAG_SPECIAL_ASSIGN_METHODTRACT;
           
           yylvalp->opval = op_special_assign;
           
@@ -643,9 +689,20 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
         // <=
         else if (*compiler->bufptr == '=') {
           compiler->bufptr++;
-          SPVM_OP* op = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_NUMERIC_LE);
-          yylvalp->opval = op;
-          return NUMLE;
+
+          // <=>
+          if (*compiler->bufptr == '>') {
+            compiler->bufptr++;
+            SPVM_OP* op = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_NUMERIC_CMP);
+            yylvalp->opval = op;
+            return NUMERIC_CMP;
+          }
+          // <=
+          else {
+            SPVM_OP* op = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_NUMERIC_LE);
+            yylvalp->opval = op;
+            return NUMLE;
+          }
         }
         // <
         else {
@@ -1002,11 +1059,6 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
                   str_length++;
                   char_ptr++;
                 }
-                else if (*char_ptr == 'b') {
-                  str[str_length] = '\b';
-                  str_length++;
-                  char_ptr++;
-                }
                 else if (*char_ptr == 'f') {
                   str[str_length] = '\f';
                   str_length++;
@@ -1047,55 +1099,6 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
                   str_length++;
                   char_ptr++;
                 }
-                // Excape for regular expression \s
-                else if (*char_ptr == 's') {
-                  str[str_length] = '\\';
-                  str_length++;
-                  str[str_length] = 's';
-                  str_length++;
-                  char_ptr++;
-                }
-                // Excape for regular expression \S
-                else if (*char_ptr == 'S') {
-                  str[str_length] = '\\';
-                  str_length++;
-                  str[str_length] = 'S';
-                  str_length++;
-                  char_ptr++;
-                }
-                // Excape for regular expression \d
-                else if (*char_ptr == 'd') {
-                  str[str_length] = '\\';
-                  str_length++;
-                  str[str_length] = 'd';
-                  str_length++;
-                  char_ptr++;
-                }
-                // Excape for regular expression \D
-                else if (*char_ptr == 'D') {
-                  str[str_length] = '\\';
-                  str_length++;
-                  str[str_length] = 'D';
-                  str_length++;
-                  char_ptr++;
-                }
-                // Excape for regular expression \w
-                else if (*char_ptr == 'w') {
-                  str[str_length] = '\\';
-                  str_length++;
-                  str[str_length] = 'w';
-                  str_length++;
-                  char_ptr++;
-                }
-                // Excape for regular expression \W
-                else if (*char_ptr == 'W') {
-                  str[str_length] = '\\';
-                  str_length++;
-                  str[str_length] = 'W';
-                  str_length++;
-                  char_ptr++;
-                }
-                // Hex ascii code
                 else if (*char_ptr == 'x') {
                   char_ptr++;
                   if (*char_ptr == '0' || *char_ptr == '1' || *char_ptr == '2' || *char_ptr == '3' || *char_ptr == '4' || *char_ptr == '5' || *char_ptr == '6' || *char_ptr == '7') {
@@ -1124,7 +1127,7 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
                   }
                 }
                 // Unicode code point. This is converted to UTF-8
-                else if (*char_ptr == 'N') {
+                else if (*char_ptr == 'N' && *(char_ptr + 1) == '{') {
                   char_ptr++;
                   if (*char_ptr == '{' && *(char_ptr + 1) == 'U' && *(char_ptr + 2) == '+') {
                     char_ptr += 3;
@@ -1177,15 +1180,79 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
                   }
                 }
                 else {
-                  if (ispunct(*char_ptr)) {
-                    str[str_length] = '\\';
-                    str_length++;
-                    str[str_length] = *char_ptr;
-                    str_length++;
-                    char_ptr++;
-                  }
-                  else {
-                    SPVM_COMPILER_error(compiler, "Invalid escape character in string literal \"\\%c\" at %s line %d\n", *char_ptr, compiler->cur_file, compiler->cur_line);
+                  switch(*char_ptr) {
+                    case 'w':
+                    case 'W':
+                    case 's':
+                    case 'S':
+                    case 'd':
+                    case 'D':
+                    case 'p':
+                    case 'P':
+                    case 'X':
+                    case 'g':
+                    case 'k':
+                    case 'K':
+                    case 'v':
+                    case 'V':
+                    case 'h':
+                    case 'H':
+                    case 'R':
+                    case 'b':
+                    case 'B':
+                    case 'A':
+                    case 'Z':
+                    case 'z':
+                    case 'G':
+                    case 'N':
+                    case '!':
+                    case '#':
+                    case '@':
+                    case '%':
+                    case '&':
+                    case '(':
+                    case ')':
+                    case '*':
+                    case '+':
+                    case ',':
+                    case '-':
+                    case '.':
+                    case '/':
+                    case ':':
+                    case ';':
+                    case '<':
+                    case '=':
+                    case '>':
+                    case '?':
+                    case '[':
+                    case ']':
+                    case '^':
+                    case '_':
+                    case '`':
+                    case '{':
+                    case '|':
+                    case '}':
+                    case '~':
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                    case '5':
+                    case '6':
+                    case '7':
+                    case '8':
+                    case '9':
+                    {
+                      str[str_length] = '\\';
+                      str_length++;
+                      str[str_length] = *char_ptr;
+                      str_length++;
+                      char_ptr++;
+                      break;
+                    }
+                    default: {
+                      SPVM_COMPILER_error(compiler, "Invalid escape character in string literal \"\\%c\" at %s line %d\n", *char_ptr, compiler->cur_file, compiler->cur_line);
+                    }
                   }
                 }
               }
@@ -1213,7 +1280,9 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
       }
       case '\\':
         compiler->bufptr++;
-        return REF;
+        SPVM_OP* op = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_CREATE_REF);
+        yylvalp->opval = op;
+        return CREATE_REF;
       default:
         // Variable
         if (ch == '$') {
@@ -1638,7 +1707,7 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
           }
           
           // Keyword
-          if (expect_sub_name) {
+          if (expect_method_name) {
             // None
           }
           else if (expect_field_name) {
@@ -1674,6 +1743,10 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
                   yylvalp->opval = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_CASE);
                   return CASE;
                 }
+                else if (strcmp(keyword, "cmp") == 0) {
+                  yylvalp->opval = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_STRING_CMP);
+                  return STRING_CMP;
+                }
                 break;
               case 'd' :
                 if (strcmp(keyword, "default") == 0) {
@@ -1687,6 +1760,10 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
                 else if (strcmp(keyword, "double") == 0) {
                   yylvalp->opval = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_DOUBLE);
                   return DOUBLE;
+                }
+                else if (strcmp(keyword, "dump") == 0) {
+                  yylvalp->opval = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_DUMP);
+                  return DUMP;
                 }
                 break;
               case 'e' :
@@ -1769,7 +1846,7 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
                 }
                 else if (strcmp(keyword, "length") == 0) {
                   yylvalp->opval = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_STRING_LENGTH);
-                  return LENGTH;
+                  return STRING_LENGTH;
                 }
                 else if (strcmp(keyword, "lt") == 0) {
                   SPVM_OP* op = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_STRING_LT);
@@ -1867,7 +1944,11 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
                 }
                 break;
               case 'r' :
-                if (strcmp(keyword, "refcnt") == 0) {
+                if (strcmp(keyword, "ref") == 0) {
+                  yylvalp->opval = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_REFOP);
+                  return REFOP;
+                }
+                else if (strcmp(keyword, "refcnt") == 0) {
                   yylvalp->opval = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_REFCNT);
                   return REFCNT;
                 }
@@ -1900,10 +1981,10 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
                   return SWITCH;
                 }
                 else if (strcmp(keyword, "sub") == 0) {
-                  yylvalp->opval = SPVM_TOKE_newOP_with_keyword_start_pos(compiler, SPVM_OP_C_ID_SUB, keyword_start_pos);
-                  compiler->expect_sub_name = 1;
+                  yylvalp->opval = SPVM_TOKE_newOP_with_keyword_start_pos(compiler, SPVM_OP_C_ID_METHOD, keyword_start_pos);
+                  compiler->expect_method_name = 1;
                   
-                  return SUB;
+                  return METHOD;
                 }
                 else if (strcmp(keyword, "string") == 0) {
                   yylvalp->opval = SPVM_TOKE_newOP(compiler, SPVM_OP_C_ID_STRING);
@@ -1992,14 +2073,6 @@ int SPVM_yylex(SPVM_YYSTYPE* yylvalp, SPVM_COMPILER* compiler) {
             SPVM_COMPILER_error(compiler, "Symbol name \"%s\" must not contains __ at %s line %d\n", keyword, compiler->cur_file, compiler->cur_line);
           }
 
-          // Symbol name can't 
-          if (strlen(keyword) >= 9
-            && keyword[0] == 'A' && keyword[1] == 'N' && keyword[2] == 'O' && keyword[3] == 'N' && keyword[4] == '_'
-            && keyword[5] == 'S' && keyword[6] == 'U' && keyword[7] == 'B' && keyword[8] == '_')
-          {
-            SPVM_COMPILER_error(compiler, "Symbol name \"%s\" can't start with ANON_SUB_. This is preserved for anon subroutine at %s line %d\n", keyword, compiler->cur_file, compiler->cur_line);
-          }
-          
           SPVM_OP* op_name = SPVM_OP_new_op_name(compiler, keyword, compiler->cur_file, compiler->cur_line);
           yylvalp->opval = op_name;
           

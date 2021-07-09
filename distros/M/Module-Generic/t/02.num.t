@@ -8,6 +8,7 @@ BEGIN
     use strict;
     use warnings;
     use utf8;
+    use lib './lib';
     use File::Which;
     use POSIX ();
     use open ':std' => ':utf8';
@@ -28,7 +29,7 @@ BEGIN
 
 # diag( "Environment variables: ", Dumper( \%ENV ) );
 
-BEGIN { use_ok( 'Module::Generic' ) || BAIL_OUT( "Unable to load Module::Generic" ); }
+BEGIN { use_ok( 'Module::Generic::Number' ) || BAIL_OUT( "Unable to load Module::Generic::Number" ); }
 
 ## RT #132674
 ## Stupid me. I should compare the result to the locale variables unless they are explicitely set
@@ -344,3 +345,13 @@ ok( Module::Generic::Number->new( 2 )->as_boolean, 'Number to true boolean' );
 ok( Module::Generic::Number->new( 2 )->as_boolean == 1, 'Number to boolean, checking value' );
 is( Module::Generic::Number->new( 74 )->chr, 'J', 'Number to character' );
 
+my $n6 = Module::Generic::Number->new( 10 );
+my $s6 = $n6->as_scalar;
+isa_ok( $s6, 'Module::Generic::Scalar', 'as_scalar' );
+ok( $n6 eq "10", "stringified value" );
+
+my $a = $n6->as_array;
+isa_ok( $a, 'Module::Generic::Array', 'as_array => Module::Generic::Array' );
+is( $a->[0], 10, 'as_array' );
+
+done_testing();

@@ -6,7 +6,7 @@ use Mojo::File qw(path);
 sub modified_files {
   my $self = shift;
 
-  my $cache = $self->{cache} ||= {};
+  my $cache = $self->{cache} //= {};
   my @files;
   for my $file (map { -f $_ && -r _ ? $_ : _list($_) } @{$self->watch}) {
     my ($size, $mtime) = (stat $file)[7, 9];
@@ -42,7 +42,7 @@ Mojo::Server::Morbo::Backend::Poll - Morbo default backend
 
 =head1 DESCRIPTION
 
-L<Mojo::Server::Morbo::Backend:Poll> is the default backend for L<Mojo::Server::Morbo>.
+L<Mojo::Server::Morbo::Backend::Poll> is the default backend for L<Mojo::Server::Morbo>.
 
 =head1 ATTRIBUTES
 

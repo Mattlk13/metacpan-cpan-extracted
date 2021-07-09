@@ -8,7 +8,8 @@ $(function() {
     $("div.json-view").each(function() {
         var div = $(this);
         var data = div.attr('data');
-        div.jsonView(data, {collapsed: true});
+        var formatter = new JSONFormatter(JSON.parse(data));
+        div.append(formatter.render());
     });
 
     var modal = $("div#free_modal");
@@ -33,7 +34,10 @@ t2hui.fetch = function(url, args, cb) {
     if (!args) { args = {} }
 
     var prog = $('<span>|</span>');
-    $('div#progress_bar').append(prog);
+
+    if (!args.no_throb) {
+        $('div#progress_bar').append(prog);
+    }
 
     var last_index = 0;
     var running = false;
@@ -74,11 +78,15 @@ t2hui.fetch = function(url, args, cb) {
     $.ajax(url + '?content-type=application/x-jsonl', {
         async: true,
         data: args.data,
-        xhrFields: {
-            onprogress: async function(e) {
+        xhr: function () {
+            var xhr = new window.XMLHttpRequest();
+
+            xhr.addEventListener("progress", function(e) {
                 if (!e || !e.currentTarget) return;
                 iterate(e.currentTarget.response);
-            }
+            });
+
+            return xhr;
         },
         success: async function(response) {
             while (running) { await t2hui.sleep(50); }

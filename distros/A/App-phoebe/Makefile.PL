@@ -1,6 +1,8 @@
 use 5.008004;
 use ExtUtils::MakeMaker;
 
+os_unsupported if $^O eq 'MSWin32';
+
 WriteMakefile(
   NAME             => 'App::phoebe',
   VERSION_FROM     => 'lib/App/phoebe.pm',
@@ -16,20 +18,18 @@ WriteMakefile(
     'script/titan',
   ],
   PREREQ_PM => {
-    'strict' => 0,
-    'warnings' => 0,
+    # t/prerequisites.t is serious about all these!
+    'Modern::Perl' => 1.20180701, # for '2018'
+    'URI::Escape' => 0,
+    'Encode::Locale' => 0,
     'Algorithm::Diff' => 0,
     'File::ReadBackwards' => 0,
-    'Net::IDN::Encode' => 0,
-    'IRI' => 0,
-    'Encode::Locale' => 0,
-    'Mojolicious' => 8.12, # Mojo::IOLoop, also adds IO::Socket::IP
-    'IO::Socket::SSL' => 0, # optional for Mojo::IOLoop
     'File::Slurper' => 0,
-    'Modern::Perl' => 1.20180701, # for '2018'
-    'Mojo::IOLoop' => 0,
-    'URI::Escape' => 0,
-    'Mojo::Log' => 0,
+    'Mojolicious' => 9.00,       # removed tls_verify from Mojo::IOLoop::TLS 9.0
+    'IO::Socket::SSL' => 2.069,  # optional for Mojo::IOLoop
+    'Net::SSLeay' => 1.90,
+    'Net::IDN::Encode' => 0,
+    'IRI' => 0,                  # for script/gemini
   },
   META_MERGE => {
     'meta-spec' => { version => 2 },

@@ -1,7 +1,7 @@
 #ifndef SPVM_BLOCK_H
 #define SPVM_BLOCK_H
 
-#include "spvm_base.h"
+#include "spvm_typedecl.h"
 
 enum {
   // Block flag
@@ -10,12 +10,12 @@ enum {
   SPVM_BLOCK_C_ID_ELSE,
   SPVM_BLOCK_C_ID_LOOP_STATEMENTS,
   SPVM_BLOCK_C_ID_SWITCH,
-  SPVM_BLOCK_C_ID_SUB,
+  SPVM_BLOCK_C_ID_METHOD,
   SPVM_BLOCK_C_ID_EVAL,
   SPVM_BLOCK_C_ID_LOOP_INIT,
 };
 
-struct SPVM_block {
+struct spvm_block {
   int32_t id;
   int32_t have_object_var_decl;
 };

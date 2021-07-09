@@ -7,10 +7,10 @@ use lib '../..';
 
 use base qw(App::Followme::Module);
 
-use File::Spec::Functions qw(abs2rel catfile rel2abs);
+use File::Spec::Functions qw(abs2rel rel2abs catfile splitdir);
 use App::Followme::FIO;
 
-our $VERSION = "1.95";
+our $VERSION = "2.02";
 
 #----------------------------------------------------------------------
 # Read the default parameter values
@@ -20,7 +20,7 @@ sub parameters {
 
     return (
             template_file => 'convert_page.htm',
-            data_pkg => 'App::Followme::MarkdownData',
+            data_pkg => 'App::Followme::TextData',
     );
 }
 
@@ -31,6 +31,16 @@ sub run {
     my ($self, $folder) = @_;
 
     $self->update_folder($folder);
+    return;
+}
+
+#----------------------------------------------------------------------
+# Set the date format to iso date format, overriding user
+
+sub setup {
+    my ($self) = @_;
+
+    $self->{data}{date_format} = 'yyyy-mm-ddThh:mm:ss';
     return;
 }
 
@@ -67,10 +77,7 @@ sub title_to_filename {
 sub update_file {
     my ($self, $folder, $prototype, $file) = @_;
 
-    my ($base_directory, $basename) = fio_split_filename($file);
-    my $new_file = catfile($folder, $basename);
-    $new_file =~ s/\.[^\.]*$/.$self->{web_extension}/;
-
+    my $new_file = $self->{data}->convert_filename($file);
     my $page = $self->render_file($self->{template_file}, $file);
     $page = $self->reformat_file($prototype, $new_file, $page);
 
@@ -85,36 +92,28 @@ sub update_folder {
     my ($self, $folder) = @_;
 
     my $index_file = $self->to_file($folder);
-    my $base_directory = ${$self->{data}->build('base_directory', $index_file)};
-    my $same_directory = fio_same_file($base_directory, $self->{base_directory});
+    my $source_folder = $self->{data}->convert_source_directory($folder);
+    return unless $source_folder;
 
-    my $source_directory;
-    if ($same_directory) {
-        $source_directory = $folder;
-    } else {
-        $source_directory = catfile($base_directory,
-                                    abs2rel($folder, $self->{base_directory}));
-    }
-
-    $index_file = $self->to_file($source_directory);
+    my $same_directory = fio_same_file($folder, $source_folder, 
+                                       $self->{case_sensitivity});
+ 
+    $index_file = $self->to_file($source_folder);
     my $files = $self->{data}->build('files', $index_file);
 
     my $prototype;
     foreach my $file (@$files) {
         my $prototype ||= $self->find_prototype($folder, 0);
         eval {$self->update_file($folder, $prototype, $file)};
-        $self->check_error($@, $file);
-
-        unlink($file) if $same_directory;
+        if ($self->check_error($@, $file)) {
+            unlink($file) if $same_directory;
+        }
     }
 
-    if (! $self->{quick_update}) {
-        my $folders = $self->{data}->build('folders', $source_directory);
-        foreach my $subfolder (@$folders) {
-            $subfolder = catfile($folder, abs2rel($subfolder,
-                                                  $source_directory));
-            $self->update_folder($subfolder);
-        }
+    my $folders = $self->{data}->build('folders', $index_file);
+
+    foreach my $subfolder (@$folders) {
+        $self->update_folder($subfolder);
     }
 
     return;
@@ -126,13 +125,15 @@ sub update_folder {
 sub write_file {
     my ($self, $filename, $page, $binmode) = @_;
 
-    $filename = rel2abs($filename);
-    my $date = ${$self->{data}->build('$mdate', $filename)};
+    my $time = ${$self->{data}->build('mdate', $filename)};
     my $new_filename = $self->title_to_filename($filename);
 
     fio_write_page($new_filename, $page, $binmode);
-    unlink($filename) if -e $filename && $filename ne $new_filename;
-    fio_set_date($new_filename, $date);
+
+    unlink($filename) if -e $filename && 
+        ! fio_same_file($filename, $new_filename, $self->{case_sensitivity});
+
+    fio_set_date($new_filename, $time);
 
     return;
 }
@@ -144,7 +145,7 @@ __END__
 
 =head1 NAME
 
-App::Followme::ConvertPage - Convert Markdown files to html
+App::Followme::ConvertPage - Convert text files to html
 
 =head1 SYNOPSIS
 
@@ -154,10 +155,10 @@ App::Followme::ConvertPage - Convert Markdown files to html
 
 =head1 DESCRIPTION
 
-This module converts text files into web files by substtuting the content into
+This module converts text files into web files by substituting the content into
 a template. The type of file converted is determined by the value of the
-parameter data_pkg. By default, it converts Markdown files.  After the
-conversion the original file is deleted.
+parameter data_pkg. By default, it converts text files using the methods in
+App::Followme::TextData.  After the conversion the original file is deleted.
 
 Along with the content, other variables are calculated from the file name and
 modification date. Variables in the template are preceded by a sigil, most
@@ -181,7 +182,8 @@ The default value is 'convert_page.htm'.
 =item data_pkg
 
 The name of the module that parses and retrieves data from the text file. The
-default value is 'App::Followme::MarkdownData', which parses Markdown files.
+default value is 'App::Followme::TextData', which by default parses 
+Markdown files.
 
 =back
 

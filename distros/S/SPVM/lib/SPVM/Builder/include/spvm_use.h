@@ -1,13 +1,12 @@
 #ifndef SPVM_USE_H
 #define SPVM_USE_H
 
-#include "spvm_base.h"
+#include "spvm_typedecl.h"
 
-struct SPVM_use {
+struct spvm_use {
   SPVM_OP* op_type;
-  SPVM_LIST* sub_names;
+  SPVM_LIST* method_names;
   int32_t is_require;
-  int32_t is_allow;
   int32_t load_fail;
   const char* file;
 };

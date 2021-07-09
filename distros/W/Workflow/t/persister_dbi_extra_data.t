@@ -1,10 +1,9 @@
-# -*-perl-*-
-
-# $Id$
+#!/usr/bin/env perl
 
 use strict;
 use constant NUM_TESTS => 1;
 use Test::More;
+use lib qw(../lib lib ../t t);
 
 eval "require DBI";
 if ( $@ ) {

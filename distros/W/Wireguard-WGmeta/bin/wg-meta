@@ -1,0 +1,154 @@
+#!/usr/bin/perl
+
+=head1 NAME
+
+wg-meta - CLI interface to manage Wireguard using Perl
+
+=head1 DESCRIPTION
+
+This CLI interface is a (possible) implementation of L<Wireguard::WGmeta::Wrapper::Show> and L<Wireguard::WGmeta::Wrapper::Config>.
+An you don't know the best yet: It's fully compatible with your existing setup (if not let me know!)
+
+=head1 SYNOPSIS
+
+Intended to use as command wrapper for the C<wg show> and C<wg set> commands. Support for C<wg-quick> is enabled by default.
+
+Please note that B<all> non-meta attributes have to be specified in the `wg set` _syntax_, which means _AllowedIPs_ becomes
+allowed-ips and so on. wg-meta attributes on the other hand, have to be written in the exact same way as they were introduced!
+
+    $ wg-meta help
+
+    wg-meta - An approach to add meta data to the Wireguard configuration
+    Usage: wg-meta <cmd> [<args>]
+    Available subcommands:
+             show: Shows the current configuration paired with available metadata
+             set:  Sets configuration attributes
+             enable:  Enables a peer
+             disable:  Disables a peer
+             addpeer:  Adds a peer and prints the client config to std_out
+             removepeer:  Removes a peer
+             apply:  Just a shorthand for `wg syncconf <iface> <(wg-quick strip <iface>)`
+    You may pass `help` to any of these subcommands to view their usage
+
+    $ sudo wg-meta show wg0
+
+    interface: wg0
+      private-key: WG_0_PEER_B_PRIVATE_KEY
+      public-key: wg0d845RRItYcmcEW3i+dqatmja18F2P9ujy+lAtsBM=
+      listen-port: 51888
+      fwmark: off
+
+    peer: IPv6_only1
+      public-key: WG_0_PEER_A_PUBLIC_KEY
+      preshared-key: PEER_A-PEER_B-PRESHARED_KEY
+      allowed-ips: fdc9:281f:04d7:9ee9::1/128
+      endpoint: 147.86.207.49:10400
+      latest-handshake: >month ago
+      transfer-rx: 0.26 MiB
+      transfer-tx: 1.36 MiB
+      persistent-keepalive: off
+
+
+    # Access using peer (note the '+' before 'name' -> we add a previously unseen attribute)
+    sudo wg-meta set wg0 peer WG_0_PEER_A_PUBLIC_KEY +name Fancy_meta_name
+
+    # Access using alias
+    sudo wg-meta set wg0 IPv6_only1 +description "Some Desc"
+
+    # Lets check our newly set attributes
+    sudo wg-meta show wg0 name description
+
+    # output
+    interface: wg0
+      name: (none)
+      description: (none)
+
+    peer: IPv6_only1
+      name: Fancy_meta_name
+      description: Some Desc
+
+    # Disable peer
+    sudo wg-meta disable wg0 IPv6_only1
+
+    # Enable peer
+    sudo wg-meta enable wg0 WG_0_PEER_A_PUBLIC_KEY
+
+    # Apply config
+    sudo wg-meta apply wg0
+
+=head1 INSTALLATION
+
+There are a few honored environment variables L<Wireguard::WGmeta::Index/ENVIRONMENT VARIABLES>
+
+	# Build from source
+	perl Makefile.PL
+	make test
+	make install
+
+	# Using `.deb` package (available in the linked git repo)
+	sudo dpkg -i wg-meta_X.X.X.deb
+
+=head1 AUTHORS
+
+Since there is a lot of spam flooding my mailbox, I had to put spam filtering in place. If you want to make sure
+that your email gets delivered into my mailbox, include C<#im_not_a_bot#> in the B<subject!>
+
+S<Tobias Bossert E<lt>tobib at cpan.orgE<gt>>
+
+=head1 COPYRIGHT AND LICENSE
+
+MIT License
+
+Copyright (c) 2021 Tobias Bossert
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=cut
+
+use v5.20.0;
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/../thirdparty/lib/perl5";
+use experimental 'signatures';
+
+use Wireguard::WGmeta::Cli::Router;
+use Wireguard::WGmeta::Cli::TerminalHelpers;
+
+our $VERSION = "0.3.1";
+
+local $SIG{__WARN__} = sub($message) {
+    prettify_message($message, 1);
+};
+
+if (@ARGV && $ARGV[0] eq '--version') {
+    print "wg-meta v$VERSION - https://github.com/sirtoobii/wg-meta\n";
+    exit;
+}
+
+# command line argument parser
+eval {
+    route_command(\@ARGV);
+};
+if ($@) {
+    prettify_message($@, 0);
+}
+
+

@@ -18,6 +18,29 @@ mess.
 
 EOD
 
+diag '';
+foreach my $name ( qw{ LANG LC_ALL LC_COLLATE LC_CTYPE LC_MONETARY
+    LC_NUMERIC LC_TIME LC_MESSAGES } ) {
+    my_diag_value( $name, $ENV{$name} );
+}
+{
+    local $@ = undef;
+    eval {
+	require I18N::Langinfo;
+	my_diag_value( 'I18N::Langinfo CODESET',
+	    I18N::Langinfo::langinfo(
+		I18N::Langinfo::CODESET() ) );
+	1;
+    } or diag 'I18N::Langinfo unavailable';
+}
+
+if ( eval { require Mac::Pasteboard; 1 } ) {
+    foreach my $sub ( qw{ defaultEncode defaultFlavor __variant } ) {
+	my $code = Mac::Pasteboard->can( $sub );
+	my_diag_value( $sub, $code->() );
+    }
+}
+
 subtest 'Copy to clipboard' => sub {
     do './t/copy.tx';
 };
@@ -39,6 +62,16 @@ subtest 'Synch with clipboard' => sub {
 };
 
 done_testing;
+
+sub my_diag_value {
+    my ( $name, $value ) = @_;
+    if ( defined $value ) {
+	diag "$name='$value'";
+    } else {
+	diag "$name undefined";
+    }
+    return;
+}
 
 1;
 

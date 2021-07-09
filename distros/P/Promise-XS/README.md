@@ -121,6 +121,29 @@ Given the following …
 - If `$callback` throws, or if it returns a single, rejected promise,
 `$new` is rejected with the relevant value(s).
 
+# **EXPERIMENTAL:** ASYNC/AWAIT SUPPORT
+
+This module is [Promise::AsyncAwait](https://metacpan.org/pod/Promise::AsyncAwait)-compatible.
+Once you load that module you can do nifty stuff like:
+
+    use Promise::AsyncAwait;
+
+    async sub do_stuff {
+        return 1 + await fetch_number_p();
+    }
+
+    my $one_plus_number = await do_stuff();
+
+… which roughly equates to:
+
+    sub do_stuff {
+        return fetch_number_p()->then( sub { 1 + $foo } );
+    }
+
+    do_stuff->then( sub {
+        $one_plus_number = shift;
+    } );
+
 # EVENT LOOPS
 
 By default this library uses no event loop. This is a generally usable

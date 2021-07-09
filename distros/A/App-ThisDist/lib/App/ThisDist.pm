@@ -1,9 +1,9 @@
 package App::ThisDist;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-10-11'; # DATE
+our $DATE = '2021-06-22'; # DATE
 our $DIST = 'App-ThisDist'; # DIST
-our $VERSION = '0.007'; # VERSION
+our $VERSION = '0.011'; # VERSION
 
 use strict;
 use warnings;
@@ -187,6 +187,13 @@ sub this_dist {
     $extract_version ? "$distname ".(defined $distver ? $distver : "?") : $distname;
 }
 
+sub this_mod {
+    my $res = this_dist(@_);
+    return $res unless defined $res && $res =~ /\S/;
+    $res =~ s/-/::/g;
+    $res;
+}
+
 1;
 # ABSTRACT: Print Perl {distribution,module,author,...} associated with current directory
 
@@ -202,7 +209,7 @@ App::ThisDist - Print Perl {distribution,module,author,...} associated with curr
 
 =head1 VERSION
 
-This document describes version 0.007 of App::ThisDist (from Perl distribution App-ThisDist), released on 2020-10-11.
+This document describes version 0.011 of App::ThisDist (from Perl distribution App-ThisDist), released on 2021-06-22.
 
 =head1 DESCRIPTION
 
@@ -212,9 +219,17 @@ See included scripts:
 
 =item * L<this-dist>
 
+=item * L<this-mod>
+
 =back
 
 
+
+=head1 CONTRIBUTOR
+
+=for stopwords perlancar (on netbook-dell-xps13)
+
+perlancar (on netbook-dell-xps13) <perlancar@gmail.com>
 
 =head1 FUNCTIONS
 
@@ -226,7 +241,12 @@ Usage:
 
 If C<$dir> is not specified, will default to current directory. If
 C<$extract_version> is set to true, will also try to extract distribution
-version and will return "?" when unable to do so.
+version and will return "?" for version when version cannot be found.
+
+=head2 this_mod
+
+A thin wrapper for L</this_dist>. It just converts "-" in the result to "::", so
+"Foo-Bar" becomes "Foo::Bar".
 
 =head1 HOMEPAGE
 
@@ -254,7 +274,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

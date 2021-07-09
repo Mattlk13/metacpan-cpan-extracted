@@ -4,8 +4,8 @@
 #
 package PDL::LinearAlgebra::Complex;
 
-@EXPORT_OK  = qw( PDL::PP cgesvd PDL::PP cgesdd PDL::PP cggsvd PDL::PP cgeev PDL::PP cgeevx PDL::PP cggev PDL::PP cggevx PDL::PP cgees PDL::PP cgeesx PDL::PP cgges PDL::PP cggesx PDL::PP cheev PDL::PP cheevd PDL::PP cheevx PDL::PP cheevr PDL::PP chegv PDL::PP chegvd PDL::PP chegvx PDL::PP cgesv PDL::PP cgesvx PDL::PP csysv PDL::PP csysvx PDL::PP chesv PDL::PP chesvx PDL::PP cposv PDL::PP cposvx PDL::PP cgels PDL::PP cgelsy PDL::PP cgelss PDL::PP cgelsd PDL::PP cgglse PDL::PP cggglm PDL::PP cgetrf PDL::PP cgetf2 PDL::PP csytrf PDL::PP csytf2 PDL::PP cchetrf PDL::PP chetf2 PDL::PP cpotrf PDL::PP cpotf2 PDL::PP cgetri PDL::PP csytri PDL::PP chetri PDL::PP cpotri PDL::PP ctrtri PDL::PP ctrti2 PDL::PP cgetrs PDL::PP csytrs PDL::PP chetrs PDL::PP cpotrs PDL::PP ctrtrs PDL::PP clatrs PDL::PP cgecon PDL::PP csycon PDL::PP checon PDL::PP cpocon PDL::PP ctrcon PDL::PP cgeqp3 PDL::PP cgeqrf PDL::PP cungqr PDL::PP cunmqr PDL::PP cgelqf PDL::PP cunglq PDL::PP cunmlq PDL::PP cgeqlf PDL::PP cungql PDL::PP cunmql PDL::PP cgerqf PDL::PP cungrq PDL::PP cunmrq PDL::PP ctzrzf PDL::PP cunmrz PDL::PP cgehrd PDL::PP cunghr PDL::PP chseqr PDL::PP ctrevc PDL::PP ctgevc PDL::PP cgebal PDL::PP clange PDL::PP clansy PDL::PP clantr PDL::PP cgemm PDL::PP cmmult PDL::PP ccrossprod PDL::PP csyrk PDL::PP cdot PDL::PP cdotc PDL::PP caxpy PDL::PP cnrm2 PDL::PP casum PDL::PP cscal PDL::PP sscal PDL::PP crotg PDL::PP clacpy PDL::PP claswp PDL::PP ctricpy PDL::PP cmstack PDL::PP ccharpol );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP __Ccgtsv PDL::PP __Ncgtsv cgtsv PDL::PP __Ccgesvd PDL::PP __Ncgesvd cgesvd PDL::PP __Ccgesdd PDL::PP __Ncgesdd cgesdd PDL::PP __Ccggsvd PDL::PP __Ncggsvd cggsvd PDL::PP __Ccgeev PDL::PP __Ncgeev cgeev PDL::PP __Ccgeevx PDL::PP __Ncgeevx cgeevx PDL::PP __Ccggev PDL::PP __Ncggev cggev PDL::PP __Ccggevx PDL::PP __Ncggevx cggevx PDL::PP __Ccgees PDL::PP __Ncgees cgees PDL::PP __Ccgeesx PDL::PP __Ncgeesx cgeesx PDL::PP __Ccgges PDL::PP __Ncgges cgges PDL::PP __Ccggesx PDL::PP __Ncggesx cggesx PDL::PP __Ccheev PDL::PP __Ncheev cheev PDL::PP __Ccheevd PDL::PP __Ncheevd cheevd PDL::PP __Ccheevx PDL::PP __Ncheevx cheevx PDL::PP __Ccheevr PDL::PP __Ncheevr cheevr PDL::PP __Cchegv PDL::PP __Nchegv chegv PDL::PP __Cchegvd PDL::PP __Nchegvd chegvd PDL::PP __Cchegvx PDL::PP __Nchegvx chegvx PDL::PP __Ccgesv PDL::PP __Ncgesv cgesv PDL::PP __Ccgesvx PDL::PP __Ncgesvx cgesvx PDL::PP __Ccsysv PDL::PP __Ncsysv csysv PDL::PP __Ccsysvx PDL::PP __Ncsysvx csysvx PDL::PP __Cchesv PDL::PP __Nchesv chesv PDL::PP __Cchesvx PDL::PP __Nchesvx chesvx PDL::PP __Ccposv PDL::PP __Ncposv cposv PDL::PP __Ccposvx PDL::PP __Ncposvx cposvx PDL::PP __Ccgels PDL::PP __Ncgels cgels PDL::PP __Ccgelsy PDL::PP __Ncgelsy cgelsy PDL::PP __Ccgelss PDL::PP __Ncgelss cgelss PDL::PP __Ccgelsd PDL::PP __Ncgelsd cgelsd PDL::PP __Ccgglse PDL::PP __Ncgglse cgglse PDL::PP __Ccggglm PDL::PP __Ncggglm cggglm PDL::PP __Ccgetrf PDL::PP __Ncgetrf cgetrf PDL::PP __Ccgetf2 PDL::PP __Ncgetf2 cgetf2 PDL::PP __Ccsytrf PDL::PP __Ncsytrf csytrf PDL::PP __Ccsytf2 PDL::PP __Ncsytf2 csytf2 PDL::PP __Ccchetrf PDL::PP __Ncchetrf cchetrf PDL::PP __Cchetf2 PDL::PP __Nchetf2 chetf2 PDL::PP __Ccpotrf PDL::PP __Ncpotrf cpotrf PDL::PP __Ccpotf2 PDL::PP __Ncpotf2 cpotf2 PDL::PP __Ccgetri PDL::PP __Ncgetri cgetri PDL::PP __Ccsytri PDL::PP __Ncsytri csytri PDL::PP __Cchetri PDL::PP __Nchetri chetri PDL::PP __Ccpotri PDL::PP __Ncpotri cpotri PDL::PP __Cctrtri PDL::PP __Nctrtri ctrtri PDL::PP __Cctrti2 PDL::PP __Nctrti2 ctrti2 PDL::PP __Ccgetrs PDL::PP __Ncgetrs cgetrs PDL::PP __Ccsytrs PDL::PP __Ncsytrs csytrs PDL::PP __Cchetrs PDL::PP __Nchetrs chetrs PDL::PP __Ccpotrs PDL::PP __Ncpotrs cpotrs PDL::PP __Cctrtrs PDL::PP __Nctrtrs ctrtrs PDL::PP __Cclatrs PDL::PP __Nclatrs clatrs PDL::PP __Ccgecon PDL::PP __Ncgecon cgecon PDL::PP __Ccsycon PDL::PP __Ncsycon csycon PDL::PP __Cchecon PDL::PP __Nchecon checon PDL::PP __Ccpocon PDL::PP __Ncpocon cpocon PDL::PP __Cctrcon PDL::PP __Nctrcon ctrcon PDL::PP __Ccgeqp3 PDL::PP __Ncgeqp3 cgeqp3 PDL::PP __Ccgeqrf PDL::PP __Ncgeqrf cgeqrf PDL::PP __Ccungqr PDL::PP __Ncungqr cungqr PDL::PP __Ccunmqr PDL::PP __Ncunmqr cunmqr PDL::PP __Ccgelqf PDL::PP __Ncgelqf cgelqf PDL::PP __Ccunglq PDL::PP __Ncunglq cunglq PDL::PP __Ccunmlq PDL::PP __Ncunmlq cunmlq PDL::PP __Ccgeqlf PDL::PP __Ncgeqlf cgeqlf PDL::PP __Ccungql PDL::PP __Ncungql cungql PDL::PP __Ccunmql PDL::PP __Ncunmql cunmql PDL::PP __Ccgerqf PDL::PP __Ncgerqf cgerqf PDL::PP __Ccungrq PDL::PP __Ncungrq cungrq PDL::PP __Ccunmrq PDL::PP __Ncunmrq cunmrq PDL::PP __Cctzrzf PDL::PP __Nctzrzf ctzrzf PDL::PP __Ccunmrz PDL::PP __Ncunmrz cunmrz PDL::PP __Ccgehrd PDL::PP __Ncgehrd cgehrd PDL::PP __Ccunghr PDL::PP __Ncunghr cunghr PDL::PP __Cchseqr PDL::PP __Nchseqr chseqr PDL::PP __Cctrevc PDL::PP __Nctrevc ctrevc PDL::PP __Cctgevc PDL::PP __Nctgevc ctgevc PDL::PP __Ccgebal PDL::PP __Ncgebal cgebal PDL::PP __Cclange PDL::PP __Nclange clange PDL::PP __Cclansy PDL::PP __Nclansy clansy PDL::PP __Cclantr PDL::PP __Nclantr clantr PDL::PP __Ccgemm PDL::PP __Ncgemm cgemm PDL::PP __Ccmmult PDL::PP __Ncmmult cmmult PDL::PP __Cccrossprod PDL::PP __Nccrossprod ccrossprod PDL::PP __Ccsyrk PDL::PP __Ncsyrk csyrk PDL::PP __Ccdot PDL::PP __Ncdot cdot PDL::PP __Ccdotc PDL::PP __Ncdotc cdotc PDL::PP __Ccaxpy PDL::PP __Ncaxpy caxpy PDL::PP __Ccnrm2 PDL::PP __Ncnrm2 cnrm2 PDL::PP __Ccasum PDL::PP __Ncasum casum PDL::PP __Ccscal PDL::PP __Ncscal cscal PDL::PP sscal PDL::PP __Ccrotg PDL::PP __Ncrotg crotg PDL::PP __Cclacpy PDL::PP __Nclacpy clacpy PDL::PP __Cclaswp PDL::PP __Nclaswp claswp PDL::PP ctricpy PDL::PP cmstack PDL::PP __Cccharpol PDL::PP __Nccharpol ccharpol );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -13,8 +13,8 @@ use DynaLoader;
 
 
 
-   $PDL::LinearAlgebra::Complex::VERSION = '0.14';
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our $VERSION = '0.14';
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::LinearAlgebra::Complex $VERSION;
 
@@ -22,23 +22,8 @@ use DynaLoader;
 
 
 use strict;
-use PDL::Complex;
 use PDL::LinearAlgebra::Real;
 
-{ 
-  package # hide from CPAN
-    PDL;
-	my $warningFlag;
-  	BEGIN{
-  		$warningFlag = $^W;
-		$^W = 0;
-	}
-	use overload (
-		'x'     =>  sub {UNIVERSAL::isa($_[1],'PDL::Complex') ? PDL::cmmult(PDL::Complex::r2C($_[0]), $_[1]):
-								PDL::mmult($_[0], $_[1]);
-				});
-	BEGIN{ $^W = $warningFlag ; }	
-}
 { 
   package # hide from CPAN
     PDL::Complex;
@@ -54,8 +39,6 @@ use PDL::LinearAlgebra::Real;
 	);
 	BEGIN{ $^W = $warningFlag ; }
 }
-
-
 
 =encoding Latin-1
 
@@ -76,12 +59,21 @@ PDL::LinearAlgebra::Complex - PDL interface to the lapack linear algebra program
  $job = 0;
  cgesdd($a, $job, $info, $s , $u, $v);
 
+ # or, using native complex numbers:
+ use PDL;
+ use PDL::LinearAlgebra::Complex;
+ $a = random(cdouble, 100, 100);
+ $s = zeroes(cdouble, 100);
+ $u = zeroes(cdouble, 100, 100);
+ $v = zeroes(cdouble, 100, 100);
+ $info = 0;
+ $job = 0;
+ cgesdd($a, $job, $info, $s , $u, $v);
 
 =head1 DESCRIPTION
 
 This module provides an interface to parts of the lapack library (complex numbers).
-These routines accept either float or double piddles.
-
+These routines accept either float or double ndarrays.
 
 
 
@@ -97,6 +89,100 @@ These routines accept either float or double piddles.
 
 
 
+
+
+
+*__Ccgtsv = \&PDL::__Ccgtsv;
+
+
+
+
+
+*__Ncgtsv = \&PDL::__Ncgtsv;
+
+
+
+=head2 cgtsv
+
+=for sig
+
+  Signature: ([phys]DL(2,n); [phys]D(2,n); [phys]DU(2,n); [io,phys]B(2,n,nrhs); int [o,phys]info())
+
+
+
+=for ref
+
+Solves the equation
+
+	A * X = B
+
+where A is an C<n> by C<n> tridiagonal matrix, by Gaussian elimination with
+partial pivoting, and B is an C<n> by C<nrhs> matrix.
+
+Note that the equation C<A**T*X = B>  may be solved by interchanging the
+order of the arguments DU and DL.
+
+B<NB> This differs from the LINPACK function C<cgtsl> in that C<DL>
+starts from its first element, while the LINPACK equivalent starts from
+its second element.
+
+    Arguments
+    =========
+
+    DL:   On entry, DL must contain the (n-1) sub-diagonal elements of A.
+
+          On exit, DL is overwritten by the (n-2) elements of the
+          second super-diagonal of the upper triangular matrix U from
+          the LU factorization of A, in DL(1), ..., DL(n-2).
+
+    D:    On entry, D must contain the diagonal elements of A.
+
+          On exit, D is overwritten by the n diagonal elements of U.
+
+    DU:   On entry, DU must contain the (n-1) super-diagonal elements of A.
+
+          On exit, DU is overwritten by the (n-1) elements of the
+          first super-diagonal of the U.
+
+    B:    On entry, the n by nrhs matrix of right hand side matrix B.
+          On exit, if info = 0, the n by nrhs solution matrix X.
+
+    info:   = 0:  successful exit
+            < 0:  if info = -i, the i-th argument had an illegal value
+            > 0:  if info = i, U(i,i) is exactly zero, and the solution
+                  has not been computed.  The factorization has not been
+                  completed unless i = n.
+
+=for example
+
+ use PDL::Complex;
+ $dl = random(float, 9) + random(float, 9) * i;
+ $d = random(float, 10) + random(float, 10) * i;
+ $du = random(float, 9) + random(float, 9) * i;
+ $b = random(10,5) + random(10,5) * i;
+ cgtsv($dl, $d, $du, $b, ($info=null));
+ print "X is:\n$b" unless $info;
+
+
+
+=cut
+
+sub PDL::cgtsv {
+  $_[0]->type->real ? goto &PDL::__Ccgtsv : goto &PDL::__Ncgtsv;
+}
+*cgtsv = \&PDL::cgtsv;
+
+
+
+
+
+*__Ccgesvd = \&PDL::__Ccgesvd;
+
+
+
+
+
+*__Ncgesvd = \&PDL::__Ncgesvd;
 
 
 
@@ -118,22 +204,24 @@ The SVD is written
 
 
 
-=for bad
-
-cgesvd ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgesvd {
+  $_[0]->type->real ? goto &PDL::__Ccgesvd : goto &PDL::__Ncgesvd;
+}
 *cgesvd = \&PDL::cgesvd;
 
 
+
+
+
+*__Ccgesdd = \&PDL::__Ccgesdd;
+
+
+
+
+
+*__Ncgesdd = \&PDL::__Ncgesdd;
 
 
 
@@ -155,22 +243,24 @@ The SVD is written
 
 
 
-=for bad
-
-cgesdd ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgesdd {
+  $_[0]->type->real ? goto &PDL::__Ccgesdd : goto &PDL::__Ncgesdd;
+}
 *cgesdd = \&PDL::cgesdd;
 
 
+
+
+
+*__Ccggsvd = \&PDL::__Ccggsvd;
+
+
+
+
+
+*__Ncggsvd = \&PDL::__Ncggsvd;
 
 
 
@@ -181,29 +271,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); int jobu(); int jobv(); int jobq(); [io,phys]B(2,p,n); int [o,phys]k(); int [o,phys]l();[o,phys]alpha(n);[o,phys]beta(n); [o,phys]U(2,q,r); [o,phys]V(2,s,t); [o,phys]Q(2,u,v); int [o,phys]iwork(n); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of ggsvd
 
 
 
-=for bad
-
-cggsvd ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cggsvd {
+  $_[0]->type->real ? goto &PDL::__Ccggsvd : goto &PDL::__Ncggsvd;
+}
 *cggsvd = \&PDL::cggsvd;
 
 
+
+
+
+*__Ccgeev = \&PDL::__Ccgeev;
+
+
+
+
+
+*__Ncgeev = \&PDL::__Ncgeev;
 
 
 
@@ -214,29 +305,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,n,n); int jobvl(); int jobvr(); [o,phys]w(2,n); [o,phys]vl(2,m,m); [o,phys]vr(2,p,p); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of geev
 
 
 
-=for bad
-
-cgeev ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgeev {
+  $_[0]->type->real ? goto &PDL::__Ccgeev : goto &PDL::__Ncgeev;
+}
 *cgeev = \&PDL::cgeev;
 
 
+
+
+
+*__Ccgeevx = \&PDL::__Ccgeevx;
+
+
+
+
+
+*__Ncgeevx = \&PDL::__Ncgeevx;
 
 
 
@@ -247,29 +339,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n);  int jobvl(); int jobvr(); int balance(); int sense(); [o,phys]w(2,n); [o,phys]vl(2,m,m); [o,phys]vr(2,p,p); int [o,phys]ilo(); int [o,phys]ihi(); [o,phys]scale(n); [o,phys]abnrm(); [o,phys]rconde(q); [o,phys]rcondv(r); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of geevx
 
 
 
-=for bad
-
-cgeevx ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgeevx {
+  $_[0]->type->real ? goto &PDL::__Ccgeevx : goto &PDL::__Ncgeevx;
+}
 *cgeevx = \&PDL::cgeevx;
 
 
+
+
+
+*__Ccggev = \&PDL::__Ccggev;
+
+
+
+
+
+*__Ncggev = \&PDL::__Ncggev;
 
 
 
@@ -280,29 +373,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,n,n); int jobvl();int jobvr();[phys]B(2,n,n);[o,phys]alpha(2,n);[o,phys]beta(2,n);[o,phys]VL(2,m,m);[o,phys]VR(2,p,p);int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of ggev
 
 
 
-=for bad
-
-cggev ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cggev {
+  $_[0]->type->real ? goto &PDL::__Ccggev : goto &PDL::__Ncggev;
+}
 *cggev = \&PDL::cggev;
 
 
+
+
+
+*__Ccggevx = \&PDL::__Ccggevx;
+
+
+
+
+
+*__Ncggevx = \&PDL::__Ncggevx;
 
 
 
@@ -313,29 +407,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n);int balanc();int jobvl();int jobvr();int sense();[io,phys]B(2,n,n);[o,phys]alpha(2,n);[o,phys]beta(2,n);[o,phys]VL(2,m,m);[o,phys]VR(2,p,p);int [o,phys]ilo();int [o,phys]ihi();[o,phys]lscale(n);[o,phys]rscale(n);[o,phys]abnrm();[o,phys]bbnrm();[o,phys]rconde(r);[o,phys]rcondv(s);int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of ggevx
 
 
 
-=for bad
-
-cggevx ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cggevx {
+  $_[0]->type->real ? goto &PDL::__Ccggevx : goto &PDL::__Ncggevx;
+}
 *cggevx = \&PDL::cggevx;
 
 
+
+
+
+*__Ccgees = \&PDL::__Ccgees;
+
+
+
+
+
+*__Ncgees = \&PDL::__Ncgees;
 
 
 
@@ -343,7 +438,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for sig
 
-  Signature: ([io,phys]A(2,n,n);  int jobvs(); int sort(); [o,phys]w(2,n); [o,phys]vs(2,p,p); int [o,phys]sdim(); int [o,phys]info(); SV* select_func)
+  Signature: ([io,phys]A(2,n,n);  int jobvs(); int sort(); [o,phys]w(2,n); [o,phys]vs(2,p,p); int [o,phys]sdim(); int [o,phys]info())
 
 
 
@@ -366,22 +461,24 @@ Complex version of gees
 
 
 
-=for bad
-
-cgees ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgees {
+  $_[0]->type->real ? goto &PDL::__Ccgees : goto &PDL::__Ncgees;
+}
 *cgees = \&PDL::cgees;
 
 
+
+
+
+*__Ccgeesx = \&PDL::__Ccgeesx;
+
+
+
+
+
+*__Ncgeesx = \&PDL::__Ncgeesx;
 
 
 
@@ -389,7 +486,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for sig
 
-  Signature: ([io,phys]A(2,n,n);  int jobvs(); int sort(); int sense(); [o,phys]w(2,n);[o,phys]vs(2,p,p); int [o,phys]sdim(); [o,phys]rconde();[o,phys]rcondv(); int [o,phys]info(); SV* select_func)
+  Signature: ([io,phys]A(2,n,n);  int jobvs(); int sort(); int sense(); [o,phys]w(2,n);[o,phys]vs(2,p,p); int [o,phys]sdim(); [o,phys]rconde();[o,phys]rcondv(); int [o,phys]info())
 
 
 
@@ -412,22 +509,24 @@ Complex version of geesx
 
 
 
-=for bad
-
-cgeesx ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgeesx {
+  $_[0]->type->real ? goto &PDL::__Ccgeesx : goto &PDL::__Ncgeesx;
+}
 *cgeesx = \&PDL::cgeesx;
 
 
+
+
+
+*__Ccgges = \&PDL::__Ccgges;
+
+
+
+
+
+*__Ncgges = \&PDL::__Ncgges;
 
 
 
@@ -435,7 +534,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for sig
 
-  Signature: ([io,phys]A(2,n,n); int jobvsl();int jobvsr();int sort();[io,phys]B(2,n,n);[o,phys]alpha(2,n);[o,phys]beta(2,n);[o,phys]VSL(2,m,m);[o,phys]VSR(2,p,p);int [o,phys]sdim();int [o,phys]info(); SV* select_func)
+  Signature: ([io,phys]A(2,n,n); int jobvsl();int jobvsr();int sort();[io,phys]B(2,n,n);[o,phys]alpha(2,n);[o,phys]beta(2,n);[o,phys]VSL(2,m,m);[o,phys]VSR(2,p,p);int [o,phys]sdim();int [o,phys]info())
 
 
 
@@ -458,22 +557,24 @@ Complex version of ggees
 
 
 
-=for bad
-
-cgges ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgges {
+  $_[0]->type->real ? goto &PDL::__Ccgges : goto &PDL::__Ncgges;
+}
 *cgges = \&PDL::cgges;
 
 
+
+
+
+*__Ccggesx = \&PDL::__Ccggesx;
+
+
+
+
+
+*__Ncggesx = \&PDL::__Ncggesx;
 
 
 
@@ -481,7 +582,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for sig
 
-  Signature: ([io,phys]A(2,n,n); int jobvsl();int jobvsr();int sort();int sense();[io,phys]B(2,n,n);[o,phys]alpha(2,n);[o,phys]beta(2,n);[o,phys]VSL(2,m,m);[o,phys]VSR(2,p,p);int [o,phys]sdim();[o,phys]rconde(q);[o,phys]rcondv(r);int [o,phys]info(); SV* select_func)
+  Signature: ([io,phys]A(2,n,n); int jobvsl();int jobvsr();int sort();int sense();[io,phys]B(2,n,n);[o,phys]alpha(2,n);[o,phys]beta(2,n);[o,phys]VSL(2,m,m);[o,phys]VSR(2,p,p);int [o,phys]sdim();[o,phys]rconde(q);[o,phys]rcondv(r);int [o,phys]info())
 
 
 
@@ -504,22 +605,24 @@ Complex version of ggeesx
 
 
 
-=for bad
-
-cggesx ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cggesx {
+  $_[0]->type->real ? goto &PDL::__Ccggesx : goto &PDL::__Ncggesx;
+}
 *cggesx = \&PDL::cggesx;
 
 
+
+
+
+*__Ccheev = \&PDL::__Ccheev;
+
+
+
+
+
+*__Ncheev = \&PDL::__Ncheev;
 
 
 
@@ -537,22 +640,24 @@ Complex version of syev for Hermitian matrix
 
 
 
-=for bad
-
-cheev ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cheev {
+  $_[0]->type->real ? goto &PDL::__Ccheev : goto &PDL::__Ncheev;
+}
 *cheev = \&PDL::cheev;
 
 
+
+
+
+*__Ccheevd = \&PDL::__Ccheevd;
+
+
+
+
+
+*__Ncheevd = \&PDL::__Ncheevd;
 
 
 
@@ -570,22 +675,24 @@ Complex version of syevd for Hermitian matrix
 
 
 
-=for bad
-
-cheevd ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cheevd {
+  $_[0]->type->real ? goto &PDL::__Ccheevd : goto &PDL::__Ncheevd;
+}
 *cheevd = \&PDL::cheevd;
 
 
+
+
+
+*__Ccheevx = \&PDL::__Ccheevx;
+
+
+
+
+
+*__Ncheevx = \&PDL::__Ncheevx;
 
 
 
@@ -603,22 +710,24 @@ Complex version of syevx for Hermitian matrix
 
 
 
-=for bad
-
-cheevx ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cheevx {
+  $_[0]->type->real ? goto &PDL::__Ccheevx : goto &PDL::__Ncheevx;
+}
 *cheevx = \&PDL::cheevx;
 
 
+
+
+
+*__Ccheevr = \&PDL::__Ccheevr;
+
+
+
+
+
+*__Ncheevr = \&PDL::__Ncheevr;
 
 
 
@@ -636,22 +745,24 @@ Complex version of syevr for Hermitian matrix
 
 
 
-=for bad
-
-cheevr ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cheevr {
+  $_[0]->type->real ? goto &PDL::__Ccheevr : goto &PDL::__Ncheevr;
+}
 *cheevr = \&PDL::cheevr;
 
 
+
+
+
+*__Cchegv = \&PDL::__Cchegv;
+
+
+
+
+
+*__Nchegv = \&PDL::__Nchegv;
 
 
 
@@ -669,22 +780,24 @@ Complex version of sygv for Hermitian matrix
 
 
 
-=for bad
-
-chegv ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::chegv {
+  $_[0]->type->real ? goto &PDL::__Cchegv : goto &PDL::__Nchegv;
+}
 *chegv = \&PDL::chegv;
 
 
+
+
+
+*__Cchegvd = \&PDL::__Cchegvd;
+
+
+
+
+
+*__Nchegvd = \&PDL::__Nchegvd;
 
 
 
@@ -702,22 +815,24 @@ Complex version of sygvd for Hermitian matrix
 
 
 
-=for bad
-
-chegvd ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::chegvd {
+  $_[0]->type->real ? goto &PDL::__Cchegvd : goto &PDL::__Nchegvd;
+}
 *chegvd = \&PDL::chegvd;
 
 
+
+
+
+*__Cchegvx = \&PDL::__Cchegvx;
+
+
+
+
+
+*__Nchegvx = \&PDL::__Nchegvx;
 
 
 
@@ -735,22 +850,24 @@ Complex version of sygvx for Hermitian matrix
 
 
 
-=for bad
-
-chegvx ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::chegvx {
+  $_[0]->type->real ? goto &PDL::__Cchegvx : goto &PDL::__Nchegvx;
+}
 *chegvx = \&PDL::chegvx;
 
 
+
+
+
+*__Ccgesv = \&PDL::__Ccgesv;
+
+
+
+
+
+*__Ncgesv = \&PDL::__Ncgesv;
 
 
 
@@ -761,29 +878,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n);  [io,phys]B(2,n,m); int [o,phys]ipiv(n); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of gesv
 
 
 
-=for bad
-
-cgesv ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgesv {
+  $_[0]->type->real ? goto &PDL::__Ccgesv : goto &PDL::__Ncgesv;
+}
 *cgesv = \&PDL::cgesv;
 
 
+
+
+
+*__Ccgesvx = \&PDL::__Ccgesvx;
+
+
+
+
+
+*__Ncgesvx = \&PDL::__Ncgesvx;
 
 
 
@@ -806,22 +924,24 @@ Complex version of gesvx.
 
 
 
-=for bad
-
-cgesvx ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgesvx {
+  $_[0]->type->real ? goto &PDL::__Ccgesvx : goto &PDL::__Ncgesvx;
+}
 *cgesvx = \&PDL::cgesvx;
 
 
+
+
+
+*__Ccsysv = \&PDL::__Ccsysv;
+
+
+
+
+
+*__Ncsysv = \&PDL::__Ncsysv;
 
 
 
@@ -832,29 +952,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n);  int uplo(); [io,phys]B(2,n,m); int [o,phys]ipiv(n); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of sysv
 
 
 
-=for bad
-
-csysv ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::csysv {
+  $_[0]->type->real ? goto &PDL::__Ccsysv : goto &PDL::__Ncsysv;
+}
 *csysv = \&PDL::csysv;
 
 
+
+
+
+*__Ccsysvx = \&PDL::__Ccsysvx;
+
+
+
+
+
+*__Ncsysvx = \&PDL::__Ncsysvx;
 
 
 
@@ -865,29 +986,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,n,n); int uplo(); int fact(); [phys]B(2,n,m); [io,phys]af(2,n,n); int [io,phys]ipiv(n); [o,phys]X(2,n,m); [o,phys]rcond(); [o,phys]ferr(m); [o,phys]berr(m); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of sysvx
 
 
 
-=for bad
-
-csysvx ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::csysvx {
+  $_[0]->type->real ? goto &PDL::__Ccsysvx : goto &PDL::__Ncsysvx;
+}
 *csysvx = \&PDL::csysvx;
 
 
+
+
+
+*__Cchesv = \&PDL::__Cchesv;
+
+
+
+
+
+*__Nchesv = \&PDL::__Nchesv;
 
 
 
@@ -905,22 +1027,24 @@ Complex version of sysv for Hermitian matrix
 
 
 
-=for bad
-
-chesv ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::chesv {
+  $_[0]->type->real ? goto &PDL::__Cchesv : goto &PDL::__Nchesv;
+}
 *chesv = \&PDL::chesv;
 
 
+
+
+
+*__Cchesvx = \&PDL::__Cchesvx;
+
+
+
+
+
+*__Nchesvx = \&PDL::__Nchesvx;
 
 
 
@@ -938,22 +1062,24 @@ Complex version of sysvx for Hermitian matrix
 
 
 
-=for bad
-
-chesvx ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::chesvx {
+  $_[0]->type->real ? goto &PDL::__Cchesvx : goto &PDL::__Nchesvx;
+}
 *chesvx = \&PDL::chesvx;
 
 
+
+
+
+*__Ccposv = \&PDL::__Ccposv;
+
+
+
+
+
+*__Ncposv = \&PDL::__Ncposv;
 
 
 
@@ -971,22 +1097,24 @@ Complex version of posv for Hermitian positive definite matrix
 
 
 
-=for bad
-
-cposv ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cposv {
+  $_[0]->type->real ? goto &PDL::__Ccposv : goto &PDL::__Ncposv;
+}
 *cposv = \&PDL::cposv;
 
 
+
+
+
+*__Ccposvx = \&PDL::__Ccposvx;
+
+
+
+
+
+*__Ncposvx = \&PDL::__Ncposvx;
 
 
 
@@ -1004,22 +1132,24 @@ Complex version of posvx for Hermitian positive definite matrix
 
 
 
-=for bad
-
-cposvx ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cposvx {
+  $_[0]->type->real ? goto &PDL::__Ccposvx : goto &PDL::__Ncposvx;
+}
 *cposvx = \&PDL::cposvx;
 
 
+
+
+
+*__Ccgels = \&PDL::__Ccgels;
+
+
+
+
+
+*__Ncgels = \&PDL::__Ncgels;
 
 
 
@@ -1042,22 +1172,24 @@ Complex version of gels.
 
 
 
-=for bad
-
-cgels ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgels {
+  $_[0]->type->real ? goto &PDL::__Ccgels : goto &PDL::__Ncgels;
+}
 *cgels = \&PDL::cgels;
 
 
+
+
+
+*__Ccgelsy = \&PDL::__Ccgelsy;
+
+
+
+
+
+*__Ncgelsy = \&PDL::__Ncgelsy;
 
 
 
@@ -1068,29 +1200,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); [io,phys]B(2,p,q); [phys]rcond(); int [io,phys]jpvt(n); int [o,phys]rank();int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of gelsy
 
 
 
-=for bad
-
-cgelsy ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgelsy {
+  $_[0]->type->real ? goto &PDL::__Ccgelsy : goto &PDL::__Ncgelsy;
+}
 *cgelsy = \&PDL::cgelsy;
 
 
+
+
+
+*__Ccgelss = \&PDL::__Ccgelss;
+
+
+
+
+
+*__Ncgelss = \&PDL::__Ncgelss;
 
 
 
@@ -1101,29 +1234,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); [io,phys]B(2,p,q); [phys]rcond(); [o,phys]s(r); int [o,phys]rank();int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of gelss
 
 
 
-=for bad
-
-cgelss ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgelss {
+  $_[0]->type->real ? goto &PDL::__Ccgelss : goto &PDL::__Ncgelss;
+}
 *cgelss = \&PDL::cgelss;
 
 
+
+
+
+*__Ccgelsd = \&PDL::__Ccgelsd;
+
+
+
+
+
+*__Ncgelsd = \&PDL::__Ncgelsd;
 
 
 
@@ -1134,29 +1268,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); [io,phys]B(2,p,q); [phys]rcond(); [o,phys]s(r); int [o,phys]rank();int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of gelsd
 
 
 
-=for bad
-
-cgelsd ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgelsd {
+  $_[0]->type->real ? goto &PDL::__Ccgelsd : goto &PDL::__Ncgelsd;
+}
 *cgelsd = \&PDL::cgelsd;
 
 
+
+
+
+*__Ccgglse = \&PDL::__Ccgglse;
+
+
+
+
+
+*__Ncgglse = \&PDL::__Ncgglse;
 
 
 
@@ -1167,29 +1302,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,m,n); [phys]B(2,p,n);[io,phys]c(2,m);[phys]d(2,p);[o,phys]x(2,n);int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of gglse
 
 
 
-=for bad
-
-cgglse ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgglse {
+  $_[0]->type->real ? goto &PDL::__Ccgglse : goto &PDL::__Ncgglse;
+}
 *cgglse = \&PDL::cgglse;
 
 
+
+
+
+*__Ccggglm = \&PDL::__Ccggglm;
+
+
+
+
+
+*__Ncggglm = \&PDL::__Ncggglm;
 
 
 
@@ -1200,29 +1336,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,n,m); [phys]B(2,n,p);[phys]d(2,n);[o,phys]x(2,m);[o,phys]y(2,p);int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of ggglm
 
 
 
-=for bad
-
-cggglm ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cggglm {
+  $_[0]->type->real ? goto &PDL::__Ccggglm : goto &PDL::__Ncggglm;
+}
 *cggglm = \&PDL::cggglm;
 
 
+
+
+
+*__Ccgetrf = \&PDL::__Ccgetrf;
+
+
+
+
+
+*__Ncgetrf = \&PDL::__Ncgetrf;
 
 
 
@@ -1233,29 +1370,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); int [o,phys]ipiv(p); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of getrf
 
 
 
-=for bad
-
-cgetrf ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgetrf {
+  $_[0]->type->real ? goto &PDL::__Ccgetrf : goto &PDL::__Ncgetrf;
+}
 *cgetrf = \&PDL::cgetrf;
 
 
+
+
+
+*__Ccgetf2 = \&PDL::__Ccgetf2;
+
+
+
+
+
+*__Ncgetf2 = \&PDL::__Ncgetf2;
 
 
 
@@ -1266,29 +1404,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); int [o,phys]ipiv(p); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of getf2
 
 
 
-=for bad
-
-cgetf2 ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgetf2 {
+  $_[0]->type->real ? goto &PDL::__Ccgetf2 : goto &PDL::__Ncgetf2;
+}
 *cgetf2 = \&PDL::cgetf2;
 
 
+
+
+
+*__Ccsytrf = \&PDL::__Ccsytrf;
+
+
+
+
+
+*__Ncsytrf = \&PDL::__Ncsytrf;
 
 
 
@@ -1299,29 +1438,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n); int uplo(); int [o,phys]ipiv(n); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of sytrf
 
 
 
-=for bad
-
-csytrf ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::csytrf {
+  $_[0]->type->real ? goto &PDL::__Ccsytrf : goto &PDL::__Ncsytrf;
+}
 *csytrf = \&PDL::csytrf;
 
 
+
+
+
+*__Ccsytf2 = \&PDL::__Ccsytf2;
+
+
+
+
+
+*__Ncsytf2 = \&PDL::__Ncsytf2;
 
 
 
@@ -1332,29 +1472,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n); int uplo(); int [o,phys]ipiv(n); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of sytf2
 
 
 
-=for bad
-
-csytf2 ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::csytf2 {
+  $_[0]->type->real ? goto &PDL::__Ccsytf2 : goto &PDL::__Ncsytf2;
+}
 *csytf2 = \&PDL::csytf2;
 
 
+
+
+
+*__Ccchetrf = \&PDL::__Ccchetrf;
+
+
+
+
+
+*__Ncchetrf = \&PDL::__Ncchetrf;
 
 
 
@@ -1372,22 +1513,24 @@ Complex version of sytrf for Hermitian matrix
 
 
 
-=for bad
-
-cchetrf ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cchetrf {
+  $_[0]->type->real ? goto &PDL::__Ccchetrf : goto &PDL::__Ncchetrf;
+}
 *cchetrf = \&PDL::cchetrf;
 
 
+
+
+
+*__Cchetf2 = \&PDL::__Cchetf2;
+
+
+
+
+
+*__Nchetf2 = \&PDL::__Nchetf2;
 
 
 
@@ -1405,22 +1548,24 @@ Complex version of sytf2 for Hermitian matrix
 
 
 
-=for bad
-
-chetf2 ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::chetf2 {
+  $_[0]->type->real ? goto &PDL::__Cchetf2 : goto &PDL::__Nchetf2;
+}
 *chetf2 = \&PDL::chetf2;
 
 
+
+
+
+*__Ccpotrf = \&PDL::__Ccpotrf;
+
+
+
+
+
+*__Ncpotrf = \&PDL::__Ncpotrf;
 
 
 
@@ -1438,22 +1583,24 @@ Complex version of potrf for Hermitian positive definite matrix
 
 
 
-=for bad
-
-cpotrf ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cpotrf {
+  $_[0]->type->real ? goto &PDL::__Ccpotrf : goto &PDL::__Ncpotrf;
+}
 *cpotrf = \&PDL::cpotrf;
 
 
+
+
+
+*__Ccpotf2 = \&PDL::__Ccpotf2;
+
+
+
+
+
+*__Ncpotf2 = \&PDL::__Ncpotf2;
 
 
 
@@ -1471,22 +1618,24 @@ Complex version of potf2 for Hermitian positive definite matrix
 
 
 
-=for bad
-
-cpotf2 ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cpotf2 {
+  $_[0]->type->real ? goto &PDL::__Ccpotf2 : goto &PDL::__Ncpotf2;
+}
 *cpotf2 = \&PDL::cpotf2;
 
 
+
+
+
+*__Ccgetri = \&PDL::__Ccgetri;
+
+
+
+
+
+*__Ncgetri = \&PDL::__Ncgetri;
 
 
 
@@ -1497,29 +1646,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n); int [phys]ipiv(n); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of getri
 
 
 
-=for bad
-
-cgetri ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgetri {
+  $_[0]->type->real ? goto &PDL::__Ccgetri : goto &PDL::__Ncgetri;
+}
 *cgetri = \&PDL::cgetri;
 
 
+
+
+
+*__Ccsytri = \&PDL::__Ccsytri;
+
+
+
+
+
+*__Ncsytri = \&PDL::__Ncsytri;
 
 
 
@@ -1530,29 +1680,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n); int uplo(); int [phys]ipiv(n); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of sytri
 
 
 
-=for bad
-
-csytri ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::csytri {
+  $_[0]->type->real ? goto &PDL::__Ccsytri : goto &PDL::__Ncsytri;
+}
 *csytri = \&PDL::csytri;
 
 
+
+
+
+*__Cchetri = \&PDL::__Cchetri;
+
+
+
+
+
+*__Nchetri = \&PDL::__Nchetri;
 
 
 
@@ -1570,22 +1721,24 @@ Complex version of sytri for Hermitian matrix
 
 
 
-=for bad
-
-chetri ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::chetri {
+  $_[0]->type->real ? goto &PDL::__Cchetri : goto &PDL::__Nchetri;
+}
 *chetri = \&PDL::chetri;
 
 
+
+
+
+*__Ccpotri = \&PDL::__Ccpotri;
+
+
+
+
+
+*__Ncpotri = \&PDL::__Ncpotri;
 
 
 
@@ -1596,29 +1749,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n); int uplo(); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of potri
 
 
 
-=for bad
-
-cpotri ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cpotri {
+  $_[0]->type->real ? goto &PDL::__Ccpotri : goto &PDL::__Ncpotri;
+}
 *cpotri = \&PDL::cpotri;
 
 
+
+
+
+*__Cctrtri = \&PDL::__Cctrtri;
+
+
+
+
+
+*__Nctrtri = \&PDL::__Nctrtri;
 
 
 
@@ -1629,29 +1783,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n); int uplo(); int diag(); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of trtri
 
 
 
-=for bad
-
-ctrtri ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::ctrtri {
+  $_[0]->type->real ? goto &PDL::__Cctrtri : goto &PDL::__Nctrtri;
+}
 *ctrtri = \&PDL::ctrtri;
 
 
+
+
+
+*__Cctrti2 = \&PDL::__Cctrti2;
+
+
+
+
+
+*__Nctrti2 = \&PDL::__Nctrti2;
 
 
 
@@ -1662,29 +1817,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n); int uplo(); int diag(); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of trti2
 
 
 
-=for bad
-
-ctrti2 ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::ctrti2 {
+  $_[0]->type->real ? goto &PDL::__Cctrti2 : goto &PDL::__Nctrti2;
+}
 *ctrti2 = \&PDL::ctrti2;
 
 
+
+
+
+*__Ccgetrs = \&PDL::__Ccgetrs;
+
+
+
+
+
+*__Ncgetrs = \&PDL::__Ncgetrs;
 
 
 
@@ -1708,22 +1864,24 @@ Complex version of getrs
 
 
 
-=for bad
-
-cgetrs ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgetrs {
+  $_[0]->type->real ? goto &PDL::__Ccgetrs : goto &PDL::__Ncgetrs;
+}
 *cgetrs = \&PDL::cgetrs;
 
 
+
+
+
+*__Ccsytrs = \&PDL::__Ccsytrs;
+
+
+
+
+
+*__Ncsytrs = \&PDL::__Ncsytrs;
 
 
 
@@ -1734,29 +1892,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,n,n); int uplo();[io,phys]B(2,n,m); int [phys]ipiv(n); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of sytrs
 
 
 
-=for bad
-
-csytrs ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::csytrs {
+  $_[0]->type->real ? goto &PDL::__Ccsytrs : goto &PDL::__Ncsytrs;
+}
 *csytrs = \&PDL::csytrs;
 
 
+
+
+
+*__Cchetrs = \&PDL::__Cchetrs;
+
+
+
+
+
+*__Nchetrs = \&PDL::__Nchetrs;
 
 
 
@@ -1774,22 +1933,24 @@ Complex version of sytrs for Hermitian matrix
 
 
 
-=for bad
-
-chetrs ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::chetrs {
+  $_[0]->type->real ? goto &PDL::__Cchetrs : goto &PDL::__Nchetrs;
+}
 *chetrs = \&PDL::chetrs;
 
 
+
+
+
+*__Ccpotrs = \&PDL::__Ccpotrs;
+
+
+
+
+
+*__Ncpotrs = \&PDL::__Ncpotrs;
 
 
 
@@ -1807,22 +1968,24 @@ Complex version of potrs for Hermitian positive definite matrix
 
 
 
-=for bad
-
-cpotrs ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cpotrs {
+  $_[0]->type->real ? goto &PDL::__Ccpotrs : goto &PDL::__Ncpotrs;
+}
 *cpotrs = \&PDL::cpotrs;
 
 
+
+
+
+*__Cctrtrs = \&PDL::__Cctrtrs;
+
+
+
+
+
+*__Nctrtrs = \&PDL::__Nctrtrs;
 
 
 
@@ -1846,22 +2009,24 @@ Complex version of trtrs
 
 
 
-=for bad
-
-ctrtrs ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::ctrtrs {
+  $_[0]->type->real ? goto &PDL::__Cctrtrs : goto &PDL::__Nctrtrs;
+}
 *ctrtrs = \&PDL::ctrtrs;
 
 
+
+
+
+*__Cclatrs = \&PDL::__Cclatrs;
+
+
+
+
+
+*__Nclatrs = \&PDL::__Nclatrs;
 
 
 
@@ -1885,22 +2050,24 @@ Complex version of latrs
 
 
 
-=for bad
-
-clatrs ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::clatrs {
+  $_[0]->type->real ? goto &PDL::__Cclatrs : goto &PDL::__Nclatrs;
+}
 *clatrs = \&PDL::clatrs;
 
 
+
+
+
+*__Ccgecon = \&PDL::__Ccgecon;
+
+
+
+
+
+*__Ncgecon = \&PDL::__Ncgecon;
 
 
 
@@ -1911,29 +2078,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,n,n); int norm(); [phys]anorm(); [o,phys]rcond();int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of gecon
 
 
 
-=for bad
-
-cgecon ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgecon {
+  $_[0]->type->real ? goto &PDL::__Ccgecon : goto &PDL::__Ncgecon;
+}
 *cgecon = \&PDL::cgecon;
 
 
+
+
+
+*__Ccsycon = \&PDL::__Ccsycon;
+
+
+
+
+
+*__Ncsycon = \&PDL::__Ncsycon;
 
 
 
@@ -1944,29 +2112,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,n,n); int uplo(); int ipiv(n); [phys]anorm(); [o,phys]rcond();int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of sycon
 
 
 
-=for bad
-
-csycon ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::csycon {
+  $_[0]->type->real ? goto &PDL::__Ccsycon : goto &PDL::__Ncsycon;
+}
 *csycon = \&PDL::csycon;
 
 
+
+
+
+*__Cchecon = \&PDL::__Cchecon;
+
+
+
+
+
+*__Nchecon = \&PDL::__Nchecon;
 
 
 
@@ -1984,22 +2153,24 @@ Complex version of sycon for Hermitian matrix
 
 
 
-=for bad
-
-checon ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::checon {
+  $_[0]->type->real ? goto &PDL::__Cchecon : goto &PDL::__Nchecon;
+}
 *checon = \&PDL::checon;
 
 
+
+
+
+*__Ccpocon = \&PDL::__Ccpocon;
+
+
+
+
+
+*__Ncpocon = \&PDL::__Ncpocon;
 
 
 
@@ -2017,22 +2188,24 @@ Complex version of pocon for Hermitian positive definite matrix
 
 
 
-=for bad
-
-cpocon ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cpocon {
+  $_[0]->type->real ? goto &PDL::__Ccpocon : goto &PDL::__Ncpocon;
+}
 *cpocon = \&PDL::cpocon;
 
 
+
+
+
+*__Cctrcon = \&PDL::__Cctrcon;
+
+
+
+
+
+*__Nctrcon = \&PDL::__Nctrcon;
 
 
 
@@ -2043,29 +2216,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,n,n); int norm();int uplo();int diag(); [o,phys]rcond();int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of trcon
 
 
 
-=for bad
-
-ctrcon ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::ctrcon {
+  $_[0]->type->real ? goto &PDL::__Cctrcon : goto &PDL::__Nctrcon;
+}
 *ctrcon = \&PDL::ctrcon;
 
 
+
+
+
+*__Ccgeqp3 = \&PDL::__Ccgeqp3;
+
+
+
+
+
+*__Ncgeqp3 = \&PDL::__Ncgeqp3;
 
 
 
@@ -2076,29 +2250,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); int [io,phys]jpvt(n); [o,phys]tau(2,k); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of geqp3
 
 
 
-=for bad
-
-cgeqp3 ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgeqp3 {
+  $_[0]->type->real ? goto &PDL::__Ccgeqp3 : goto &PDL::__Ncgeqp3;
+}
 *cgeqp3 = \&PDL::cgeqp3;
 
 
+
+
+
+*__Ccgeqrf = \&PDL::__Ccgeqrf;
+
+
+
+
+
+*__Ncgeqrf = \&PDL::__Ncgeqrf;
 
 
 
@@ -2109,29 +2284,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); [o,phys]tau(2,k); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of geqrf
 
 
 
-=for bad
-
-cgeqrf ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgeqrf {
+  $_[0]->type->real ? goto &PDL::__Ccgeqrf : goto &PDL::__Ncgeqrf;
+}
 *cgeqrf = \&PDL::cgeqrf;
 
 
+
+
+
+*__Ccungqr = \&PDL::__Ccungqr;
+
+
+
+
+
+*__Ncungqr = \&PDL::__Ncungqr;
 
 
 
@@ -2149,22 +2325,24 @@ Complex version of orgqr
 
 
 
-=for bad
-
-cungqr ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cungqr {
+  $_[0]->type->real ? goto &PDL::__Ccungqr : goto &PDL::__Ncungqr;
+}
 *cungqr = \&PDL::cungqr;
 
 
+
+
+
+*__Ccunmqr = \&PDL::__Ccunmqr;
+
+
+
+
+
+*__Ncunmqr = \&PDL::__Ncunmqr;
 
 
 
@@ -2182,22 +2360,24 @@ Complex version of ormqr. Here trans = 1 means conjugate transpose.
 
 
 
-=for bad
-
-cunmqr ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cunmqr {
+  $_[0]->type->real ? goto &PDL::__Ccunmqr : goto &PDL::__Ncunmqr;
+}
 *cunmqr = \&PDL::cunmqr;
 
 
+
+
+
+*__Ccgelqf = \&PDL::__Ccgelqf;
+
+
+
+
+
+*__Ncgelqf = \&PDL::__Ncgelqf;
 
 
 
@@ -2208,29 +2388,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); [o,phys]tau(2,k); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of gelqf
 
 
 
-=for bad
-
-cgelqf ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgelqf {
+  $_[0]->type->real ? goto &PDL::__Ccgelqf : goto &PDL::__Ncgelqf;
+}
 *cgelqf = \&PDL::cgelqf;
 
 
+
+
+
+*__Ccunglq = \&PDL::__Ccunglq;
+
+
+
+
+
+*__Ncunglq = \&PDL::__Ncunglq;
 
 
 
@@ -2248,22 +2429,24 @@ Complex version of orglq
 
 
 
-=for bad
-
-cunglq ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cunglq {
+  $_[0]->type->real ? goto &PDL::__Ccunglq : goto &PDL::__Ncunglq;
+}
 *cunglq = \&PDL::cunglq;
 
 
+
+
+
+*__Ccunmlq = \&PDL::__Ccunmlq;
+
+
+
+
+
+*__Ncunmlq = \&PDL::__Ncunmlq;
 
 
 
@@ -2281,22 +2464,24 @@ Complex version of ormlq. Here trans = 1 means conjugate transpose.
 
 
 
-=for bad
-
-cunmlq ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cunmlq {
+  $_[0]->type->real ? goto &PDL::__Ccunmlq : goto &PDL::__Ncunmlq;
+}
 *cunmlq = \&PDL::cunmlq;
 
 
+
+
+
+*__Ccgeqlf = \&PDL::__Ccgeqlf;
+
+
+
+
+
+*__Ncgeqlf = \&PDL::__Ncgeqlf;
 
 
 
@@ -2307,29 +2492,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); [o,phys]tau(2,k); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of geqlf
 
 
 
-=for bad
-
-cgeqlf ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgeqlf {
+  $_[0]->type->real ? goto &PDL::__Ccgeqlf : goto &PDL::__Ncgeqlf;
+}
 *cgeqlf = \&PDL::cgeqlf;
 
 
+
+
+
+*__Ccungql = \&PDL::__Ccungql;
+
+
+
+
+
+*__Ncungql = \&PDL::__Ncungql;
 
 
 
@@ -2347,22 +2533,24 @@ Complex version of orgql.
 
 
 
-=for bad
-
-cungql ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cungql {
+  $_[0]->type->real ? goto &PDL::__Ccungql : goto &PDL::__Ncungql;
+}
 *cungql = \&PDL::cungql;
 
 
+
+
+
+*__Ccunmql = \&PDL::__Ccunmql;
+
+
+
+
+
+*__Ncunmql = \&PDL::__Ncunmql;
 
 
 
@@ -2380,22 +2568,24 @@ Complex version of ormql. Here trans = 1 means conjugate transpose.
 
 
 
-=for bad
-
-cunmql ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cunmql {
+  $_[0]->type->real ? goto &PDL::__Ccunmql : goto &PDL::__Ncunmql;
+}
 *cunmql = \&PDL::cunmql;
 
 
+
+
+
+*__Ccgerqf = \&PDL::__Ccgerqf;
+
+
+
+
+
+*__Ncgerqf = \&PDL::__Ncgerqf;
 
 
 
@@ -2406,29 +2596,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); [o,phys]tau(2,k); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of gerqf
 
 
 
-=for bad
-
-cgerqf ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgerqf {
+  $_[0]->type->real ? goto &PDL::__Ccgerqf : goto &PDL::__Ncgerqf;
+}
 *cgerqf = \&PDL::cgerqf;
 
 
+
+
+
+*__Ccungrq = \&PDL::__Ccungrq;
+
+
+
+
+
+*__Ncungrq = \&PDL::__Ncungrq;
 
 
 
@@ -2446,22 +2637,24 @@ Complex version of orgrq.
 
 
 
-=for bad
-
-cungrq ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cungrq {
+  $_[0]->type->real ? goto &PDL::__Ccungrq : goto &PDL::__Ncungrq;
+}
 *cungrq = \&PDL::cungrq;
 
 
+
+
+
+*__Ccunmrq = \&PDL::__Ccunmrq;
+
+
+
+
+
+*__Ncunmrq = \&PDL::__Ncunmrq;
 
 
 
@@ -2479,22 +2672,24 @@ Complex version of ormrq. Here trans = 1 means conjugate transpose.
 
 
 
-=for bad
-
-cunmrq ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cunmrq {
+  $_[0]->type->real ? goto &PDL::__Ccunmrq : goto &PDL::__Ncunmrq;
+}
 *cunmrq = \&PDL::cunmrq;
 
 
+
+
+
+*__Cctzrzf = \&PDL::__Cctzrzf;
+
+
+
+
+
+*__Nctzrzf = \&PDL::__Nctzrzf;
 
 
 
@@ -2505,29 +2700,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); [o,phys]tau(2,k); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of tzrzf
 
 
 
-=for bad
-
-ctzrzf ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::ctzrzf {
+  $_[0]->type->real ? goto &PDL::__Cctzrzf : goto &PDL::__Nctzrzf;
+}
 *ctzrzf = \&PDL::ctzrzf;
 
 
+
+
+
+*__Ccunmrz = \&PDL::__Ccunmrz;
+
+
+
+
+
+*__Ncunmrz = \&PDL::__Ncunmrz;
 
 
 
@@ -2545,22 +2741,24 @@ Complex version of ormrz. Here trans = 1 means conjugate transpose.
 
 
 
-=for bad
-
-cunmrz ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cunmrz {
+  $_[0]->type->real ? goto &PDL::__Ccunmrz : goto &PDL::__Ncunmrz;
+}
 *cunmrz = \&PDL::cunmrz;
 
 
+
+
+
+*__Ccgehrd = \&PDL::__Ccgehrd;
+
+
+
+
+
+*__Ncgehrd = \&PDL::__Ncgehrd;
 
 
 
@@ -2571,29 +2769,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n); int [phys]ilo();int [phys]ihi();[o,phys]tau(2,k); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of gehrd
 
 
 
-=for bad
-
-cgehrd ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgehrd {
+  $_[0]->type->real ? goto &PDL::__Ccgehrd : goto &PDL::__Ncgehrd;
+}
 *cgehrd = \&PDL::cgehrd;
 
 
+
+
+
+*__Ccunghr = \&PDL::__Ccunghr;
+
+
+
+
+
+*__Ncunghr = \&PDL::__Ncunghr;
 
 
 
@@ -2611,22 +2810,24 @@ Complex version of orghr
 
 
 
-=for bad
-
-cunghr ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cunghr {
+  $_[0]->type->real ? goto &PDL::__Ccunghr : goto &PDL::__Ncunghr;
+}
 *cunghr = \&PDL::cunghr;
 
 
+
+
+
+*__Cchseqr = \&PDL::__Cchseqr;
+
+
+
+
+
+*__Nchseqr = \&PDL::__Nchseqr;
 
 
 
@@ -2637,29 +2838,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]H(2,n,n); int job();int compz();int [phys]ilo();int [phys]ihi();[o,phys]w(2,n); [o,phys]Z(2,m,m); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of hseqr
 
 
 
-=for bad
-
-chseqr ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::chseqr {
+  $_[0]->type->real ? goto &PDL::__Cchseqr : goto &PDL::__Nchseqr;
+}
 *chseqr = \&PDL::chseqr;
 
 
+
+
+
+*__Cctrevc = \&PDL::__Cctrevc;
+
+
+
+
+
+*__Nctrevc = \&PDL::__Nctrevc;
 
 
 
@@ -2670,29 +2872,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]T(2,n,n); int side();int howmny();int [phys]select(q);[io,phys]VL(2,m,r); [io,phys]VR(2,p,s);int [o,phys]m(); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of trevc
 
 
 
-=for bad
-
-ctrevc ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::ctrevc {
+  $_[0]->type->real ? goto &PDL::__Cctrevc : goto &PDL::__Nctrevc;
+}
 *ctrevc = \&PDL::ctrevc;
 
 
+
+
+
+*__Cctgevc = \&PDL::__Cctgevc;
+
+
+
+
+
+*__Nctgevc = \&PDL::__Nctgevc;
 
 
 
@@ -2703,29 +2906,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n); int side();int howmny(); [io,phys]B(2,n,n);int [phys]select(q);[io,phys]VL(2,m,r); [io,phys]VR(2,p,s);int [o,phys]m(); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of tgevc
 
 
 
-=for bad
-
-ctgevc ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::ctgevc {
+  $_[0]->type->real ? goto &PDL::__Cctgevc : goto &PDL::__Nctgevc;
+}
 *ctgevc = \&PDL::ctgevc;
 
 
+
+
+
+*__Ccgebal = \&PDL::__Ccgebal;
+
+
+
+
+
+*__Ncgebal = \&PDL::__Ncgebal;
 
 
 
@@ -2736,29 +2940,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,n,n); int job(); int [o,phys]ilo();int [o,phys]ihi();[o,phys]scale(n); int [o,phys]info())
 
 
-
 =for ref
 
 Complex version of gebal
 
 
 
-=for bad
-
-cgebal ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgebal {
+  $_[0]->type->real ? goto &PDL::__Ccgebal : goto &PDL::__Ncgebal;
+}
 *cgebal = \&PDL::cgebal;
 
 
+
+
+
+*__Cclange = \&PDL::__Cclange;
+
+
+
+
+
+*__Nclange = \&PDL::__Nclange;
 
 
 
@@ -2769,29 +2974,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,n,m); int norm(); [o]b())
 
 
-
 =for ref
 
 Complex version of lange
 
 
 
-=for bad
-
-clange ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::clange {
+  $_[0]->type->real ? goto &PDL::__Cclange : goto &PDL::__Nclange;
+}
 *clange = \&PDL::clange;
 
 
+
+
+
+*__Cclansy = \&PDL::__Cclansy;
+
+
+
+
+
+*__Nclansy = \&PDL::__Nclansy;
 
 
 
@@ -2802,29 +3008,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2, n,n); int uplo(); int norm(); [o]b())
 
 
-
 =for ref
 
 Complex version of lansy
 
 
 
-=for bad
-
-clansy ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::clansy {
+  $_[0]->type->real ? goto &PDL::__Cclansy : goto &PDL::__Nclansy;
+}
 *clansy = \&PDL::clansy;
 
 
+
+
+
+*__Cclantr = \&PDL::__Cclantr;
+
+
+
+
+
+*__Nclantr = \&PDL::__Nclantr;
 
 
 
@@ -2835,29 +3042,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,m,n);int uplo();int norm();int diag();[o]b())
 
 
-
 =for ref
 
 Complex version of lantr
 
 
 
-=for bad
-
-clantr ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::clantr {
+  $_[0]->type->real ? goto &PDL::__Cclantr : goto &PDL::__Nclantr;
+}
 *clantr = \&PDL::clantr;
 
 
+
+
+
+*__Ccgemm = \&PDL::__Ccgemm;
+
+
+
+
+
+*__Ncgemm = \&PDL::__Ncgemm;
 
 
 
@@ -2885,22 +3093,24 @@ Complex version of gemm.
 
 
 
-=for bad
-
-cgemm ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cgemm {
+  $_[0]->type->real ? goto &PDL::__Ccgemm : goto &PDL::__Ncgemm;
+}
 *cgemm = \&PDL::cgemm;
 
 
+
+
+
+*__Ccmmult = \&PDL::__Ccmmult;
+
+
+
+
+
+*__Ncmmult = \&PDL::__Ncmmult;
 
 
 
@@ -2911,29 +3121,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,m,n); [phys]B(2,p,m); [o,phys]C(2,p,n))
 
 
-
 =for ref
 
 Complex version of mmult
 
 
 
-=for bad
-
-cmmult ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cmmult {
+  $_[0]->type->real ? goto &PDL::__Ccmmult : goto &PDL::__Ncmmult;
+}
 *cmmult = \&PDL::cmmult;
 
 
+
+
+
+*__Cccrossprod = \&PDL::__Cccrossprod;
+
+
+
+
+
+*__Nccrossprod = \&PDL::__Nccrossprod;
 
 
 
@@ -2944,29 +3155,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,n,m); [phys]B(2,p,m); [o,phys]C(2,p,n))
 
 
-
 =for ref
 
 Complex version of crossprod
 
 
 
-=for bad
-
-ccrossprod ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::ccrossprod {
+  $_[0]->type->real ? goto &PDL::__Cccrossprod : goto &PDL::__Nccrossprod;
+}
 *ccrossprod = \&PDL::ccrossprod;
 
 
+
+
+
+*__Ccsyrk = \&PDL::__Ccsyrk;
+
+
+
+
+
+*__Ncsyrk = \&PDL::__Ncsyrk;
 
 
 
@@ -2977,29 +3189,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,m,n); int uplo(); int trans(); [phys]alpha(2); [phys]beta(2); [io,phys]C(2,p,p))
 
 
-
 =for ref
 
 Complex version of syrk
 
 
 
-=for bad
-
-csyrk ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::csyrk {
+  $_[0]->type->real ? goto &PDL::__Ccsyrk : goto &PDL::__Ncsyrk;
+}
 *csyrk = \&PDL::csyrk;
 
 
+
+
+
+*__Ccdot = \&PDL::__Ccdot;
+
+
+
+
+
+*__Ncdot = \&PDL::__Ncdot;
 
 
 
@@ -3010,29 +3223,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]a(2,n);int [phys]inca();[phys]b(2,n);int [phys]incb();[o,phys]c(2))
 
 
-
 =for ref
 
 Complex version of dot
 
 
 
-=for bad
-
-cdot ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cdot {
+  $_[0]->type->real ? goto &PDL::__Ccdot : goto &PDL::__Ncdot;
+}
 *cdot = \&PDL::cdot;
 
 
+
+
+
+*__Ccdotc = \&PDL::__Ccdotc;
+
+
+
+
+
+*__Ncdotc = \&PDL::__Ncdotc;
 
 
 
@@ -3051,22 +3265,24 @@ vector.
 
 
 
-=for bad
-
-cdotc ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cdotc {
+  $_[0]->type->real ? goto &PDL::__Ccdotc : goto &PDL::__Ncdotc;
+}
 *cdotc = \&PDL::cdotc;
 
 
+
+
+
+*__Ccaxpy = \&PDL::__Ccaxpy;
+
+
+
+
+
+*__Ncaxpy = \&PDL::__Ncaxpy;
 
 
 
@@ -3077,29 +3293,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]a(2,n);int [phys]inca();[phys] alpha(2);[io,phys]b(2,n);int [phys]incb())
 
 
-
 =for ref
 
 Complex version of axpy
 
 
 
-=for bad
-
-caxpy ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::caxpy {
+  $_[0]->type->real ? goto &PDL::__Ccaxpy : goto &PDL::__Ncaxpy;
+}
 *caxpy = \&PDL::caxpy;
 
 
+
+
+
+*__Ccnrm2 = \&PDL::__Ccnrm2;
+
+
+
+
+
+*__Ncnrm2 = \&PDL::__Ncnrm2;
 
 
 
@@ -3110,29 +3327,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]a(2,n);int [phys]inca();[o,phys]b())
 
 
-
 =for ref
 
 Complex version of nrm2
 
 
 
-=for bad
-
-cnrm2 ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cnrm2 {
+  $_[0]->type->real ? goto &PDL::__Ccnrm2 : goto &PDL::__Ncnrm2;
+}
 *cnrm2 = \&PDL::cnrm2;
 
 
+
+
+
+*__Ccasum = \&PDL::__Ccasum;
+
+
+
+
+
+*__Ncasum = \&PDL::__Ncasum;
 
 
 
@@ -3143,29 +3361,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]a(2,n);int [phys]inca();[o,phys]b())
 
 
-
 =for ref
 
 Complex version of asum
 
 
 
-=for bad
-
-casum ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::casum {
+  $_[0]->type->real ? goto &PDL::__Ccasum : goto &PDL::__Ncasum;
+}
 *casum = \&PDL::casum;
 
 
+
+
+
+*__Ccscal = \&PDL::__Ccscal;
+
+
+
+
+
+*__Ncscal = \&PDL::__Ncscal;
 
 
 
@@ -3176,26 +3395,17 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]a(2,n);int [phys]inca();[phys]scale(2))
 
 
-
 =for ref
 
 Complex version of scal
 
 
 
-=for bad
-
-cscal ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::cscal {
+  $_[0]->type->real ? goto &PDL::__Ccscal : goto &PDL::__Ncscal;
+}
 *cscal = \&PDL::cscal;
 
 
@@ -3218,8 +3428,8 @@ Scales a complex vector by a real constant.
 
 =for bad
 
-sscal ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+sscal ignores the bad-value flag of the input ndarrays.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -3235,12 +3445,21 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 
+*__Ccrotg = \&PDL::__Ccrotg;
+
+
+
+
+
+*__Ncrotg = \&PDL::__Ncrotg;
+
+
+
 =head2 crotg
 
 =for sig
 
   Signature: ([io,phys]a(2);[phys]b(2);[o,phys]c(); [o,phys]s(2))
-
 
 
 =for ref
@@ -3249,22 +3468,24 @@ Complex version of rotg
 
 
 
-=for bad
-
-crotg ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::crotg {
+  $_[0]->type->real ? goto &PDL::__Ccrotg : goto &PDL::__Ncrotg;
+}
 *crotg = \&PDL::crotg;
 
 
+
+
+
+*__Cclacpy = \&PDL::__Cclacpy;
+
+
+
+
+
+*__Nclacpy = \&PDL::__Nclacpy;
 
 
 
@@ -3275,29 +3496,30 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([phys]A(2,m,n); int uplo(); [o,phys]B(2,p,n))
 
 
-
 =for ref
 
 Complex version of lacpy
 
 
 
-=for bad
-
-clacpy ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::clacpy {
+  $_[0]->type->real ? goto &PDL::__Cclacpy : goto &PDL::__Nclacpy;
+}
 *clacpy = \&PDL::clacpy;
 
 
+
+
+
+*__Cclaswp = \&PDL::__Cclaswp;
+
+
+
+
+
+*__Nclaswp = \&PDL::__Nclaswp;
 
 
 
@@ -3308,26 +3530,17 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: ([io,phys]A(2,m,n); int [phys]k1(); int [phys]k2(); int [phys]ipiv(p);int [phys]inc())
 
 
-
 =for ref
 
 Complex version of laswp
 
 
 
-=for bad
-
-claswp ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::claswp {
+  $_[0]->type->real ? goto &PDL::__Cclaswp : goto &PDL::__Nclaswp;
+}
 *claswp = \&PDL::claswp;
 
 
@@ -3350,7 +3563,7 @@ Copy triangular part to another matrix. If uplo == 0 copy upper triangular part.
 =for bad
 
 ctricpy does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -3375,7 +3588,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-Combine two 3D piddles into a single piddle.
+Combine two 3D ndarrays into a single ndarray.
 This routine does backward and forward dataflow automatically.
 
 
@@ -3383,7 +3596,7 @@ This routine does backward and forward dataflow automatically.
 =for bad
 
 cmstack does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -3399,12 +3612,21 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 
+*__Cccharpol = \&PDL::__Cccharpol;
+
+
+
+
+
+*__Nccharpol = \&PDL::__Nccharpol;
+
+
+
 =head2 ccharpol
 
 =for sig
 
-  Signature: ([phys]A(c=2,n,n);[phys,o]Y(c=2,n,n);[phys,o]out(c=2,p))
-
+  Signature: ([phys]A(c=2,n,n);[phys,o]Y(c=2,n,n);[phys,o]out(c=2,p);)
 
 
 =for ref
@@ -3413,19 +3635,11 @@ Complex version of charpol
 
 
 
-=for bad
-
-ccharpol does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
 =cut
 
-
-
-
-
-
+sub PDL::ccharpol {
+  $_[0]->type->real ? goto &PDL::__Cccharpol : goto &PDL::__Nccharpol;
+}
 *ccharpol = \&PDL::ccharpol;
 
 

@@ -140,11 +140,6 @@ WARN
     close $fh;
 }
 
-if ($path eq 'perl_prereqs') {
-    print perl_prereqs();
-    exit;
-}
-
 if (@ARGV == 0) {
 
     if ($opts{version}) {      # generate META.yml file content
@@ -152,28 +147,37 @@ if (@ARGV == 0) {
 --- #YAML:1.0
 name: libapreq2
 version: $opts{version}
-license: open_source
+license: Apache_2_0
 installdirs: site
 distribution_type: module
 dynamic_config: 1
 provides:
   Apache2::Request:
+    file: glue/perl/lib/Apache2/Request.pm
     version: $opts{version}
   Apache2::Cookie:
+    file: glue/perl/lib/Apache2/Cookie.pm
     version: $opts{version}
   Apache2::Upload:
+    file: glue/perl/lib/Apache2/Upload.pm
     version: $opts{version}
   APR::Request:
+    file: glue/perl/xsbuilder/APR/Request/Request.pm
     version: $opts{version}
   APR::Request::Apache2:
+    file: glue/perl/xsbuilder/APR/Request/Apache2/Apache2.pm
     version: $opts{version}
   APR::Request::CGI:
+    file: glue/perl/xsbuilder/APR/Request/CGI/CGI.pm
     version: $opts{version}
   APR::Request::Error:
+    file: glue/perl/xsbuilder/APR/Request/Error/Error.pm
     version: $opts{version}
   APR::Request::Cookie:
+    file: glue/perl/xsbuilder/APR/Request/Cookie/Cookie.pm
     version: $opts{version}
   APR::Request::Param:
+    file: glue/perl/xsbuilder/APR/Request/Param/Param.pm
     version: $opts{version}
 no_index:
   directory:
@@ -183,7 +187,7 @@ no_index:
 generated_by: $0
 EOT
         my %runtime_prereqs =  (
-                               mod_perl2 => $perl_glue{mod_perl},
+                               mod_perl2 => $perl_glue{mod_perl2},
                                     perl => $perl_glue{perl},
                                );
         print_prereqs "requires:", \%runtime_prereqs;
@@ -204,6 +208,9 @@ EOT
     }
 
     exit 0;
+} elsif ($path eq 'perl_prereqs') {
+    print perl_prereqs();
+    exit;
 }
 
 

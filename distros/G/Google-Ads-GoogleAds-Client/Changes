@@ -1,3 +1,38 @@
+8.0.1 - 2021-07-05
+- Improved code examples: get_ad_group_bid_modifiers, upload_call_conversion,
+  upload_offline_conversion.
+
+8.0.0 - 2021-06-11
+- Added support for Google Ads API v8_0.
+- Removed support for Google Ads API v5.
+- Added support for logging the request IDs for search stream API.
+- Added new services: AccessibleBiddingStrategyService,
+  AssetFieldTypeViewService, ConversionValueRuleService,
+  ConversionValueRuleSetService, DetailedDemographicService,
+  KeywordThemeConstantService, SmartCampaignSearchTermViewService,
+  SmartCampaignSettingService, SmartCampaignSuggestService.
+- Added code examples: add_smart_campaign, use_cross_account_bidding_strategy.
+- Updated upload_store_sales_transactions code example.
+
+7.0.0 - 2021-05-06
+- Added support for Google Ads API v7_0.
+- Removed support for Google Ads API v4.
+- Added code examples: migrate_promotion_feed_to_asset.
+- Improved code examples: get_ad_group_bid_modifiers.
+
+6.1.1 - 2021-04-07
+- Supported HTTP requests retry mechanism on error responses.
+- Improved code examples: create_customer, add_dynamic_page_feed, etc.
+- Updated all code examples to link to Google Ads API documentation instead of
+  AdWords API documentation.
+
+6.1.0 - 2021-02-15
+- Added support for Google Ads API v6_1.
+- Removed support for Google Ads API v3.
+- Added support for authenticating with service accounts.
+- Added code examples: get_pending_invitations, invite_user_with_access_role,
+  add_image_extension, etc.
+
 6.0.1 - 2020-12-09
 - Extended the FieldMasks utility to retrieve a field value given the fieldmask.
 - Made the update_user_access code example more robust by using 'LIKE' query
@@ -5,7 +40,7 @@
 
 6.0.0 - 2020-11-11
 - Added support for Google Ads API v6_0.
-- Removed support for Google Ads API v2_0.
+- Removed support for Google Ads API v2.
 - Added support of client configuration from environment variables.
 - Refactored GoogleAdsLogger to redact email addresses present in the requests
   and responses.

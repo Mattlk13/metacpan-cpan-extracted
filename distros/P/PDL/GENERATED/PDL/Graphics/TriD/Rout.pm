@@ -4,8 +4,8 @@
 #
 package PDL::Graphics::TriD::Rout;
 
-@EXPORT_OK  = qw( PDL::PP combcoords PDL::PP repulse PDL::PP attract PDL::PP vrmlcoordsvert PDL::PP contour_segments_internal );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP combcoords PDL::PP repulse PDL::PP attract PDL::PP vrmlcoordsvert PDL::PP contour_segments_internal );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::Graphics::TriD::Rout ;
 
@@ -56,9 +56,9 @@ the PDL::Graphics::TriD module. Currently, there are
 
 =for ref
 
-Combine three coordinates into a single piddle.
+Combine three coordinates into a single ndarray.
 
-Combine x, y and z to a single piddle the first dimension
+Combine x, y and z to a single ndarray the first dimension
 of which is 3. This routine does dataflow automatically.
 
 
@@ -66,7 +66,7 @@ of which is 3. This routine does dataflow automatically.
 =for bad
 
 combcoords does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -104,7 +104,7 @@ Repulsive potential for molecule-like constructs.
 
 C<repulse> uses a hash table of cubes to quickly calculate
 a repulsive force that vanishes at infinity for many
-objects. For use by the module L<PDL::Graphics::TriD::MathGraph|PDL::Graphics::TriD::MathGraph>.
+objects. For use by the module L<PDL::Graphics::TriD::MathGraph>.
 For definition of the potential, see the actual function.
 
 
@@ -112,7 +112,7 @@ For definition of the potential, see the actual function.
 =for bad
 
 repulse does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -150,7 +150,7 @@ C<attract> is used to calculate
 an attractive force for many
 objects, of which some attract each other (in a way
 like molecular bonds).
-For use by the module L<PDL::Graphics::TriD::MathGraph|PDL::Graphics::TriD::MathGraph>.
+For use by the module L<PDL::Graphics::TriD::MathGraph>.
 For definition of the potential, see the actual function.
 
 
@@ -158,7 +158,7 @@ For definition of the potential, see the actual function.
 =for bad
 
 attract does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -189,7 +189,7 @@ info not available
 =for bad
 
 vrmlcoordsvert does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -209,7 +209,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 =for ref
 
 This is the interface for the pp routine contour_segments_internal
-- it takes 3 piddles as input
+- it takes 3 ndarrays as input
 
 C<$c> is a contour value (or a list of contour values)
 
@@ -266,9 +266,9 @@ sub PDL::Graphics::TriD::Contours::contour_segments {
 			      
 		$this->{ContourSegCnt}[$i] =  $pcnt;
 		$pcnt=$pcnt+1;    
-		$this->{Points} = $this->{Points}->append($segs->slice(":,0:$ncnt,($i)")->xchg(0,1));
+		$this->{Points} = $this->{Points}->append($segs->slice(":,0:$ncnt,($i)")->transpose);
 	}
-	$this->{Points} = $this->{Points}->xchg(0,1);
+	$this->{Points} = $this->{Points}->transpose;
 	
 }
 

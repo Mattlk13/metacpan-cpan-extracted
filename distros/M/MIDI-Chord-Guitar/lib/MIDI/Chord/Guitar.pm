@@ -3,13 +3,13 @@ our $AUTHORITY = 'cpan:GENE';
 
 # ABSTRACT: MIDI pitches for guitar chord voicings
 
-our $VERSION = '0.0400';
+our $VERSION = '0.0608';
 
 use strict;
 use warnings;
 
 use File::ShareDir qw(dist_dir);
-use List::Util qw(any);
+use List::Util qw(any zip);
 use Music::Note;
 use Text::CSV_XS ();
 use Moo;
@@ -46,12 +46,14 @@ sub _build_chords {
         or die "Can't read $file: $!";
 
     while (my $row = $csv->getline($fh)) {
-        my $key = shift @$row;
+        my $chord = shift @$row;
+        my $fingering = shift @$row;
+        push @{ $data{$chord}{fingering} }, $fingering;
         my @notes;
         for my $r (@$row) {
             push @notes, $r if $r ne '';
         }
-        push @{ $data{$key} }, \@notes;
+        push @{ $data{$chord}{notes} }, \@notes;
     }
 
     close $fh;
@@ -70,14 +72,14 @@ sub transform {
     my @notes;
 
     if (defined $variation) {
-      my $pitches = $self->chords->{ 'C' . $chord_name }[$variation];
+      my $pitches = $self->chords->{ 'C' . $chord_name }{notes}[$variation];
 
       my $diff = $target - _lowest_c($pitches);
 
       @notes = map { $_ + $diff } @$pitches;
     }
     else {
-        for my $pitches (@{ $self->chords->{ 'C' . $chord_name } }) {
+        for my $pitches (@{ $self->chords->{ 'C' . $chord_name }{notes} }) {
             my $diff = $target - _lowest_c($pitches);
             push @notes, [ map { $_ + $diff } @$pitches ];
         }
@@ -108,7 +110,7 @@ sub voicings {
     $chord_name //= '';
     $format ||= '';
 
-    my $voicings = $self->chords->{ 'C' . $chord_name };
+    my $voicings = $self->chords->{ 'C' . $chord_name }{notes};
 
     if ($format) {
         my $temp;
@@ -130,6 +132,71 @@ sub voicings {
     return $voicings;
 }
 
+
+sub fingering {
+    my ($self, $target, $chord_name, $variation) = @_;
+
+    $target = Music::Note->new($target, 'ISO')->format('midinum');
+
+    $chord_name //= '';
+
+    my @fingering;
+
+    if (defined $variation) {
+        my $fingering = $self->chords->{ 'C' . $chord_name }{fingering}[$variation];
+
+        my $pitches = $self->chords->{ 'C' . $chord_name }{notes}[$variation];
+        my $diff = $target - _lowest_c($pitches);
+
+        my ($str, $pos) = split /-/, $fingering;
+        my $p = $pos + $diff;
+        if ($p == 0 && $str !~ /0/) {
+            $str = _decrement_fingering($str);
+            $p++;
+        }
+        elsif ($p != 0 && $str =~ /0/) {
+            $str = _increment_fingering($str);
+        }
+        push @fingering, $str . '-' . $p;
+    }
+    else {
+        for (zip $self->chords->{ 'C' . $chord_name }{notes}, $self->chords->{ 'C' . $chord_name }{fingering}) {
+            my ($pitches, $fingering) = @$_;
+            my $diff = $target - _lowest_c($pitches);
+            my ($str, $pos) = split /-/, $fingering;
+            my $p = $pos + $diff;
+            if ($p == 0 && $str !~ /0/) {
+                $str = _decrement_fingering($str);
+                $p++;
+            }
+            elsif ($p != 0 && $str =~ /0/) {
+                $str = _increment_fingering($str);
+            }
+            push @fingering, $str . '-' . $p;
+        }
+    }
+
+    return \@fingering;
+}
+
+sub _increment_fingering {
+    my ($fingering) = @_;
+    my $incremented = '';
+    for my $char (split //, $fingering) {
+        $incremented .= $char =~ /\d/ ? $char + 1 : $char;
+    }
+    return $incremented;
+}
+
+sub _decrement_fingering {
+    my ($fingering) = @_;
+    my $decremented = '';
+    for my $char (split //, $fingering) {
+        $decremented .= $char =~ /\d/ ? $char - 1 : $char;
+    }
+    return $decremented;
+}
+
 1;
 
 __END__
@@ -144,7 +211,7 @@ MIDI::Chord::Guitar - MIDI pitches for guitar chord voicings
 
 =head1 VERSION
 
-version 0.0400
+version 0.0608
 
 =head1 SYNOPSIS
 
@@ -153,75 +220,54 @@ version 0.0400
   my $mcg = MIDI::Chord::Guitar->new;
 
   my $chords = $mcg->transform('D3', 'dim7');
-  # [ [41, 47, 50, 56], [50, 56, 59, 65, 68] ]
-
   my $chord = $mcg->transform('D3', 'dim7', 0);
-  # [41, 47, 50, 56]
-
   # MIDI:
   #$score->n('wn', @$chord);
 
+  my $fingerings = $mcg->fingering('D3', 'dim7');
+  my $fingering = $mcg->fingering('D3', 'dim7', 0);
+
   my $voicings = $mcg->voicings('dim7');
-  # [ [51, 57, 60, 66], [48, 54, 57, 63, 66] ]
 
   $voicings = $mcg->voicings('dim7', 'ISO');
-  # [ [D#3 A3 C4 F#4], [C3 F#3 A3 D#4 F#4] ]
 
 =head1 DESCRIPTION
 
-C<MIDI::Chord::Guitar> provides MIDI pitches for common chord voicings
-of an C<E A D G B E> tuned guitar.
+C<MIDI::Chord::Guitar> provides MIDI pitch numbers for common chord
+voicings of an C<E A D G B E> tuned guitar.
 
 =for html <p>Here is a handy diagram of ISO MIDI pitches laid out on a guitar neck:</p>
 <img src="https://raw.githubusercontent.com/ology/MIDI-Chord-Guitar/main/guitar-position-midi-octaves.png">
 <p>And here is a companion diagram of MIDI pitch numbers laid out on a guitar neck:</p>
 <img src="https://raw.githubusercontent.com/ology/MIDI-Chord-Guitar/main/guitar-position-midi-numbers.png">
 
+In order to craft a MIDI-Perl program with appropriate
+transformations, cross-reference the voicing CSV included in this
+distribution, with the diagrams above.  Check out the fingering
+column, and choose the best voicing to use.
+
+Alternatively, inspect the results of the C<fingering> method for each
+chord, and select those that are appropriate.
+
+For guitar, "appropriate" means to consider bass movement and melodic
+phrasing, etc.
+
 =head1 ATTRIBUTES
 
 =head2 voicing_file
 
+  $file = $mcg->voicing_file;
+
 The CSV file with which to find the MIDI numbered chord voicings.
 
-If not given, L<File::ShareDir> is used.
+If not given, the installed L<File::ShareDir> CSV file is used.
 
 =head2 chords
 
   $chords = $mcg->chords;
 
-Computed attribute available after construction.
-
-The known chord names are as follows:
-
-  '' (major)
-  aug
-  dim
-  dim7
-  m (minor)
-  m6
-  m7
-  m7b5
-  m7b5#9
-  m9
-  m11
-  maj7
-  maj7#11
-  maj9
-  sus2
-  sus4
-  6
-  6(9)
-  7
-  7#5
-  7#9
-  7b13
-  7b5
-  7b9
-  7b9b13
-  9
-  9sus4
-  11
-  13
+Computed attribute, containing the fingerings and voicings for all
+known chords, available after construction.
 
 =head1 METHODS
 
@@ -262,30 +308,39 @@ The default B<format> is C<midinum> but can be given as C<ISO> or
 C<midi> to return named notes with octaves.
 
 The order of the voicing variations of a chord is by fret position.
-So, the first variations are at lower frets.  Please use the above
-diagrams to figure out the exact neck positions.
+So, the first variations are at lower frets.
 
 Here is an example of the voicing CSV file which can be found with the
 B<voicing_file> attribute:
 
-  C,48,52,55,60,,
-  C,48,55,60,64,67,
-  C,48,52,55,60,64,72
-  C,48,55,60,64,67,72
-  C,60,67,72,76,,
-  C7,48,52,58,60,64,
-  C7,48,55,58,64,67,
-  C7,48,55,58,64,67,72
-  C7,48,52,55,60,64,70
-  C7,60,67,70,76,,
+  C,x32010-1,48,52,55,60,,
+  C,x13331-3,48,55,60,64,67,
+  C,431114-5,48,52,55,60,64,72
+  C,133211-8,48,55,60,64,67,72
+  C,xx1343-10,60,67,72,76,,
+  C7,x32310-1,48,52,58,60,64,
+  C7,x13131-3,48,55,58,64,67,
+  C7,431112-5,48,52,55,60,64,70
+  C7,131211-8,48,55,58,64,70,72
+  C7,xx1323-10,60,67,70,76,,
   ...
 
-Check out the link in the L</"SEE ALSO"> section for the chord shapes
+Check out the links in the L</"SEE ALSO"> section for the chord shapes
 used to create this.
+
+=head2 fingering
+
+  $fingering = $mcg->fingering($target, $chord_name, $variation);
+  $fingerings = $mcg->fingering($target, $chord_name);
+
+As with the C<transform> method, but for neck position, finger
+placement.
 
 =head1 SEE ALSO
 
-The F<t/01-methods.t> and F<eg/autumn_leaves> files in this distribution
+The F<t/01-methods.t> and F<eg/*> files in this distribution
+
+The CSV of chords used by this module (with the C<voicing_file> attribute)
 
 L<File::ShareDir>
 
@@ -299,13 +354,15 @@ L<Text::CSV_XS>
 
 L<https://www.guitartricks.com/chords/C-chord> shapes
 
+L<https://www.oolimo.com/guitarchords/C> shapes
+
 =head1 AUTHOR
 
 Gene Boggs <gene@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Gene Boggs.
+This software is copyright (c) 2021 by Gene Boggs.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

@@ -1,7 +1,9 @@
 package Games::TabRace;
 
-our $DATE = '2016-10-26'; # DATE
-our $VERSION = '0.003'; # VERSION
+our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
+our $DATE = '2021-06-12'; # DATE
+our $DIST = 'Games-TabRace'; # DIST
+our $VERSION = '0.008'; # VERSION
 
 1;
 # ABSTRACT: A game played using shell tab completion
@@ -18,7 +20,7 @@ Games::TabRace - A game played using shell tab completion
 
 =head1 VERSION
 
-This document describes version 0.003 of Games::TabRace (from Perl distribution Games-TabRace), released on 2016-10-26.
+This document describes version 0.008 of Games::TabRace (from Perl distribution Games-TabRace), released on 2021-06-12.
 
 =head1 SYNOPSIS
 
@@ -46,7 +48,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2016 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2016 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

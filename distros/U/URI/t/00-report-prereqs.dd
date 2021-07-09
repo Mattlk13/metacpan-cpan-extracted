@@ -9,7 +9,7 @@ do { my $x = {
                       },
        'develop' => {
                       'recommends' => {
-                                        'Business::ISBN' => '0',
+                                        'Business::ISBN' => '3.005',
                                         'Dist::Zilla::PluginBundle::Git::VersionManager' => '0.007',
                                         'Storable' => '0'
                                       },
@@ -18,7 +18,6 @@ do { my $x = {
                                       'IO::Handle' => '0',
                                       'IPC::Open3' => '0',
                                       'Pod::Coverage::TrustPod' => '0',
-                                      'Test::CPAN::Changes' => '0.19',
                                       'Test::CPAN::Meta' => '0',
                                       'Test::MinimumVersion' => '0',
                                       'Test::Mojibake' => '0',

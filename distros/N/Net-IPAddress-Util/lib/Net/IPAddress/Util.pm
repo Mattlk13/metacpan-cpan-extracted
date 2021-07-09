@@ -1,8 +1,6 @@
 package Net::IPAddress::Util;
 
-use strict;
-use warnings;
-use 5.010;
+use 5.012;
 
 use overload (
   '=' => 'new',
@@ -42,91 +40,133 @@ $EXPORT_TAGS{ all } = [ @EXPORT_OK ];
 
 our $DIE_ON_ERROR = 0;
 our $PROMOTE_N32 = 1;
-our $REPAIR_V3_FORMAT = 0;
-our $WARN_ON_REPAIR = 1;
 
-our $VERSION = '4.004';
+our @SIIT = (
+  [ 0, 0, 0xff, 0xff ], # off
+  [ 0xff, 0xff, 0, 0 ], # on
+);
 
-our $fourish = qr/^(?:::ffff:0+:)?(\d+)\.(\d+)\.(\d+)\.(\d+)$/io;
-our $broken_fourish = qr/^::ffff:(\d+)\.(\d+)\.(\d+)\.(\d+)$/io;
-our $numberish = qr/^\d+$/o;
+our $VERSION = '5.001';
+
+our $siit_fourish = qr/^(?:::ffff:0+:)?(\d+)\.(\d+)\.(\d+)\.(\d+)$/io;
+our $fourish = qr/^(?:::ffff:)?(\d+)\.(\d+)\.(\d+)\.(\d+)$/io;
+our $numberish = qr/^(\d+)$/o;
 our $normalish = qr/^([0-9a-f]{32})$/io;
 our $sixish = qr/^([0-9a-f:]+)(?:\%.*)?$/io;
 
-sub _repair_v3_format {
-  my ($old) = @_;
-  if (
-    !(grep { $_ } @$old[ 0 .. 9 ])
-    && $old->[ 10 ] == 0xff
-    && $old->[ 11 ] == 0xff
-  ) {
-    if ($WARN_ON_REPAIR > 1) {
-      local $Carp::Internal{ (__PACKAGE__) };
-      cluck('Repairing v3.x module data to v4.x data');
+*__debug
+  = $ENV{ IP_UTIL_DEBUG }
+  ? sub { my ($p, $f, $l) = caller(); warn('@' . " $l: " . join(', ', @_) . "\n"); }
+  : sub { }
+  ;
+
+*__dnorm
+  = $ENV{ IP_UTIL_DEBUG }
+  ? sub {
+    my ($p, $f, $l) = caller();
+    my $n = 0;
+    for my $x (@_) {
+      if (eval { @$x }) {
+        warn($n++ . ' @' . " $l: [" . join(', ', map { sprintf('%x', $_) } @$x) . "]\n");
+      }
+      else {
+        warn($n++ . ' @' . " $l: " . $x . "\n");
+      }
     }
-    elsif ($WARN_ON_REPAIR) {
-      local $Carp::Internal{ (__PACKAGE__) };
-      carp('Repairing v3.x module data to v4.x data');
-    }
-    $old->[ 8 ] = 0xff;
-    $old->[ 9 ] = 0xff;
-    $old->[ 10 ] = 0;
-    $old->[ 11 ] = 0;
   }
+  : sub { }
+  ;
+
+sub SIIT {
+  my $self = shift;
+  my ($do) = @_;
+  $do //= 1;
+  $self = _set_SIIT($self, $do);
+  $self->{ SIIT } = $do;
+  return $self;
+}
+
+sub _set_SIIT {
+  my ($old, $do) = @_;
+  my $normal = [ unpack('C16', $old->{ address }) ];
+  if (
+    !(grep { $_ } @$normal[ 0 .. 7 ])
+    && (grep { $normal->[ $_ ] == $SIIT[!!$do]->[ $_ ] } (8 .. 11)) == 4
+  ) {
+    $normal->[ $_ ] = $SIIT[!$do]->[ $_ ] for (8 .. 11);
+  }
+  $old->{ address } = pack('C16', @$normal);
   return $old;
 }
 
 sub IP {
-  return Net::IPAddress::Util->new($_[0]);
+  return __PACKAGE__->new(@_);
 }
 
 sub new {
   my $self = shift;
   my $class = ref($self) || $self;
-  my ($address) = @_;
-  unless (defined $address) {
-    return ERROR("Invalid argument undef() provided");
-  }
+  my ($address, %opt) = @_;
+  __debug(
+    eval { @$address }
+    ? join(' ', map { sprintf($_ > 255 ? '0x%08x' : '%3s', $_ ) } @$address)
+    : $address
+  );
+  my @siit_prefix = @{$SIIT[$opt{ SIIT }
+    ||= (
+      !ref($address)
+      and
+      $address =~ $siit_fourish
+      and
+      $address !~ $fourish
+    )
+  ]};
+  __debug('is ' . ($opt{ SIIT } ? 'not ' : '') . 'SIIT looking');
+  my $promote = $opt{ promote } // $PROMOTE_N32;
   my $normal = [ ];
+  if (!defined $address) {
+    $normal = [
+      0, 0, 0, 0,
+      0, 0, 0, 0,
+      0, 0, 0, 0,
+      0, 0, 0, 0,
+    ];
+    __dnorm($normal);
+  }
   if (ref($address) eq 'ARRAY' && @$address == 16) {
+    __debug('16 element array');
     $normal = $address;
+    __dnorm($normal);
   }
   elsif (ref($address) eq 'ARRAY' && @$address == 4) {
-    # FIXME Principal of least surprise here? Should feeding in 4 values make an IPv4?
+    # FIXME: Principal of least surprise here? Should feeding in 4 values make an IPv4?
+    __debug('4 element array');
     $normal = [ unpack 'C16', pack 'N4', @$address ];
+    __dnorm($normal);
   }
   elsif (ref $address and eval { $address->isa(__PACKAGE__) }) {
     $normal = [ unpack 'C16', $address->{ address } ];
   }
-  elsif ($address =~ $fourish) {
+  elsif ($address =~ $fourish || $address =~ $siit_fourish) {
+    my @addr = ($1, $2, $3, $4);
+    # FIXME: Why can't we do this all on one line?
+    @addr = map { $_ =~ /^0/ ? oct($_) : int($_) } @addr;
     $normal = [
       0, 0, 0, 0,
       0, 0, 0, 0,
-      0xff, 0xff, 0, 0,
-      $1, $2, $3, $4
+      @siit_prefix,
+      @addr
     ];
   }
-  elsif ($REPAIR_V3_FORMAT && $address =~ $broken_fourish) {
-    if ($WARN_ON_REPAIR > 1) {
-      local $Carp::Internal{ (__PACKAGE__) };
-      cluck('Repairing v3.x module data to v4.x data');
-    }
-    elsif ($WARN_ON_REPAIR) {
-      local $Carp::Internal{ (__PACKAGE__) };
-      carp('Repairing v3.x module data to v4.x data');
-    }
+  elsif (
+    $opt{ promote }
+    and $address =~ $numberish
+    and 0 <= $address && $address <= (2 ** 32) - 1
+  ) {
     $normal = [
       0, 0, 0, 0,
       0, 0, 0, 0,
-      0xff, 0xff, 0, 0,
-      $1, $2, $3, $4
-    ];
-  }
-  elsif ($PROMOTE_N32 and $address =~ $numberish and $address >= 0 and $address <= (2 ** 32) - 1) {
-    $normal = [
-      0, 0, 0, 0,
-      0, 0, 0, 0,
-      0xff, 0xff, 0, 0,
+      @siit_prefix,
       unpack('C4', pack('N', $address))
     ];
   }
@@ -184,21 +224,17 @@ sub new {
   else {
     return ERROR("Invalid argument `$address', a(n) " . (ref($address) || 'bare scalar') . ' provided');
   }
-  if ($REPAIR_V3_FORMAT) {
-    $normal = _repair_v3_format($normal);
-  }
-  return bless { address => pack('C16', @$normal) } => $class;
+  # warn(join(',', @$normal) . "\n");
+  return bless { address => pack('C16', @$normal), %opt } => $class;
 }
 
 sub is_ipv4 {
   my $self = shift;
   my @octets = unpack 'C16', $self->{ address };
-  return
-    $octets[ 8 ] == 0xff
-    && $octets[ 9 ] == 0xff
-    && $octets[ 10 ] == 0
-    && $octets[ 11 ] == 0
-    && (!grep { $_ } @octets[ 0 .. 7 ]);
+  __debug(join(' ', map { sprintf('%3s', $_) } @octets));
+  # my $is_siit = $self->{ SIIT } || 0;
+  return 0 if grep { $_ } @octets[ 0 .. 7 ];
+  return 1;
 }
 
 sub ipv4 {
@@ -217,12 +253,7 @@ sub as_n128 {
   my $rv;
   {
     eval "require Math::BigInt" or return ERROR("Could not load Math::BigInt: $@");
-    my $accum = Math::BigInt->new('0');
-    my $factor = Math::BigInt->new('1')->blsft(Math::BigInt->new('32'));
-    for my $i (map { $_ * 4 } 0 .. 3) {
-      $accum->bmul($factor);
-      $accum->badd(Math::BigInt->new('' . unpack 'N', substr($self->{ address }, $i, 4)));
-    }
+    my $accum = Math::BigInt->from_hex($self->normal_form);
     eval "no Math::BigInt" unless $keep;
     $rv = $keep ? $accum : "$accum";
   }
@@ -231,7 +262,9 @@ sub as_n128 {
 
 sub normal_form {
   my $self = shift;
-  my $hex = join('', map { sprintf('%02x', $_) } unpack('C16', $self->{ address }));
+  my @addr = unpack('C16', $self->{ address });
+  splice(@addr, 8, 4, @{$SIIT[$self->{ SIIT }]}) if $self->is_ipv4;
+  my $hex = join('', map { sprintf('%02x', $_) } @addr);
   $hex = substr(('0' x 32) . $hex, -32);
   return lc $hex;
 }
@@ -250,7 +283,10 @@ sub ipv6_expanded {
 sub ipv6 {
   my $self = shift;
   if ($self->is_ipv4()) {
-    return '::ffff:0:'.$self->ipv4();
+    return $self->{ SIIT }
+      ? '::ffff:0:' . $self->ipv4()
+      : '::ffff:' . $self->ipv4()
+      ;
   }
   my $iv = $self->ipv6_expanded();
   my $rv = join(':', map { (my $x = $_) =~ s/^0+//; $x ||= '0'; $x } split ':', $iv);
@@ -308,8 +344,10 @@ sub _do_add {
     }
     push @rv, $answer;
   }
+  my %opt;
+  @opt{qw( SIIT promote )} = @$self{qw( SIIT promote )};
   @rv = $self->_mask_out($pow, $mask, reverse @rv);
-  my $retval = Net::IPAddress::Util->new(\@rv);
+  my $retval = Net::IPAddress::Util->new(\@rv, %opt);
   return $retval;
 }
 
@@ -333,8 +371,10 @@ sub _do_subtract {
     }
     push @rv, $answer;
   }
+  my %opt;
+  @opt{qw( SIIT promote )} = @$self{qw( SIIT promote )};
   @rv = $self->_mask_out($pow, $mask, reverse @rv);
-  my $retval = Net::IPAddress::Util->new(\@rv);
+  my $retval = Net::IPAddress::Util->new(\@rv, %opt);
   return $retval;
 }
 
@@ -427,7 +467,7 @@ sub _pow_mask {
     $mask = pack('C16',
       0, 0, 0, 0,
       0, 0, 0, 0,
-      0xff, 0xff, 0, 0,
+      @{$SIIT[ $self->{ SIIT } ]},
       0, 0, 0, 0,
     );
   }
@@ -568,7 +608,7 @@ sub mask {
 sub fqdn {
   carp('Compatibility function fqdn() is deprecated') if $^W;
   my $dn = shift;
-  return split /\./, $dn, 2;
+  return split(/\./, $dn, 2);
 }
 
 1;
@@ -613,6 +653,25 @@ L<Net::IPAddress::Util::Range> is for working with individual ranges of
 addresses, and L<Net::IPAddress::Util::Collection> is for working with
 collections of addresses and/or ranges.
 
+=head1 COMPATIBILITY NOTICE
+
+Version 4.x of this module B<broke compatibility> with v3.x, specifically in cases
+where IPv4 addresses were formatted as IPv6 addresses (either string or numeric).
+
+Version 5.x can read and write addresses in B<both> legacy v3.x I<and> v4.x formats.
+
+The default output format in v5.x for representing IPv4 addresses as IPv6 is
+compatible with v3.x, and is known as non-SIIT mode. To use v4.x representation,
+either pass in a truthy falue to the C<SIIT> parameter at construction time, or
+calll the C<SIIT()> method on constructed objects. To transform an SIIT formatted
+object to non-SIIT format, call the C<SIIT()> object method with a defined false
+value.
+
+=head2 Rationale
+
+The reason for switching back to the v3.x non-SIIT format is simply that SIIT
+seems to be encountered far less often in the wild.
+
 =head1 GLOBAL VARIABLES
 
 =head2 $Net::IPAddress::Util::DIE_ON_ERROR
@@ -627,20 +686,6 @@ numbers are supposed to represent IPv4 addresses, and promote them
 accordingly (i.e. to do implicitly what n32_to_ipv4() does). Set to a false
 value to make new() treat all bare numbers as 128-bit numbers representing
 IPv6 addresses. Defaults to false.
-
-=head2 $Net::IPAddress::Util::REPAIR_V3_FORMAT
-
-Set to a true value to make new() accept its argument in the "broken" format
-used by module versions prior to v4.000, and automatically "repair" them to the
-format used by v4.x of this module. Defaults to false.
-
-=head2 $Net::IPAddress::Util::WARN_ON_REPAIR
-
-Set to a true value to make any "repairs" undertaken by new() issue a warning
-using the L<Carp> module. Specifically, if set to the number 2 (or higher), then
-new() will cluck() whenever it performs a repair, and if set to any other true
-value, then new() will carp() whenever it performs a repair. If set to a false
-value, then repairs (if any) will occur silently. Defaults to 1.
 
 =head1 EXPORTABLE FUNCTIONS
 
@@ -936,5 +981,11 @@ May be redistributed and/or modified under terms of the Artistic License v2.0.
 =head1 AUTHOR
 
 PWBENNETT -- paul(dot)w(dot)bennett(at)gmail.com
+
+=head1 THANKS
+
+Thanks to Dave "Autarch" Rolsky for discovering the potential security issue
+that motivated me to finally dust off the v5.x prototype and make the tests work
+(and implement the fix to the discovered security issue).
 
 =cut

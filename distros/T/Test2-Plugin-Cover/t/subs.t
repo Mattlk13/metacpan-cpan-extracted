@@ -10,16 +10,29 @@ use Fake2;
 
 subtest simple_coverage => sub {
     # Start fresh
-    $CLASS->clear;
+    $CLASS->reset_coverage;
 
-    is(Fake1->fake, 'fake', "Got fake 1");
-    is(Fake2->fake, 'fake', "Got fake 2");
+    Fake1->fake;
+    Fake2->fake;
+
+    $CLASS->set_from('simple_coverage');
+    Fake1->fake;
+    Fake1->fake;
+    Fake2->fake;
+    Fake2->fake;
+
+    $CLASS->set_from('simple_coverage_x');
+    Fake1->fake;
+    Fake1->fake;
+    Fake2->fake;
+    Fake2->fake;
+    $CLASS->clear_from;
+
+    Fake1->fake;
+    Fake2->fake;
 
     # This is just to add another sub call we want filtered
     path('.');
-
-    ok(keys %Test2::Plugin::Cover::FILES > 2,                          "More than 2 files were tracked");
-    ok((grep { m/Path.Tiny\.pm$/ } keys %Test2::Plugin::Cover::FILES), "Path::Tiny is in the list of files seen");
 
     is(
         $CLASS->files(root => path('t/lib')),
@@ -30,24 +43,45 @@ subtest simple_coverage => sub {
         "Got just the 2 files under the specified dir"
     );
 
-    $CLASS->clear;
-    my %data = %Test2::Plugin::Cover::FILES;
-    ok(!keys %data, "wiped out coverage data");
+    is(
+        $CLASS->data(root => path('t/lib')),
+        {
+            'Fake1.pm' => {
+                'fake' => ['*', 'simple_coverage', 'simple_coverage_x'],
+            },
+            'Fake2.pm' => {
+                'fake' => ['*', 'simple_coverage', 'simple_coverage_x'],
+            },
+        },
+        "Got expected subs",
+        $CLASS->data(root => path('t/lib')),
+    );
+
+    $CLASS->reset_coverage;
+
+    is(
+        $CLASS->files(root => path('t/lib')),
+        [],
+        "Cleared files"
+    );
+
+    is(
+        $CLASS->data(root => path('t/lib')),
+        {},
+        "Cleared subs",
+    );
 };
 
 subtest goto_and_lvalue => sub {
-    $CLASS->clear;
+    $CLASS->reset_coverage;
     Fake1->gfake;
-    is($CLASS->files(root => path('t/lib')), ['Fake1.pm',], "Found with a goto");
+    is($CLASS->files(root => path('t/lib')), ['Fake1.pm'], "Found with a goto");
 
-    $CLASS->clear;
+    $CLASS->reset_coverage;
     Fake1->lfake = 'xxx';
-    is($CLASS->files(root => path('t/lib')), ['Fake1.pm',], "Found with an lvalue");
+    is($CLASS->files(root => path('t/lib')), ['Fake1.pm'], "Found with an lvalue");
 };
 
-# Final cleanup
-$CLASS->clear;
-$CLASS->filter("not a file");
-like($CLASS->files(), [qr/lib.Test2.Plugin.Cover\.pm$/], "Found Test::Plugin::Cover");
+$CLASS->reset_coverage;
 
 done_testing;

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015-2020 Christian Jaeger, copying@christianjaeger.ch
+# Copyright (c) 2015-2021 Christian Jaeger, copying@christianjaeger.ch
 #
 # This is free software, offered under either the same terms as perl 5
 # or the terms of the Artistic License version 2 or the terms of the
@@ -68,9 +68,9 @@ use warnings;
 use warnings FATAL => 'uninitialized';
 
 require FP::List;    # "use"ing it would create a circular dependency
-use FP::Array_sort qw(on_maybe);
+use FP::Array_sort qw(on_maybe cmp_complement);
 use FP::Lazy;
-use FP::Ops qw(add mult number_cmp);
+use FP::Ops qw(add mult real_cmp);
 use FP::Predicates qw(complement is_even);
 use FP::Div qw(average);
 
@@ -136,6 +136,7 @@ sub FP_Interface__method_names {
             perhaps_one
             zip
             for_each
+            for_each_with_islast
             strings_join
             length
             second
@@ -145,6 +146,7 @@ sub FP_Interface__method_names {
             stream
             sort
             sortCompare
+            group
             string
             values
             ),
@@ -152,6 +154,8 @@ sub FP_Interface__method_names {
         # $class->SUPER::FP_Interface__method_names
     )
 }
+
+# XX why sortCompare and not an optional argument to sort ?
 
 #XXX different protocol for random access ones:
 #hmm add ref here too?  vs. efficient_ref  etc. *?*  or  slow_ref  or somthing?
@@ -223,7 +227,8 @@ sub extreme {
     $self->rest->fold(
         sub {
             my ($v, $res) = @_;
-            &$cmp($v, $res) ? $v : $res
+            my $c = &$cmp($v, $res);
+            $c < 0 ? $v : $res
         },
         $self->first
     );
@@ -231,14 +236,17 @@ sub extreme {
 
 sub min {
     @_ == 1 or @_ == 2 or fp_croak_arity "1 or 2";
-    my ($self, $maybe_extract) = @_;
-    $self->extreme(on_maybe $maybe_extract, sub { $_[0] < $_[1] })
+    my ($self, $maybe_cmp) = @_;
+    $self->extreme($maybe_cmp // sub { $_[0] <=> $_[1] })
 }
 
 sub max {
     @_ == 1 or @_ == 2 or fp_croak_arity "1 or 2";
-    my ($self, $maybe_extract) = @_;
-    $self->extreme(on_maybe $maybe_extract, sub { $_[0] > $_[1] })
+    my ($self, $maybe_cmp) = @_;
+    $self->extreme(
+        defined($maybe_cmp)
+        ? cmp_complement($maybe_cmp)
+        : sub { -($_[0] <=> $_[1]) })
 }
 
 sub minmax {
@@ -331,7 +339,7 @@ sub mean {
 sub median {
     @_ == 1 or fp_croak_arity 1;
     my ($s)    = @_;
-    my $sorted = $s->sort(\&number_cmp);
+    my $sorted = $s->sort(\&real_cmp);
     my $len    = $s->length;
     my $mid    = int($len / 2);
     if (is_even $len) {

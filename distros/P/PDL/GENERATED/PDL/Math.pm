@@ -4,8 +4,8 @@
 #
 package PDL::Math;
 
-@EXPORT_OK  = qw( PDL::PP acos PDL::PP asin PDL::PP atan PDL::PP cosh PDL::PP sinh PDL::PP tan PDL::PP tanh PDL::PP ceil PDL::PP floor PDL::PP rint PDL::PP pow PDL::PP acosh PDL::PP asinh PDL::PP atanh PDL::PP erf PDL::PP erfc PDL::PP bessj0 PDL::PP bessj1 PDL::PP bessy0 PDL::PP bessy1 PDL::PP bessjn PDL::PP bessyn PDL::PP lgamma PDL::PP badmask PDL::PP isfinite PDL::PP erfi PDL::PP ndtri PDL::PP polyroots );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP acos PDL::PP asin PDL::PP atan PDL::PP cosh PDL::PP sinh PDL::PP tan PDL::PP tanh PDL::PP ceil PDL::PP floor PDL::PP rint PDL::PP pow PDL::PP acosh PDL::PP asinh PDL::PP atanh PDL::PP erf PDL::PP erfc PDL::PP bessj0 PDL::PP bessj1 PDL::PP bessy0 PDL::PP bessy1 PDL::PP bessjn PDL::PP bessyn PDL::PP lgamma PDL::PP badmask PDL::PP isfinite PDL::PP erfi PDL::PP ndtri PDL::PP polyroots );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::Math ;
 
@@ -73,14 +73,13 @@ BEGIN {use PDL::MatrixOps;}
 
   Signature: (a(); [o]b())
 
-=for ref
-
-The usual trigonometric function. Works inplace.
+The usual trigonometric function.
+ Works inplace.
 
 =for bad
 
 acos processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -102,14 +101,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
   Signature: (a(); [o]b())
 
-=for ref
-
-The usual trigonometric function. Works inplace.
+The usual trigonometric function.
+ Works inplace.
 
 =for bad
 
 asin processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -131,14 +129,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
   Signature: (a(); [o]b())
 
-=for ref
-
-The usual trigonometric function. Works inplace.
+The usual trigonometric function.
+ Works inplace.
 
 =for bad
 
 atan processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -160,14 +157,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
   Signature: (a(); [o]b())
 
-=for ref
-
-The standard hyperbolic function. Works inplace.
+The standard hyperbolic function.
+ Works inplace.
 
 =for bad
 
 cosh processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -189,14 +185,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
   Signature: (a(); [o]b())
 
-=for ref
-
-The standard hyperbolic function. Works inplace.
+The standard hyperbolic function.
+ Works inplace.
 
 =for bad
 
 sinh processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -218,14 +213,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
   Signature: (a(); [o]b())
 
-=for ref
-
-The usual trigonometric function. Works inplace.
+The usual trigonometric function.
+ Works inplace.
 
 =for bad
 
 tan processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -247,14 +241,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
   Signature: (a(); [o]b())
 
-=for ref
-
-The standard hyperbolic function. Works inplace.
+The standard hyperbolic function.
+ Works inplace.
 
 =for bad
 
 tanh processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -283,7 +276,7 @@ Round to integer values in floating-point format. Works inplace.
 =for bad
 
 ceil processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -312,7 +305,7 @@ Round to integer values in floating-point format. Works inplace.
 =for bad
 
 floor processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -347,12 +340,12 @@ rounding half-integers up or away from zero.
 
 If you are looking to round half-integers up (regardless of sign), try
 C<floor($x+0.5)>.  If you want to round half-integers away from zero,
-try C<< floor(abs($x)+0.5)*($x<=>0) >>. Works inplace.
+try C<< ceil(abs($x)+0.5)*($x<=>0) >>. Works inplace.
 
 =for bad
 
 rint processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -381,7 +374,7 @@ Synonym for `**'. Works inplace.
 =for bad
 
 pow processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -403,14 +396,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
   Signature: (a(); [o]b())
 
-=for ref
-
-The standard hyperbolic function. Works inplace.
+The standard hyperbolic function.
+ Works inplace.
 
 =for bad
 
 acosh processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -432,14 +424,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
   Signature: (a(); [o]b())
 
-=for ref
-
-The standard hyperbolic function. Works inplace.
+The standard hyperbolic function.
+ Works inplace.
 
 =for bad
 
 asinh processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -461,14 +452,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
   Signature: (a(); [o]b())
 
-=for ref
-
-The standard hyperbolic function. Works inplace.
+The standard hyperbolic function.
+ Works inplace.
 
 =for bad
 
 atanh processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -497,7 +487,7 @@ The error function. Works inplace.
 =for bad
 
 erf processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -526,7 +516,7 @@ The complement of the error function. Works inplace.
 =for bad
 
 erfc processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -555,7 +545,7 @@ The regular Bessel function of the first kind, J_n Works inplace.
 =for bad
 
 bessj0 processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -584,7 +574,7 @@ The regular Bessel function of the first kind, J_n Works inplace.
 =for bad
 
 bessj1 processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -613,7 +603,7 @@ The regular Bessel function of the second kind, Y_n. Works inplace.
 =for bad
 
 bessy0 processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -642,7 +632,7 @@ The regular Bessel function of the second kind, Y_n. Works inplace.
 =for bad
 
 bessy1 processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -675,7 +665,7 @@ of the function required.
 =for bad
 
 bessjn processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -708,7 +698,7 @@ of the function required.
 =for bad
 
 bessyn processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -734,7 +724,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 log gamma function
 
-This returns 2 piddles -- the first set gives the log(gamma) values,
+This returns 2 ndarrays -- the first set gives the log(gamma) values,
 while the second set, of integer values, gives the sign of the gamma
 function.  This is useful for determining factorials, amongst other
 things.
@@ -744,7 +734,7 @@ things.
 =for bad
 
 lgamma processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -834,7 +824,7 @@ The inverse of the error function. Works inplace.
 =for bad
 
 erfi processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -860,12 +850,12 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 The value for which the area under the
 Gaussian probability density function (integrated from
-minus infinity) is equal to the argument (cf L<erfi|/erfi>). Works inplace.
+minus infinity) is equal to the argument (cf L</erfi>). Works inplace.
 
 =for bad
 
 ndtri processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -903,7 +893,7 @@ of decreasing powers.
 =for bad
 
 polyroots does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

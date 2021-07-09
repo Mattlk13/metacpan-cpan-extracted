@@ -15,7 +15,7 @@ use Module::Loaded qw( is_loaded );
 use POSIX          qw( strftime tzset );
 use Ref::Util      qw( is_arrayref );
 
-our $VERSION = '4.5';
+our $VERSION = '4.7';
 
 # Default for Handling Parsing
 our $DateParsing     = 1;
@@ -139,7 +139,7 @@ const my %RE => (
     host            => qr/^\s*([^:\s]+)\s+/,
     cisco_hates_you => qr/^\s*[0-9]*:\s+/,
     program_raw     => qr/^\s*([^\[][^:]+):\s*/,
-    program_name    => qr/^([^\[\(\ ]+)(.*)/,
+    program_name    => qr/^(.[^\[\(\ ]*)(.*)/,
     program_sub     => qr/(?>\(([^\)]+)\))/,
     program_pid     => qr/(?>\[([^\]]+)\])/,
     program_netapp  => qr/(?>\[([^\]]+)\]:\s*)/,
@@ -334,10 +334,9 @@ sub parse_syslog_line {
     $msg{message} = defined $msg{program_raw} ? "$msg{program_raw}: $msg{content}" : $msg{content};
 
     if( $AutoDetectJSON && (my $pos = index($msg{content},'{')) >= 0 ) {
-        unless( $JSONTried && is_loaded('JSON::MaybeXS') ) {
+        unless( $JSONTried || is_loaded('JSON::MaybeXS') ) {
             eval {
-                load JSON::MaybeXS, "decode_json";
-                1;
+                load JSON::MaybeXS;
             } or do {
                 my $err = $@;
                 warn "JSON::MaybeXS unavailable, disabling it: $err";
@@ -347,7 +346,7 @@ sub parse_syslog_line {
         }
         if( $AutoDetectJSON ) {
             eval {
-                $msg{SDATA} = decode_json(substr($msg{content},$pos));
+                $msg{SDATA} = JSON::MaybeXS::decode_json(substr($msg{content},$pos));
                 1;
             } or do {
                 my $err = $@;
@@ -492,7 +491,7 @@ Parse::Syslog::Line - Simple syslog line parser
 
 =head1 VERSION
 
-version 4.5
+version 4.7
 
 =head1 SYNOPSIS
 

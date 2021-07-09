@@ -1,0 +1,22 @@
+0.006 2020-03-08
+- script handle BOM as Text::CSV doesn't
+- script handle no pk_insert
+- chop_cols not try splice past end of array
+
+0.005 2020-02-01
+- work around Text::CSV not checking Text::CSV_XS version like it should
+
+0.004 2020-01-29
+- pk_match
+
+0.003 2020-01-27
+- key_to_index
+- fix the -s* docs as well
+- make_pk_map
+- pk_cols and -k flag
+
+0.002 2020-01-25
+- add -sk flag, fix -sn
+
+0.001 2020-01-25
+- initial version

@@ -1,6 +1,4 @@
-# Cargo cult to try to prevent CPAN from indexing
-package
-PPIx::Regexp::Structure::Script_Run;
+package PPIx::Regexp::Structure::Script_Run;
 
 use 5.006;
 
@@ -11,7 +9,7 @@ use base qw{ PPIx::Regexp::Structure };
 
 use PPIx::Regexp::Constant qw{ @CARP_NOT };
 
-our $VERSION = '0.077';
+our $VERSION = '0.080';
 
 1;
 
@@ -52,8 +50,9 @@ superclass.
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
-L<https://github.com/trwyant/perl-PPIx-Regexp/issues>, or in electronic
-mail to the author.
+L<https://rt.cpan.org/Public/Dist/Display.html?Name=PPIx-Regexp>,
+L<https://github.com/trwyant/perl-PPIx-Regexp/issues>, or in
+electronic mail to the author.
 
 =head1 AUTHOR
 

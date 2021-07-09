@@ -1,9 +1,9 @@
 package App::instopt;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-10-08'; # DATE
+our $DATE = '2021-04-24'; # DATE
 our $DIST = 'App-instopt'; # DIST
-our $VERSION = '0.016'; # VERSION
+our $VERSION = '0.019'; # VERSION
 
 use 5.010001;
 use strict 'subs', 'vars';
@@ -662,7 +662,7 @@ sub download {
         my $res;
 
         $res = list_downloaded_versions(%args, software=>$sw);
-        my $v0 = $res->[2] ? $res->[2][-1] : undef;
+        my $v0 = $res->[2] ? $res->[2]{ $args{arch} }[-1] : undef;
 
         $res = App::swcat::latest_version(%args, softwares_or_patterns=>[$sw]);
         unless ($res->[0] == 200) {
@@ -771,19 +771,19 @@ sub cleanup_install_dir {
     for my $row (@{ $res->[2] }) {
         my $sw = $row->{software};
         log_trace "Skipping software $sw because there is no active version"
-            unless defined $row->{active_version};
-        next unless defined $row->{inactive_versions};
+            unless defined $row->{installed_active_version};
+        next unless defined $row->{installed_inactive_versions};
         #log_trace "Cleaning up software $sw ...";
-        for my $v (split /, /, $row->{inactive_versions}) {
+        for my $v (split /, /, $row->{installed_inactive_versions}) {
             my $dir = "$sw-$v";
             unless (-d $dir) {
                 log_trace "Skipping version $v of software $sw (directory does not exist)";
                 next;
             }
             if ($args{-dry_run}) {
-                log_trace "[DRY-RUN] Removing $dir ...";
+                log_info "[DRY-RUN] Removing $dir ...";
             } else {
-                log_trace "Removing $dir ...";
+                log_info "Removing $dir ...";
                 File::Path::remove_tree($dir);
             }
         }
@@ -824,9 +824,9 @@ sub cleanup_download_dir {
           VER:
             for my $v (@vers) {
                 if ($args{-dry_run}) {
-                    log_trace "[DRY-RUN] Cleaning up $sw-$v arch $arch ...";
+                    log_info "[DRY-RUN] Cleaning up $sw-$v arch $arch ...";
                 } else {
-                    log_trace "Cleaning up software $sw-$v arch $arch ...";
+                    log_info "Cleaning up software $sw-$v arch $arch ...";
                     File::Path::remove_tree("$v/$arch");
                 }
             }
@@ -894,7 +894,7 @@ sub update {
             }
           GET_DOWNLOADED: {
                 my $res = list_downloaded_versions(%args, software=>$sw);
-                $v = $res->[2] ? $res->[2][-1] : undef;
+                $v = $res->[2] ? $res->[2]{ $args{arch} }[-1] : undef;
                 if (!defined $v) {
                     my $errmsg = "Can't install $sw: No downloaded version available";
                     log_error $errmsg;
@@ -1117,7 +1117,7 @@ App::instopt - Download and install software
 
 =head1 VERSION
 
-This document describes version 0.016 of App::instopt (from Perl distribution App-instopt), released on 2020-10-08.
+This document describes version 0.019 of App::instopt (from Perl distribution App-instopt), released on 2021-04-24.
 
 =head1 SYNOPSIS
 
@@ -1539,7 +1539,7 @@ Result:
          func    => "Perinci::Access::Schemeless::action_call",
          line    => 494,
          package => "Perinci::Access::Schemeless",
-         time    => 1602119125,
+         time    => 1619270870,
          type    => "create",
        },
      ],
@@ -1860,7 +1860,7 @@ Source repository is at L<https://github.com/perlancar/perl-App-instopt>.
 
 =head1 BUGS
 
-Please report any bugs or feature requests on the bugtracker website L<https://rt.cpan.org/Public/Dist/Display.html?Name=App-instopt>
+Please report any bugs or feature requests on the bugtracker website L<https://github.com/perlancar/perl-App-instopt/issues>
 
 When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
@@ -1872,7 +1872,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2019, 2018 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2019, 2018 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

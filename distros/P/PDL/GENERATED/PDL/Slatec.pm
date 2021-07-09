@@ -4,8 +4,8 @@
 #
 package PDL::Slatec;
 
-@EXPORT_OK  = qw(  eigsys matinv polyfit polycoef polyvalue PDL::PP svdc PDL::PP poco PDL::PP geco PDL::PP gefa PDL::PP podi PDL::PP gedi PDL::PP gesl PDL::PP rs PDL::PP ezffti PDL::PP ezfftf PDL::PP ezfftb PDL::PP pcoef PDL::PP pvalue PDL::PP chim PDL::PP chic PDL::PP chsp PDL::PP chfd PDL::PP chfe PDL::PP chia PDL::PP chid PDL::PP chcm PDL::PP chbs PDL::PP polfit );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw( eigsys matinv polyfit polycoef polyvalue PDL::PP svdc PDL::PP poco PDL::PP geco PDL::PP gefa PDL::PP podi PDL::PP gedi PDL::PP gesl PDL::PP rs PDL::PP ezffti PDL::PP ezfftf PDL::PP ezfftb PDL::PP pcoef PDL::PP pvalue PDL::PP chim PDL::PP chic PDL::PP chsp PDL::PP chfd PDL::PP chfe PDL::PP chia PDL::PP chid PDL::PP chcm PDL::PP chbs PDL::PP polfit );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::Slatec ;
 
@@ -59,20 +59,20 @@ the data contains both "steep" and "flat" sections.
 Interpolation of cumulative probability distribution functions is 
 another application.
 These routines are cryptically named (blame FORTRAN), 
-beginning with 'ch', and accept either float or double piddles. 
+beginning with 'ch', and accept either float or double ndarrays. 
 
 Most of the routines require an integer parameter called C<check>;
 if set to 0, then no checks on the validity of the input data are
 made, otherwise these checks are made.
 The value of C<check> can be set to 0 if a routine
-such as L<chim|/chim> has already been successfully called.
+such as L</chim> has already been successfully called.
 
 =over 4
 
 =item * 
 
 If not known, estimate derivative values for the points
-using the L<chim|/chim>, L<chic|/chic>, or L<chsp|/chsp> routines
+using the L</chim>, L</chic>, or L</chsp> routines
 (the following routines require both the function (C<f>)
 and derivative (C<d>) values at a set of points (C<x>)). 
 
@@ -80,12 +80,12 @@ and derivative (C<d>) values at a set of points (C<x>)).
 
 Evaluate, integrate, or differentiate the resulting PCH
 function using the routines:
-L<chfd|/chfd>; L<chfe|/chfe>; L<chia|/chia>; L<chid|/chid>.
+L</chfd>; L</chfe>; L</chia>; L</chid>.
 
 =item * 
 
 If desired, you can check the monotonicity of your
-data using L<chcm|/chcm>. 
+data using L</chcm>. 
 
 =back
  
@@ -255,9 +255,9 @@ Fast Fourier Transform
   $v_in = pdl(1,0,1,0);
   ($azero,$x,$y) = PDL::Slatec::fft($v_in);
 
-C<PDL::Slatec::fft> is a convenience wrapper for L<ezfftf|ezfftf>, and
+C<PDL::Slatec::fft> is a convenience wrapper for L</ezfftf>, and
 performs a Fast Fourier Transform on an input vector C<$v_in>. The
-return values are the same as for L<ezfftf|ezfftf>.
+return values are the same as for L</ezfftf>.
 
 =head2 rfft
 
@@ -271,11 +271,11 @@ reverse Fast Fourier Transform
   print $v_in, $vout
   [1 0 1 0] [1 0 1 0]
 
-C<PDL::Slatec::rfft> is a convenience wrapper for L<ezfftb|ezfftb>,
+C<PDL::Slatec::rfft> is a convenience wrapper for L</ezfftb>,
 and performs a reverse Fast Fourier Transform. The input is the same
-as the output of L<PDL::Slatec::fft|/PDL::Slatec::fft>, and the output
+as the output of L</PDL::Slatec::fft>, and the output
 of C<rfft> is a data vector, similar to what is input into
-L<PDL::Slatec::fft|/PDL::Slatec::fft>.
+L</PDL::Slatec::fft>.
 
 =cut
 
@@ -468,7 +468,7 @@ singular value decomposition of a matrix
 =for bad
 
 svdc does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -496,7 +496,7 @@ and estimate the condition number of the matrix.
 =for bad
 
 poco does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -524,7 +524,7 @@ the condition number of the matrix.
 =for bad
 
 geco does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -553,7 +553,7 @@ Factor a matrix using Gaussian elimination.
 =for bad
 
 gefa does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -577,12 +577,12 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 Compute the determinant and inverse of a certain real
 symmetric positive definite matrix using the factors
-computed by L<poco|/poco>.
+computed by L</poco>.
 
 =for bad
 
 podi does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -605,12 +605,12 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: (a(n,n);int [o]ipvt(n);[o]det(two=2);[o]work(n);int job())
 
 Compute the determinant and inverse of a matrix using the
-factors computed by L<geco|/geco> or L<gefa|/gefa>.
+factors computed by L</geco> or L</gefa>.
 
 =for bad
 
 gedi does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -633,12 +633,12 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: (a(lda,n);int ipvt(n);b(n);int job())
 
 Solve the real system C<A*X=B> or C<TRANS(A)*X=B> using the
-factors computed by L<geco|/geco> or L<gefa|/gefa>.
+factors computed by L</geco> or L</gefa>.
 
 =for bad
 
 gesl does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -668,7 +668,7 @@ of a REAL SYMMETRIC matrix.
 =for bad
 
 rs does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -691,8 +691,8 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
   Signature: (int n();[o]wsave(foo))
 
 Subroutine ezffti initializes the work array C<wsave()>
-which is used in both L<ezfftf|/ezfftf> and 
-L<ezfftb|/ezfftb>.  
+which is used in both L</ezfftf> and 
+L</ezfftb>.  
 The prime factorization
 of C<n> together with a tabulation of the trigonometric functions
 are computed and stored in C<wsave()>.
@@ -700,7 +700,7 @@ are computed and stored in C<wsave()>.
 =for bad
 
 ezffti does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -729,7 +729,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 =for bad
 
 ezfftf does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -758,7 +758,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 =for bad
 
 ezfftb does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -786,7 +786,7 @@ C<c> and C<a()> must be of the same type.
 =for bad
 
 pcoef does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -816,7 +816,7 @@ same type.
 =for bad
 
 pvalue does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -847,13 +847,13 @@ Calculate the derivatives at the given set of points (C<$x,$f>,
 where C<$x> is strictly increasing).
 The resulting set of points - C<$x,$f,$d>, referred to
 as the cubic Hermite representation - can then be used in
-other functions, such as L<chfe|/chfe>, L<chfd|/chfd>,
-and L<chia|/chia>.
+other functions, such as L</chfe>, L</chfd>,
+and L</chia>.
 
 The boundary conditions are compatible with monotonicity,
 and if the data are only piecewise monotonic, the interpolant
 will have an extremum at the switch points; for more control
-over these issues use L<chic|/chic>. 
+over these issues use L</chic>. 
 
 Error status returned by C<$ierr>:
 
@@ -883,7 +883,7 @@ monotonicity (data still valid).
 =for bad
 
 chim does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -913,15 +913,15 @@ Calculate the derivatives of (x,f(x)) using cubic Hermite interpolation.
 Calculate the derivatives at the given points (C<$x,$f>,
 where C<$x> is strictly increasing).
 Control over the boundary conditions is given by the 
-C<$ic> and C<$vc> piddles, and the value of C<$mflag> determines
+C<$ic> and C<$vc> ndarrays, and the value of C<$mflag> determines
 the treatment of points where monotoncity switches
 direction. A simpler, more restricted, interface is available 
-using L<chim|/chim>.
+using L</chim>.
 
 The first and second elements of C<$ic> determine the boundary
 conditions at the start and end of the data respectively.
 If the value is 0, then the default condition, as used by
-L<chim|/chim>, is adopted.
+L</chim>, is adopted.
 If greater than zero, no adjustment for monotonicity is made,
 otherwise if less than zero the derivative will be adjusted.
 The allowed magnitudes for C<ic(0)> are:
@@ -969,9 +969,9 @@ where C<dfloc> is the maximum of the change of C<$f> on this interval
 and its two immediate neighbours.
 If C<$mflag E<lt> 0>, no such control is to be imposed.            
 
-The piddle C<$wk> is only needed for work space. However, I could
+The ndarray C<$wk> is only needed for work space. However, I could
 not get it to work as a temporary variable, so you must supply
-it; it is a 1D piddle with C<2*n> elements.
+it; it is a 1D ndarray with C<2*n> elements.
 
 Error status returned by C<$ierr>:
 
@@ -1026,7 +1026,7 @@ for monotonicity.
 =for bad
 
 chic does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1057,7 +1057,7 @@ Calculate the derivatives, using cubic spline interpolation,
 at the given points (C<$x,$f>), with the specified
 boundary conditions. 
 Control over the boundary conditions is given by the 
-C<$ic> and C<$vc> piddles.
+C<$ic> and C<$vc> ndarrays.
 The resulting values - C<$x,$f,$d> - can
 be used in all the functions which expect a cubic
 Hermite function.
@@ -1098,9 +1098,9 @@ the first-derivative value is stored in C<vc(1)> for cases 1 and 2.
 The values of C<$vc> need only be set if options 1 or 2 are chosen
 for C<$ic>.
 
-The piddle C<$wk> is only needed for work space. However, I could
+The ndarray C<$wk> is only needed for work space. However, I could
 not get it to work as a temporary variable, so you must supply
-it; it is a 1D piddle with C<2*n> elements.
+it; it is a 1D ndarray with C<2*n> elements.
 
 Error status returned by C<$ierr>:
 
@@ -1146,7 +1146,7 @@ for the interior derivative values.
 =for bad
 
 chsp does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1174,9 +1174,9 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 Interpolate function and derivative values.
 
 Given a piecewise cubic Hermite function - such as from
-L<chim|/chim> - evaluate the function (C<$fe>) and 
+L</chim> - evaluate the function (C<$fe>) and 
 derivative (C<$de>) at a set of points (C<$xe>).
-If function values alone are required, use L<chfe|/chfe>.
+If function values alone are required, use L</chfe>.
 Set C<check> to 0 to skip checks on the input data.
 
 Error status returned by C<$ierr>:
@@ -1216,7 +1216,7 @@ which should never happen.
 =for bad
 
 chfd does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1244,9 +1244,9 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 Interpolate function values.
 
 Given a piecewise cubic Hermite function - such as from
-L<chim|/chim> - evaluate the function (C<$fe>) at
+L</chim> - evaluate the function (C<$fe>) at
 a set of points (C<$xe>).
-If derivative values are also required, use L<chfd|/chfd>.
+If derivative values are also required, use L</chfd>.
 Set C<check> to 0 to skip checks on the input data.
 
 Error status returned by C<$ierr>:
@@ -1281,7 +1281,7 @@ E<gt>0 if extrapolation was performed at C<ierr> points
 =for bad
 
 chfe does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1310,8 +1310,8 @@ Integrate (x,f(x)) over arbitrary limits.
 
 Evaluate the definite integral of a a piecewise
 cubic Hermite function over an arbitrary interval,
-given by C<[$la,$lb]>. C<$d> should contain the derivative values, computed by L<chim|/chim>.
-See L<chid|/chid> if the integration limits are
+given by C<[$la,$lb]>. C<$d> should contain the derivative values, computed by L</chim>.
+See L</chid> if the integration limits are
 data points.
 Set C<check> to 0 to skip checks on the input data.
 
@@ -1359,7 +1359,7 @@ which should never happen.
 =for bad
 
 chia does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1390,12 +1390,12 @@ Evaluate the definite integral of a a piecewise
 cubic Hermite function between C<x($ia)> and
 C<x($ib)>. 
 
-See L<chia|/chia> for integration between arbitrary
+See L</chia> for integration between arbitrary
 limits.
 
 Although using a fortran routine, the values of
 C<$ia> and C<$ib> are zero offset.
-C<$d> should contain the derivative values, computed by L<chim|/chim>.
+C<$d> should contain the derivative values, computed by L</chim>.
 Set C<check> to 0 to skip checks on the input data.
 
 Error status returned by C<$ierr>:
@@ -1425,7 +1425,7 @@ Error status returned by C<$ierr>:
 =for bad
 
 chid does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1452,7 +1452,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 Check the given piecewise cubic Hermite function for monotonicity.
 
-The outout piddle C<$ismon> indicates over
+The outout ndarray C<$ismon> indicates over
 which intervals the function is monotonic.
 Set C<check> to 0 to skip checks on the input data.
 
@@ -1519,7 +1519,7 @@ Error status returned by C<$ierr>:
 =for bad
 
 chcm does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1620,7 +1620,7 @@ Error status returned by C<$ierr>:
 =for bad
 
 chbs does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1649,7 +1649,7 @@ Fit discrete data in a least squares sense by polynomials
 =for bad
 
 polfit processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

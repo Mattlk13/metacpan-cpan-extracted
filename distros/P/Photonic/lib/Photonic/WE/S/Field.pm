@@ -1,5 +1,5 @@
 package Photonic::WE::S::Field;
-$Photonic::WE::S::Field::VERSION = '0.014';
+$Photonic::WE::S::Field::VERSION = '0.017';
 
 =encoding UTF-8
 
@@ -9,14 +9,14 @@ Photonic::WE::S::Field
 
 =head1 VERSION
 
-version 0.014
+version 0.017
 
 =head1 COPYRIGHT NOTICE
 
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -63,7 +63,7 @@ Initializes the structure.
 
 $nr Photonic::WE::S::AllH is a Haydock calculator for the
 structure, *initialized* with the flag keepStates=>1
-(Photonic::Types::WE::S::AllHSave, as defined in Photonic::Types).
+(Photonic::Types::AllHSave, as defined in Photonic::Types).
 
 $nh is the maximum number of Haydock coefficients to use.
 
@@ -77,7 +77,7 @@ dielectric functions of the host $epsA and the particle $epsB.
 
 =back
 
-=head1 ACCESORS (read only)
+=head1 ACCESSORS (read only)
 
 =over 4
 
@@ -137,22 +137,20 @@ evaluation of the field
 use namespace::autoclean;
 use PDL::Lite;
 use PDL::NiceSlice;
-use PDL::Complex;
-use PDL::FFTW3;
 use Photonic::WE::S::AllH;
-use Photonic::ExtraUtils qw(cgtsl);
+use Photonic::Utils qw(cgtsv GtoR);
 use Photonic::Types;
 use Photonic::Iterator;
 use Moose;
 use MooseX::StrictConstructor;
 
-has 'nr'=>(is=>'ro', isa=>'Photonic::Types::WE::S::AllHSave', required=>1,
+has 'nr'=>(is=>'ro', isa=>'Photonic::Types::AllHSave', required=>1,
            documentation=>'Haydock recursion calculator');
-has 'Es'=>(is=>'ro', isa=>'ArrayRef[PDL::Complex]', init_arg=>undef,
+has 'Es'=>(is=>'ro', isa=>'ArrayRef[Photonic::Types::PDLComplex]', init_arg=>undef,
            writer=>'_Es', documentation=>'Field coefficients');
 has 'filter'=>(is=>'ro', isa=>'PDL', predicate=>'has_filter',
                documentation=>'Optional reciprocal space filter');
-has 'field'=>(is=>'ro', isa=>'PDL::Complex', init_arg=>undef,
+has 'field'=>(is=>'ro', isa=>'Photonic::Types::PDLComplex', init_arg=>undef,
            writer=>'_field', documentation=>'Calculated real space field');
 has 'nh' =>(is=>'ro', isa=>'Num', required=>1,
 	    documentation=>'Desired no. of Haydock coefficients');
@@ -160,11 +158,11 @@ has 'smallH'=>(is=>'ro', isa=>'Num', required=>1, default=>1e-7,
     	    documentation=>'Convergence criterium for Haydock coefficients');
 has 'smallE'=>(is=>'ro', isa=>'Num', required=>1, default=>1e-7,
     	    documentation=>'Convergence criterium for use of Haydock coeff.');
-#has 'epsA'=>(is=>'ro', isa=>'PDL::Complex', init_arg=>undef, writer=>'_epsA',
+#has 'epsA'=>(is=>'ro', isa=>'Photonic::Types::PDLComplex', init_arg=>undef, writer=>'_epsA',
 #    documentation=>'Dielectric function of host');
-#has 'epsB'=>(is=>'ro', isa=>'PDL::Complex', init_arg=>undef, writer=>'_epsB',
+#has 'epsB'=>(is=>'ro', isa=>'Photonic::Types::PDLComplex', init_arg=>undef, writer=>'_epsB',
 #        documentation=>'Dielectric function of inclusions');
-#has 'u'=>(is=>'ro', isa=>'PDL::Complex', init_arg=>undef, writer=>'_u',
+#has 'u'=>(is=>'ro', isa=>'Photonic::Types::PDLComplex', init_arg=>undef, writer=>'_u',
 #    documentation=>'Spectral variable');
 
 sub BUILD {
@@ -175,58 +173,50 @@ sub BUILD {
 sub evaluate {
     my $self=shift;
     my $as=$self->nr->as;
-    my $b2s=$self->nr->b2s;
     my $bs=$self->nr->bs;
     my $cs=$self->nr->cs;
     my $stateit=$self->nr->state_iterator;
     my $nh=$self->nh; #desired number of Haydock terms
     #don't go beyond available values.
     $nh=$self->nr->iteration if $nh>$self->nr->iteration;
-    # calculate using linpack for tridiag system
-    my $diag = 1-PDL->pdl($as)->(:,0:$nh-1)->complex;
-    my $subdiag = -PDL->pdl($bs)->(:,0:$nh-1)->complex;
+    # calculate using lapack for tridiag system
+    my $diag = 1-$as->(0:$nh-1);
     # rotate complex zero from first to last element.
-    my $supradiag =-PDL->pdl($cs)->(:,0:$nh-1)
-	->mv(0,-1)->rotate(-1)->mv(-1,0)
-	->complex;
+    my $subdiag = -$bs->(0:$nh-1)->rotate(-1);
+    my $supradiag =-$cs->(0:$nh-1)->rotate(-1);
     my $rhs=PDL->zeroes($nh); #build a nh pdl
     $rhs->slice((0)).=1;
     $rhs=$rhs->r2C;
     #coefficients of g^{-1}E
-    my ($giEs_coeff, $info)= cgtsl($subdiag, $diag, $supradiag, $rhs);
-    die "Error solving tridiag system" unless $info == 0;
-    #
-    my @giEs= map {PDL->pdl($_)->complex} @{$giEs_coeff->unpdl};
-    #states are ri,xy,pm,nx,ny...
-    my $ndims=$self->nr->B->ndims; # num. of dims of space
+    my $giEs= cgtsv($subdiag, $diag, $supradiag, $rhs);
+    #states are xy,pm,nx,ny...
     my @dims=$self->nr->B->dims; # actual dims of space
-    #field is ri,xy,pm,nx,ny...
-    my $field_G=PDL->zeroes(2, $ndims, 2, @dims)->complex;
+    my $ndims=@dims; # num. of dims of space
+    #field is xy,pm,nx,ny...
+    my $field_G=PDL->zeroes($ndims, 2, @dims)->r2C;
     #print $field_G->info, "\n";
-    #field is ri,xy,pm,nx,ny...
+    #field is xy,pm,nx,ny...
     for(my $n=0; $n<$nh; ++$n){
-	my $giE_G=$giEs[$n]*$stateit->nextval; #En ^G|psi_n>
+	my $giE_G=$giEs->($n)*$stateit->nextval; #En ^G|psi_n>
 	$field_G+=$giE_G;
     }
     #
     my $Es=$self->nr->applyMetric($field_G);
     #Comment as normalization below makes it useless
-    #$Es*=$bs->(:,(0))/$self->nr->metric->epsilon;
-    my $Esp=$Es(:,:,(0)); # choose +k spinor component.
-    my $e_0=1/($Esp->slice(":,:" . ",(0)" x $ndims)
-	       *$self->nr->polarization->Cconj)->sumover;
+    #$Es*=$bs->((0))/$self->nr->metric->epsilon;
+    my $Esp=$Es(:,(0)); # choose +k spinor component.
+    my $e_0=1/($Esp->slice(":" . ",(0)" x $ndims)
+	       *$self->nr->polarization->conj)->sumover;
     # Normalize result so macroscopic field is 1.
     $Esp*=$e_0;
-    ##filter RandI for each cartesian
-    $Esp *= $self->filter->(*1) if $self->has_filter;
+    $Esp *= $self->filter if $self->has_filter;
     ##get cartesian out of the way, fourier transform, put cartesian.
-    my $field_R=ifftn($Esp->mv(1,-1)->real, $ndims)->mv(-1,1)->complex;
+    my $field_R=GtoR($Esp, $ndims, 1);
     $field_R*=$self->nr->B->nelem; #scale to have unit macroscopic field
-    #result is ri,xy,nx,ny...
+    #result is xy,nx,ny...
     $self->_field($field_R);
     return $field_R;
 }
-
 
 __PACKAGE__->meta->make_immutable;
 

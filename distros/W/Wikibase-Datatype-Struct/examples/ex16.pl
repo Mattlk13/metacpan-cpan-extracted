@@ -3,118 +3,140 @@
 use strict;
 use warnings;
 
-use Wikibase::Datatype::Struct::Statement qw(struct2obj);
+use Data::Printer;
+use Wikibase::Datatype::Struct::Item qw(struct2obj);
 
 # Item structure.
 my $struct_hr = {
-        'mainsnak' => {
-                'datatype' => 'wikibase-item',
-                'datavalue' => {
-                        'type' => 'wikibase-entityid',
-                        'value' => {
-                                'entity-type' => 'item',
-                                'id' => 'Q5',
-                                'numeric-id' => 5,
-                        },
-                },
-                'property' => 'P31',
-                'snaktype' => 'value',
-        },
-        'qualifiers' => {
-                'P642' => [{
-                        'datatype' => 'wikibase-item',
-                        'datavalue' => {
-                                'type' => 'wikibase-entityid',
-                                'value' => {
-                                        'entity-type' => 'item',
-                                        'id' => 'Q474741',
-                                        'numeric-id' => 474741,
-                                },
-                        },
-                        'property' => 'P642',
-                        'snaktype' => 'value',
+        'aliases' => {
+                'en' => [{
+                        'language' => 'en',
+                        'value' => 'Douglas Noel Adams',
+                }, {
+                        'language' => 'en',
+                        'value' => 'Douglas Noël Adams',
+                }],
+                'cs' => [{
+                        'language' => 'cs',
+                        'value' => 'Douglas Noel Adams',
+                }, {
+                        'language' => 'cs',
+                        'value' => 'Douglas Noël Adams',
                 }],
         },
-        'qualifiers-order' => [
-                'P642',
-        ],
-        'rank' => 'normal',
-        'references' => [{
-                'snaks' => {
-                        'P214' => [{
-                                'datatype' => 'external-id',
-                                'datavalue' => {
-                                        'type' => 'string',
-                                        'value' => '113230702',
+        'claims' => {
+                'P394' => [{
+                        'rank' => 'normal',
+                        'id' => 'Q42$c763016e-49e0-89b9-f717-2b18af5148f9',
+                        'references' => [{
+                                'hash' => 'ed9d0472fca124cea519c0a37eba5f33f10baa22',
+                                'snaks' => {
+                                        'P1943' => [{
+                                                'datavalue' => {
+                                                        'type' => 'string',
+                                                        'value' => 'http://wikipedia.org/',
+                                                },
+                                                'datatype' => 'url',
+                                                'snaktype' => 'value',
+                                                'hash' => 'b808d4d54bed4daf07d9ac73353c0d1173cfa3c0',
+                                                'property' => 'P1943',
+                                        }],
                                 },
-                                'property' => 'P214',
-                                'snaktype' => 'value',
+                                'snaks-order' => [
+                                        'P1943',
+                                ],
                         }],
-                        'P248' => [{
-                                'datatype' => 'wikibase-item',
+                        'type' => 'statement',
+                        'mainsnak' => {
+                                'datatype' => 'quantity',
                                 'datavalue' => {
-                                        'type' => 'wikibase-entityid',
+                                        'type' => 'quantity',
                                         'value' => {
-                                                'entity-type' => 'item',
-                                                'id' => 'Q53919',
-                                                'numeric-id' => 53919,
+                                                'amount' => '+0.00000000000000000000000000000091093821500',
+                                                'upperBound' => '+0.00000000000000000000000000000091093821545',
+                                                'lowerBound' => '+0.00000000000000000000000000000091093821455',
+                                                'unit' => 'http://test.wikidata.org/entity/Q213',
                                         },
                                 },
-                                'property' => 'P248',
                                 'snaktype' => 'value',
-                        }],
-                        'P813' => [{
-                                'datatype' => 'time',
-                                'datavalue' => {
-                                        'type' => 'time',
-                                        'value' => {
-                                                'after' => 0,
-                                                'before' => 0,
-                                                'calendarmodel' => 'http://test.wikidata.org/entity/Q1985727',
-                                                'precision' => 11,
-                                                'time' => '+2013-12-07T00:00:00Z',
-                                                'timezone' => 0,
-                                        },
-                                },
-                                'property' => 'P813',
-                                'snaktype' => 'value',
-                        }],
+                                'hash' => 'fac57bc5b94714fb2390cce90f58b6a6cf9b9717',
+                                'property' => 'P394',
+                        },
+                }],
+        },
+        'descriptions' => {
+                'en' => {
+                        'language' => 'en',
+                        'value' => 'human',
                 },
-                'snaks-order' => [
-                        'P248',
-                        'P214',
-                        'P813',
-                ],
-        }],
-        'type' => 'statement',
+                'cs' => {
+                        'language' => 'cs',
+                        'value' => 'člověk',
+                },
+        },
+        'id' => 'Q42',
+        'labels' => {
+                'en' => {
+                        'language' => 'en',
+                        'value' => 'Douglas Adams',
+                },
+                'cs' => {
+                        'language' => 'cs',
+                        'value' => 'Douglas Adams',
+                },
+        },
+        'lastrevid' => 534820,
+        'modified' => '2020-12-02T13:39:18Z',
+        'ns' => 0,
+        'pageid' => '703',
+        'sitelinks' => {
+                'cswiki' => {
+                        'title' => 'Douglas Adams',
+                        'badges' => [],
+                        'site' => 'cswiki',
+                },
+        },
+        'type' => 'item',
+        'title' => 'Q42',
 };
 
 # Get object.
 my $obj = struct2obj($struct_hr);
 
-print 'Claim: '.$obj->snak->property.' -> '.$obj->snak->datavalue->value."\n";
-print "Qualifiers:\n";
-foreach my $property_snak (@{$obj->property_snaks}) {
-        print "\t".$property_snak->property.' -> '.
-                $property_snak->datavalue->value."\n";
-}
-print "References:\n";
-foreach my $reference (@{$obj->references}) {
-        print "\tReference:\n";
-        foreach my $reference_snak (@{$reference->snaks}) {
-                print "\t\t".$reference_snak->property.' -> '.
-                        $reference_snak->datavalue->value."\n";
-        }
-}
-print 'Rank: '.$obj->rank."\n";
+# Print out.
+p $obj;
 
 # Output:
-# Claim: P31 -> Q5
-# Qualifiers:
-#         P642 -> Q474741
-# References:
-#         Reference:
-#                 P248 -> Q53919
-#                 P214 -> 113230702
-#                 P813 -> +2013-12-07T00:00:00Z
-# Rank: normal
+# Wikibase::Datatype::Item  {
+#     Parents       Mo::Object
+#     public methods (9) : BUILD, can (UNIVERSAL), DOES (UNIVERSAL), err (Error::Pure), check_array_object (Mo::utils), check_number (Mo::utils), check_number_of_items (Mo::utils), isa (UNIVERSAL), VERSION (UNIVERSAL)
+#     private methods (1) : __ANON__ (Mo::build)
+#     internals: {
+#         aliases        [
+#             [0] Wikibase::Datatype::Value::Monolingual,
+#             [1] Wikibase::Datatype::Value::Monolingual,
+#             [2] Wikibase::Datatype::Value::Monolingual,
+#             [3] Wikibase::Datatype::Value::Monolingual
+#         ],
+#         descriptions   [
+#             [0] Wikibase::Datatype::Value::Monolingual,
+#             [1] Wikibase::Datatype::Value::Monolingual
+#         ],
+#         id             "Q42",
+#         labels         [
+#             [0] Wikibase::Datatype::Value::Monolingual,
+#             [1] Wikibase::Datatype::Value::Monolingual
+#         ],
+#         lastrevid      534820,
+#         modified       "2020-12-02T13:39:18Z",
+#         ns             0,
+#         page_id        703,
+#         sitelinks      [
+#             [0] Wikibase::Datatype::Sitelink
+#         ],
+#         statements     [
+#             [0] Wikibase::Datatype::Statement
+#         ],
+#         title          "Q42"
+#     }
+# }

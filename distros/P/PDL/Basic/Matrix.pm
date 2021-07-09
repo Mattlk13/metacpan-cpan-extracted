@@ -24,7 +24,7 @@ This document refers to version PDL::Matrix 0.5 of PDL::Matrix
 
 This package tries to help people who want to use PDL for 2D matrix
 computation with lots of indexing involved. It provides a PDL
-subclass so one- and two-dimensional piddles that are used as
+subclass so one- and two-dimensional ndarrays that are used as
 vectors resp and matrices can be typed in using traditional matrix
 convention.
 
@@ -111,7 +111,7 @@ sub string {
     my ($me,@a) = shift;
     return $me->SUPER::string(@a) unless($me->ndims > 0);
     $me = $me->dummy(1,1) unless($me->ndims > 1);
-    $me->xchg(0,1)->SUPER::string(@a);
+    $me->transpose->SUPER::string(@a);
 }
 
 
@@ -121,7 +121,7 @@ sub string {
 
 =for ref
 
-constructs an object of class PDL::Matrix which is a piddle child class.
+constructs an object of class PDL::Matrix which is an ndarray child class.
 
 =for example
 
@@ -132,11 +132,7 @@ constructs an object of class PDL::Matrix which is a piddle child class.
 
 sub pdl {
   my $class = shift;
-  my $pdl = $class->SUPER::pdl(@_);
-  if($pdl->ndims > 0) {
-      $pdl = $pdl->dummy(1,1) unless $pdl->ndims > 1;
-      $pdl = $pdl->xchg(0,1);
-  }
+  my $pdl = $class->SUPER::pdl(@_)->transpose;
   bless $pdl, ref $class || $class;
 }
 
@@ -144,7 +140,7 @@ sub pdl {
 
 =for ref
 
-constructs a PDL::Matrix object similar to the piddle constructors
+constructs a PDL::Matrix object similar to the ndarray constructors
 zeroes, ones, sequence.
 
 =cut
@@ -384,42 +380,14 @@ sub printTeX {
   print stringifyTeX(@_)."\n";
 }
 
-=pod 
-
-=begin comment
-
-DAL commented this out 17-June-2008. It didn't work, it used the
-outmoded (and incorrect) ~-is-transpose convention, and it wasn't
-necessary since the regular cross product worked fine.
-
-=head2  vcrossp, PDL::Matrix::crossp
-
-=for ref
-
-similar to PDL::crossp, however reflecting PDL::Matrix notations
-
-#=cut
-
-# crossp for my special vectors
-sub crossp {
-  my ($pdl1,$pdl2) = @_;
-  return PDL::transpose(PDL::crossp(~$pdl1,~$pdl2));
-}
-sub vcrossp { PDL::Matrix->crossp(\@_) }
-push @EXPORT_OK, "vcrossp";
-
-=end comment
-
-=cut
-
 %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 1;
 
 =head1 BUGS AND PROBLEMS
 
-Because we change the way piddles are constructed, not all pdl
-operators may be applied to piddle-matrices. The inner product is not
+Because we change the way ndarrays are constructed, not all pdl
+operators may be applied to ndarray-matrices. The inner product is not
 redefined. We might have missed some functions/methods. Internal
 consistency of our approach needs yet to be established.
 

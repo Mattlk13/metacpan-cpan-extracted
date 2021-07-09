@@ -3,7 +3,7 @@ package Test::Dirs;
 use warnings;
 use strict;
 
-our $VERSION = '0.04';
+our $VERSION = '0.07';
 
 use base 'Exporter';
 our @EXPORT = qw(
@@ -47,7 +47,28 @@ sub is_dir {
 	my $message = shift || 'cmp '.$dir1.' with '.$dir2;
 	my $ignore_ref = shift || [];
 	my $verbose = shift;
-	
+
+	$verbose = $ENV{TEST_VERBOSE}
+		unless defined($verbose);
+
+	if ( $ENV{FIXIT} ) {
+		dircopy( $dir1, $dir2 )
+			or die 'failed to copy '
+			. $dir1
+			. ' to temp folder '
+			. $dir2 . ' '
+			. $!;
+		$test->ok( 1, 'FIXIT: ' . $message );
+		return;
+	}
+
+	my $have_two_folders = -d $dir1 && -d $dir2;
+	unless ($have_two_folders) {
+		$test->ok( -d $dir2, 'expected-param "' . $dir2 . '" is directory' );
+		$test->ok( -d $dir1, 'is-param "' . $dir1 . '" is directory' );
+		return;
+	}
+
 	my @ignore_files = @{$ignore_ref};
 	my @differences;
 	File::DirCompare->compare($dir1, $dir2, sub {
@@ -77,7 +98,7 @@ sub is_dir {
 					push @differences, 'in '.$dir1.' is a directory while in '.$dir2.' is a regular file';
 				}
 				else {
-					push @differences, diff($a, $b);
+					push @differences, diff($b, $a);
 				}
 			}
 		}
@@ -127,7 +148,7 @@ sub dir_cleanup_ok {
 }
 
 
-'A car is not merly a faster horse.';
+'A car is not merely a faster horse.';
 
 
 __END__
@@ -157,7 +178,7 @@ Test::Dirs - easily copy and compare folders inside tests
 		is_dir($src_dir, $tmp_dir, 'fails without @ignore_files');
 	};
 	
-	# be verbose, print out the diff if doesn't match
+	# force verbose, print out the diff if doesn't match
 	is_dir($src_dir, $tmp_dir, 'test with verbose on', \@ignore_files, 'verbose');
 	
 =head1 DESCRIPTION
@@ -183,26 +204,39 @@ completely remove folder structures that are not important for comparing.
 
 =head1 FUNCTIONS
 
-=head2 temp_copy_ok($src_dir, [$message])
+=head2 temp_copy_ok($src_dir, $message)
 
 Will recursively copy C<$src_dir> to a L<File::Temp/newdir> folder and
 returning L<File::Temp::Dir> object. This object will stringify to a
 path and when destroyed (will leave the scope) folder is automatically
 deleted.
 
-=head2 is_dir($dir1, $dir2, [$message, \@ignore_files, $verbose])
+C<$message> is optional.
 
-Compares C<$dir1> with C<$dir2>. Files that has to be ignored (are not important)
+=head2 is_dir($is_dir, $expected_dir, $message, \@ignore_files, $verbose)
+
+Compares C<$is_dir> with C<$expected_dir>. Files that has to be ignored (are not important)
 can be specified as C<@ignore_files>. The filenames are relative to the C<$dir1(2)>
 folders.
 
-=head2 dir_cleanup_ok($filename, [$message])
+C<$verbose> will output unified diff between C<$expected_dir> and C<$is_dir>.
+
+Setting C<FIXIT> env to true will make this function copy C<$is_dir> folder
+content into C<$expected_dir>. Usefull for bootstraping test results or for
+acnkowledging results after code update.
+
+C<$message>, C<\@ignore_files>, C<$verbose> are optional.
+Default verbose value is C<$ENV{TEST_VERBOSE}>.
+
+=head2 dir_cleanup_ok($filename, $message)
 
 If the C<$filename> is a folder. Removes this folder and all empty
 folders upwards.
 
 If the C<$filename> is a file. Removes parent folder of this file and all empty
 folders upwards.
+
+C<$message> is optional.
 
 PS: Just be careful :-)
 

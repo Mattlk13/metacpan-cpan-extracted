@@ -1,0 +1,29 @@
+Revision history for Perl module Sys::Binmode
+
+0.04
+- This now handles the TO argument to send().
+- This now handles ioctl().
+- Document autodie incompatibility. :(
+
+0.03 Wed, 10 March 2021
+- FIX: Segfault in Alpine Linux 3.11 & 3.12 (maybe others?).
+- FIX: This now handles overloaded stringification.
+- FIX: This now handles multi-arg unlink().
+- This now handles readpipe/qx/backticks.
+- Filesystem tests now run on Windows.
+- Skip local-socket-dependent tests if we can’t bind().
+- Fix setsockopt test on Solaris.
+- More documentation improvements.
+
+0.02 Wed, 3 March 2021
+- FIX: do/require now work on Windows.
+- Perl 5.14 is now supported.
+- Improve documentation, esp. re utf8.pm.
+- Fix filesystem tests on nonzero-numbered devices.
+- Avoid re-wrapping the already-wrapped code in later threads.
+- Remove static assets from do & require tests.
+- (internal) Deduplicate %^H key
+- (internal) Tweak saving of op handlers.
+
+0.01 Tue, 2 March 2021
+- original version

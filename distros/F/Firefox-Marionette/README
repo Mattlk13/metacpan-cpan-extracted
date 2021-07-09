@@ -5,7 +5,7 @@ NAME
 
 VERSION
 
-    Version 1.00
+    Version 1.08
 
 SYNOPSIS
 
@@ -19,6 +19,8 @@ SYNOPSIS
         say $firefox->html();
     
         $firefox->find_class('container-fluid')->find_id('search-input')->type('Test::More');
+    
+        say "Height of search box is " . $firefox->find_class('container-fluid')->css('height');
     
         my $file_handle = $firefox->selfie();
     
@@ -53,11 +55,42 @@ SUBROUTINES/METHODS
     returns the active element of the current browsing context's document
     element, if the document element is non-null.
 
+ add_certificate
+
+    accepts a hash as a parameter and adds the specified certificate to the
+    Firefox database with the supplied or default trust. Allowed keys are
+    below;
+
+      * path - a file system path to a single PEM encoded X.509 certificate
+      <https://datatracker.ietf.org/doc/html/rfc7468#section-5>.
+
+      * string - a string containg a single PEM encoded X.509 certificate
+      <https://datatracker.ietf.org/doc/html/rfc7468#section-5>
+
+      * trust - This is the trustargs
+      <https://www.mankier.com/1/certutil#-t> value for NSS
+      <https://wiki.mozilla.org/NSS>. If defaults to 'C,,';
+
+    This method returns itself to aid in chaining methods.
+
+        use Firefox::Marionette();
+    
+        my $pem_encoded_string = <<'_PEM_';
+        -----BEGIN CERTIFICATE-----
+        MII..
+        -----END CERTIFICATE-----
+        _PEM_
+        my $firefox = Firefox::Marionette->new()->add_certificate(string => $pem_encoded_string);
+
  add_cookie
 
     accepts a single cookie object as the first parameter and adds it to
     the current cookie jar. This method returns itself to aid in chaining
     methods.
+
+    This method throws an exception if you try to add a cookie for a
+    different domain than the current document
+    <https://developer.mozilla.org/en-US/docs/Web/WebDriver/Errors/InvalidCookieDomain>.
 
  add_header
 
@@ -91,6 +124,63 @@ SUBROUTINES/METHODS
     header that may resemble Accept:
     text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8,
     text/perl. This method returns itself to aid in chaining methods.
+
+ add_login
+
+    accepts a hash of the following keys;
+
+      * host - The scheme + hostname of the page where the login applies,
+      for example 'https://www.example.org'.
+
+      * user - The username for the login.
+
+      * password - The password for the login.
+
+      * origin - The scheme + hostname that the form-based login was
+      submitted to
+      <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-action>.
+      Forms with no action attribute default to submitting to the URL of
+      the page containing the login form, so that is stored here. This
+      field should be omitted (it will be set to undef) for http auth type
+      authentications and "" means to match against any form action.
+
+      * realm - The HTTP Realm for which the login was requested. When an
+      HTTP server sends a 401 result, the WWW-Authenticate header includes
+      a realm. See RFC 2617
+      <https://datatracker.ietf.org/doc/html/rfc2617>. If the realm is not
+      specified, or it was blank, the hostname is used instead. For HTML
+      form logins, this field should not be specified.
+
+      * user_field - The name attribute for the username input in a form.
+      Non-form logins should not specify this field.
+
+      * password_field - The name attribute for the password input in a
+      form. Non-form logins should not specify this field.
+
+    or a Firefox::Marionette::Login object as the first parameter and adds
+    the login to the Firefox login database.
+
+        use Firefox::Marionette();
+        use UUID();
+    
+        my $firefox = Firefox::Marionette->new();
+    
+        # for http auth logins
+    
+        my $http_auth_login = Firefox::Marionette::Login->new(host => 'https://pause.perl.org', user => 'AUSER', password => 'qwerty', realm => 'PAUSE');
+        $firefox->add_login($http_auth_login);
+        $firefox->go('https://pause.perl.org/pause/authenquery')->accept_alert(); # this goes to the page and submits the http auth popup
+    
+        # for form based login
+    
+        $firefox->add_login(host => 'https://github.com', origin => 'https://github.com', user => 'me@example.org', password => 'qwerty', user_field => 'login', password_field => 'password');
+        my $form_login = Firefox::Marionette::Login(host => 'https://github.com', user => 'me2@example.org', password => 'uiop[]', user_field => 'login', password_field => 'password');
+    
+        # or just directly
+    
+        $firefox->add_login(host => 'https://github.com', user => 'me2@example.org', password => 'uiop[]', user_field => 'login', password_field => 'password');
+
+    This method returns itself to aid in chaining methods.
 
  add_site_header
 
@@ -180,7 +270,7 @@ SUBROUTINES/METHODS
 
  browser_version
 
-    This method returns version of firefox.
+    This method returns the current version of firefox.
 
  bye
 
@@ -205,10 +295,63 @@ SUBROUTINES/METHODS
     returns the capabilities of the current firefox binary. You can
     retrieve timeouts or a proxy with this method.
 
+ certificate_as_pem
+
+    accepts a certificate stored in the Firefox database as a parameter and
+    returns a PEM encoded X.509 certificate
+    <https://datatracker.ietf.org/doc/html/rfc7468#section-5> as a string.
+
+        use Firefox::Marionette();
+    
+        my $firefox = Firefox::Marionette->new();
+    
+        # Generating a ca-bundle.crt to STDOUT from the current firefox instance
+    
+        foreach my $certificate (sort { $a->display_name() cmp $b->display_name } $firefox->certificates()) {
+            if ($certificate->is_ca_cert()) {
+                print '# ' . $certificate->display_name() . "\n" . $firefox->certificate_as_pem($certificate) . "\n";
+            }
+        }
+
+    The ca-bundle-for-firefox command that is provided as part of this
+    distribution does this.
+
+ certificates
+
+    returns a list of all known certificates in the Firefox database.
+
+        use Firefox::Marionette();
+        use v5.10;
+    
+        # Sometimes firefox can neglect old certificates.  See https://bugzilla.mozilla.org/show_bug.cgi?id=1710716
+    
+        my $firefox = Firefox::Marionette->new();
+        foreach my $certificate (grep { $_->is_ca_cert() && $_->not_valid_after() < time } $firefox->certificates()) {
+            say "The " . $certificate->display_name() " . certificate has expired and should be removed";
+        }
+
+    This method returns itself to aid in chaining methods.
+
  child_error
 
     This method returns the $? (CHILD_ERROR) for the Firefox process, or
     undefined if the process has not yet exited.
+
+ chrome
+
+    changes the scope of subsequent commands to chrome context. This allows
+    things like interacting with firefox menu's and buttons outside of the
+    browser window.
+
+        use Firefox::Marionette();
+        use v5.10;
+    
+        my $firefox = Firefox::Marionette->new()->chrome();
+        $firefox->script(...); # running script in chrome context
+        $firefox->content();
+
+    See the context method for an alternative methods for changing the
+    context.
 
  chrome_window_handle
 
@@ -256,6 +399,22 @@ SUBROUTINES/METHODS
     closes the current window/tab. It returns a list of still available
     window/tab handles.
 
+ content
+
+    changes the scope of subsequent commands to browsing context. This is
+    the default for when firefox starts and restricts commands to operating
+    in the browser window only.
+
+        use Firefox::Marionette();
+        use v5.10;
+    
+        my $firefox = Firefox::Marionette->new()->chrome();
+        $firefox->script(...); # running script in chrome context
+        $firefox->content();
+
+    See the context method for an alternative methods for changing the
+    context.
+
  context
 
     accepts a string as the first parameter, which may be either 'content'
@@ -266,9 +425,15 @@ SUBROUTINES/METHODS
         use v5.10;
     
         my $firefox = Firefox::Marionette->new();
+        if ($firefox->context() eq 'content') {
+           say "I knew that was going to happen";
+        }
         my $old_context = $firefox->context('chrome');
         $firefox->script(...); # running script in chrome context
         $firefox->context($old_context);
+
+    See the content and chrome methods for alternative methods for changing
+    the context.
 
  cookies
 
@@ -292,9 +457,35 @@ SUBROUTINES/METHODS
     name as the second parameter. It returns the value of the computed
     style for that property.
 
+        use Firefox::Marionette();
+        use v5.10;
+    
+        my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+        say $firefox->find_id('search-input')->css('height');
+
  current_chrome_window_handle
 
     see chrome_window_handle.
+
+ delete_certificate
+
+    accepts a certificate stored in the Firefox database as a parameter and
+    deletes/distrusts the certificate from the Firefox database.
+
+        use Firefox::Marionette();
+        use v5.10;
+    
+        my $firefox = Firefox::Marionette->new();
+        foreach my $certificate ($firefox->certificates()) {
+            if ($certificate->is_ca_cert()) {
+                $firefox->delete_certificate($certificate);
+            } else {
+                say "This " . $certificate->display_name() " certificate is NOT a certificate authority, therefore it is not being deleted";
+            }
+        }
+        say "Good luck visiting a HTTPS website!";
+
+    This method returns itself to aid in chaining methods.
 
  delete_cookie
 
@@ -335,6 +526,34 @@ SUBROUTINES/METHODS
     Accept-Encoding
     <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding>
     headers from all future requests
+
+    This method returns itself to aid in chaining methods.
+
+ delete_login
+
+    accepts a login as a parameter.
+
+        use Firefox::Marionette();
+    
+        my $firefox = Firefox::Marionette->new();
+        foreach my $login ($firefox->logins()) {
+            if ($login->user() eq 'me@example.org') {
+                $firefox->delete_login($login);
+            }
+        }
+
+    will remove the logins with the username matching 'me@example.org'.
+
+    This method returns itself to aid in chaining methods.
+
+ delete_logins
+
+    This method empties the password database.
+
+        use Firefox::Marionette();
+    
+        my $firefox = Firefox::Marionette->new();
+        $firefox->delete_logins();
 
     This method returns itself to aid in chaining methods.
 
@@ -456,6 +675,33 @@ SUBROUTINES/METHODS
     STDOUT as a chomped string. It is a simple method only intended for the
     Firefox::Marionette::* modules.
 
+ fill_login
+
+    This method searchs the Password Manager
+    <https://support.mozilla.org/en-US/kb/password-manager-remember-delete-edit-logins>
+    for an appropriate login for any form on the current page. The form
+    must match the host, the action attribute and the user and password
+    field names.
+
+        use Firefox::Marionette();
+        use IO::Prompt();
+    
+        my $firefox = Firefox::Marionette->new();
+    
+        my $firefox = Firefox::Marionette->new();
+    
+        my $url = 'https://github.com';
+    
+        my $user = 'me@example.org';
+    
+        my $password = IO::Prompt::prompt(-echo => q[*], "Please enter the password for the $user account when logging into $url:");
+    
+        $firefox->add_login(host => $url, user => $user, password => 'qwerty', user_field => 'login', password_field => 'password');
+    
+        $firefox->go("$url/login");
+    
+        $firefox->fill_login();
+
  find
 
     accepts an xpath expression <https://en.wikipedia.org/wiki/XPath> as
@@ -477,7 +723,9 @@ SUBROUTINES/METHODS
             $element->type('Test::More');
         }
 
-    If no elements are found, a not found exception will be thrown.
+    If no elements are found, a not found exception will be thrown. For the
+    same functionality that returns undef if no elements are found, see the
+    has method.
 
  find_id
 
@@ -501,7 +749,9 @@ SUBROUTINES/METHODS
             $element->type('Test::More');
         }
 
-    If no elements are found, a not found exception will be thrown.
+    If no elements are found, a not found exception will be thrown. For the
+    same functionality that returns undef if no elements are found, see the
+    has_id method.
 
  find_name
 
@@ -521,7 +771,9 @@ SUBROUTINES/METHODS
             $element->type('Test::More');
         }
 
-    If no elements are found, a not found exception will be thrown.
+    If no elements are found, a not found exception will be thrown. For the
+    same functionality that returns undef if no elements are found, see the
+    has_name method.
 
  find_class
 
@@ -544,7 +796,9 @@ SUBROUTINES/METHODS
             $element->type('Test::More');
         }
 
-    If no elements are found, a not found exception will be thrown.
+    If no elements are found, a not found exception will be thrown. For the
+    same functionality that returns undef if no elements are found, see the
+    has_class method.
 
  find_selector
 
@@ -567,7 +821,9 @@ SUBROUTINES/METHODS
             $element->type('Test::More');
         }
 
-    If no elements are found, a not found exception will be thrown.
+    If no elements are found, a not found exception will be thrown. For the
+    same functionality that returns undef if no elements are found, see the
+    has_selector method.
 
  find_tag
 
@@ -589,7 +845,9 @@ SUBROUTINES/METHODS
             # do something
         }
 
-    If no elements are found, a not found exception will be thrown.
+    If no elements are found, a not found exception will be thrown. For the
+    same functionality that returns undef if no elements are found, see the
+    has_tag method.
 
  find_link
 
@@ -610,7 +868,9 @@ SUBROUTINES/METHODS
             $element->click();
         }
 
-    If no elements are found, a not found exception will be thrown.
+    If no elements are found, a not found exception will be thrown. For the
+    same functionality that returns undef if no elements are found, see the
+    has_link method.
 
  find_partial
 
@@ -631,7 +891,9 @@ SUBROUTINES/METHODS
             $element->click();
         }
 
-    If no elements are found, a not found exception will be thrown.
+    If no elements are found, a not found exception will be thrown. For the
+    same functionality that returns undef if no elements are found, see the
+    has_partial method.
 
  forward
 
@@ -695,6 +957,166 @@ SUBROUTINES/METHODS
         foreach my $entry ($har->entries()) {
             say $entry->request()->url() . " spent " . $entry->timings()->connect() . " ms establishing a TCP connection";
         }
+
+ has
+
+    accepts an xpath expression <https://en.wikipedia.org/wiki/XPath> as
+    the first parameter and returns the first element that matches this
+    expression.
+
+    This method is subject to the implicit timeout, which, by default is 0
+    seconds.
+
+        use Firefox::Marionette();
+    
+        my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+    
+        if (my $element = $firefox->has('//input[@id="search-input"]')) {
+            $element->type('Test::More');
+        }
+
+    If no elements are found, this method will return undef. For the same
+    functionality that throws a not found exception, see the find method.
+
+ has_id
+
+    accepts an id
+    <https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/id>
+    as the first parameter and returns the first element with a matching
+    'id' property.
+
+    This method is subject to the implicit timeout, which, by default is 0
+    seconds.
+
+        use Firefox::Marionette();
+    
+        my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+    
+        if (my $element = $firefox->has_id('search-input')) {
+            $element->type('Test::More');
+        }
+
+    If no elements are found, this method will return undef. For the same
+    functionality that throws a not found exception, see the find_id
+    method.
+
+ has_name
+
+    This method returns the first element with a matching 'name' property.
+
+    This method is subject to the implicit timeout, which, by default is 0
+    seconds.
+
+        use Firefox::Marionette();
+    
+        my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+        if (my $element = $firefox->has_name('q')) {
+            $element->type('Test::More');
+        }
+
+    If no elements are found, this method will return undef. For the same
+    functionality that throws a not found exception, see the find_name
+    method.
+
+ has_class
+
+    accepts a class name
+    <https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/class>
+    as the first parameter and returns the first element with a matching
+    'class' property.
+
+    This method is subject to the implicit timeout, which, by default is 0
+    seconds.
+
+        use Firefox::Marionette();
+    
+        my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+        if (my $element = $firefox->has_class('form-control home-search-input')) {
+            $element->type('Test::More');
+        }
+
+    If no elements are found, this method will return undef. For the same
+    functionality that throws a not found exception, see the find_class
+    method.
+
+ has_selector
+
+    accepts a CSS Selector
+    <https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors> as the
+    first parameter and returns the first element that matches that
+    selector.
+
+    This method is subject to the implicit timeout, which, by default is 0
+    seconds.
+
+        use Firefox::Marionette();
+    
+        my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+        if (my $element = $firefox->has_selector('input.home-search-input')) {
+            $element->type('Test::More');
+        }
+
+    If no elements are found, this method will return undef. For the same
+    functionality that throws a not found exception, see the find_selector
+    method.
+
+ has_tag
+
+    accepts a tag name
+    <https://developer.mozilla.org/en-US/docs/Web/API/Element/tagName> as
+    the first parameter and returns the first element with this tag name.
+
+    This method is subject to the implicit timeout, which, by default is 0
+    seconds.
+
+        use Firefox::Marionette();
+    
+        my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+        if (my $element = $firefox->has_tag('input')) {
+            # do something
+        }
+
+    If no elements are found, this method will return undef. For the same
+    functionality that throws a not found exception, see the find_tag
+    method.
+
+ has_link
+
+    accepts a text string as the first parameter and returns the first link
+    element that has a matching link text.
+
+    This method is subject to the implicit timeout, which, by default is 0
+    seconds.
+
+        use Firefox::Marionette();
+    
+        my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+        if (my $element = $firefox->has_link('API')) {
+            $element->click();
+        }
+
+    If no elements are found, this method will return undef. For the same
+    functionality that throws a not found exception, see the find_link
+    method.
+
+ has_partial
+
+    accepts a text string as the first parameter and returns the first link
+    element that has a partially matching link text.
+
+    This method is subject to the implicit timeout, which, by default is 0
+    seconds.
+
+        use Firefox::Marionette();
+    
+        my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+        if (my $element = $firefox->find_partial('AP')) {
+            $element->click();
+        }
+
+    If no elements are found, this method will return undef. For the same
+    functionality that throws a not found exception, see the find_partial
+    method.
 
  html
 
@@ -774,17 +1196,29 @@ SUBROUTINES/METHODS
  is_displayed
 
     accepts an element as the first parameter. This method returns true or
-    false depending on if the element is displayed.
+    false depending on if the element is displayed
+    <https://firefox-source-docs.mozilla.org/testing/marionette/internals/interaction.html#interaction.isElementDisplayed>.
 
  is_enabled
 
     accepts an element as the first parameter. This method returns true or
-    false depending on if the element is enabled.
+    false depending on if the element is enabled
+    <https://w3c.github.io/webdriver/#is-element-enabled>.
 
  is_selected
 
     accepts an element as the first parameter. This method returns true or
-    false depending on if the element is selected.
+    false depending on if the element is selected
+    <https://w3c.github.io/webdriver/#dfn-is-element-selected>. Note that
+    this method only makes sense for checkbox
+    <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/checkbox>
+    or radio
+    <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/radio>
+    inputs or option
+    <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/option>
+    elements in a select
+    <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/select>
+    dropdown.
 
  json
 
@@ -796,6 +1230,39 @@ SUBROUTINES/METHODS
         use v5.10;
     
         say Firefox::Marionette->new()->go('https://fastapi.metacpan.org/v1/download_url/Firefox::Marionette")->json()->{version};
+
+ key_down
+
+    accepts a parameter describing a key and returns an action for use in
+    the perform method that corresponding with that key being depressed.
+
+        use Firefox::Marionette();
+        use Firefox::Marionette::Keys qw(:all);
+    
+        my $firefox = Firefox::Marionette->new();
+    
+        $firefox->chrome()->perform(
+                                     $firefox->key_down(CONTROL()),
+                                     $firefox->key_down('l'),
+                                   )->release()->content();
+
+ key_up
+
+    accepts a parameter describing a key and returns an action for use in
+    the perform method that corresponding with that key being released.
+
+        use Firefox::Marionette();
+        use Firefox::Marionette::Keys qw(:all);
+    
+        my $firefox = Firefox::Marionette->new();
+    
+        $firefox->chrome()->perform(
+                                     $firefox->key_down(CONTROL()),
+                                     $firefox->key_down('l'),
+                                     $firefox->pause(20),
+                                     $firefox->key_up('l'),
+                                     $firefox->key_up(CONTROL())
+                                   )->content();
 
  loaded
 
@@ -839,6 +1306,26 @@ SUBROUTINES/METHODS
     minimises the firefox window. This method returns itself to aid in
     chaining methods.
 
+ mouse_down
+
+    accepts a parameter describing which mouse button the method should
+    apply to (left, middle or right) and returns an action for use in the
+    perform method that corresponding with a mouse button being depressed.
+
+ mouse_move
+
+    accepts a element parameter, or a ( x => 0, y => 0 ) type hash manually
+    describing exactly where to move the mouse to and returns an action for
+    use in the perform method that corresponding with such a mouse
+    movement, either to the specified co-ordinates or to the middle of the
+    supplied element parameter.
+
+ mouse_up
+
+    accepts a parameter describing which mouse button the method should
+    apply to (left, middle or right) and returns an action for use in the
+    perform method that corresponding with a mouse button being released.
+
  new
 
     accepts an optional hash as a parameter. Allowed keys are below;
@@ -854,17 +1341,24 @@ SUBROUTINES/METHODS
       checking for the lastest malware/phishing sites, updates to
       firefox/etc. This option is therefore off ("0") by default, however,
       it can be switched on ("1") if required. Even with chatty switched
-      off, connections to firefox.settings.services.mozilla.com may still
-      be made. The only way to prevent this seems to be to set
+      off, connections to firefox.settings.services.mozilla.com will still
+      be made <https://bugzilla.mozilla.org/show_bug.cgi?id=1598562#c13>.
+      The only way to prevent this seems to be to set
       firefox.settings.services.mozilla.com to 127.0.0.1 via /etc/hosts
       <https://en.wikipedia.org/wiki//etc/hosts>. NOTE: that this option
       only works when profile_name/profile is not specified.
 
+      * console - show the browser console
+      <https://developer.mozilla.org/en-US/docs/Tools/Browser_Console/>
+      when the browser is launched. This defaults to "0" (off).
+
       * debug - should firefox's debug to be available via STDERR. This
       defaults to "0". Any ssh connections will also be printed to STDERR.
+      This defaults to "0" (off).
 
       * developer - only allow a developer edition
       <https://www.mozilla.org/en-US/firefox/developer/> to be launched.
+      This defaults to "0" (off).
 
       * firefox - use the specified path to the Firefox
       <https://firefox.org/> binary, rather than the default path.
@@ -895,7 +1389,7 @@ SUBROUTINES/METHODS
 
       * nightly - only allow a nightly release
       <https://www.mozilla.org/en-US/firefox/channel/desktop/#nightly> to
-      be launched.
+      be launched. This defaults to "0" (off).
 
       * port - if the "host" parameter is also set, use ssh
       <https://man.openbsd.org/ssh.1> to create and automate firefox via
@@ -939,24 +1433,20 @@ SUBROUTINES/METHODS
       reconnect parameter for an experimental technique for reconnecting.
 
       * trust - give a path to a root certificate
-      <https://en.wikipedia.org/wiki/Root_certificate> that will be trusted
-      for this session. The certificate will be imported by the NSS
-      certutil
-      <https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/tools/NSS_Tools_certutil>
-      binary. If this binary does not exist in the PATH
-      <https://en.wikipedia.org/wiki/PATH_(variable)>, an exception will be
-      thrown. For Linux/BSD systems, NSS certutil should be available via
-      your package manager. For OS X and Windows based platforms, it will
-      be more difficult.
+      <https://en.wikipedia.org/wiki/Root_certificate> encoded as a PEM
+      encoded X.509 certificate
+      <https://datatracker.ietf.org/doc/html/rfc7468#section-5> that will
+      be trusted for this session.
 
       * timeouts - a shortcut to allow directly providing a timeout object,
       instead of needing to use timeouts from the capabilities parameter.
       Overrides the timeouts provided (if any) in the capabilities
       parameter.
 
-      * port - if the "host" parameter is also set, use ssh
+      * user - if the "host" parameter is also set, use ssh
       <https://man.openbsd.org/ssh.1> to create and automate firefox with
-      the specified user. See REMOTE AUTOMATION OF FIREFOX VIA SSH.
+      the specified user. See REMOTE AUTOMATION OF FIREFOX VIA SSH. The
+      user will default to the current user name.
 
       * visible - should firefox be visible on the desktop. This defaults
       to "0".
@@ -1033,10 +1523,13 @@ SUBROUTINES/METHODS
     returns a list of all the recognised names for paper sizes, such as A4
     or LEGAL.
 
- pdf
+ pause
 
-    returns a File::Temp object containing a PDF encoded version of the
-    current page for printing.
+    accepts a parameter in milliseconds and returns a corresponding action
+    for the perform method that will cause a pause in the chain of actions
+    given to the perform method.
+
+ pdf
 
     accepts a optional hash as the first parameter with the following
     allowed keys;
@@ -1066,6 +1559,9 @@ SUBROUTINES/METHODS
       * shrink_to_fit - Whether or not to override page size as defined by
       CSS. Boolean value. Defaults to true.
 
+    returns a File::Temp object containing a PDF encoded version of the
+    current page for printing.
+
         use Firefox::Marionette();
     
         my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
@@ -1076,6 +1572,46 @@ SUBROUTINES/METHODS
                 print $firefox->pdf(page => { width => 21, height => 27 }, raw => 1);
                 ...
         }
+
+ perform
+
+    accepts a list of actions (see mouse_up, mouse_down, mouse_move, pause,
+    key_down and key_up) and performs these actions in sequence. This
+    allows fine control over interactions, including sending right clicks
+    to the browser and sending Control, Alt and other special keys. The
+    release method will complete outstanding actions (such as mouse_up or
+    key_up actions).
+
+        use Firefox::Marionette();
+        use Firefox::Marionette::Keys qw(:all);
+        use Firefox::Marionette::Buttons qw(:all);
+    
+        my $firefox = Firefox::Marionette->new();
+    
+        $firefox->chrome()->perform(
+                                     $firefox->key_down(CONTROL()),
+                                     $firefox->key_down('l'),
+                                     $firefox->key_up('l'),
+                                     $firefox->key_up(CONTROL())
+                                   )->content();
+    
+        $firefox->go('https://metacpan.org');
+        my $help_button = $firefox->find_class('btn search-btn help-btn');
+        $firefox->perform(
+                                      $firefox->mouse_move($help_button),
+                                      $firefox->mouse_down(RIGHT_BUTTON()),
+                                      $firefox->pause(4),
+                                      $firefox->mouse_up(RIGHT_BUTTON()),
+                    );
+
+    See the release method for an alternative for manually specifying all
+    the mouse_up and key_up methods
+
+ profile_directory
+
+    returns the profile directory used by the current instance of firefox.
+    This is mainly intended for debugging firefox. Firefox is not designed
+    to cope with these files being altered while firefox is running.
 
  property
 
@@ -1096,6 +1632,84 @@ SUBROUTINES/METHODS
     
         my $title = $firefox->find_tag('title')->property('innerHTML'); # same as $firefox->title();
 
+ pwd_mgr_lock
+
+    Accepts a new primary password
+    <https://support.mozilla.org/en-US/kb/use-primary-password-protect-stored-logins>
+    and locks the Password Manager
+    <https://support.mozilla.org/en-US/kb/password-manager-remember-delete-edit-logins>
+    with it.
+
+        use Firefox::Marionette();
+        use IO::Prompt();
+    
+        my $firefox = Firefox::Marionette->new();
+        my $password = IO::Prompt::prompt(-echo => q[*], "Please enter the password for the Firefox Password Manager:");
+        $firefox->pwd_mgr_lock($password);
+        $firefox->pwd_mgr_logout();
+        # now no-one can access the Password Manager Database without the value in $password
+
+    This method returns itself to aid in chaining methods.
+
+ pwd_mgr_login
+
+    Accepts the primary password
+    <https://support.mozilla.org/en-US/kb/use-primary-password-protect-stored-logins>
+    and allows the user to access the Password Manager
+    <https://support.mozilla.org/en-US/kb/password-manager-remember-delete-edit-logins>.
+
+        use Firefox::Marionette();
+        use IO::Prompt();
+    
+        my $firefox = Firefox::Marionette->new( profile_name => 'default' );
+        my $password = IO::Prompt::prompt(-echo => q[*], "Please enter the password for the Firefox Password Manager:");
+        $firefox->pwd_mgr_login($password);
+        ...
+        # access the Password Database.
+        ...
+        $firefox->pwd_mgr_logout();
+        ...
+        # no longer able to access the Password Database.
+
+    This method returns itself to aid in chaining methods.
+
+ pwd_mgr_logout
+
+    Logs the user out of being able to access the Password Manager
+    <https://support.mozilla.org/en-US/kb/password-manager-remember-delete-edit-logins>.
+
+        use Firefox::Marionette();
+        use IO::Prompt();
+    
+        my $firefox = Firefox::Marionette->new( profile_name => 'default' );
+        my $password = IO::Prompt::prompt(-echo => q[*], "Please enter the password for the Firefox Password Manager:");
+        $firefox->pwd_mgr_login($password);
+        ...
+        # access the Password Database.
+        ...
+        $firefox->pwd_mgr_logout();
+        ...
+        # no longer able to access the Password Database.
+
+    This method returns itself to aid in chaining methods.
+
+ pwd_mgr_needs_login
+
+    returns true or false if the Password Manager
+    <https://support.mozilla.org/en-US/kb/password-manager-remember-delete-edit-logins>
+    has been locked and needs a primary password
+    <https://support.mozilla.org/en-US/kb/use-primary-password-protect-stored-logins>
+    to access it.
+
+        use Firefox::Marionette();
+        use IO::Prompt();
+    
+        my $firefox = Firefox::Marionette->new( profile_name => 'default' );
+        if ($firefox->pwd_mgr_needs_login()) {
+          my $password = IO::Prompt::prompt(-echo => q[*], "Please enter the password for the Firefox Password Manager:");
+          $firefox->pwd_mgr_login($password);
+        }
+
  quit
 
     Marionette will stop accepting new connections before ending the
@@ -1113,6 +1727,29 @@ SUBROUTINES/METHODS
     completely refresh or the session's page_load duration to elapse before
     returning, which, by default is 5 minutes. This method returns itself
     to aid in chaining methods.
+
+ release
+
+    completes any outstanding actions issued by the perform method.
+
+        use Firefox::Marionette();
+        use Firefox::Marionette::Keys qw(:all);
+        use Firefox::Marionette::Buttons qw(:all);
+    
+        my $firefox = Firefox::Marionette->new();
+    
+        $firefox->chrome()->perform(
+                                     $firefox->key_down(CONTROL()),
+                                     $firefox->key_down('l'),
+                                   )->release()->content();
+    
+        $firefox->go('https://metacpan.org');
+        my $help_button = $firefox->find_class('btn search-btn help-btn');
+        $firefox->perform(
+                                      $firefox->mouse_move($help_button),
+                                      $firefox->mouse_down(RIGHT_BUTTON()),
+                                      $firefox->pause(4),
+                    )->release();
 
  screen_orientation
 
@@ -1159,6 +1796,10 @@ SUBROUTINES/METHODS
         if ($firefox->script('return window.find("lucky");')) {
             # luckily!
         }
+    
+        my $search_input = $firefox->find_by_id('search-input');
+    
+        $firefox->script('arguments[0].style.backgroundColor = "red"', args => [ $search_input ]); # turn the search input box red
 
     The executing javascript is subject to the script timeout, which, by
     default is 30 seconds.
@@ -1223,7 +1864,11 @@ SUBROUTINES/METHODS
         use JSON();
         use v5.10;
     
-        say JSON::decode_json(Firefox::Marionette->new()->go('https://fastapi.metacpan.org/v1/download_url/Firefox::Marionette")->strip())->{version};
+        say JSON::decode_json(Firefox::Marionette->new()->go("https://fastapi.metacpan.org/v1/download_url/Firefox::Marionette")->strip())->{version};
+
+    Note that this method will assume the bytes it receives from the html
+    method are UTF-8 encoded and will translate accordingly, throwing an
+    exception in the process if the bytes are not UTF-8 encoded.
 
  switch_to_frame
 
@@ -1243,7 +1888,10 @@ SUBROUTINES/METHODS
  tag_name
 
     accepts a Firefox::Marionette::Element object as the first parameter
-    and returns the relevant tag name. For example 'a' or 'input'.
+    and returns the relevant tag name. For example 'a
+    <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a>' or
+    'input
+    <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input>'.
 
  text
 
@@ -1256,7 +1904,9 @@ SUBROUTINES/METHODS
 
  title
 
-    returns the current title of the window.
+    returns the current title
+    <https://developer.mozilla.org/en-US/docs/Web/HTML/Element/title> of
+    the window.
 
  type
 
@@ -1314,9 +1964,62 @@ SUBROUTINES/METHODS
 
     returns the current window's type. This should be 'navigator:browser'.
 
- xvfb
+ xvfb_pid
 
     returns the pid of the xvfb process if it exists.
+
+ xvfb_display
+
+    returns the value for the DISPLAY environment variable if one has been
+    generated for the xvfb environment.
+
+ xvfb_xauthority
+
+    returns the value for the XAUTHORITY environment variable if one has
+    been generated for the xvfb environment
+
+AUTOMATING THE FIREFOX PASSWORD MANAGER
+
+    This module allows you to login to a website without ever directly
+    handling usernames and password details. The Password Manager may be
+    preloaded with appropriate passwords and locked, like so;
+
+        use Firefox::Marionette();
+    
+        my $firefox = Firefox::Marionette->new( profile_name => 'locked' ); # using a pre-built profile called 'locked'
+        if ($firefox->pwd_mgr_needs_login()) {
+            my $new_password = IO::Prompt::prompt(-echo => q[*], 'Enter the password for the locked profile:');
+            $firefox->pwd_mgr_login($password);
+        } else {
+            my $new_password = IO::Prompt::prompt(-echo => q[*], 'Enter the new password for the locked profile:');
+            $firefox->pwd_mgr_lock($password);
+        }
+        ...
+        $firefox->pwd_mgr_logout();
+
+    Usernames and passwords (for both HTTP Authentication popups and HTML
+    Form based logins) may be added, viewed and deleted.
+
+        use WebService::HIBP();
+    
+        my $hibp = WebService::HIBP->new();
+    
+        $firefox->add_login(host => 'https://github.com', user => 'me@example.org', password => 'qwerty', user_field => 'login', password_field => 'password');
+        $firefox->add_login(host => 'https://pause.perl.org', user => 'AUSER', password => 'qwerty', realm => 'PAUSE');
+        ...
+        foreach my $login ($firefox->logins()) {
+            if ($hibp->password($login->password())) { # does NOT send the password to the HIBP webservice
+                warn "HIBP reports that your password for the " . $login->user() " account at " . $login->host() . " has been found in a data breach";
+                $firefox->delete_login($login); # how could this possibly help?
+            }
+        }
+
+    And used to fill in login prompts without explicitly knowing the
+    account details.
+
+        $firefox->go('https://pause.perl.org/pause/authenquery')->accept_alert(); # this goes to the page and submits the http auth popup
+    
+        $firefox->go('https://github.com/login')->fill_login(); # fill the login and password fields without needing to see them
 
 REMOTE AUTOMATION OF FIREFOX VIA SSH
 
@@ -1557,10 +2260,6 @@ BUGS AND LIMITATIONS
 
     Currently the following Marionette methods have not been implemented;
 
-      * WebDriver:ReleaseAction
-
-      * WebDriver:PerformActions
-
       * WebDriver:SetScreenOrientation
 
     No bugs have been reported.
@@ -1594,6 +2293,10 @@ ACKNOWLEDGEMENTS
     creating the HAR Export Trigger
     <https://github.com/firefox-devtools/har-export-trigger> extension for
     Firefox.
+
+    Thanks to Mike Kaply <https://mike.kaply.com/about/> for his post
+    <https://mike.kaply.com/2015/02/10/installing-certificates-into-firefox/>
+    describing importing certificates into Firefox.
 
     Thanks also to the authors of the documentation in the following
     sources;

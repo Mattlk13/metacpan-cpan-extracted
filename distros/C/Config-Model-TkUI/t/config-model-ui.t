@@ -67,6 +67,7 @@ olist:1 X=Bv -
 my_ref_check_list=toto 
 my_reference="titi"
 my_plain_check_list=AA,AC
+yes_no_boolean=1
 warp warp2 aa2="foo bar"
 !;
 
@@ -122,8 +123,8 @@ SKIP: {
             sub { $cmu->force_element_display($root->grab('std_id:dd DX')) ; ok(1,"test ".$idx++)},
             sub { $cmu->edit_copy('test1.std_id'); ok(1,"test ".$idx++)},
             sub { $cmu->force_element_display($root->grab('hash_a:titi')) ; ok(1,"test grab 'hash_a:titi' ".$idx++)},
-            sub { $cmu->edit_copy('test1.hash_a.titi'); ok(1,"test ".$idx++)},
-            sub { $cmu->create_element_widget('view','test1'); ok(1,"test ".$idx++)},
+            sub { $cmu->edit_copy('test1.hash_a.titi'); ok(1,"test edit_copy test1.hash_a.titi".$idx++)},
+            sub { $cmu->create_element_widget('view','test1'); ok(1,"test view test1 ".$idx++)},
             sub { $tktree->open('test1.lista') ; ok(1,"test ".$idx++)},
             sub { $cmu->create_element_widget('edit','test1.std_id');; ok(1,"test ".$idx++)},
             sub { $cmu->{editor}->add_entry('e'); ok(1,"test ".$idx++)},

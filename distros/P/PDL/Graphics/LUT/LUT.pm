@@ -28,7 +28,7 @@ L<ctab|PDL::Graphics::PGPLOT::Window/ctab>.
 
 Unlike the initial release of the package, the data tables are
 now stored within the PDL distribution as FITS files
-(see L<$tabledir|/$tabledir> and L<$rampdir|/$rampdir>),
+(see L</$tabledir> and L</$rampdir>),
 rather than in the module itself.
 Changes to these directories will be picked up on the next call
 to one of the package functions.
@@ -73,7 +73,7 @@ returned.
 If not supplied, C<$ramp> defaults to B<"ramp"> 
 (this is a linear intensity ramp).
 
-The returned values are piddles containing values in the range
+The returned values are ndarrays containing values in the range
 0 to 1 inclusive, and are floats.
 
 =head1 VARIABLES
@@ -128,8 +128,6 @@ use Exporter;
 use File::Spec;
 use File::Basename;
 
-use autodie;
-
 use PDL::Core qw/:Func :Internal/;    # Grab the Core names
 use PDL::Basic;
 use PDL::Types;
@@ -172,7 +170,7 @@ BEGIN {
 
 sub _lsdir_basename {
     my ($dir, $suffix) = @_;
-    opendir my $fh, $dir;
+    opendir my $fh, $dir or barf "$dir: $!";
     map basename($_, $suffix), grep /\Q$suffix\E\z/, readdir $fh;
 }
 
@@ -235,4 +233,3 @@ EOD
 
 # Exit with OK status
 1;
-

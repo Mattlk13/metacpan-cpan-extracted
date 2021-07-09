@@ -1,12 +1,9 @@
-#!perl -T
-# should have used or not !perl -T?
-
 =head1 COPYRIGHT NOTICE
 
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -35,8 +32,6 @@ use 5.006;
 use strict;
 use warnings;
 use Test::More;
-
-plan tests => 65;
 
 BEGIN {
     my @mods= qw(
@@ -101,7 +96,6 @@ BEGIN {
 	     Photonic::Roles::UseMask
 	     Photonic::Roles::Metric
 	     Photonic::Roles::AllH
-	     Photonic::ExtraUtils
 	     Photonic::WE
 	     Photonic::Types
 	     Photonic::AllH

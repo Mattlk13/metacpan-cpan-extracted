@@ -21,9 +21,6 @@ p $struct_hr;
 
 # Output:
 # \ {
-#     type    "monolingualtext",
-#     value   {
-#         language   "en",
-#         text       "English text"
-#     }
+#     language   "en",
+#     value      "English text"
 # }

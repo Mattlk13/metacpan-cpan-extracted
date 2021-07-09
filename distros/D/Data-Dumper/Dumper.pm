@@ -9,20 +9,29 @@
 
 package Data::Dumper;
 
-BEGIN {
-    $VERSION = '2.173'; # Don't forget to set version and release
-}               # date in POD below!
+use strict;
+use warnings;
 
 #$| = 1;
 
-use 5.006_001;
+use 5.008_001;
 require Exporter;
 
 use constant IS_PRE_516_PERL => $] < 5.016;
 
 use Carp ();
 
+# Globals people alter.
+our ( $Indent, $Trailingcomma, $Purity, $Pad, $Varname, $Useqq, $Terse, $Freezer,
+      $Toaster, $Deepcopy, $Quotekeys, $Bless, $Maxdepth, $Pair, $Sortkeys,
+      $Deparse, $Sparseseen, $Maxrecurse, $Useperl );
+
+our ( @ISA, @EXPORT, @EXPORT_OK, $VERSION );
+
 BEGIN {
+    $VERSION = '2.183'; # Don't forget to set version and release
+                        # date in POD below!
+
     @ISA = qw(Exporter);
     @EXPORT = qw(Dumper);
     @EXPORT_OK = qw(DumperX);
@@ -114,38 +123,10 @@ sub new {
 
 # Packed numeric addresses take less memory. Plus pack is faster than sprintf
 
-# Most users of current versions of Data::Dumper will be 5.008 or later.
-# Anyone on 5.6.1 and 5.6.2 upgrading will be rare (particularly judging by
-# the bug reports from users on those platforms), so for the common case avoid
-# complexity, and avoid even compiling the unneeded code.
-
-sub init_refaddr_format {
-}
-
 sub format_refaddr {
     require Scalar::Util;
     pack "J", Scalar::Util::refaddr(shift);
 };
-
-if ($] < 5.008) {
-    eval <<'EOC' or die;
-    no warnings 'redefine';
-    my $refaddr_format;
-    sub init_refaddr_format {
-        require Config;
-        my $f = $Config::Config{uvxformat};
-        $f =~ tr/"//d;
-        $refaddr_format = "0x%" . $f;
-    }
-
-    sub format_refaddr {
-        require Scalar::Util;
-        sprintf $refaddr_format, Scalar::Util::refaddr(shift);
-    }
-
-    1
-EOC
-}
 
 #
 # add-to or query the table of already seen references
@@ -153,7 +134,6 @@ EOC
 sub Seen {
   my($s, $g) = @_;
   if (defined($g) && (ref($g) eq 'HASH'))  {
-    init_refaddr_format();
     my($k, $v, $id);
     while (($k, $v) = each %$g) {
       if (defined $v) {
@@ -237,12 +217,12 @@ sub Dump {
 # dump the refs in the current dumper object.
 # expects same args as new() if called via package name.
 #
+our @post;
 sub Dumpperl {
   my($s) = shift;
   my(@out, $val, $name);
   my($i) = 0;
   local(@post);
-  init_refaddr_format();
 
   $s = $s->new(@_) unless ref $s;
 
@@ -384,7 +364,16 @@ sub _dump {
         else {
           $pat = "$val";
         }
-        $pat =~ s <(\\.)|/> { $1 || '\\/' }ge;
+        $pat =~ s <
+                     (\\.)           # anything backslash escaped
+                   | (\$)(?![)|]|\z) # any unescaped $, except $| $) and end
+                   | /               # any unescaped /
+                  >
+                  {
+                      $1 ? $1
+                          : $2 ? '${\q($)}'
+                          : '\\/'
+                  }gex;
         $out .= "qr/$pat/$flags";
     }
     elsif ($realtype eq 'SCALAR' || $realtype eq 'REF'
@@ -485,7 +474,7 @@ sub _dump {
       if ($s->{deparse}) {
         require B::Deparse;
         my $sub =  'sub ' . (B::Deparse->new)->coderef2text($val);
-        $pad    =  $s->{sep} . $s->{pad} . $s->{apad} . $s->{xpad} x ($s->{level} - 1);
+        my $pad =  $s->{sep} . $s->{pad} . $s->{apad} . $s->{xpad} x ($s->{level} - 1);
         $sub    =~ s/\n/$pad/gs;
         $out   .=  $sub;
       }
@@ -535,7 +524,7 @@ sub _dump {
       else {
         local $s->{useqq} = IS_PRE_516_PERL && ($s->{useqq} || $name =~ /[^\x00-\x7f]/) ? 1 : $s->{useqq};
         $sname = $s->_dump(
-          $name eq 'main::' || $] < 5.007 && $name eq "main::\0"
+          $name eq 'main::'
             ? ''
             : $name,
           "",
@@ -562,13 +551,26 @@ sub _dump {
     elsif (!defined($val)) {
       $out .= "undef";
     }
+    # This calls the XSUB _vstring (if the XS code is loaded). I'm not *sure* if
+    # if belongs in the "Pure Perl" implementation. It sort of depends on what
+    # was meant by "Pure Perl", as this subroutine already relies Scalar::Util
+    # loading, which means that it has an XS dependency. De facto, it's the
+    # "Pure Perl" implementation of dumping (which uses XS helper code), as
+    # opposed to the C implementation (which calls out to Perl helper code).
+    # So in that sense this is fine - it just happens to be a local XS helper.
     elsif (defined &_vstring and $v = _vstring($val)
       and !_bad_vsmg || eval $v eq $val) {
       $out .= $v;
     }
+    # However the confusion comes here - if we *can't* find our XS helper, we
+    # fall back to this code, which generates different (worse) results. That's
+    # better than nothing, *but* it means that if you run the regression tests
+    # with Dumper.so missing, the test for "vstrings" fails, because this code
+    # here generates a different result. So there are actually "three" different
+    # implementations of Data::Dumper (kind of sort of) but we only test two.
     elsif (!defined &_vstring
        and ref $ref eq 'VSTRING' || eval{Scalar::Util::isvstring($val)}) {
-      $out .= sprintf "%vd", $val;
+      $out .= sprintf "v%vd", $val;
     }
     # \d here would treat "1\x{660}" as a safe decimal number
     elsif ($val =~ /^(?:0|-?[1-9][0-9]{0,8})\z/) { # safe decimal number
@@ -768,7 +770,7 @@ sub qquote {
        # the string is UTF-8 but there are no UTF-8 variant characters in it.
        # We want that to come out as \x{} anyway.  We need is_utf8() to do
        # this.
-       || (! $IS_ASCII && $] ge 5.008_001 && utf8::is_utf8($_));
+       || (! $IS_ASCII && utf8::is_utf8($_));
 
   return qq("$_") unless /[[:^print:]]/;  # fast exit if only printables
 
@@ -788,7 +790,7 @@ sub qquote {
       if ($IS_ASCII) {
         s/([\200-\240])/'\\'.sprintf('%o',ord($1))/eg;
       }
-      elsif ($] ge 5.007_003) {
+      else {
         my $high_control = utf8::unicode_to_native(0x9F);
         s/$high_control/sprintf('\\%o',ord($1))/eg;
       }
@@ -806,10 +808,6 @@ sub qquote {
 
   return qq("$_");
 }
-
-# helper sub to sort hash keys in Perl < 5.8.0 where we don't have
-# access to sortsv() from XS
-sub _sortkeys { [ sort keys %{$_[0]} ] }
 
 sub _refine_name {
     my $s = shift;
@@ -1029,15 +1027,14 @@ so that they can be chained together nicely.
 $Data::Dumper::Indent  I<or>  I<$OBJ>->Indent(I<[NEWVAL]>)
 
 Controls the style of indentation.  It can be set to 0, 1, 2 or 3.  Style 0
-spews output without any newlines, indentation, or spaces between list
-items.  It is the most compact format possible that can still be called
-valid perl.  Style 1 outputs a readable form with newlines but no fancy
-indentation (each level in the structure is simply indented by a fixed
-amount of whitespace).  Style 2 (the default) outputs a very readable form
-which takes into account the length of hash keys (so the hash value lines
-up).  Style 3 is like style 2, but also annotates the elements of arrays
-with their index (but the comment is on its own line, so array output
-consumes twice the number of lines).  Style 2 is the default.
+spews output without any newlines, indentation, or spaces between list items.
+It is the most compact format possible that can still be called valid perl.
+Style 1 outputs a readable form with newlines but no fancy indentation (each
+level in the structure is simply indented by a fixed amount of whitespace).
+Style 2 (the default) outputs a very readable form which lines up the hash
+keys.  Style 3 is like style 2, but also annotates the elements of arrays with
+their index (but the comment is on its own line, so array output consumes
+twice the number of lines).  Style 2 is the default.
 
 =item *
 
@@ -1442,12 +1439,9 @@ for L<B::Deparse>.
 
 SCALAR objects have the weirdest looking C<bless> workaround.
 
-Pure Perl version of C<Data::Dumper> escapes UTF-8 strings correctly
-only in Perl 5.8.0 and later.
-
 =head2 NOTE
 
-Starting from Perl 5.8.1 different runs of Perl will have different
+Different runs of Perl will have different
 ordering of hash keys.  The change was done for greater security,
 see L<perlsec/"Algorithmic Complexity Attacks">.  This means that
 different runs of Perl will have different Data::Dumper outputs if
@@ -1461,13 +1455,13 @@ be to use the C<Sortkeys> filter of Data::Dumper.
 
 Gurusamy Sarathy        gsar@activestate.com
 
-Copyright (c) 1996-2017 Gurusamy Sarathy. All rights reserved.
+Copyright (c) 1996-2019 Gurusamy Sarathy. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
 =head1 VERSION
 
-Version 2.173
+Version 2.183
 
 =head1 SEE ALSO
 

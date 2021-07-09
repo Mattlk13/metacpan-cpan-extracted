@@ -216,3 +216,87 @@ Revision history for StreamFinder
         but returns all episode streams in a list with the first episode the 
         first stream, but the metadata returned is for the Apple podcast page, 
         and left this way for backward compatability.
+1.42    2021/04/11
+        - StreamFinder::Rumble:  Fix failure to find any streams (Rumble 
+        chgd. their html slightly), and Add "-keep" option to limit / order 
+        the streams fetched (default:  mp4,webm,any) - see updated docs.
+        - StreamFinder::Apple:  Remove music.apple.com (music samples no 
+        longer scrapable? (Much more complicated and I never use it - you 
+        only ever could get short sample clips - not full songs anyway!
+        Also, misc. fixes/tweaks, also see last item below:
+        - StreamFinder::Castbox:  Added Album field.
+        - StreamFinder::Spreaker:  Fix failure to fetch anything (Spreaker 
+        chgd. their html a bit!).  Also, added Album field, and additional 
+        check for possible AlbumArtist url.
+        - StreamFinder::Google:  Misc. fixes/tweaks, also see below:
+        - Apple, Castbox, and Google:  Add ability to fetch the first (latest?) 
+        podcast, and return all podcasts as an extended MP3 playlist 
+        (new "-playlist" option to the $station->get() function) - for podcast 
+        author's main page urls.
+1.43    2021/04/11
+        - StreamFinder::Rumble:  Fix doc glitch in SYNOPSIS section specifying 
+        the "-keep" option as a hash reference (must actually be an array 
+        reference, causing user to not get any streams if using the SYNOPSIS 
+        example as a program.  Also fixed this in StreamFinder::IHeartRadio!
+        - StreamFinder::Spreaker:  Fix failure to fetch icon image for some 
+        podcasts.
+1.44    2021/04/19
+        - StreamFinder::Rumble:  If only a podcast "ID" is given, check to see 
+        if it's either the long ID for the html page or the short one used for 
+        the embed page and append the appropriate url (prev. only the long 
+        html page ID string was supported.  Either way, the correct Rumble ID 
+        will be returned.
+        - Add some default values for "genre", such as "Podcast" for Spreaker, 
+        Castbox, Apple, and "Video" for Youtube, Vimeo, Brighteon and Bitchute.
+        - Initialize some variables that should be.
+        - StreamFinder::Apple:  Better checks for album, genre and year.
+        - Misc. doc-fixes all over.
+1.45    2021/05/04
+        - Add StreamFinder::Anystream - as a "fall-back" module to search any 
+        specified webpage URL for streams (streams are matched by searching 
+        for URLs matching specific known stream types, ie. ".mp3", ".ogg", etc. 
+        (The default "-keep" list is: "mp3,ogg,flac,mp4,m4a,mpd,m3u8,m3u,pls").
+        - Added StreamFinder option "-omit" to specify submodules that you 
+        have installed to NOT be used, ie. -omit => "Anystream,Youtube".
+1.46    2021/05/05
+        - Oops - add StreamFinder::Anystream to MANIFEST.
+        - Add & document new -secure option (all) to allow user to limit 
+        streams returned to (secure) https streems.
+        - Minor doc. cleanups.
+1.47    2021/05/10
+        - Fix potential infinite loop if unrecognized option arg. passed in.
+        - StreamFinder::Youtube - Add fallback ability to check html page for 
+        embedded iframe containing a valid StreamFinder page, and new option: 
+        "-noiframes" to not do this (if set to 1/true).
+1.48    2021/05/19
+        - StreamFinder::Youtube, StreamFinder::Anystream - Only look for 
+        streams in actual HTML pages, NOT media URLs - to prevent potentially 
+        very long or even infinite delay trying to fetch the URL.
+        - StreamFinder::Spreaker - Unescape artist and album fields, remove 
+        some extraineous debug output.
+1.50    2021/05/22
+        - Refactor all modules to combine all common methods into a separate 
+        internal module:  StreamFinder::_Class (new) to greatly simplify and 
+        eliminate redundant code.  This should make creating new site modules 
+        much simpler (now most if not all functions other than "new()" should 
+        not be required in site modules unless it's necessary to override)!  
+        This better follows proper object-oriented programming standards.
+        - StreamFinder::Tunein - Add "-notrim" option to NOT trim extra "ad", 
+        misc. stuff from stream URLs (previously, and by default URLs are 
+        "trimmed" removing this stuff (after and including the first "?").
+        - StreamFinder::Tunein, StreamFinder::IHeartRadio - Attempt to grab 
+        full description of podcasts (may include HTML, ie. links).
+        - Misc. minor code cleanups found while converting.
+        - StreamFinder::Anystream - Fix bug that mangled some streams returned. 
+        Also make sure URLs returned containing "\/"s are unescaped to "/"s.
+1.51    2021/07/01
+        - Add "-log" and "-logfmt" options to append a line to a specified 
+        log file for each successful stream-url fetch (see docs).
+        - Fix bug that caused config file arguments with unescaped Perl regex 
+        characters in their values to be ignored.
+        - StreamFinder::Rumble - Fix bug that caused description to be cut 
+        short.
+        - StreamFinder::Spreaker - Handle their multiple URLs, and also fetch 
+        video streams.
+        - StreamFinder::SermonAudio - Handle additional "alternate" URLs as 
+        well as video streams they can contain.  Also try harder to find icon.

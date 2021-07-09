@@ -4,8 +4,8 @@
 #
 package PDL::GSLSF::DEBYE;
 
-@EXPORT_OK  = qw( PDL::PP gsl_sf_debye_1 PDL::PP gsl_sf_debye_2 PDL::PP gsl_sf_debye_3 PDL::PP gsl_sf_debye_4 );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP gsl_sf_debye_1 PDL::PP gsl_sf_debye_2 PDL::PP gsl_sf_debye_3 PDL::PP gsl_sf_debye_4 );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::GSLSF::DEBYE ;
 
@@ -64,7 +64,7 @@ D_n(x) := n/x^n Integrate[t^n/(e^t - 1), {t,0,x}]
 =for bad
 
 gsl_sf_debye_1 does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -93,7 +93,7 @@ D_n(x) := n/x^n Integrate[t^n/(e^t - 1), {t,0,x}]
 =for bad
 
 gsl_sf_debye_2 does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -122,7 +122,7 @@ D_n(x) := n/x^n Integrate[t^n/(e^t - 1), {t,0,x}]
 =for bad
 
 gsl_sf_debye_3 does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -151,7 +151,7 @@ D_n(x) := n/x^n Integrate[t^n/(e^t - 1), {t,0,x}]
 =for bad
 
 gsl_sf_debye_4 does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

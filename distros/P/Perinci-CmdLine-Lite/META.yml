@@ -7,7 +7,7 @@ build_requires:
   IO::Handle: '0'
   IPC::Open3: '0'
   Test::More: '0.98'
-  Test::Perinci::CmdLine: '1.47'
+  Test::Perinci::CmdLine: '1.480'
   YAML::Old: '0'
 configure_requires:
   ExtUtils::MakeMaker: '0'
@@ -43,18 +43,19 @@ requires:
   JSON::MaybeXS: '0'
   JSON::PP: '0'
   List::Util: '1.45'
-  Log::ger: '0.037'
-  Log::ger::App: '0.009'
-  Log::ger::Output::Screen: '0.012'
+  Log::ger: '0.038'
+  Log::ger::App: '0.018'
+  Log::ger::Output::Screen: '0.015'
   MIME::Base64: '0'
   Mo: '0'
   Perinci::Access::Lite: '0.09'
   Perinci::CmdLine::Help: '0.172'
   Perinci::CmdLine::Util::Config: '1.724'
-  Perinci::Object: '0.310'
+  Perinci::Object: '0.311'
   Perinci::Result::Format::Lite: '0.277'
   Perinci::Sub::Complete: '0.935'
   Perinci::Sub::GetArgs::Argv: '0.845'
+  PerlIO::locale: '0'
   Progress::Any::Output: '0'
   Progress::Any::Output::TermProgressBarColor: '0.17'
   Scalar::Util: '0'
@@ -63,10 +64,10 @@ requires:
   strict: '0'
   warnings: '0'
 resources:
-  bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=Perinci-CmdLine-Lite
+  bugtracker: https://github.com/perlancar/perl-Perinci-CmdLine-Lite/issues
   homepage: https://metacpan.org/release/Perinci-CmdLine-Lite
   repository: git://github.com/perlancar/perl-Perinci-CmdLine-Lite.git
-version: '1.900'
+version: '1.905'
 x_Dist_Zilla:
   perl:
     version: '5.030000'
@@ -150,7 +151,7 @@ x_Dist_Zilla:
     -
       class: Dist::Zilla::Plugin::PERLANCAR::BeforeBuild
       name: '@Author::PERLANCAR/PERLANCAR::BeforeBuild'
-      version: '0.602'
+      version: '0.603'
     -
       class: Dist::Zilla::Plugin::Rinci::AbstractFromMeta
       name: '@Author::PERLANCAR/Rinci::AbstractFromMeta'
@@ -166,7 +167,7 @@ x_Dist_Zilla:
     -
       class: Dist::Zilla::Plugin::PERLANCAR::MetaResources
       name: '@Author::PERLANCAR/PERLANCAR::MetaResources'
-      version: '0.040'
+      version: '0.042'
     -
       class: Dist::Zilla::Plugin::CheckChangeLog
       name: '@Author::PERLANCAR/CheckChangeLog'

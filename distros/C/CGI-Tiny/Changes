@@ -1,0 +1,104 @@
+1.002     2021-06-09 00:33:32 EDT
+  - Documentation updates
+
+1.001     2021-06-07 23:16:34 EDT
+  - Move "EXTENDING" examples to CGI::Tiny::Cookbook and examples/
+
+1.000     2021-05-30 17:09:42 EDT
+  - Remove experimental status
+
+0.020     2021-05-30 00:05:56 EDT
+  - Replace set_discard_form_files method with more generic set_multipart_form_options
+  - Improved test coverage
+
+0.019     2021-05-25 23:52:51 EDT
+  - Add params, param_names, param, and param_array general request parameter accessors
+  - Add on_file_buffer callback option to CGI::Tiny::Multipart::parse_multipart_form_data for custom form parsing
+  - Rename tempfiles option to parse_as_files for CGI::Tiny::Multipart::parse_multipart_form_data
+
+0.018     2021-05-19 18:12:06 EDT
+  - CGI::Tiny::Multipart::parse_multipart_form_data now takes a single tempfiles option instead of all_tempfiles and no_tempfiles
+
+0.017     2021-05-19 01:41:51 EDT
+  - Split multipart/form-data parser into CGI::Tiny::Multipart module, which is reusable and only loaded if needed
+  - Add set_discard_form_files method
+
+0.016     2021-05-05 21:31:12 EDT
+  - Add CGI::Tiny::escape_html convenience function
+
+0.015     2021-05-05 01:57:53 EDT
+  - Add debugging commands for commandline convenience
+  - Ignore response content passed to render and render_chunk in HEAD requests
+  - Omit autodetected Content-Type header when rendering empty fixed-length responses
+
+0.014     2021-05-04 03:26:46 EDT
+  - Remove headers_rendered method, instead pass rendered status to error handlers
+
+0.013     2021-05-03 23:32:56 EDT
+  - Skip tests that don't work on Windows
+  - Rendering a redirect will now set the response status to 302 if any non-300 status was set
+  - Exceptions and failure to render now set a 500 response status unless any error status was set
+
+0.012     2021-05-02 23:28:28 EDT
+  - Remove set_response_fixed_length
+  - render now always sets a Content-Length and can only be called once
+  - Add render_chunk method which can be used instead of render for chunked content
+  - set_nph now sets a true value if called without a value
+  - Gracefully handle premature exit before the cgi block
+  - Exceptions no longer cause the response status to default to 500 unless the error handler doesn't render anything
+
+0.011     2021-04-29 02:12:59 EDT
+  - Rename set_response_content_type and set_response_content_disposition to set_response_type and set_response_disposition
+  - Add set_response_fixed_length method
+
+0.010     2021-04-28 23:14:59 EDT
+  - Replace set_response_download method with set_response_content_disposition
+  - Add reset_response_headers method
+
+0.009     2021-04-28 03:03:52 EDT
+  - query_param_names, body_param_names, cookie_names, and upload_names now return names in the original request order
+  - Add set_response_download and set_response_body_buffer methods
+  - Add file and handle render options
+
+0.008     2021-04-27 21:11:22 EDT
+  - Fix parsing of empty multipart/form-data forms and some other edge cases
+  - Add response_status_code method
+
+0.007     2021-04-27 02:00:33 EDT
+  - Support reading request body parameters from multipart/form-data requests
+  - Add uploads, upload_names, upload, and upload_array methods to support multipart/form-data file uploads
+  - Add body_parts method to return raw multipart/form-data parts
+  - Add set_request_body_buffer and set_multipart_form_charset methods
+
+0.006     2021-04-25 14:48:30 EDT
+  - Use Unicode::UTF8 for encoding output data if available
+  - query_params, body_params, and cookies methods now return pairs instead of a hashref
+  - Remove query_pairs and body_pairs methods
+  - Add query_param_names, body_param_names, and cookie_names methods
+  - Add cookie_array method to support multiple request cookies with the same name
+
+0.005     2021-04-22 21:11:18 EDT
+  - Separate documentation from code for efficiency
+
+0.004     2021-04-21 21:27:52 EDT
+  - Fork-safety in error handling and cleanup
+  - set_response_status now also accepts a full status string which will be passed as-is
+  - Remove the response_charset method
+  - Prohibit newline characters in response header values to prevent HTTP response splitting vulnerabilities
+
+0.003     2021-04-21 03:31:54 EDT
+  - Add set_nph method and support NPH response mode
+  - Add cookies and cookie methods to parse request cookies
+  - Add add_response_cookie method to set response cookies
+  - Add CGI::Tiny::epoch_to_date and CGI::Tiny::date_to_epoch convenience functions
+  - Set Date header in all responses
+  - Pass the CGI::Tiny object to the cgi block as $_ instead of in @_
+  - Remove the request_body_limit method
+  - Handle when exit is called without rendering a response
+
+0.002     2021-04-19 03:59:16 EDT
+  - Remove header_names method
+  - Throw an exception if render is called with an unknown type
+
+0.001     2021-04-19 00:43:20 EDT
+  - First release

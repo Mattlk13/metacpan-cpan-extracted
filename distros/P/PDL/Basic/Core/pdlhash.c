@@ -2,7 +2,6 @@
 /* pdlhash.c - functions for manipulating pdl hashes */
 
 
-#define PDL_CORE      /* For certain ifdefs */
 #include "pdl.h"      /* Data structure declarations */
 #include "pdlcore.h"  /* Core declarations */
 
@@ -48,12 +47,6 @@ void pdl_grow (pdl* a, PDL_Indx newsize) {
    if (ncurr == nbytes)
       return;    /* Nothing to be done */
 
-/* We don't want to do this: if someone is resizing it
- * but wanting to preserve data.. */
-#ifdef FEOIJFOESIJFOJE
-   if (ncurr>nbytes)  /* Nuke back to zero */
-      sv_setpvn(foo,"",0);
-#endif
    if(nbytes > (1024*1024*1024)) {
      SV *sv = get_sv("PDL::BIGPDL",0);
      if(sv == NULL || !(SvTRUE(sv)))
@@ -70,10 +63,10 @@ void pdl_grow (pdl* a, PDL_Indx newsize) {
 
 /* unpack dims array into Hash */
 
-void pdl_unpackarray ( HV* hash, char *key, PDL_Indx *dims, int ndims ) {
+void pdl_unpackarray ( HV* hash, char *key, PDL_Indx *dims, PDL_Indx ndims ) {
 
    AV*  array;
-   int i;
+   PDL_Indx i;
 
    array = newAV();
    (void)hv_store(hash, key, strlen(key), newRV( (SV*) array), 0 );

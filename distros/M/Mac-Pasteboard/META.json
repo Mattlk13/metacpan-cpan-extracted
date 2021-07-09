@@ -4,7 +4,7 @@
       "Tom Wyant (wyant at cpan dot org)"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4231",
+   "generated_by" : "ExtUtils::MakeMaker version 7.62, CPAN::Meta::Converter version 2.150010",
    "license" : [
       "perl_5"
    ],
@@ -24,14 +24,28 @@
       "build" : {
          "requires" : {
             "ExtUtils::CBuilder" : "0",
+            "I18N::Langinfo" : "0",
             "Test::More" : "0.96"
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "Config" : "0",
+            "Getopt::Std" : "0",
+            "Scalar::Util" : "0",
+            "lib" : "0",
+            "strict" : "0",
+            "warnings" : "0"
          }
       },
       "runtime" : {
          "requires" : {
             "Carp" : "0",
             "Encode" : "0",
+            "Exporter" : "0",
             "Scalar::Util" : "1.01",
+            "XSLoader" : "0",
+            "constant" : "0",
             "perl" : "5.006002",
             "strict" : "0",
             "warnings" : "0"
@@ -41,14 +55,14 @@
    "provides" : {
       "Mac::Pasteboard" : {
          "file" : "lib/Mac/Pasteboard.pm",
-         "version" : "0.012"
+         "version" : "0.100"
       }
    },
    "release_status" : "stable",
    "resources" : {
       "bugtracker" : {
          "mailto" : "wyant@cpan.org",
-         "web" : "https://github.com/trwyant/perl-Mac-Pasteboard/issues"
+         "web" : "https://rt.cpan.org/Public/Dist/Display.html?Name=Mac-Pasteboard"
       },
       "license" : [
          "http://dev.perl.org/licenses/"
@@ -59,6 +73,6 @@
          "web" : "https://github.com/trwyant/perl-Mac-Pasteboard"
       }
    },
-   "version" : "0.012",
-   "x_serialization_backend" : "JSON::PP version 4.05"
+   "version" : "0.100",
+   "x_serialization_backend" : "JSON::PP version 4.06"
 }

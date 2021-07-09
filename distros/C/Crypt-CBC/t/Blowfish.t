@@ -1,6 +1,6 @@
-#!/usr/local/bin/perl -Tw
+#!/usr/local/bin/perl
 
-use lib '..','../blib/lib','.','./blib/lib';
+use lib './lib','../lib','./blib/lib';
 
 eval "use Crypt::Blowfish()";
 if ($@) {
@@ -27,7 +27,7 @@ END
 eval "use Crypt::CBC";
 
 test(1,!$@,"Couldn't load module");
-test(2,$i = Crypt::CBC->new(-key=>'secret',-cipher=>'Blowfish'),"Couldn't create new object");
+test(2,$i = Crypt::CBC->new(-pass=>'secret',-cipher=>'Blowfish',-nodeprecate=>1),"Couldn't create new object");
 test(3,$c = $i->encrypt($test_data),"Couldn't encrypt");
 test(4,$p = $i->decrypt($c),"Couldn't decrypt");
 test(5,$p eq $test_data,"Decrypted ciphertext doesn't match plaintext");
@@ -50,3 +50,4 @@ test (32,$i->decrypt($i->encrypt($test_data)) eq $test_data);
 
 $test_data = "This string ends in some spaces  ";
 test (33,$i->decrypt($i->encrypt($test_data)) eq $test_data);
+

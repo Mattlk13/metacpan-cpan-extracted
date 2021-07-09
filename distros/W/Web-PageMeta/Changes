@@ -1,0 +1,27 @@
+Revision history for Web-PageMeta
+
+0.07    22.06.2021
+    - add real timeout limit
+    - add max_size limit
+    - only text/html content-type for page_body_hdr (#4)
+
+0.06    21.05.2021
+    - use Web::Scraper::LibXML = LibXML instead of HTML::TreeBuilder::XPath
+
+0.04    03.04.2021
+    - dependency fix (#2 thanks to Slaven Rezić)
+    - add option to set extra http request headers
+    - throw 404 if there is no image
+    - support cookie jar
+    - keep also page body and headers (allow post-processing)
+
+0.03    25.02.2021
+    - add option to set user-agent for http requests
+
+0.02    22.02.2021
+    - use Future::HTTP::AnyEvent per default
+    - use HTTP::Exception
+
+0.01    21.02.2021
+    - First version, released on an unsuspecting world.
+

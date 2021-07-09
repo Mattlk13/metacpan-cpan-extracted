@@ -9,19 +9,19 @@
 #include "unix/guts.h"
 #include <locale.h>
 
-static PHash xfontCache = nil;
+static PHash xfontCache = NULL;
 static Bool have_vector_fonts = false;
-static PHash encodings = nil;
+static PHash encodings = NULL;
 static char **ignore_encodings;
 static int n_ignore_encodings;
 static char *s_ignore_encodings;
 
 /* these are freed right after use */
-static char * do_default_font = nil;
-static char * do_caption_font = nil;
-static char * do_msg_font = nil;
-static char * do_menu_font = nil;
-static char * do_widget_font = nil;
+static char * do_default_font = NULL;
+static char * do_caption_font = NULL;
+static char * do_msg_font = NULL;
+static char * do_menu_font = NULL;
+static char * do_widget_font = NULL;
 static Bool   do_xft = true;
 static Bool   do_core_fonts = true;
 static Bool   do_xft_no_antialias = false;
@@ -65,7 +65,7 @@ font_query_name( XFontStruct * s, PFontInfo f)
 	char * c;
 
 	if ( !f-> flags. encoding) {
-		c = nil;
+		c = NULL;
 		if ( XGetFontProperty( s, FXA_CHARSET_REGISTRY, &v) && v) {
 			XCHECKPOINT;
 			c = XGetAtomName( DISP, (Atom)v);
@@ -78,7 +78,7 @@ font_query_name( XFontStruct * s, PFontInfo f)
 		}
 
 		if ( c) {
-			c = nil;
+			c = NULL;
 			if ( XGetFontProperty( s, FXA_CHARSET_ENCODING, &v) && v) {
 				XCHECKPOINT;
 				c = XGetAtomName( DISP, (Atom)v);
@@ -240,10 +240,16 @@ xlfd_parse_font( char * xlfd_name, PFontInfo info, Bool do_vector_fonts)
 					fill_default_font( &xf);
 				if ( !nofamily) strcpy( xf. family, info-> font. family);
 				if ( !noname)   strcpy( xf. name, info-> font. name);
-				prima_core_font_pick( nilHandle, &xf, &xf);
+				prima_core_font_pick( NULL_HANDLE, &xf, &xf);
 				if ( noname)   strcpy( info-> font. name,   xf. name);
 				if ( nofamily) strcpy( info-> font. family, xf. family);
 			}
+			if (
+				( strcmp( info->font.name, "clean") == 0) ||
+				( strcmp( info->font.name, "fixed") == 0) ||
+				( strcmp( info->font.name, "bitstream charter") == 0) 
+			)
+				info-> flags. known = 1;
 		}
 
 		if ( *c == '-') {
@@ -405,7 +411,7 @@ xlfd_parse_font( char * xlfd_name, PFontInfo info, Bool do_vector_fonts)
 			/* advance through CHARSET_REGISTRY;  */
 			++c;
 			info-> info_offset = c - xlfd_name;
-			if ( strchr( c, '*') == nil) {
+			if ( strchr( c, '*') == NULL) {
 				info-> flags. encoding = 1;
 				strcpy( info-> font. encoding, c);
 				hash_store( encodings, c, strlen( c), (void*)1);
@@ -541,7 +547,7 @@ prima_init_font_subsystem( char * error_buf)
 	if ( do_core_fonts) {
 		int nocorefonts = 0;
 		apc_fetch_resource( "Prima", "", "Nocorefonts", "nocorefonts",
-			nilHandle, frUnix_int, &nocorefonts);
+			NULL_HANDLE, frUnix_int, &nocorefonts);
 		if ( nocorefonts) do_core_fonts = false;
 	}
 
@@ -561,10 +567,10 @@ prima_init_font_subsystem( char * error_buf)
 	bzero( info,  sizeof( FontInfo) * count);
 
 	n_ignore_encodings = 0;
-	ignore_encodings = nil;
-	s_ignore_encodings = nil;
+	ignore_encodings = NULL;
+	s_ignore_encodings = NULL;
 	if ( apc_fetch_resource( "Prima", "", "IgnoreEncodings", "ignoreEncodings",
-				nilHandle, frString, &s_ignore_encodings))
+				NULL_HANDLE, frString, &s_ignore_encodings))
 	{
 		char *e = s_ignore_encodings;
 		char *s = e;
@@ -597,7 +603,7 @@ prima_init_font_subsystem( char * error_buf)
 	encodings = hash_create();
 
 	apc_fetch_resource( "Prima", "", "Noscaledfonts", "noscaledfonts",
-		nilHandle, frUnix_int, &guts. no_scaled_fonts);
+		NULL_HANDLE, frUnix_int, &guts. no_scaled_fonts);
 	if ( do_no_scaled_fonts) guts. no_scaled_fonts = 1;
 
 	for ( i = 0, j = 0; i < count; i++) {
@@ -653,15 +659,15 @@ prima_init_font_subsystem( char * error_buf)
 #endif
 	guts. use_harfbuzz     = do_xft && do_harfbuzz;
 
-	prima_font_pp2font( "fixed", nil);
+	prima_font_pp2font( "fixed", NULL);
 	Fdebug("font: init\n");
 	if ( do_default_font) {
 		XrmPutStringResource( &guts.db, "Prima.font", do_default_font);
 		prima_font_pp2font( do_default_font, &guts. default_font);
 		free( do_default_font);
-		do_default_font = nil;
+		do_default_font = NULL;
 	} else if ( !apc_fetch_resource( "Prima", "", "Font", "font",
-		nilHandle, frFont, &guts. default_font)) {
+		NULL_HANDLE, frFont, &guts. default_font)) {
 		fill_default_font( &guts. default_font);
 		apc_font_pick( application, &guts. default_font, &guts. default_font);
 		guts. default_font. pitch = fpDefault;
@@ -684,9 +690,9 @@ prima_init_font_subsystem( char * error_buf)
 		XrmPutStringResource( &guts.db, "Prima.menu_font", do_menu_font);
 		prima_font_pp2font( do_menu_font, &guts. default_menu_font);
 		free( do_menu_font);
-		do_menu_font = nil;
+		do_menu_font = NULL;
 	} else if ( !apc_fetch_resource( "Prima", "", "Font", "menu_font",
-		nilHandle, frFont, &guts. default_menu_font)) {
+		NULL_HANDLE, frFont, &guts. default_menu_font)) {
 		memcpy( &guts. default_menu_font, &guts. default_font, sizeof( Font));
 	}
 	Fdebug("menu font: %d.[w=%d,s=%d].%s.%s\n", DEBUG_FONT(guts.default_menu_font));
@@ -695,9 +701,9 @@ prima_init_font_subsystem( char * error_buf)
 		XrmPutStringResource( &guts.db, "Prima.widget_font", do_widget_font);
 		prima_font_pp2font( do_widget_font, &guts. default_widget_font);
 		free( do_widget_font);
-		do_widget_font = nil;
+		do_widget_font = NULL;
 	} else if ( !apc_fetch_resource( "Prima", "", "Font", "widget_font",
-		nilHandle, frFont, &guts. default_widget_font)) {
+		NULL_HANDLE, frFont, &guts. default_widget_font)) {
 		memcpy( &guts. default_widget_font, &guts. default_font, sizeof( Font));
 	}
 	Fdebug("widget font: %d.[w=%d,s=%d].%s.%s\n", DEBUG_FONT(guts.default_widget_font));
@@ -706,9 +712,9 @@ prima_init_font_subsystem( char * error_buf)
 		XrmPutStringResource( &guts.db, "Prima.message_font", do_widget_font);
 		prima_font_pp2font( do_msg_font, &guts. default_msg_font);
 		free( do_msg_font);
-		do_msg_font = nil;
+		do_msg_font = NULL;
 	} else if ( !apc_fetch_resource( "Prima", "", "Font", "message_font",
-		nilHandle, frFont, &guts. default_msg_font)) {
+		NULL_HANDLE, frFont, &guts. default_msg_font)) {
 		memcpy( &guts. default_msg_font, &guts. default_font, sizeof( Font));
 	}
 	Fdebug("msg font: %d.[w=%d,s=%d].%s.%s\n", DEBUG_FONT(guts.default_msg_font));
@@ -717,9 +723,9 @@ prima_init_font_subsystem( char * error_buf)
 		XrmPutStringResource( &guts.db, "Prima.caption_font", do_widget_font);
 		prima_font_pp2font( do_caption_font, &guts. default_caption_font);
 		free( do_caption_font);
-		do_caption_font = nil;
+		do_caption_font = NULL;
 	} else if ( !apc_fetch_resource( "Prima", "", "Font", "caption_font",
-		nilHandle, frFont, &guts. default_caption_font)) {
+		NULL_HANDLE, frFont, &guts. default_caption_font)) {
 		memcpy( &guts. default_caption_font, &guts. default_font, sizeof( Font));
 	}
 	Fdebug("caption font: %d.[w=%d,s=%d].%s.%s\n", DEBUG_FONT(guts.default_caption_font));
@@ -907,7 +913,7 @@ prima_free_rotated_entry( PCachedFont f)
 		while ( r-> length--) {
 			if ( r-> map[ r-> length]) {
 				prima_free_ximage( r-> map[ r-> length]);
-				r-> map[ r-> length] = nil;
+				r-> map[ r-> length] = NULL;
 			}
 		}
 		f-> rotated = ( PRotatedFont) r-> next;
@@ -941,23 +947,23 @@ prima_cleanup_font_subsystem( void)
 				free( guts. font_info[i]. vecname);
 		free( guts. font_info);
 	}
-	guts. font_names = nil;
+	guts. font_names = NULL;
 	guts. n_fonts = 0;
-	guts. font_info = nil;
+	guts. font_info = NULL;
 
 	free(ignore_encodings);
 	free(s_ignore_encodings);
 
 	if ( guts. font_hash) {
-		hash_first_that( guts. font_hash, (void*)free_rotated_entries, nil, nil, nil);
+		hash_first_that( guts. font_hash, (void*)free_rotated_entries, NULL, NULL, NULL);
 		hash_destroy( guts. font_hash, false);
-		guts. font_hash = nil;
+		guts. font_hash = NULL;
 	}
 
 	hash_destroy( xfontCache, false);
-	xfontCache = nil;
+	xfontCache = NULL;
 	hash_destroy( encodings, false);
-	encodings = nil;
+	encodings = NULL;
 #ifdef USE_XFT
 	prima_xft_done();
 #endif
@@ -1134,7 +1140,7 @@ DONT_ADVISE:
 static void
 detail_font_info( PFontInfo f, PFont font, Bool addToCache, Bool bySize)
 {
-	XFontStruct *s = nil;
+	XFontStruct *s = NULL;
 	unsigned long v;
 	char name[ 1024];
 	FontInfo fi;
@@ -1188,7 +1194,7 @@ AGAIN:
 			of-> flags. disabled = true;
 
 			Fdebug( "font: kill %s\n", name);
-			if ( font) apc_font_pick( nilHandle, font, font);
+			if ( font) prima_font_pp2font( "fixed", font);
 			of-> flags. disabled = false;
 			return;
 		} else {
@@ -1397,7 +1403,7 @@ static double
 query_diff( PFontInfo fi, PFont f, char * lcname, int selector)
 {
 	double diff = 0.0;
-	int enc_match = 0;
+	int enc_match = 0, name_match = 0;
 
 	if ( fi-> flags. encoding && f-> encoding[0]) {
 		if ( strcmp( f-> encoding, fi-> font. encoding) != 0)
@@ -1425,6 +1431,7 @@ query_diff( PFontInfo fi, PFont f, char * lcname, int selector)
 
 	if ( fi-> flags. name && stricmp( lcname, fi-> font. name) == 0) {
 		diff += 0.0;
+		name_match = 1;
 	} else if ( fi-> flags. family && stricmp( lcname, fi-> font. family) == 0) {
 		diff += 1000.0;
 	} else if ( fi-> flags. family && strcasestr( fi-> font. family, lcname)) {
@@ -1437,6 +1444,8 @@ query_diff( PFontInfo fi, PFont f, char * lcname, int selector)
 		diff += 10000.0;
 		if ( fi-> flags. funky && !enc_match) diff += 10000.0;
 	}
+
+	if ( !name_match && !fi-> flags. known ) diff += 2.0;
 
 	if ( fi-> font. vector > fvBitmap) {
 		if ( fi-> flags. bad_vector) {
@@ -1601,7 +1610,7 @@ apc_font_pick( Handle self, PFont source, PFont dest)
 {
 #ifdef USE_XFT
 	if ( guts. use_xft) {
-		if ( prima_xft_font_pick( self, source, dest, nil, nil))
+		if ( prima_xft_font_pick( self, source, dest, NULL, NULL))
 			return true;
 	}
 #endif
@@ -1614,9 +1623,9 @@ spec_fonts( int *retCount)
 {
 	int i, count = guts. n_fonts;
 	PFontInfo info = guts. font_info;
-	PFont fmtx = nil;
+	PFont fmtx = NULL;
 	List list;
-	PHash hash = nil;
+	PHash hash = NULL;
 
 	list_create( &list, 256, 256);
 
@@ -1625,7 +1634,7 @@ spec_fonts( int *retCount)
 
 	if ( !( hash = hash_create())) {
 		list_destroy( &list);
-		return nil;
+		return NULL;
 	}
 
 	/* collect font info */
@@ -1658,7 +1667,7 @@ spec_fonts( int *retCount)
 			if ( hash) hash_destroy( hash, false);
 			list_delete_all( &list, true);
 			list_destroy( &list);
-			return nil;
+			return NULL;
 		}
 
 		*fm = info[i]. font;
@@ -1681,7 +1690,7 @@ spec_fonts( int *retCount)
 	if ( !fmtx) {
 		list_delete_all( &list, true);
 		list_destroy( &list);
-		return nil;
+		return NULL;
 	}
 
 	*retCount = list. count;
@@ -1694,7 +1703,7 @@ Nothing:
 
 #ifdef USE_XFT
 	if ( guts. use_xft)
-		fmtx = prima_xft_fonts( fmtx, nil, nil, retCount);
+		fmtx = prima_xft_fonts( fmtx, NULL, NULL, retCount);
 #endif
 
 	return fmtx;
@@ -1716,9 +1725,9 @@ apc_fonts( Handle self, const char *facename, const char * encoding, int *retCou
 
 	/* stage 1 - browse through names and validate records */
 	table = malloc( count * sizeof( PFontInfo));
-	if ( !table && count > 0) return nil;
+	if ( !table && count > 0) return NULL;
 
-	if ( facename == nil) {
+	if ( facename == NULL) {
 		PHash hash = hash_create();
 		for ( i = 0; i < count; i++) {
 			int len;
@@ -1753,7 +1762,7 @@ apc_fonts( Handle self, const char *facename, const char * encoding, int *retCou
 	if ( !fmtx && n_table > 0) {
 		*retCount = 0;
 		free( table);
-		return nil;
+		return NULL;
 	}
 	for ( i = 0; i < n_table; i++) {
 		fmtx[i] = table[i]-> font;
@@ -1773,7 +1782,7 @@ apc_font_encodings( Handle self )
 {
 	HE *he;
 	PHash hash = hash_create();
-	if ( !hash) return nil;
+	if ( !hash) return NULL;
 
 #ifdef USE_XFT
 	if ( guts. use_xft)
@@ -1782,7 +1791,7 @@ apc_font_encodings( Handle self )
 
 	hv_iterinit(( HV*) encodings);
 	for (;;) {
-		if (( he = hv_iternext( encodings)) == nil)
+		if (( he = hv_iternext( encodings)) == NULL)
 			break;
 		hash_store( hash, HeKEY( he), HeKLEN( he), (void*)1);
 	}
@@ -1807,7 +1816,7 @@ apc_gp_set_font( Handle self, PFont font)
 		return false;
 	}
 
-	reload = XX-> font != kf && XX-> font != nil;
+	reload = XX-> font != kf && XX-> font != NULL;
 
 	if ( reload) {
 		kf-> refCnt++;
@@ -1833,7 +1842,7 @@ apc_menu_set_font( Handle self, PFont font)
 {
 	DEFMM;
 	Bool xft_metrics = 0;
-	PCachedFont kf = nil;
+	PCachedFont kf = NULL;
 
 	font-> direction = 0; /* skip unnecessary logic */
 
@@ -1858,7 +1867,7 @@ apc_menu_set_font( Handle self, PFont font)
 		XX-> guillemots = XTextWidth( kf-> fs, ">>", 2);
 	} else {
 #ifdef USE_XFT
-		XX-> guillemots = prima_xft_get_text_width( kf, ">>", 2, toAddOverhangs, nil, nil);
+		XX-> guillemots = prima_xft_get_text_width( kf, ">>", 2, toAddOverhangs, NULL, NULL);
 #endif
 	}
 	if ( !XX-> type. popup && X_WINDOW) {
@@ -1889,7 +1898,7 @@ prima_update_rotated_fonts( PCachedFont f, const char * text, int len, Bool wide
 	Bool * ok_to_not_rotate)
 {
 	PRotatedFont * pr = &f-> rotated;
-	PRotatedFont r = nil;
+	PRotatedFont r = NULL;
 	int i;
 
 	while ( direction < 0)     direction += 360.0;
@@ -1948,7 +1957,7 @@ prima_update_rotated_fonts( PCachedFont f, const char * text, int len, Bool wide
 
 		if ( r-> length > 0) {
 			if ( !( r-> map = malloc( r-> length * sizeof( void*)))) {
-				*pr = nil;
+				*pr = NULL;
 				free( r);
 				warn("Not enough memory");
 				return false;
@@ -1992,7 +2001,7 @@ prima_update_rotated_fonts( PCachedFont f, const char * text, int len, Bool wide
 		if ( !r-> arena) {
 			free( r-> arena_bits);
 FAILED:
-			*pr = nil;
+			*pr = NULL;
 			free( r-> map);
 			free( r);
 			warn("Cannot create pixmap");

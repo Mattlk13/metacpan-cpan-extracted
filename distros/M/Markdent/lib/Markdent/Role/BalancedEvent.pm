@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use namespace::autoclean;
 
-our $VERSION = '0.38';
+our $VERSION = '0.40';
 
 use List::AllUtils qw( all );
 use Markdent::Types;
@@ -20,7 +20,7 @@ parameter compare => (
 role {
     my $p = shift;
 
-    my @compare = @{ $p->compare() || [] };
+    my @compare = @{ $p->compare || [] };
 
     my $validator = validation_for(
         params => [
@@ -32,11 +32,11 @@ role {
         my $self = shift;
         my ($other) = $validator->(@_);
 
-        return 0 unless $self->name() eq $other->name();
+        return 0 unless $self->name eq $other->name;
 
         return 0
-            unless ( $self->is_start() && $other->is_end() )
-            || ( $self->is_end() && $other->is_start() );
+            unless ( $self->is_start && $other->is_end )
+            || ( $self->is_end && $other->is_start );
 
         return 1 unless @compare;
 
@@ -60,13 +60,13 @@ Markdent::Role::BalancedEvent - A parameterized role for events which can check 
 
 =head1 VERSION
 
-version 0.38
+version 0.40
 
 =head1 DESCRIPTION
 
-This role provides behavior for start and end events which can be checked for
-a balancing event. This includes things like strong, emphasis, and code
-start/end events.
+This role provides behavior for start and end events which can be checked for a
+balancing event. This includes things like strong, emphasis, and code start/end
+events.
 
 =head1 ROLE PARAMETERS
 
@@ -109,7 +109,7 @@ Dave Rolsky <autarch@urth.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Dave Rolsky.
+This software is copyright (c) 2021 by Dave Rolsky.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

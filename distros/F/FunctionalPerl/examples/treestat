@@ -1,0 +1,293 @@
+#!/usr/bin/env perl
+
+my $copyright = <<'COPYRIGHT';
+# Copyright 2021 by Christian Jaeger <ch@christianjaeger.ch>
+# Published under the same terms as perl itself
+COPYRIGHT
+
+use strict;
+use warnings FATAL => 'uninitialized';
+use experimental 'signatures';
+
+my ($email_full) = $copyright =~ / by ([^\n]*)/s;
+
+my ($mydir, $myname);
+
+BEGIN {
+    $0 =~ /(.*?)([^\/]+)\z/s or die "?";
+    ($mydir, $myname) = ($1, $2);
+}
+use lib "$mydir/../lib";
+
+use Getopt::Long;
+use Chj::xperlfunc qw(xlstat xprintln xprint xgetfile_utf8 xchdir xutime);
+use FP::IOStream qw(xdirectory_paths);
+use FP::Ops qw(string_cmp);
+use FP::List qw(cons null);
+use FP::Lazy;
+use FP::Stream ":all";
+use Chj::singlequote qw(singlequote);
+use FP::Show;
+use JSON qw(decode_json);
+use FP::Div qw(min);
+use Digest;
+use FP::Docstring;
+
+sub usage {
+    print STDERR map {"$_\n"} @_ if @_;
+    print "$myname command [args]
+
+  Print and read a JSON syntax file containing stat values of all files under
+  dirpath, recursively:
+
+   { \$path => [ lstat \$path ], ... }
+
+  Does not follow symlinks when recursing.
+
+  Commands:
+
+    print-tree \$basedir
+
+        print the stat values at \$basedir to stdout.
+
+    print-mtime-fixes \$file1 \$file2
+
+        print which files should be changed to which mtime, assuming
+        that files (also dirs / devices) with the same contents but
+        differing mtime on either side should get the older of the two
+        mtimes.
+
+    apply-mtime-fixes \$dir \$file
+
+        apply the mtime fixes from print-mtime-fixes to \$dir.
+
+    repl \$file...
+
+        open a repl with the parsed \$file... in \@ts
+
+  Options:
+
+    --no-chdir
+
+       By default, treestat uses chdir in print-tree then use '.' as
+       the base folder name. This option turns that off.
+
+    --no-sort
+
+       By default, directory entries are sorted alphabetically. This
+       option will disable the sorting and list them in the order as
+       delivered by the OS.
+
+  ($email_full)
+";
+    exit(@_ ? 1 : 0);
+}
+
+our $verbose = 0;
+my ($opt_no_chdir, $opt_no_sort);
+
+#our $opt_dry;
+GetOptions(
+    "verbose"  => \$verbose,
+    "help"     => sub {usage},
+    "no-chdir" => \$opt_no_chdir,
+    "no-sort"  => \$opt_no_sort,
+
+    #"dry-run"=> \$opt_dry,
+) or exit 1;
+usage unless @ARGV >= 1;
+
+# JSON::PP < v4 do not allow non-references by default, thus:
+my $json = JSON->new->allow_nonref;
+
+sub encode_json ($val) {
+    $json->encode($val)
+}
+
+sub sha256sum ($path) {
+    my $ctx = Digest->new("SHA-256");
+    $ctx->addfile($path);
+    $ctx->b64digest
+}
+
+sub directory_records ($dirpath, $tail) {
+    __ "Stream of [path, [statvalues, maybe_hash]] for dirpath,
+    depth-first.";
+    xdirectory_paths($dirpath, $opt_no_sort ? () : \&string_cmp)
+        ->stream->fold_right(
+        sub ($path, $tail) {
+            my $s          = xlstat $path;
+            my $maybe_hash = ($s->is_file and sha256sum($path));
+            cons([$path, [@$s, $maybe_hash]],
+                $s->is_dir ? directory_records($path, $tail) : $tail)
+        },
+        $tail
+        )
+}
+
+sub print_tree ($dirpath) {
+    my $base;
+    if ($opt_no_chdir) {
+        $base = $dirpath;
+    } else {
+
+        # Should we fork to scope the effect?
+        xchdir $dirpath;
+        $base = ".";
+    }
+
+    # Stream out JSON (should make a module for this!):
+    binmode STDOUT, ":encoding(UTF-8)" or die "binmode: $!";
+    xprintln "{";
+
+    directory_records($base, null)->for_each_with_islast(
+        sub ($record, $islast) {
+            my ($path, $s_ary) = @$record;
+            xprintln " ", encode_json($path), ": ", encode_json($s_ary),
+                ($islast ? () : ",");
+        }
+    );
+
+    xprintln "}";
+}
+
+sub load_json ($path) {
+    decode_json xgetfile_utf8($path)
+}
+
+my $StatWithHash_numfields = 13 + 1;    # 13 from Chj::xperlfunc::xstat
+
+package PFLANZE::StatWithHash {
+    use base 'Chj::xperlfunc::xstat';
+
+    sub hash ($self) {
+        $$self[13]
+    }
+}
+
+sub parse_treestat ($path) {
+    my $hash = load_json($path);
+
+    # turn values back into stat objects
+    for (values %$hash) {
+        @$_ == $StatWithHash_numfields
+            or die
+            "invalid array with other than $StatWithHash_numfields elements: "
+            . show($_);
+        bless $_, 'PFLANZE::StatWithHash';
+    }
+    $hash
+}
+
+# This is to be applied after Unison synchronized the contents, and
+# was doing that without the -times flag, hence left the mtime at the
+# target location newer than the source location. Back-dating the
+# files to the older time fixes the synchronisation.
+sub mtime_fixes ($A, $B) {
+    my %mtime;
+    my $ignore_same_mtime  = 0;
+    my $ignore_diffcontent = 0;
+    my $ignore_difftype    = 0;
+    my $act_file           = 0;
+    my $act_dir            = 0;
+    my $act_other          = 0;
+    for my $k (keys %$A) {
+        if (defined(my $b = $$B{$k})) {
+            my $a = $$A{$k};
+            if ($a->mtime == $b->mtime) {
+
+                # no change to be done
+                $ignore_same_mtime++;
+            } else {
+                if ($a->filetype == $b->filetype) {
+
+                    # The older mtime should be the correct
+                    # one. Assuming the items have the same content if
+                    # they are regular files.
+                    my $act = sub {
+                        $mtime{$k} = min($a->mtime, $b->mtime);
+                    };
+                    if ($a->is_file) {
+                        if ($a->size == $b->size and $a->hash eq $b->hash) {
+                            $act_file++;
+                            &$act
+                        } else {
+
+                            # uh, different contents, can't know what
+                            # to do (shouldn't happen once
+                            # synchronisation was run, but may be if
+                            # both sides had changes)
+                            $ignore_diffcontent++;
+                        }
+                    } else {
+
+                        # Do not try to update symlinks
+                        unless ($a->is_link) {
+                            if ($a->is_dir) {
+                                $act_dir++;
+                            } else {
+
+                                # repl;
+                                $act_other++;
+                            }
+                            &$act
+                        }
+                    }
+                } else {
+                    $ignore_difftype++;
+                }
+            }
+        }
+    }
+    {
+        mtimes             => \%mtime,
+        ignore_same_mtime  => $ignore_same_mtime,
+        ignore_difftype    => $ignore_difftype,
+        ignore_diffcontent => $ignore_diffcontent,
+        act_file           => $act_file,
+        act_dir            => $act_dir,
+        act_other          => $act_other,
+    }
+}
+
+sub print_mtime_fixes {
+    @_ == 2 or die "print_mtime_fixes needs 2 arguments";
+    my $json_encoder = JSON->new->utf8(1)->pretty(1)->canonical(1);
+    xprintln $json_encoder->encode(mtime_fixes(map { parse_treestat $_ } @_));
+}
+
+sub apply_mtime_fixes ($dir, $file) {
+    my $hash        = load_json($file);
+    my $mtime_fixes = $hash->{mtimes}
+        // die "missing 'mtimes' key in file '$file'";
+    ref($mtime_fixes) eq "HASH"
+        or die "invalid type of values at 'mtimes' in '$file': $mtime_fixes";
+    for my $relpath (sort keys %$mtime_fixes) {
+        my $mtime    = $mtime_fixes->{$relpath};
+        my $fullpath = "$dir/$relpath";
+        my $s        = xlstat $fullpath;
+        die "is a link: '$fullpath'" if $s->is_link;
+        xutime $s->atime, $mtime, $fullpath;
+    }
+}
+
+sub trees_repl {
+    my @ts = map { parse_treestat $_ } @_;
+    require FP::Repl;
+    FP::Repl::repl();
+}
+
+my $command = shift @ARGV;
+
+my $proc = +{
+    "print-tree"        => \&print_tree,
+    "repl"              => \&trees_repl,
+    "print-mtime-fixes" => \&print_mtime_fixes,
+    "apply-mtime-fixes" => \&apply_mtime_fixes,
+}->{$command} or usage "unknown command '$command'";
+
+$proc->(@ARGV);
+
+#use Chj::ruse;
+#use Chj::Backtrace;
+

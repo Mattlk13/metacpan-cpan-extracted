@@ -21,6 +21,7 @@ Alexey
 Andreas
 Andrew
 Anirvan
+Arne
 Asplund
 Atzberger
 Authen
@@ -120,6 +121,7 @@ Jeremy
 Joao
 Joe
 Joerg
+Johannessen
 John
 Jonathan
 Jr
@@ -162,6 +164,7 @@ MacEachern
 Macdonald
 Madsen
 Mailto
+Maischein
 Mann
 Mark
 Marko
@@ -172,6 +175,7 @@ Massjouni
 Mates
 Matthew
 Matyukhin
+Max
 McCauley
 Melchner
 MemberMixin
@@ -312,6 +316,7 @@ bryan
 capoeirab
 cjm
 colin
+corion
 cpan
 data
 david
@@ -335,6 +340,7 @@ getprint
 getstore
 gianni
 gisle
+git
 github
 gong
 gopher

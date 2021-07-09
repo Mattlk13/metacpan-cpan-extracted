@@ -1,5 +1,62 @@
 Revision history for JSON-Schema-Draft201909
 
+0.128     2021-06-09 03:26:45Z
+          - delegate all logic to JSON::Schema::Modern; this distribution now
+            remains as a deprecated compatibility layer.
+
+0.028     2021-06-08 02:48:07Z
+          - fix validation regex for the $anchor keyword
+          - unevaluatedItems and unevaluatedProperties keywords are now
+            applied after all other keywords in the applicator vocabulary
+            (true/false results are not affected, but the order of annotations
+            and errors will change)
+          - calculate the canonical uri correctly after navigating a $ref:
+            using the closest resource identifier to the destination, not the
+            one that was used in the $ref
+
+0.027     2021-05-15 18:13:21Z
+          - fixed error strings used for failing "dependentRequired"
+          - in terse output format, do not discard non-summary errors from
+            schema-form of items
+          - keywords in the applicator vocabulary are now applied before the
+            keywords in the validation vocabulary (true/false results are not
+            affected, but the order of annotations and errors will change)
+          - improved validation of the "date-time", "date" and "time" formats
+
+0.026     2021-04-08 20:13:27Z
+          - fix scoping of annotations from uncle keywords (siblings of the
+            schema's parent) that were improperly visible to unevaluatedItems,
+            unevaluatedProperties
+          - 'result' attribute in JSON::Schema::Draft201909::Result has been
+            renamed to 'valid', to better match what it represents (a boolean)
+
+0.025     2021-03-30 05:36:14Z
+          - minor changes to error strings to distinguish between issues that
+            can be determined from static inspection of schema(s), and those
+            that only arise during runtime evaluation (such as URIs that
+            map to missing schema documents, or inconsistent configuration
+            values).
+          - more validity checks at traversal time of $ref, $schema,
+            $vocabulary values
+          - update ipv4 format validation to reject leading zeroes in octets,
+            helping avoid a newly-discovered vulnerability in netmasks
+
+0.024     2021-03-23 21:53:42Z
+          - the default value for "validate_formats" is once again false (it
+            became true in v0.020), to properly conform to the specification
+
+0.023     2021-02-21 18:36:32Z
+          - fix "try/catch is experimental" warnings in perl 5.33.7
+
+0.022     2021-02-07 17:33:14Z
+          - fix erroneous use of postfix dereference (closes #42).
+
+0.021     2021-02-06 18:50:42Z
+          - [Pp]roperties$ keywords now always produce annotations when
+            evaluating successfully, even if there were no matching properties
+          - added the "strict_basic" output format, for strict (but incorrect)
+            adherence to the draft 2019-09 specification
+
 0.020     2021-01-02 17:12:09Z
           - the default value for "validate_formats" is now true, to reflect
             the most typical usecase.

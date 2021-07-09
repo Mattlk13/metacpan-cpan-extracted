@@ -3,7 +3,7 @@ package Wikibase::Datatype::Struct;
 use strict;
 use warnings;
 
-our $VERSION = 0.05;
+our $VERSION = 0.08;
 
 1;
 
@@ -25,6 +25,18 @@ serialized via JSON to MediaWiki.
 =head1 SEE ALSO
 
 =over
+
+=item L<Wikibase::Datatype::Struct::Mediainfo>
+
+Wikibase mediainfo structure serialization.
+
+=item L<Wikibase::Datatype::Struct::MediainfoSnak>
+
+Wikibase mediainfo snak structure serialization.
+
+=item L<Wikibase::Datatype::Struct::MediainfoStatement>
+
+Wikibase mediainfo statement structure serialization.
 
 =item L<Wikibase::Datatype::Struct::Reference>
 
@@ -92,12 +104,12 @@ L<http://skim.cz>
 
 =head1 LICENSE AND COPYRIGHT
 
-© Michal Josef Špaček 2020
+© Michal Josef Špaček 2020-2021
 
 BSD 2-Clause License
 
 =head1 VERSION
 
-0.05
+0.08
 
 =cut

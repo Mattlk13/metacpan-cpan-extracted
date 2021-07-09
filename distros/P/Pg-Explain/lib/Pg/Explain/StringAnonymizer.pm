@@ -26,11 +26,11 @@ Pg::Explain::StringAnonymizer - Class to anonymize sets of strings
 
 =head1 VERSION
 
-Version 1.04
+Version 1.11
 
 =cut
 
-our $VERSION = '1.04';
+our $VERSION = '1.11';
 
 =head1 SYNOPSIS
 
@@ -217,7 +217,7 @@ sub _word {
     my $self = shift;
     my $n    = shift;
     $n = 0 unless defined $n;
-    $n = 0 if $n < 0;
+    $n = 0  if $n < 0;
     $n = 31 if $n > 31;
     my @words = qw(
         alpha     bravo      charlie    delta
@@ -228,7 +228,7 @@ sub _word {
         uniform   victor     whiskey    xray
         yankee    zulu       two        three
         four      five       six        seven
-        );
+    );
     return $words[ $n ];
 }
 
@@ -313,7 +313,7 @@ You can find documentation for this module with the perldoc command.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2008-2015 hubert depesz lubaczewski, all rights reserved.
+Copyright 2008-2021 hubert depesz lubaczewski, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

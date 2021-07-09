@@ -1,3 +1,28 @@
+0.42      2021-05-19 09:56:34+02:00 Europe/Madrid
+
+    - new size_map() method to get a batch of queue sizes in a pipeline
+    - new processing_map() worker method to get a batch of workers info in a pipeline
+    - new refresh_id() to allow dinamically queues to be shown on the iface
+    - new stats::set() required for refresh_id()
+
+0.41      2021-05-14 14:10:04+02:00 Europe/Madrid
+
+    - Fixed mechanism to extract queue name to prevent from removing too much when queue name use simicolons
+
+0.40      2021-05-14 13:51:52+02:00 Europe/Madrid
+
+    - Extract queue name from returned key when blocking pop is used
+
+0.39      2021-05-14 12:59:28+02:00 Europe/Madrid
+
+    - Fixed test that was failing when Redis::Fast was installed reported by Slaven Rezić (#GH30)
+    - Implemented experimental support for blocking pop instead of polling (#GH2)
+
+0.38      2021-05-07 15:24:50+02:00 Europe/Madrid
+
+    - Accept a hashref to initialize Redis client with custom arguments (gonzalo-radio)
+    - Fixed Gearman link on see also section
+
 0.37      2018-12-10 21:22:15+01:00 Europe/Madrid
 
     - Fixed docs for Resque::Failures::all() (reported by Nick Tonkin)

@@ -51,7 +51,7 @@ int32_t main(int32_t argc, const char *argv[]) {
   }
   
   // Add include path
-  SPVM_LIST_push(compiler->module_include_pathes, cur_script_dir);
+  SPVM_LIST_push(compiler->module_dirs, cur_script_dir);
   
   SPVM_COMPILER_compile(compiler);
   
@@ -66,9 +66,9 @@ int32_t main(int32_t argc, const char *argv[]) {
   SPVM_API_call_begin_blocks(env);
 
   // Package
-  int32_t sub_id = SPVM_API_get_sub_id(env, package_name, "main", "int(string[])");
+  int32_t method_id = SPVM_API_get_method_id(env, package_name, "main", "int(string[])");
   
-  if (sub_id < 0) {
+  if (method_id < 0) {
     return -1;
   }
   
@@ -81,7 +81,7 @@ int32_t main(int32_t argc, const char *argv[]) {
   
   // Set command line arguments
   for (int32_t arg_index = 0; arg_index < argc; arg_index++) {
-    void* cmd_arg_obj = env->new_string_len(env, argv[arg_index], strlen(argv[arg_index]));
+    void* cmd_arg_obj = env->new_string(env, argv[arg_index], strlen(argv[arg_index]));
     env->set_elem_object(env, cmd_args_obj, arg_index, cmd_arg_obj);
   }
   
@@ -89,7 +89,7 @@ int32_t main(int32_t argc, const char *argv[]) {
   stack[0].oval = cmd_args_obj;
   
   // Run
-  int32_t exception_flag = env->call_sub(env, sub_id, stack);
+  int32_t exception_flag = env->call_spvm_method(env, method_id, stack);
   
   int32_t status;
   if (exception_flag) {

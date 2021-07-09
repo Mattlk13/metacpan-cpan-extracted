@@ -1,6 +1,4 @@
-use strict;
-use warnings;
-use Test::More;
+use Test2::V0 -no_srand => 1;
 use FFI::Platypus;
 use FFI::CheckLib qw( find_lib );
 use FFI::Platypus::Memory qw( malloc free );
@@ -42,12 +40,12 @@ subtest 'not a reference' => sub {
 
 subtest 'return null' => sub {
 
-  is_deeply(
+  is(
     [FFI::Platypus->new( api => 1, lib => [@lib] )->function( pointer_null => [] => 'record(10)*' )->call],
     [],
   );
 
-  is_deeply(
+  is(
     [FFI::Platypus->new( api => 2, experimental => 2, lib => [@lib] )->function( pointer_null => [] => 'record(10)*' )->call],
     [undef],
   );
@@ -88,7 +86,7 @@ subtest 'is a reference' => sub {
 
 subtest 'closure' => sub {
 
-  { package Closture::Record::RW;
+  { package Closure::Record::RW;
 
     use FFI::Platypus::Record;
 
@@ -106,14 +104,14 @@ subtest 'closure' => sub {
 
   my $ffi = FFI::Platypus->new( lib => [@lib] );
 
-  $ffi->type('record(Closture::Record::RW)' => 'cx_struct_rw_t');
+  $ffi->type('record(Closure::Record::RW)' => 'cx_struct_rw_t');
   eval { $ffi->type('(cx_struct_rw_t,int)->void' => 'cx_closure_t') };
   is $@, '', 'allow record type as arg';
 
   my $cx_closure_set = $ffi->function(cx_closure_set => [ 'cx_closure_t' ] => 'void' );
   my $cx_closure_call = $ffi->function(cx_closure_call => [ 'cx_struct_rw_t', 'int' ] => 'void' );
 
-  my $r = Closture::Record::RW->new;
+  my $r = Closure::Record::RW->new;
   $r->one("one");
   $r->two("two");
   $r->three(3);
@@ -140,21 +138,21 @@ subtest 'closure' => sub {
     }
     is($r2->three, 3);
     is($r2->four, "four");
-    is_deeply($r2->myarray1, [1,2]);
+    is($r2->myarray1, [1,2]);
     {
       local $@ = '';
       eval { $r2->myarray1([3,4]) };
       isnt $@, '';
       note "error = $@";
     }
-    is_deeply($r2->myarray1, [1,2]);
+    is($r2->myarray1, [1,2]);
     {
       local $@ = '';
       eval { $r2->myarray1(3,4) };
       isnt $@, '';
       note "error = $@";
     }
-    is_deeply($r2->myarray1, [1,2]);
+    is($r2->myarray1, [1,2]);
 
     is($r2->opaque1, $r->opaque1);
     {
@@ -165,21 +163,21 @@ subtest 'closure' => sub {
     }
     is($r2->opaque1, $r->opaque1);
 
-    is_deeply($r2->myarray2, $r->myarray2);
+    is($r2->myarray2, $r->myarray2);
     {
       local $@ = '';
       eval { $r2->myarray2([undef,undef]) };
       isnt $@, '';
       note "error = $@";
     }
-    is_deeply($r2->myarray2, $r->myarray2);
+    is($r2->myarray2, $r->myarray2);
     {
       local $@ = '';
       eval { $r2->myarray2(undef,undef) };
       isnt $@, '';
       note "error = $@";
     }
-    is_deeply($r2->myarray2, $r->myarray2);
+    is($r2->myarray2, $r->myarray2);
 
     {
       local $@ = '';

@@ -1,9 +1,9 @@
 package WordListRole::EachFromFirstNextReset;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-08-23'; # DATE
+our $DATE = '2021-06-23'; # DATE
 our $DIST = 'WordList'; # DIST
-our $VERSION = '0.7.6'; # VERSION
+our $VERSION = '0.7.10'; # VERSION
 
 use Role::Tiny;
 
@@ -44,7 +44,7 @@ WordListRole::EachFromFirstNextReset - Provide each_word(); relies on first_word
 
 =head1 VERSION
 
-This document describes version 0.7.6 of WordListRole::EachFromFirstNextReset (from Perl distribution WordList), released on 2020-08-23.
+This document describes version 0.7.10 of WordListRole::EachFromFirstNextReset (from Perl distribution WordList), released on 2021-06-23.
 
 =head1 DESCRIPTION
 
@@ -53,6 +53,18 @@ providing providing C<first_word()>, C<next_word()>, C<reset_iterator()>. This
 role will add an C<each_word()> method that uses the former three methods.
 
 =for Pod::Coverage .+
+
+=head1 REQUIRED METHODS
+
+=head2 first_word
+
+=head2 next_word
+
+=head2 reset_iterator
+
+=head1 PROVIDED METHODS
+
+=head2 each_word
 
 =head1 HOMEPAGE
 
@@ -70,13 +82,17 @@ When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
 feature.
 
+=head1 SEE ALSO
+
+L<WordListRole::FirstNextResetFromEach>
+
 =head1 AUTHOR
 
 perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2018, 2017, 2016 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2018, 2017, 2016 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

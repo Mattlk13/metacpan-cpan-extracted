@@ -5,8 +5,9 @@
 use Test::More qw( no_plan );
 use strict;
 use warnings;
+use lib './lib';
 
-BEGIN { use_ok( 'Module::Generic' ) || BAIL_OUT( "Unable to load Module::Generic" ); }
+BEGIN { use_ok( 'Module::Generic::Iterator' ) || BAIL_OUT( "Unable to load Module::Generic::Iterator" ); }
 
 my $a = Module::Generic::Iterator->new( [qw( John Jack Paul Peter Simon )], { debug => 0 } );
 
@@ -70,3 +71,5 @@ isa_ok( $first->parent, 'Module::Generic::Iterator', 'Element parent object clas
 is( $first->pos, 0, "First element position" );
 
 is( $last->pos, 4, "Last element position" );
+
+done_testing();

@@ -6,7 +6,7 @@ use PGXN::Site::Controller;
 use Router::Resource;
 use Plack::Builder;
 use Plack::App::File;
-our $VERSION = v0.10.3;
+our $VERSION = v0.22.0;
 
 sub app {
     my $class = shift;
@@ -53,6 +53,11 @@ sub app {
                 my ($env, $args) = @_;
                 $controller->user($env, @{ $args->{splat} } );
             };
+        };
+
+        # /tags
+        resource qr{^/tags/?$} => sub {
+            GET { $controller->tags(shift) };
         };
 
         # /tag/{tag}/
@@ -138,9 +143,7 @@ sub app {
         resource qr{^/(cont(?:ributors|act)|mirroring|faq|meta/spec)[.]html$} => sub {
             GET {
                 my ($env, $args) = @_;
-                my $res = Plack::Response->new;
-                $res->redirect($url_for{ $args->{splat}[0] }, 301);
-                $res->finalize;
+                $controller->redirect($url_for{ $args->{splat}[0] }, 301)
             };
         };
     };
@@ -188,14 +191,14 @@ power the application.
 
 =head1 Author
 
-David E. Wheeler <david.wheeler@pgexperts.com>
+David E. Wheeler <david@justatheory.com>
 
 =head1 Copyright and License
 
-Copyright (c) 2010-2013 David E. Wheeler.
+Copyright (c) 2010-2021 David E. Wheeler.
 
 This module is free software; you can redistribute it and/or modify it under
-the L<PostgreSQL License|http://www.opensource.org/licenses/postgresql>.
+the L<PostgreSQL License|https://www.opensource.org/licenses/postgresql>.
 
 Permission to use, copy, modify, and distribute this software and its
 documentation for any purpose, without fee, and without a written agreement is

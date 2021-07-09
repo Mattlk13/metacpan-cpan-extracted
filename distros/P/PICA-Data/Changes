@@ -1,5 +1,72 @@
 Revision history for PICA::Data
 
+1.28 2021-07-06T09:52:24Z
+    - Add method to get subfields as multihash (#98)
+    - picadata: fix option --number (#111)
+    - picadata: support parsing multiple formats (#112)
+
+1.27 2021-06-23T07:23:14Z
+    - Add accessor: empty. Fixes counting.
+    - Remove parser option 'bless', always return blessed record (#107, BREAKING CHANGE)
+
+1.26 2021-06-19T16:51:01Z
+    - Support diff/patch in CLI
+    - Support option --unknown in build/fields/explain 
+
+1.25 2021-06-16T14:18:46Z
+    - Implement occurrence ranges (#96) 
+    - Add option position_as_occurrence (see #66)
+
+1.24 2021-06-07T08:51:52Z
+    - Add method to split record
+    - Make path optional in pica_fields
+    - picadata: allow to parse multiple files
+    - picadata: load schema from PICA_SCHEMA for more commands
+    - Extend schema checking to level 1 and level 2
+
+1.23 2021-06-03T10:19:24Z
+    - Move picadata implementation into module App::picadata
+    - Rewrite picadata to use commands (#101)
+    - Add picadata command 'explain' (#99)
+    - picadata: read schema from environment variable PICA_SCHEMA if needed
+    - Remove PICA::Writer::[Sub]fields
+
+1.22 2021-05-26T12:54:35Z
+    - Add PICA::Writer::Subfields
+    - Support parsing WinIBW download format (#34)
+
+1.21 2021-05-18T09:23:25Z
+    - Add function pica_annotation
+    - Add accessor ->id and function pica_id
+    - Rename option annotated to annotate
+    - Support using field annotations for schema checking (#89)
+    - picadata: add option -a/-A/-annotated (#94)
+    - picadata: ignore empty records
+    - picadata: Expect UTF-8 on STDIN (#92)
+    - picadata: exit code on validation errors (#95)
+
+1.20 2021-05-12T15:27:58Z
+    - Implement record sorting (#59)
+    - Refactor PPXML writer (#84)
+
+1.19 2021-05-10T13:22:39Z
+    - picadata: get schema via URL (#77)
+    - Treat occurrence zero equal to none (#88)
+
+1.18 2021-04-30T10:54:49Z
+    - Support parsing field annotations (#86)
+
+1.17 2021-04-23T08:16:14Z
+    - Support checking and writing field annotations (#86)
+
+1.16 2021-03-02T16:19:47Z
+    - Move clean_pica to PICA::Schema and add add option ignore_subfields
+    - Extend method/function field_identifier to occurrence ranges
+
+1.15 2021-03-01T10:56:48Z
+    - Add clean_pica to check PICA data structure (#82)
+    - Rename PICA::Schema::Error to PICA::Error
+
 1.14 2020-07-28T08:42:47Z
     - picadata: allow to repeat --path
     - picadata: don't emit records by default

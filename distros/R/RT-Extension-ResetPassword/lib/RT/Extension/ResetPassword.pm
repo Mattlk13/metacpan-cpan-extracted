@@ -5,7 +5,7 @@ use warnings;
 
 use Digest::SHA qw(sha256_hex);
 
-our $VERSION = '1.07';
+our $VERSION = '1.12';
 
 RT->AddStyleSheets("resetpassword.css");
 
@@ -38,7 +38,7 @@ sub CreateTokenAndResetPassword {
     my $token = CreateToken($user);
     return unless $token;     # CreateToken will log error
 
-    my ($status, $msg) = RT::Interface::Email::SendEmailUsingTemplate(
+    my %send_options = (
         To        => $user->EmailAddress,
         Template  => 'PasswordReset',
         Arguments => {
@@ -46,8 +46,43 @@ sub CreateTokenAndResetPassword {
             User  => $user,
         },
     );
+
+    $send_options{'From'} = RT->Config->Get('ResetPasswordFromAddress')
+        if RT->Config->Get('ResetPasswordFromAddress');
+
+    my ($status, $msg) = RT::Interface::Email::SendEmailUsingTemplate(%send_options);
+
     return ($status, $msg);
 }
+
+
+# Add to RT::User for possible addition to core RT in the future.
+
+package RT::User;
+
+# Set the password for this user back to no value. This is useful for
+# features like ResetPassword that might use the existence of a password
+# to determine if a user should be allowed to reset. Also possibly useful
+# for clearing old passwords after switching to different authentication
+# for RT.
+
+sub UnsetPassword {
+    my $self     = shift;
+
+    unless ( $self->CurrentUserCanModify('Password') ) {
+        return ( 0, $self->loc('Password: Permission Denied') );
+    }
+
+    my ( $val, $msg ) = $self->_Set(Field => 'Password', Value => '');
+    if ($val) {
+        return ( 1, $self->loc("Password unset") );
+    }
+    else {
+        return ( $val, $msg );
+    }
+}
+
+package RT::Extension::ResetPassword;
 
 =head1 NAME
 
@@ -80,6 +115,24 @@ Works with RT 4.0, 4.2, 4.4, 5.0
 =item C<make install>
 
 May need root permissions
+
+=item Install Patches
+
+This is to enable searches for users with a password set.
+
+For RT 5 prior to 5.0.2, apply this:
+
+    patch -p1 -d /opt/rt5 < patches/user-admin-callbacks.patch
+
+For RT 4.4.4, apply this:
+
+    patch -p1 -d /opt/rt4 < patches/4.4.4-user-admin-callbacks.patch
+
+For RT 4 prior to 4.4.4, apply this:
+
+    patch -p1 -d /opt/rt4 < patches/4-user-admin-callbacks.patch
+
+See below for details.
 
 =item C<make initdb>
 
@@ -167,6 +220,21 @@ Setting this config option to true will allow existing users who do
 not have a password value to send themselves a reset password email
 and set a password.
 
+Setting this to false (0) requires a user to already have a password
+to use the reset feature. This is useful for managing access and
+not automatically allowing new accounts to get a password.
+
+This extension adds a "Password Status" at the bottom of the Access control
+section on the user admin page which shows whether the user currently
+has a password set. The "Delete password" option allows you to clear
+passwords if a user should no longer have access.
+
+For RT 4.4 and 5, this extension also adds a checkbox to the user admin page
+that allows you to filter users, displaying only those who have a password
+set. If you disable the C<$AllowUsersWithoutPassword> option, this checkbox
+allows you to see all users who have an existing password and would
+therefore be able to reset their password.
+
 =item C<$CreateNewUserAsPrivileged>
 
 Set this config value to true if users creating a new account should
@@ -191,6 +259,18 @@ to display on the login page.
 
 This is useful if you want only the password reset email option on the RT
 user admin page, but no self-service options.
+
+=item C<$PasswordChangeLinkExpirySeconds>
+
+Set this config value to the time in seconds before a password-change
+link expires.  The default value is 4*60*60, meaning that password-change
+links expire after four hours by default.
+
+=item C<$ResetPasswordFromAddress>
+
+By default, the From address in the password reset email is the default
+C<$CorrespondAddress> from RT. You can use this option to set a
+different From address for the reset email.
 
 =back
 

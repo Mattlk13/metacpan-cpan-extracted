@@ -1,5 +1,14 @@
+0.93
+    * Take `result_class` of `DBIx::Class::ResultSet` instead of asking for columns info on the actual data row (#110);
+
+0.92
+    * Reset result set's cursor after getting `columns_info` (#110)
+
+0.91
+    * Fix a bug where a first dot in the middle of a path was treated as a separator for the extension;
 0.90
     * Replace `$count` with `$end` in SYNOPOSIS example (#95);
+    * Allow swagger to reside behind a reverse proxy (#102);
 
 0.89
     * Change arguments ordering in Enum of swagger test (#93);

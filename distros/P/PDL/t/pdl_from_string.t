@@ -1,43 +1,27 @@
-#!/usr/bin/perl
-#
 # This tests the new PDL constructor with a string argument.
 # There are three goals from the new functionality: (1) to allow
 # MATLAB to use familiar syntax to create arrays, (2) to allow
 # cut-n-paste of PDL print output as input for scripts and programs,
-# and (3) to allow easy ways to construct nan and inf values in piddles.
-#
+# and (3) to allow easy ways to construct nan and inf values in ndarrays.
+# (4) to allow complex numbers to be round-tripped in native
+# complex (i.e. Math::Complex) format
 
-use Test::More tests => 113;
 use strict;
 use warnings;
+use Test::More;
 use Config;
+use PDL::LiteF;
 
-#############################
-# Loading and ISA tests - 2 #
-#############################
+isa_ok( pdl("[1,2]"), "PDL", qq{pdl("[1,2]") returns an ndarray} );
 
-BEGIN {
-   # if we've got this far in the tests then
-   # we can probably assume PDL::LiteF works!
-   #
-   use_ok( "PDL::LiteF" );
-}
-
-isa_ok( pdl("[1,2]"), "PDL", qq{pdl("[1,2]") returns a piddle} );
-
-###################
-# Basic Tests - 8 #
-###################
-
+# Basic Tests #
 ok( all(pdl([1,2])==pdl("[1,2]")), qq{pdl(ARRAY REF) equals pdl("ARRAY REF")});
-
 my $compare = pdl([
 	[1, 0, 8],
 	[6, 3, 5],
 	[3, 0, 5],
 	[2, 4, 2]
 ]);
-
 my $test_string = <<EOPDL;
    [
      [1, 0, 8],
@@ -46,43 +30,48 @@ my $test_string = <<EOPDL;
      [2, 4, 2],
    ]
 EOPDL
-
 my $t1 = pdl $test_string;
 ok(all(approx($t1, $compare)), "properly interprets good PDL input string");
-
 # See what happens when we remove the end commas
 $test_string =~ s/\],/]/g;
-
 my $t2 = pdl $test_string;
 ok(all(approx($t2, $compare)), "properly interprets good PDL input string sans ending commas");
-
 my $t3 = pdl '[1, 0, 8; 6, 3, 5; 3, 0, 5; 2, 4, 2]';
 ok(all(approx($t3, $compare)), "properly handles semicolons");
-
 my $t4 = pdl "$compare";
 ok(all(approx($t4, $compare)), "properly interprets good PDL output string");
-
 my $expected = pdl(1.2e3);
 my $got = pdl q[1.2e3];
 is($got, $expected, "Correctly interprets [1.2e3]");
-
 $expected = pdl(1.2e3, 4, 5.6e-7);
 $got = pdl q[1.2e3 4 5.6e-7];
-ok(all($got == $expected), "Correclty interprets [1.2e3 4 5.6e-7]");
-
+ok(all($got == $expected), "Correctly interprets [1.2e3 4 5.6e-7]");
 $expected = pdl(1.2e3, 4, 5.e-7);
 $got = pdl q[1.2e3 4 5.e-7];
-ok(all($got == $expected), "Correclty interprets [1.2e3 4 5.e-7]");
+ok(all($got == $expected), "Correctly interprets [1.2e3 4 5.e-7]");
 
+for (
+  '[i 1-i]',
+  ['[-i 1 -i]', qr/(-0)?-i 1 (-0)?-i/],
+  ['[-i 1 -i 1]', qr/(-0)?-i 1 (-0)?-i 1/],
+  ['[-i 1-i 1]', qr/(-0)?-i 1-i 1/],
+  '[i 1+i]',
+  ['[i 1 +i]', '[i 1 i]'],
+  ['[i 2e+2+i]', '[i 200+i]'],
+  ['[i 2e2+i]', '[i 200+i]'],
+  '[2i 1-2i]',
+  '[2i 1+2i]',
+  '[0.5-2i 1.5-2i]',
+  '[0.5 0.5-2i 2i 1.5 1.5-2i]',
+) {
+  my ($input, $expected) = ref($_) ? @$_ : ($_, $_);
+  my $got = eval { pdl($input).'' };
+  is $@, '', "parsed '$input' with no exception";
+  $expected = qr/\A\Q$expected\E\z/ if !ref $expected;
+  like $got, $expected, "complex number round-tripped '$input'";
+}
 
-###########################
-# Signs and operators - 6 #
-###########################
-
-# This functionality does not with the parsed (as opposed to eval'd) method
-# for building the pdl-from-string. I'm commenting out the tests that will
-# fail.
-
+# Signs and operators #
 # Now some more interesting tests
 my $t5 = pdl "[1 -4]";
 $compare = pdl [1, -4];
@@ -148,131 +137,88 @@ ok($t16->ndims == 1, "Implicit bracketing gets proper number of dimensions - bra
 $expected = pdl [];
 $got = pdl q[];
 ok(all($got == $expected), 'Blank strings are interpreted as empty arrays');
-# This generates an annoying warning, and the piddle should be Empty anyway
+# This generates an annoying warning, and the ndarray should be Empty anyway
 #$expected = pdl [];
 $got = pdl q[[]];
 ok(all($got == $expected), 'Empty bracket is correctly interpreted');
 
-#############################
-# Bad, inf, nan checks - 15 #
-#############################
-
+# Bad, inf, nan checks #
 my $bad_values = pdl q[nan inf -inf bad];
 
 # Bad value testing depends on whether nan and inf are represented as bad
 # values
-require PDL::Config;
 
 TODO: {
 	# conditional TODO
 	local $TODO = 'ActivePerl and/or perls built using MS compilers might fail this test'
 		if($ActivePerl::VERSION || $Config{cc} eq 'cl');
-
-	if ($PDL::Config{BADVAL_USENAN}) {
-		ok($bad_values->isbad->at(0), 'sets nan to bad')
-			or diag("Zeroeth bad value should be bad but it describes itself as "
-		. $bad_values->at(0));
-	}
-	else {
-		SKIP: {
-			skip "broken for PDL_Index", 1;
-			ok($bad_values->at(0) != $bad_values->at(0), 'properly handles nan')
-				or diag("Zeroeth bad value should be nan but it describes itself as "
-				. $bad_values->at(0));
-		}
+	SKIP: {
+		skip "broken for PDL_Index", 1;
+		ok($bad_values->at(0) != $bad_values->at(0), 'properly handles nan')
+			or diag("Zeroeth bad value should be nan but it describes itself as "
+			. $bad_values->at(0));
 	}
 }
 
 # inf test: inf == inf but inf * 0 != 0
-ok((	$PDL::Config{BADVAL_USENAN} and $bad_values->isbad->at(1)
-		or  $bad_values->at(1) == $bad_values->at(1)
+ok((	$bad_values->at(1) == $bad_values->at(1)
 		and $bad_values->at(1) * 0.0 != 0.0), 'properly handles inf')
 	or diag("First bad value should be inf but it describes itself as " . $bad_values->at(1));
 # inf test: -inf == -1 * inf
-ok((	$PDL::Config{BADVAL_USENAN} and $bad_values->isbad->at(2)
-		or  $bad_values->at(2) == $bad_values->at(2)
+ok((	$bad_values->at(2) == $bad_values->at(2)
 		and $bad_values->at(2) * 0.0 != 0.0), 'properly handles -inf')
 	or diag("Second bad value should be -inf but it describes itself as " . $bad_values->at(2));
-SKIP: {
-	skip "because BADVAL_USENAN makes -inf and inf both bad, "
-		. "so checking signs is silly", 1 if $PDL::Config{BADVAL_USENAN};
-	ok($bad_values->at(2) == -$bad_values->at(1), "negative inf is numerically equal to -inf");
-}
-# bad test
-SKIP: {
-skip "Bad values disabled", 1 if !$PDL::Config{WITH_BADVAL};
+ok($bad_values->at(2) == -$bad_values->at(1), "negative inf is numerically equal to -inf");
 ok($bad_values->isbad->at(3), 'properly handles bad values')
 	or diag("Third bad value should be BAD but it describes itself as " . $bad_values->slice(3));
-}
 
-my $infty = pdl 'inf';
-my $min_inf = pdl '-inf';
-my $nan = pdl 'nan';
+my $infty = inf();
+my $min_inf = -inf();
+my $nan = nan();
 
 my $nan2 = $^O =~ /MSWin32/i && !$ActivePerl::VERSION && $Config{cc} ne 'cl' ? pdl (-((-1) ** 0.5))
                              : pdl '-nan';
-
 my $bad = pdl 'bad';
 
 TODO: {
 	# conditional TODO
 	local $TODO = 'ActivePerl and/or perls built using MS compilers might fail this test'
 		if($ActivePerl::VERSION || $Config{cc} eq 'cl');
-
-	ok((	$PDL::Config{BADVAL_USENAN} and $infty->isbad
-		or $infty == $infty and $infty * 0.0 != 0.0), "pdl 'inf' works by itself")
+	ok((	$infty == $infty and $infty * 0.0 != 0.0), "pdl 'inf' works by itself")
 		or diag("pdl 'inf' gave me $infty");
-	ok((	$PDL::Config{BADVAL_USENAN} and $min_inf->isbad
-		or $min_inf == $min_inf and $min_inf * 0.0 != 0.0), "pdl '-inf' works by itself")
+	ok((	$min_inf == $min_inf and $min_inf * 0.0 != 0.0), "pdl '-inf' works by itself")
 		or diag("pdl '-inf' gave me $min_inf");
 }
 
-SKIP: {
-	skip "because BADVAL_USENAN makes -inf and inf both bad, "
-		. "so checking signs is silly", 1 if $PDL::Config{BADVAL_USENAN};
-	ok($min_inf == -$infty, "pdl '-inf' == -pdl 'inf'");
-}
-
+ok($min_inf == -$infty, "pdl '-inf' == -pdl 'inf'");
 
 TODO: {
 	local $TODO = 'Sign of Nan depends on platform, still some loose ends';
-
 	# conditional TODO for a different reason
 	local $TODO = 'Cygwin perl and/or ActivePerl might fail these tests'
 		if($ActivePerl::VERSION || $^O =~ /cygwin/i);
-
-	ok((   $PDL::Config{BADVAL_USENAN} and $nan->isbad
-	       or $nan != $nan), "pdl 'nan' works by itself")
+	ok((   $nan != $nan), "pdl 'nan' works by itself")
 	       or diag("pdl 'nan' gave me $nan");
-	ok((   $PDL::Config{BADVAL_USENAN} and $nan2->isbad
-	       or $nan2 != $nan2), "pdl '-nan' works by itself")
+	ok((   $nan2 != $nan2), "pdl '-nan' works by itself")
 	       or diag("pdl '-nan' gave me $nan2");
-
 	# On MS Windows, nan is -1.#IND and -nan is 1.#QNAN. IOW, nan has
 	# a leading minus sign, and -nan is not signed.
 	if($^O =~ /MSWin32/i) {
-		ok((   $PDL::Config{BADVAL_USENAN} and $nan->isbad
-		       or $nan =~ /-/), "pdl 'nan' has a negative sign (MS Windows only)")
+		ok((   $nan =~ /-/), "pdl 'nan' has a negative sign (MS Windows only)")
 		       or diag("pdl 'nan' gave me $nan");
-		ok((   $PDL::Config{BADVAL_USENAN} and $nan2->isbad
-		       or $nan2 !~ /-/), "pdl '-nan' doesn't have a negative sign (MS Windows only)")
+		ok((   $nan2 !~ /-/), "pdl '-nan' doesn't have a negative sign (MS Windows only)")
 		       or diag("pdl -'nan' gave me $nan2");
 	}
 	else {
-		ok((   $PDL::Config{BADVAL_USENAN} and $nan->isbad
-		       or $nan !~ /-/), "pdl 'nan' has a positive sign")
+		ok((   $nan !~ /-/), "pdl 'nan' has a positive sign")
 		       or diag("pdl 'nan' gave me $nan");
-		ok((   $PDL::Config{BADVAL_USENAN} and $nan2->isbad
-		       or $nan2 =~ /-/), "pdl '-nan' has a negative sign")
+		ok((   $nan2 =~ /-/), "pdl '-nan' has a negative sign")
 		       or diag("pdl '-nan' gave me $nan2");
 	}
 }
 
-SKIP: {
-skip "Bad values disabled", 1 if !$PDL::Config{WITH_BADVAL};
 ok($bad->isbad, "pdl 'bad' works by itself")
 	or diag("pdl 'bad' gave me $bad");
-}
 
 # Checks for windows strings:
 $infty = pdl q[1.#INF];
@@ -282,34 +228,27 @@ TODO: {
 	# conditional TODO
 	local $TODO = 'ActivePerl and/or perls built using MS compilers might fail this test'
 		if($ActivePerl::VERSION || $Config{cc} eq 'cl');
-
-	ok((	$PDL::Config{BADVAL_USENAN} and $infty->isbad
-		or $infty == $infty and $infty * 0 != 0), "pdl '1.#INF' works")
+	ok((	$infty == $infty and $infty * 0 != 0), "pdl '1.#INF' works")
 		or diag("pdl '1.#INF' gave me $infty");
-
-	ok(($PDL::Config{BADVAL_USENAN} and $nan->isbad
-		or $nan != $nan), "pdl '-1.#IND' works")
+	ok((	$nan != $nan), "pdl '-1.#IND' works")
 		or diag("pdl '-1.#IND' gave me $nan");
 }
 
-########################
-# Pi and e checks - 10 #
-########################
-
+# Pi and e checks #
 $expected = pdl(1)->exp;
 # using approx() here since PDL only has support for double data
 # so there will be differences in the least significant places for
 # perls compiled with uselongdouble
 #
 $got = pdl q[e];
-ok(approx($got, $expected, 1e-15), 'q[e] returns exp(1)')
+ok(approx($got, $expected, 1e-12), 'q[e] returns exp(1)')
 	or diag("Got $got");
 # using approx() here since PDL only has support for double data
 # so there will be differences in the least significant places for
 # perls compiled with uselongdouble
 #
 $got = pdl q[E];
-ok(approx($got, $expected, 1e-15), 'q[E] returns exp(1)')
+ok(approx($got, $expected, 1e-12), 'q[E] returns exp(1)')
 	or diag("Got $got");
 $expected = pdl(1, exp(1));
 $got = pdl q[1 e];
@@ -342,11 +281,12 @@ ok(all($got == $expected), 'q[1 pi] returns [1 4*atan2(1,1)]')
 $got = pdl q[1 PI];
 ok(all($got == $expected), 'q[1 PI] returns [1 4*atan2(1,1)]')
 	or diag("Got $got");
+$expected = pdl(4 * atan2(1,1), 1);
+$got = pdl q[pi 1];
+ok(all($got == $expected), 'q[pi 1] returns [4*atan2(1,1) 1]')
+	or diag("Got $got");
 
-########################
-# Security checks - 10 #
-########################
-
+# Security checks #
 # Check croaking on arbitrary bare-words:
 eval {pdl q[1 foobar 2]};
 isnt($@, '', 'croaks on arbitrary string input');
@@ -355,58 +295,41 @@ isnt($@, '', 'croaks with non-interpolated strings');
 
 # Install a function that knows if it's been executed.
 {
-	no warnings 'redefine';
 	my $e_was_run = 0;
 	sub PDL::Core::e { $e_was_run++ }
-
-	my $to_check = q[1 e 2];
-	sub PDL::Core::e { $e_was_run++ }
-	eval {pdl $to_check};
-	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
-	$e_was_run = 0;
-
-	$to_check = q[1 +e 2];
-	sub PDL::Core::e { $e_was_run++ }
-	eval {pdl $to_check};
-	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
-	$e_was_run = 0;
-
-	$to_check = q[1 e+ 2];
-	sub PDL::Core::e { $e_was_run++ }
-	eval {pdl $to_check};
-	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
-	$e_was_run = 0;
-
-	$to_check = q[1e 2];
-	sub PDL::Core::e { $e_was_run++ }
-	eval {pdl $to_check};
-	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
-	$e_was_run = 0;
-
-	$to_check = q[1e+ 2];
-	sub PDL::Core::e { $e_was_run++ }
-	eval {pdl $to_check};
-	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
-	$e_was_run = 0;
-
-	$to_check = q[1+e 2];
-	sub PDL::Core::e { $e_was_run++ }
-	eval {pdl $to_check};
-	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
-	$e_was_run = 0;
-
-	$to_check = q[1+e+ 2];
-	sub PDL::Core::e { $e_was_run++ }
-	eval {pdl $to_check};
-	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
-	$e_was_run = 0;
-
-	$to_check = q[1 e123 2];
 	sub PDL::Core::e123 { $e_was_run++ }
+	my $to_check = q[1 e 2];
+	eval {pdl $to_check};
+	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
+	$e_was_run = 0;
+	$to_check = q[1 +e 2];
+	eval {pdl $to_check};
+	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
+	$e_was_run = 0;
+	$to_check = q[1 e+ 2];
+	eval {pdl $to_check};
+	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
+	$e_was_run = 0;
+	$to_check = q[1e 2];
+	eval {pdl $to_check};
+	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
+	$e_was_run = 0;
+	$to_check = q[1e+ 2];
+	eval {pdl $to_check};
+	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
+	$e_was_run = 0;
+	$to_check = q[1+e 2];
+	eval {pdl $to_check};
+	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
+	$e_was_run = 0;
+	$to_check = q[1+e+ 2];
+	eval {pdl $to_check};
+	is($e_was_run, 0, "Does not execute local function e in [$to_check]");
+	$e_was_run = 0;
+	$to_check = q[1 e123 2];
 	eval {pdl $to_check};
 	is($e_was_run, 0, "Does not execute local function e123 in [$to_check]");
 	$e_was_run = 0;
-
 }
 
 ###############################
@@ -449,6 +372,39 @@ foreach my $append (qw(2 e l)) {
 		isnt($@, '', "Croaks when it finds $append$special");
 }
 
+## Issue information
+##
+## Name: BAD value parsing breakage
+##
+## Parsing of BAD values fails to set the correct BAD value when parsing from
+## the string "[BAD]".
+##
+## <http://sourceforge.net/p/pdl/bugs/367/>
+## <https://github.com/PDLPorters/pdl/issues/47>
+
+# input string -> expected string
+my $cases = {
+	q|BAD|         => q|BAD|,
+	q|BAD BAD|     => q|[BAD BAD]|,
+	q|BAD BAD BAD| => q|[BAD BAD BAD]|,
+	q|[BAD]|       => q|[BAD]|,
+	q|[ BAD ]|     => q|[BAD]|,
+	q|[BAD BAD]|   => q|[BAD BAD]|,
+	q|[ BAD BAD ]| => q|[BAD BAD]|,
+};
+
+while( my ($case_string, $expected_string) = each %$cases ) {
+	my $bad_pdl = pdl( $case_string );
+	subtest "Testing case: $case_string" => sub {
+		ok( $bad_pdl->badflag, 'has badflag enabled');
+		ok( $bad_pdl->isbad->all, 'all values in PDL are BAD');
+
+		is($bad_pdl->string, $expected_string, "PDL stringifies back to input string: @{[ $bad_pdl->string ]}");
+	};
+}
+
+done_testing;
+
 # Basic 2D array
 # pdl> p $x = pdl q[ [ 1, 2, 3 ], [ 4, 5, 6 ] ];
 # pdl> p $x = pdl q[ 1 2 3 ; 4 5 6 ]
@@ -486,7 +442,7 @@ foreach my $append (qw(2 e l)) {
 # pdl> p $d = pdl q[ 7 - 2 + 5 ]
 # 10
 
-# A [2,3,4] shape piddle
+# A [2,3,4] shape ndarray
 # pdl> p $d = pdl [ [ [0, 1], [4, 0], [0, 3] ],
 #                   [ [2, 0], [4, 0], [4, 1] ],
 #                   [ [0, 1], [3, 2], [1, 4] ],

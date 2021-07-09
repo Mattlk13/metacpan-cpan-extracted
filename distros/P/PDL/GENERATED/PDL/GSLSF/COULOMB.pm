@@ -4,8 +4,8 @@
 #
 package PDL::GSLSF::COULOMB;
 
-@EXPORT_OK  = qw( PDL::PP gsl_sf_hydrogenicR PDL::PP gsl_sf_coulomb_wave_FGp_array PDL::PP gsl_sf_coulomb_wave_sphF_array PDL::PP gsl_sf_coulomb_CL_e );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP gsl_sf_hydrogenicR PDL::PP gsl_sf_coulomb_wave_FGp_array PDL::PP gsl_sf_coulomb_wave_sphF_array PDL::PP gsl_sf_coulomb_CL_e );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::GSLSF::COULOMB ;
 
@@ -64,7 +64,7 @@ Normalized Hydrogenic bound states. Radial dipendence.
 =for bad
 
 gsl_sf_hydrogenicR does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -93,7 +93,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 =for bad
 
 gsl_sf_coulomb_wave_FGp_array does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -122,7 +122,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 =for bad
 
 gsl_sf_coulomb_wave_sphF_array does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -151,7 +151,7 @@ Coulomb wave function normalization constant. [Abramowitz+Stegun 14.1.8, 14.1.9]
 =for bad
 
 gsl_sf_coulomb_CL_e does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

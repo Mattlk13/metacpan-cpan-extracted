@@ -1,247 +1,1065 @@
-#!perl -T -w
+#!/usr/bin/perl -T -w
 
 use strict;
 use warnings;
 
-use Test::More tests => (5*4*2 + 34) + (14*2 + 20) + (14*2 + 21) + 24;
-use Asm::X86 qw(is_valid_16bit_addr_att is_valid_32bit_addr_att
-	is_valid_64bit_addr_att is_valid_addr_att);
+use Test::More;
+use Asm::X86 qw(
+	is_valid_16bit_addr_intel
+	is_valid_32bit_addr_intel
+	is_valid_64bit_addr_intel
+	is_valid_addr_intel
+	is_valid_16bit_addr_att
+	is_valid_32bit_addr_att
+	is_valid_64bit_addr_att
+	is_valid_addr_att
+	is_valid_16bit_addr
+	is_valid_32bit_addr
+	is_valid_64bit_addr
+	is_valid_addr
+	);
+
+sub permute3_att($$$$$$$) {
+
+	my $basereg_sign = shift;
+	my $basereg = shift;
+	my $indexreg_sign = shift;
+	my $indexreg = shift;
+	my $scale = shift;
+	my $disp_sign = shift;
+	my $disp = shift;
+
+	my @result = ();
+
+	#$basereg_sign = '+' if not defined $basereg_sign or $basereg_sign eq '';
+	#$indexreg_sign = '+' if not defined $indexreg_sign or $indexreg_sign eq '';
+	#$disp_sign = '+' if not defined $disp_sign or $disp_sign eq '';
+	$basereg_sign = '' if not defined $basereg_sign;
+	$indexreg_sign = '' if not defined $indexreg_sign;
+	$disp_sign = '' if not defined $disp_sign;
+	if ( ! defined $basereg or $basereg eq '' ) {
+
+		$basereg = undef;
+	}
+	if ( ! defined $indexreg or $indexreg eq '' ) {
+
+		$indexreg = undef;
+	}
+	if ( ! defined $disp or $disp eq '' ) {
+
+		$disp = undef;
+	}
+
+	if ( defined $basereg and defined $indexreg and defined $disp ) {
+
+		if ( defined $scale and $scale ne '' ) {
+
+			push @result, "$disp_sign$disp($basereg_sign$basereg, $indexreg_sign$indexreg, $scale)";
+
+			if ( $basereg_sign eq '+' ) {
+				# same thing, just skip the leading sign
+
+				push @result, "$disp_sign$disp($basereg, $indexreg_sign$indexreg, $scale)";
+				if ( $indexreg_sign eq '+' ) {
+
+					push @result, "$disp_sign$disp($basereg, $indexreg, $scale)";
+					if ( $disp_sign eq '+' ) {
+
+						push @result, "$disp($basereg, $indexreg, $scale)";
+					}
+				}
+				if ( $disp_sign eq '+' ) {
+
+					push @result, "$disp($basereg, $indexreg_sign$indexreg, $scale)";
+				}
+			}
+			if ( $indexreg_sign eq '+' ) {
+
+				push @result, "$disp_sign$disp($basereg_sign$basereg, $indexreg, $scale)";
+				if ( $disp_sign eq '+' ) {
+
+					push @result, "$disp($basereg_sign$basereg, $indexreg, $scale)";
+				}
+			}
+			if ( $disp_sign eq '+' ) {
+
+				push @result, "$disp($basereg_sign$basereg, $indexreg_sign$indexreg, $scale)";
+			}
+		} else {
+			# no scale given
+			push @result, "$disp_sign$disp($basereg_sign$basereg, $indexreg_sign$indexreg)";
+
+			if ( $basereg_sign eq '+' ) {
+				# same thing, just skip the leading sign
+
+				push @result, "$disp_sign$disp($basereg, $indexreg_sign$indexreg)";
+				if ( $indexreg_sign eq '+' ) {
+
+					push @result, "$disp_sign$disp($basereg, $indexreg)";
+					if ( $disp_sign eq '+' ) {
+
+						push @result, "$disp($basereg, $indexreg)";
+					}
+				}
+				if ( $disp_sign eq '+' ) {
+
+					push @result, "$disp($basereg, $indexreg_sign$indexreg)";
+				}
+			}
+			if ( $indexreg_sign eq '+' ) {
+
+				push @result, "$disp_sign$disp($basereg_sign$basereg, $indexreg)";
+				if ( $disp_sign eq '+' ) {
+
+					push @result, "$disp($basereg_sign$basereg, $indexreg)";
+				}
+			}
+			if ( $disp_sign eq '+' ) {
+
+				push @result, "$disp($basereg_sign$basereg, $indexreg_sign$indexreg)";
+			}
+		}
+	}
+	elsif ( defined $basereg and defined $indexreg and not defined $disp ) {
+
+		if ( defined $scale and $scale ne '' ) {
+
+			push @result, "($basereg_sign$basereg, $indexreg_sign$indexreg, $scale)";
+
+			if ( $basereg_sign eq '+' ) {
+				# same thing, just skip the leading sign
+
+				push @result, "($basereg, $indexreg_sign$indexreg, $scale)";
+				if ( $indexreg_sign eq '+' ) {
+
+					push @result, "($basereg, $indexreg, $scale)";
+				}
+			}
+			if ( $indexreg_sign eq '+' ) {
+
+				push @result, "($basereg_sign$basereg, $indexreg, $scale)";
+			}
+		} else {
+			# no scale given
+			push @result, "($basereg_sign$basereg, $indexreg_sign$indexreg)";
+
+			if ( $basereg_sign eq '+' ) {
+				# same thing, just skip the leading sign
+
+				push @result, "($basereg, $indexreg_sign$indexreg)";
+				if ( $indexreg_sign eq '+' ) {
+
+					push @result, "($basereg, $indexreg)";
+				}
+			}
+			if ( $indexreg_sign eq '+' ) {
+
+				push @result, "($basereg_sign$basereg, $indexreg)";
+			}
+		}
+	}
+	elsif ( defined $basereg and not defined $indexreg and defined $disp ) {
+
+		push @result, "$disp_sign$disp($basereg_sign$basereg)";
+
+		if ( $basereg_sign eq '+' ) {
+			# same thing, just skip the leading sign
+
+			push @result, "$disp_sign$disp($basereg)";
+			if ( $disp_sign eq '+' ) {
+
+				push @result, "$disp($basereg)";
+			}
+		}
+		if ( $disp_sign eq '+' ) {
+
+			push @result, "$disp($basereg_sign$basereg)";
+		}
+	}
+	elsif ( defined $basereg and not defined $indexreg and not defined $disp ) {
+
+		push @result, "($basereg_sign$basereg)";
+
+		if ( $basereg_sign eq '+' ) {
+			# same thing, just skip the leading sign
+
+			push @result, "($basereg)";
+		}
+	}
+	elsif ( not defined $basereg and defined $indexreg and defined $disp ) {
+
+		if ( defined $scale and $scale ne '' ) {
+
+			push @result, "$disp_sign$disp(, $indexreg_sign$indexreg, $scale)";
+
+			if ( $indexreg_sign eq '+' ) {
+
+				push @result, "$disp_sign$disp(, $indexreg, $scale)";
+				if ( $disp_sign eq '+' ) {
+
+					push @result, "$disp(, $indexreg, $scale)";
+				}
+			}
+			if ( $disp_sign eq '+' ) {
+
+				push @result, "$disp(, $indexreg_sign$indexreg, $scale)";
+			}
+		} else {
+			# no scale given
+			push @result, "$disp_sign$disp(, $indexreg_sign$indexreg)";
+
+			if ( $indexreg_sign eq '+' ) {
+
+				push @result, "$disp_sign$disp(, $indexreg)";
+				if ( $disp_sign eq '+' ) {
+
+					push @result, "$disp(, $indexreg)";
+				}
+			}
+			if ( $disp_sign eq '+' ) {
+
+				push @result, "$disp(, $indexreg_sign$indexreg)";
+			}
+		}
+	}
+	elsif ( not defined $basereg and defined $indexreg and not defined $disp ) {
+
+		if ( defined $scale and $scale ne '' ) {
+
+			push @result, "(, $indexreg_sign$indexreg, $scale)";
+
+			if ( $indexreg_sign eq '+' ) {
+
+				push @result, "(, $indexreg, $scale)";
+			}
+		} else {
+			# no scale given
+			push @result, "(, $indexreg_sign$indexreg)";
+
+			if ( $indexreg_sign eq '+' ) {
+
+				push @result, "(, $indexreg)";
+			}
+		}
+
+	}
+	elsif ( not defined $basereg and not defined $indexreg and defined $disp ) {
+
+		push @result, "$disp_sign$disp(, 1)";
+
+		if ( $disp_sign eq '+' ) {
+
+			push @result, "$disp(, 1)";
+		}
+	}
+
+	return @result;
+}
+
+sub permute_att_segreg($$$$$$$$) {
+
+	my $segreg = shift;
+	my $basereg_sign = shift;
+	my $basereg = shift;
+	my $indexreg_sign = shift;
+	my $indexreg = shift;
+	my $scale = shift;
+	my $disp_sign = shift;
+	my $disp = shift;
+
+	my @result = ();
+
+	if ( defined $segreg and $segreg ne '' ) {
+
+		my @res = permute3_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, $disp_sign, $disp);
+		foreach (@res) {
+
+			push @result, "$segreg:$_";
+		}
+
+	} # defined $segreg
+	else {
+		@result = permute3_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, $disp_sign, $disp);
+	}
+
+	return @result;
+}
+
+sub permute_att($$$$$$$) {
+
+	my $basereg_sign = shift;
+	my $basereg = shift;
+	my $indexreg_sign = shift;
+	my $indexreg = shift;
+	my $scale = shift;
+	my $disp_sign = shift;
+	my $disp = shift;
+
+	my @result = permute_att_segreg (undef, $basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, $disp_sign, $disp);
+	push @result, permute_att_segreg ('%ds', $basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, $disp_sign, $disp);
+
+	return @result;
+}
+
+sub permute_disp_att($$$$$$) {
+
+	my $basereg_sign = shift;
+	my $basereg = shift;
+	my $indexreg_sign = shift;
+	my $indexreg = shift;
+	my $scale = shift;
+	my $disp = shift;
+
+	my @result = permute_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, '', $disp);
+	if ( $disp ne '' ) {
+
+		push @result, permute_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, '-', $disp);
+		push @result, permute_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, '', "-$disp");
+	}
+
+	return @result;
+}
+
+sub permute_disp_att_all($$$$$$) {
+
+	my $basereg_sign = shift;
+	my $basereg = shift;
+	my $indexreg_sign = shift;
+	my $indexreg = shift;
+	my $scale = shift;
+	my $disp = shift;
+
+	my @result = permute_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, '', '');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, $disp);
+
+	return @result;
+}
+
+sub permute_disp_att_segreg($$$$$$$) {
+
+	my $segreg = shift;
+	my $basereg_sign = shift;
+	my $basereg = shift;
+	my $indexreg_sign = shift;
+	my $indexreg = shift;
+	my $scale = shift;
+	my $disp = shift;
+
+	my @result = permute_att_segreg ($segreg, $basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, '', $disp);
+	if ( $disp ne '' ) {
+
+		push @result, permute_att_segreg ($segreg, $basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, '-', $disp);
+		push @result, permute_att_segreg ($segreg, $basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, '', "-$disp");
+	}
+
+	return @result;
+}
+
+sub permute_disp_att_segreg_all($$$$$$$) {
+
+	my $segreg = shift;
+	my $basereg_sign = shift;
+	my $basereg = shift;
+	my $indexreg_sign = shift;
+	my $indexreg = shift;
+	my $scale = shift;
+	my $disp = shift;
+
+	my @result = permute_att_segreg ($segreg, $basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, '', '');
+	push @result, permute_disp_att_segreg ($segreg, $basereg_sign, $basereg, $indexreg_sign, $indexreg, $scale, $disp);
+
+	return @result;
+}
+
+sub permute_two_reg32_invalid_att($$$$) {
+
+	my $basereg_sign = shift;
+	my $basereg = shift;
+	my $indexreg_sign = shift;
+	my $indexreg = shift;
+
+	my @result = permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '', '1');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '2', '1');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '2', 'varname');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '2', '%ebx');
+
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '%edx', '1');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '%edx', 'varname');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '%edx', '%ebx');
+
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '%ds', '1');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '%ds', 'varname');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '%ds', '%ebx');
+
+	return @result;	
+}
+
+sub permute_reg32_invalid_att($) {
+
+	my $reg = shift;
+
+	my @result = permute_two_reg32_invalid_att ('', '%eax', '', $reg);
+	push @result, permute_two_reg32_invalid_att ('-', '%eax', '', $reg);
+	push @result, permute_two_reg32_invalid_att ('', '%eax', '-', $reg);
+	push @result, permute_two_reg32_invalid_att ('-', '%eax', '-', $reg);
+
+	push @result, permute_two_reg32_invalid_att ('', '', '', $reg);
+	push @result, permute_two_reg32_invalid_att ('', '', '-', $reg);
+	push @result, permute_two_reg32_invalid_att ('', $reg, '', '');
+	push @result, permute_two_reg32_invalid_att ('-', $reg, '', '');
+
+	push @result, permute_two_reg32_invalid_att ('', $reg, '', '%eax');
+	push @result, permute_two_reg32_invalid_att ('-', $reg, '', '%eax');
+	push @result, permute_two_reg32_invalid_att ('', $reg, '-', '%eax');
+	push @result, permute_two_reg32_invalid_att ('-', $reg, '-', '%eax');
+
+	return @result;
+}
+
+sub permute_two_reg64_invalid_att($$$$) {
+
+	my $basereg_sign = shift;
+	my $basereg = shift;
+	my $indexreg_sign = shift;
+	my $indexreg = shift;
+
+	my @result = permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '', '1');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '2', '1');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '2', 'varname');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '2', '%rbx');
+
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '%rdx', '1');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '%rdx', 'varname');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '%rdx', '%rbx');
+
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '%ds', '1');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '%ds', 'varname');
+	push @result, permute_disp_att ($basereg_sign, $basereg, $indexreg_sign, $indexreg, '%ds', '%rbx');
+
+	return @result;	
+}
+
+sub permute_reg64_invalid_att($) {
+
+	my $reg = shift;
+
+	my @result = permute_two_reg64_invalid_att ('', '%rax', '', $reg);
+	push @result, permute_two_reg64_invalid_att ('-', '%rax', '', $reg);
+	push @result, permute_two_reg64_invalid_att ('', '%rax', '-', $reg);
+	push @result, permute_two_reg64_invalid_att ('-', '%rax', '-', $reg);
+
+	push @result, permute_two_reg64_invalid_att ('', '', '', $reg);
+	push @result, permute_two_reg64_invalid_att ('', '', '-', $reg);
+	push @result, permute_two_reg64_invalid_att ('', $reg, '', '');
+	push @result, permute_two_reg64_invalid_att ('-', $reg, '', '');
+
+	push @result, permute_two_reg64_invalid_att ('', $reg, '', '%rax');
+	push @result, permute_two_reg64_invalid_att ('-', $reg, '', '%rax');
+	push @result, permute_two_reg64_invalid_att ('', $reg, '-', '%rax');
+	push @result, permute_two_reg64_invalid_att ('-', $reg, '-', '%rax');
+
+	return @result;
+}
+
+sub permute_sign_disp_att_all($$$$) {
+
+	my $basereg = shift;
+	my $indexreg = shift;
+	my $scale = shift;
+	my $disp = shift;
+
+	my @result = permute_disp_att_all ('', $basereg, '', $indexreg, $scale, $disp);
+	push @result, permute_disp_att_all ('', $basereg, '-', $indexreg, $scale, $disp);
+	push @result, permute_disp_att_all ('-', $basereg, '', $indexreg, $scale, $disp);
+	push @result, permute_disp_att_all ('-', $basereg, '-', $indexreg, $scale, $disp);
+
+	return @result;
+}
+
+sub permute_sign_disp_att_segreg_all($$$$$) {
+
+	my $segreg = shift;
+	my $basereg = shift;
+	my $indexreg = shift;
+	my $scale = shift;
+	my $disp = shift;
+
+	my @result = permute_disp_att_segreg_all ($segreg, '', $basereg, '', $indexreg, $scale, $disp);
+	push @result, permute_disp_att_segreg_all ($segreg, '', $basereg, '-', $indexreg, $scale, $disp);
+	push @result, permute_disp_att_segreg_all ($segreg, '-', $basereg, '', $indexreg, $scale, $disp);
+	push @result, permute_disp_att_segreg_all ($segreg, '-', $basereg, '-', $indexreg, $scale, $disp);
+
+	return @result;
+}
 
 # ----------- 16-bit
 
-is ( is_valid_16bit_addr_att ("(\%bX)"), 1, "(bx) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%sI)"), 1, "(si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%Di)"), 1, "(di) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%Bp)"), 1, "(bp) is a valid 16-bit addressing scheme" );
+my @valid16 = ();
+my @invalid16 = ();
 
-is ( is_valid_16bit_addr_att ("(\%bx,\%bx)"), 0, "(bx,bx) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%bx,\%Si)"), 1, "(bx,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%bX,\%di)"), 1, "(bx,di) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%bx,\%bp)"), 0, "(bx,bp) is a valid 16-bit addressing scheme" );
+push @valid16, permute_att ('', '', '', '', '', '', '1');
 
-is ( is_valid_16bit_addr_att ("(\%sI,\%bx)"), 1, "(si,bx) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%si,\%si)"), 0, "(si,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%si,\%dI)"), 0, "(si,dI) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%si,\%bP)"), 1, "(si,bp) is a valid 16-bit addressing scheme" );
+foreach my $r1 ('%bx', '%si', '%di', '%bp') {
 
-is ( is_valid_16bit_addr_att ("(\%di,\%Bx)"), 1, "(di,bx) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%di,\%Si)"), 0, "(di,Si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%di,\%di)"), 0, "(di,di) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%Di,\%bp)"), 1, "(di,bp) is a valid 16-bit addressing scheme" );
+	foreach my $d ('1', 'varname', 'si') {
 
-is ( is_valid_16bit_addr_att ("(\%bp,\%bX)"), 0, "(bp,bX) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%bP,\%si)"), 1, "(bp,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%bp,\%Di)"), 1, "(bp,di) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%bp,\%bP)"), 0, "(bp,bP) is a valid 16-bit addressing scheme" );
+		push @valid16, permute_disp_att_all ('', $r1, '', '', '', $d);
+	}
+	push @invalid16, permute_disp_att_all ('', '', '', $r1, '', '3');
 
-# -----------
+	push @invalid16, permute_disp_att_all ('-', $r1, '', '', '', '5');
+	push @invalid16, permute_disp_att_all ('-', $r1, '', '', '', 'varname');
 
-is ( is_valid_16bit_addr_att ("\%cs:(\%bx)"), 1, "cs:(bx) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%cs:(\%si)"), 1, "cs:(si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%cs:(\%di)"), 1, "cs:(di) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%cs:(\%bp)"), 1, "cs:(bp) is a valid 16-bit addressing scheme" );
+	push @invalid16, permute_disp_att_all ('', '', '', $r1, '2', '7');
+	push @invalid16, permute_att ('', '2', '', $r1, '', '', '');
+	push @invalid16, permute_att ('', '-2', '', $r1, '', '', '');
 
-is ( is_valid_16bit_addr_att ("\%ds:(\%bx,\%bx)"), 0, "ds:(bx,bx) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%ds:(\%bx,\%si)"), 1, "ds:(bx,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%ds:(\%bx,\%di)"), 1, "ds:(bx,di) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%ds:(\%bx,\%bp)"), 0, "ds:(bx,bp) is a valid 16-bit addressing scheme" );
+	foreach my $r2 ('%bx', '%si', '%di', '%bp') {
 
-is ( is_valid_16bit_addr_att ("\%es:(\%si,\%bx)"), 1, "es:(si,bx) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%es:(\%si,\%si)"), 0, "es:(si,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%es:(\%si,\%dI)"), 0, "es:(si,dI) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%es:(\%si,\%bp)"), 1, "es:(si,bp) is a valid 16-bit addressing scheme" );
+		if ( ($r1 =~ /^%b.$/io && $r2 =~ /^%b.$/io)
+			|| ($r1 =~ /^%.i$/io && $r2 =~ /^%.i$/io)
+		) {
+			push @invalid16, permute_disp_att_all ('', $r1, '', $r2, '', '9');
+		}
+		else {
+			push @valid16, permute_disp_att_all ('', $r1, '', $r2, '', '9');
+		}
 
-is ( is_valid_16bit_addr_att ("\%fs:(\%di,\%bx)"), 1, "fs:(di,bx) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%fs:(\%di,\%Si)"), 0, "fs:(di,Si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%gs:(\%di,\%di)"), 0, "gs:(di,di) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%gs:(\%di,\%bp)"), 1, "gs:(di,bp) is a valid 16-bit addressing scheme" );
+		push @invalid16, permute_disp_att_all ('-', $r1, '', $r2, '', '11');
+		push @invalid16, permute_disp_att_all ('', $r1, '-', $r2, '', '13');
+		push @invalid16, permute_disp_att ('', $r1, '', $r2, '', '%cx');
+	}
+	push @invalid16, permute_disp_att_all ('', '%cx', '', $r1, '', '15');
+	push @invalid16, permute_disp_att_all ('', '%cx', '', $r1, '4', '17');
+	push @invalid16, permute_disp_att_all ('-', '%cx', '', $r1, '', '19');
+	push @invalid16, permute_disp_att_all ('-', '%cx', '', $r1, '8', '21');
+}
 
-is ( is_valid_16bit_addr_att ("\%ss:(\%bp,\%bX)"), 0, "ss:(bp,bX) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%ss:(\%bp,\%si)"), 1, "ss:(bp,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%ss:(\%bp,\%di)"), 1, "ss:(bp,di) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%ss:(\%bp,\%bP)"), 0, "ss:(bp,bP) is a valid 16-bit addressing scheme" );
+foreach my $r1 ('%ax', '%cs', '%cl', '%eax', '%rax', '%mm0', '%xmm1', '%ymm2', '%zmm3', '%k1') {
 
+	push @invalid16, permute_att ('', '', '', '', '', '', $r1);
+	push @invalid16, permute_disp_att_all ('', $r1, '', '', '', '23');
+	push @invalid16, permute_disp_att_all ('', $r1, '', '%si', '', '25');
+	push @invalid16, permute_disp_att_all ('', '', '', $r1, '', '27');
+	push @invalid16, permute_disp_att_all ('', '%bx', '', $r1, '', '29');
+	push @invalid16, permute_disp_att_all ('', '%bp', '', $r1, '1', '31');
+	push @invalid16, permute_disp_att_all ('-', $r1, '', '', '', '33');
+	push @invalid16, permute_disp_att_all ('-', $r1, '', '%si', '', '35');
+	push @invalid16, permute_disp_att_all ('-', $r1, '', '%si', '4', '37');
+	push @invalid16, permute_disp_att ('', '%bx', '', '%si', '', $r1);
+	push @invalid16, permute_disp_att ('', '%bx', '', '%si', '8', $r1);
+}
 
-# -----------
+push @invalid16, permute_disp_att_all ('', 'b%x', '', '', '', '1');
+push @invalid16, permute_disp_att_all ('', '%bx', '', 's%i', '', '1');
 
-is ( is_valid_16bit_addr_att ("(\%ax)"), 0, "(ax) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%bx,\%cx)"), 0, "(bx,cx) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%cx,\%bx)"), 0, "(cx,bx) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%bp,\%al)"), 0, "(bp,al) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%ch,\%si)"), 0, "(ch,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%bx-\%si)"), 0, "(bx-si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("-2(\%bp)"), 1, "-2(bp) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("-varname(\%bp)"), 1, "-varname(bp) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%si-\%ax)"), 0, "(si-ax) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("+-2(\%bp)"), 1, "+-2(bp) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("-si(\%bp)"), 1, "-si(bp) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%ad:(\%bx)"), 0, "ad:(bx) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%sc:\%di)"), 0, "(sc:di) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(2,\%bp)"), 0, "(2,bp) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("-3(\%si)"), 1, "-3(si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(,,-3,\%si)"), 0, "(,,-3,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(3-\%si)"), 0, "(3-si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(--3,\%si)"), 0, "(--3,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(-3-\%si)"), 0, "(-3-si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(3,5)"), 0, "(3,5) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(-3)"), 1, "(-3) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(-3,2)"), 0, "(-3,2) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(,2)"), 0, "(,2) is a valid 16-bit addressing scheme" );
+push @invalid16, permute_att ('-', '%bx-%si', '', '', '', '', '');
+push @invalid16, permute_att ('-', '%si-%ax', '', '', '', '', '');
+push @invalid16, permute_att ('-', '%sc:%di', '', '', '', '', '');
+push @invalid16, permute_att ('-', '3-%si', '', '', '', '', '');
+push @invalid16, permute_att ('-', '-3-%si', '', '', '', '', '');
 
-is ( is_valid_16bit_addr_att ("\%(cs:--3,si)"), 0, "(cs:--3,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%cs:(--3,si)"), 0, "cs:(--3,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%ds:(,2)"), 0, "ds:(,2) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%ds:,2)"), 0, "(ds:,2) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%ss:(-3)"), 1, "ss:(-3) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%ss:-3,2)"), 0, "(ss:-3,2) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%es:2,bp)"), 0, "(es:2,bp) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%eS:(2,bp)"), 0, "es:(2,bp) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("\%fs:(,,-3,si)"), 0, "fs:(,,-3,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("(\%fs:,,-3,si)"), 0, "(fs:,,-3,si) is a valid 16-bit addressing scheme" );
-is ( is_valid_16bit_addr_att ("zzz(,1)"), 1, "zzz(,1) is a valid 16-bit addressing scheme" );
+push @valid16, permute_att ('', '2', '', '', '', '', '');
+push @invalid16, permute_att ('', '', '', '3', '', '', '');
+push @invalid16, permute_att ('', '2', '', '3', '', '', '');
+
+push @invalid16, permute_disp_att ('', 'zz', '', '', '', 'yy');
+
+push @invalid16, permute_att ('', '1', '', '', '', '', '3');
+push @valid16, permute_disp_att ('', '%si', '', '', '', 'br');
+push @invalid16, permute_disp_att ('', '', '', '%si', '', 'br');
+
+push @valid16, permute_att ('', '%bx', '', '', '', '', '+-1');
+push @valid16, permute_att ('', '%bx', '', '', '', '', '--1');
+
+push @valid16, permute_att ('', '', '', '', '', '', 'varname');
+
+push @invalid16, permute_att ('', '%cx', '', '', '', '', '');
+push @invalid16, permute_att ('', '', '', '%cx', '', '', '');
+push @invalid16, permute_att ('', '%bx', '', '%cx', '', '', '');
+push @invalid16, permute_att ('', '', '', '%cx', '2', '', '');
+push @invalid16, permute_att ('', '%bx', '', '%cx', '2', '', '');
+push @invalid16, permute_att ('', '', '', '%bx', '%cx', '', '');
+push @invalid16, permute_att ('', '%bx', '', '', '', '', '%cx');
+
+push @invalid16, permute_att ('', '%bx', '', '3', '', '', '1');
+push @invalid16, permute_att ('', '3', '', '%bp', '', '', '1');
+push @invalid16, permute_att ('', '3', '', '2', '', '', '1');
+push @invalid16, permute_att ('', '3', '', '2', '', '-', '1');
+push @invalid16, permute_att ('', '3', '', '', '', '-', '1');
+push @valid16, permute_att ('', '', '', '', '', '-', '1');
+push @valid16, permute_att ('', '', '', '', '', '', '+1');
+
+push @invalid16, permute_att ('', '-si', '', '%bx', '', '', '1');
+
+push @invalid16, permute_att ('', '%bx', '', '%cx', '', '', '');
+push @invalid16, permute_att ('', '%bx', '', '%cx', '2', '', '');
+
+push @invalid16, permute_disp_att_all ('', '%cx', '', '', '', '1');
+
+push @invalid16, permute_att ('', '%bx', '-', '%cx', '', '', '');
+push @invalid16, permute_att ('-', '%cx', '', '%si', '', '', '');
+push @invalid16, permute_att ('-', '%cx', '', '%di', '', '', '');
+push @invalid16, permute_att ('', '%bp', '-', '%cx', '', '', '');
+push @invalid16, permute_disp_att_all ('-', '%cx', '', '', '', '1');
+
+push @invalid16, permute_disp_att_all ('', '%cs', '', '', '', 'zzz');
+push @invalid16, permute_disp_att_all ('', '%cx', '', '', '', 'zzz');
+push @invalid16, permute_disp_att_all ('', '-%cx', '', '', '', 'zzz');
+push @invalid16, permute_disp_att_all ('', '%ecx', '', '', '', 'zzz');
+push @invalid16, permute_att ('', '1', '', '', '', '', 'zzz');
+
+push @invalid16, permute_att_segreg ('ad', '', '%bx', '', '', '', '', '');
+push @invalid16, permute_att_segreg ('sc', '', '%di', '', '', '', '', '');
+push @invalid16, permute_att_segreg ('%ax', '', '%bx', '', '', '', '', '');
+push @invalid16, permute_att_segreg ('%ax', '', '%bx', '', '%bx', '', '', '');
+push @invalid16, permute_disp_att_segreg_all ('%ax', '', '%bx', '', '%si', '', '2');
+push @invalid16, permute_disp_att_segreg_all ('%ax', '', '%bx', '', '%cs', '', '2');
+push @invalid16, permute_att_segreg ('%ax', '', '', '', '', '', '', 'zzz');
+push @invalid16, permute_disp_att_segreg_all ('%ax', '', '%cs', '', '', '', 'zzz');
+push @invalid16, permute_disp_att_segreg_all ('%ax', '', '%cx', '', '', '', 'zzz');
+push @invalid16, permute_disp_att_segreg_all ('%ax', '-', '%bx', '', '', '', 'zzz');
+
+# impossible to generate
+push @invalid16, '(,,-3,%si)';
+push @invalid16, '%(cs:,,-3,%si)';
+push @invalid16, '(%cs:,,-3,%si)';
+push @invalid16, '(%es:2,%si)';
 
 # ----------- 32-bit
 
-is ( is_valid_32bit_addr_att ('zzz(,1)'), 1, 'zzz(,1) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%eax)'), 1, '(%eax) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('1(%eax)'), 1, '1(%eax) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('-1(%eax)'), 1, '-1(%eax) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%eax, %ebx)'), 1, '(%eax, %ebx) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('2(%eax, %ebx)'), 1, '2(%eax, %ebx) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('-2(%eax, %ebx)'), 1, '-2(%eax, %ebx) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%eax, %ebx, 1)'), 1, '(%eax, %ebx, 1) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('3( %eax, %ebx, 2)'), 1, '3( %eax, %ebx, 2) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('-9(%eax, %ebx, 4)'), 1, '-9(%eax, %ebx, 4) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(, %ebx, 8)'), 1, '(, %ebx, 8) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('7(, %ecx, 4)'), 1, '7(, %ecx, 4) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('-7(, %edx, 2)'), 1, '-7(, %edx, 2) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('11(,1)'), 1, '11(,1) is a valid 32-bit addressing scheme' );
+my @valid32 = ();
+my @invalid32 = ();
 
-# -----------
+push @valid32, permute_disp_att_all ('', '%eax', '', '', '', '1');
+push @invalid32, permute_att ('', 'e%ax', '', '', '', '', '');
+push @invalid32, permute_att ('', '%beax', '', '', '', '', '');
+push @invalid32, permute_att ('', '%eaxd', '', '', '', '', '');
+push @invalid32, permute_att ('', '%ebx', '', 'e%ax', '', '', '');
 
-is ( is_valid_32bit_addr_att ('%cs:zzz(,1)'), 1, '%cs:zzz(,1) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%ds:(%eax)'), 1, '%ds:(%eax) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%es:1(%eax)'), 1, '%es:1(%eax) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%fs:-1(%eax)'), 1, '-%fs:1(%eax) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%gs:(%eax, %ebx)'), 1, '%gs:(%eax, %ebx) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%ss:2(%eax, %ebx)'), 1, '%ss:2(%eax, %ebx) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%cs:-2(%eax, %ebx)'), 1, '%cs:-2(%eax, %ebx) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%ds:(%eax, %ebx, 1)'), 1, '%ds:(%eax, %ebx, 1) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%es:3( %eax, %ebx, 2)'), 1, '%es:3( %eax, %ebx, 2) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%fs:-9(%eax, %ebx, 4)'), 1, '%fs:-9(%eax, %ebx, 4) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%gs:(, %ebx, 8)'), 1, '%gs:(, %ebx, 8) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%ss:7(, %ecx, 4)'), 1, '%ss:7(, %ecx, 4) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%cs:-7(, %edx, 2)'), 1, '%cs:-7(, %edx, 2) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%ds:11(,1)'), 1, '%ds:11(,1) is a valid 32-bit addressing scheme' );
+foreach my $r1 ('%bx', '%si', '%di', '%bp') {
 
-# -----------
+	push @valid32, permute_disp_att_all ('', $r1, '', '', '', '1');
+	my $extreg = $r1;
+	$extreg =~ s/\%/\%e/o;
+	push @invalid32, permute_disp_att_all ('', '%bx', '', $extreg, '', '1');
+	push @invalid32, permute_disp_att_all ('', $extreg, '', '%bx', '', '1');
+}
 
-is ( is_valid_32bit_addr_att ('1(%cr0)'), 0, '1(%cr0) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('1(%eax, %cr0)'), 0, '1(%eax, %cr0) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('2(%cr0, %ebx, 2)'), 0, '2(%cr0, %ebx, 2) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('-1(%st7)'), 0, '-1(%st7) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('-2(%eax, %dr0)'), 0, '-2(%eax, %dr0) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%xmm3)'), 0, '(%xmm3) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%mm2)'), 0, '(%mm2) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%eax, %xmm5)'), 0, '(%eax, %xmm5) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%ebx, %mm2)'), 0, '(%ebx, %mm2) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('%eax(%ebx)'), 0, '%eax(%ebx) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('-%eax(%ebx)'), 0, '-%eax(%ebx) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('3(-%esi)'), 0, '3(-%esi) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%eax, %r12d)'), 0, '(%eax, %r12d) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%ebx, %r12d, 2)'), 0, '(%ebx, %r12d, 2) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%eax, -%ebx)'), 0, '(%eax, -%ebx) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%eax, -%ebx, 4)'), 0, '(%eax, -%ebx, 4) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(,%esp, 2)'), 0, '(,%esp, 2) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%eax ,%esp, 2)'), 0, '(%eax ,%esp, 2) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%eax -, %ebx)'), 0, '(%eax -, %ebx) is a valid 32-bit addressing scheme' );
-is ( is_valid_32bit_addr_att ('(%eax -, %ebx, 4)'), 0, '(%eax -, %ebx, 4) is a valid 32-bit addressing scheme' );
+foreach my $r1 ('%cx', '%cs', '%st0', '%cl', '%cr0', '%dr2', '%rax', '%r9d',
+	'%mm0', '%xmm3', '%ymm2', '%zmm3', '%k1') {
 
+	push @invalid32, permute_disp_att_all ('', $r1, '', '', '', '1');
+	push @invalid32, permute_disp_att_all ('-', $r1, '', '', '', '1');
+	push @invalid32, permute_disp_att_all ('', $r1, '', '%ebx', '', '1');
+	push @invalid32, permute_disp_att_all ('', $r1, '', '%ebx', '2', '1');
+	push @invalid32, permute_disp_att_all ('', '', '', $r1, '', '1');
+	push @invalid32, permute_disp_att_all ('', '', '', $r1, '2', '1');
+	push @invalid32, permute_disp_att_all ('', '%ebx', '', $r1, '', '1');
+	push @invalid32, permute_disp_att_all ('', '%ebx', '', $r1, '2', '1');
+
+	push @invalid32, permute_reg32_invalid_att ($r1);
+}
+
+push @valid32, permute_disp_att_all ('', '%eax', '', '', '', '1');
+push @valid32, permute_disp_att_all ('', '%eax', '', '', '', 'varname');
+
+foreach my $s ('', '1', '2', '4', '8') {
+
+	push @valid32, permute_disp_att_all ('', '', '', '%eax', $s, '1');
+	push @valid32, permute_disp_att_all ('', '%ebx', '', '%edi', $s, '1');
+	push @valid32, permute_disp_att_all ('', '%ebx', '', '%edi', $s, 'varname');
+}
+
+push @invalid32, permute_disp_att_all ('-', '%eax', '', '', '', '1');
+push @invalid32, permute_disp_att_all ('-', '%ebx', '', '%edi', '', '1');
+push @invalid32, permute_disp_att ('', '%ebx', '', '', '', '%eax');
+push @invalid32, permute_disp_att ('', '', '', '%edi', '', '%eax');
+push @invalid32, permute_disp_att ('', '', '', '%edi', '2', '%eax');
+
+foreach my $s ('', '2') {
+
+	push @invalid32, permute_disp_att ('', '%ebx', '', '%edi', $s, '%eax');
+	push @invalid32, permute_disp_att_all ('-', '%ebx', '', '%edi', $s, '%eax');
+	push @invalid32, permute_disp_att_all ('', '%ebx', '-', '%edi', $s, '%eax');
+	push @invalid32, permute_disp_att_all ('-', '%ebx', '-', '%edi', $s, '%eax');
+}
+
+push @valid32, permute_att ('', '', '', '', '', '', '1');
+push @valid32, permute_att ('', '', '', '', '', '', 'varname');
+push @valid32, permute_att ('', 'varname', '', '', '', '', '');
+push @invalid32, permute_att ('', '', '', 'varname', '', '', '');
+push @invalid32, permute_att ('', '', '', 'varname', '2', '', '');
+push @invalid32, permute_att ('', '', '', 'varname', '2', '', 'varname');
+push @invalid32, permute_att ('', 'varname', '', '', '', '', 'varname');
+push @invalid32, permute_att ('', 'varname', '', 'varname', '2', '', '');
+push @invalid32, permute_att ('', 'varname', '', 'varname', '2', '', 'varname');
+
+foreach my $r1 ('%eax', '%ebp', '%ecx', '%esi') {
+
+	push @valid32, permute_disp_att_all ('', '%ebx', '', $r1, '1', '3');
+	push @invalid32, permute_disp_att_all ('-', '%ebx', '', $r1, '1', '7');
+	push @invalid32, permute_disp_att_all ('', '%ebx', '-', $r1, '1', '9');
+	push @invalid32, permute_disp_att_all ('-', '%ebx', '-', $r1, '1', '11');
+
+	push @valid32, permute_disp_att_all ('', '', '', $r1, '1', '3');
+	push @invalid32, permute_disp_att_all ('', '', '-', $r1, '1', '5');
+}
+
+push @invalid32, permute_disp_att_all ('', '', '', '1', '8', '29');
+push @invalid32, permute_disp_att_all ('', '', '-', '1', '8', '29');
+
+push @invalid32, permute_disp_att_all ('', '%ebx', '', '1', '8', '31');
+push @invalid32, permute_disp_att_all ('', '%ebx', '-', '1', '8', '31');
+
+push @invalid32, permute_att ('', '%ebx', '', '1', '8', '', '%eax');
+push @invalid32, permute_att ('', '%ebx', '-', '1', '8', '', '%eax');
+
+push @invalid32, permute_disp_att_all ('', '3', '', '%ebx', '8', '33');
+push @invalid32, permute_disp_att_all ('', '3', '-', '%ebx', '8', '33');
+
+push @invalid32, permute_att ('', '%ebx*2', '', '%eax', '8', '', '');
+
+push @valid32, permute_disp_att_all ('', '%esp', '', '%ecx', '', '11');
+push @valid32, permute_disp_att_all ('', '%esp', '', '%ecx', '1', '11');
+push @valid32, permute_disp_att_all ('', '%esp', '', '%ebp', '1', '11');
+
+push @invalid32, permute_sign_disp_att_all ('%esp', '2', '1', '%eax');
+
+foreach my $s ('', '1', 'z', '2') {
+
+	push @invalid32, permute_disp_att_all ('', '', '', '%esp', $s, '11');
+	push @invalid32, permute_disp_att_all ('', '%ecx', '', '%esp', $s, '11');
+}
+
+push @invalid32, permute_disp_att_all ('', '', '', '%eax', '5', '17');
+push @invalid32, permute_disp_att_all ('', '', '-', '%eax', '5', '17');
+
+push @invalid32, permute_sign_disp_att_all ('%ebx', '%eax', '5', '17');
+
+push @invalid32, permute_disp_att_all ('', '', '', '%eax', '%edx', '19');
+push @invalid32, permute_disp_att_all ('', '', '-', '%eax', '%edx', '19');
+
+push @invalid32, permute_sign_disp_att_all ('%ebx', '%eax', '%edx', '19');
+
+push @invalid32, permute_disp_att_segreg_all ('%ax', '', '%ebx', '', '', '', '20');
+push @invalid32, permute_disp_att_segreg_all ('%ax', '-', '%ebx', '', '', '', '20');
+push @invalid32, permute_disp_att_segreg_all ('%ax', '', '', '', '', '', 'varname');
+
+foreach my $s ('', '2') {
+
+	push @invalid32, permute_disp_att_segreg_all ('%ax', '', '', '', '%edi', $s, '21');
+	push @invalid32, permute_disp_att_segreg_all ('%ax', '', '', '-', '%edi', $s, '22');
+
+	push @invalid32, permute_sign_disp_att_segreg_all ('%ax', '%ebx', '%edi', $s, '23');
+	push @invalid32, permute_sign_disp_att_segreg_all ('%ax', '%cs', '%ebx', $s, '24');
+	push @invalid32, permute_sign_disp_att_segreg_all ('%ax', '%ebx', '%cs', $s, '25');
+}
+
+push @invalid32, permute_disp_att_segreg_all ('%ax', '', '%cs', '', '', '', '24');
+push @invalid32, permute_disp_att_segreg_all ('%ax', '-', '%cs', '', '', '', '24');
+
+push @invalid32, permute_att ('', '', '', '', '', '', '%cx');
+push @invalid32, permute_att ('', '%eax', '', '', '', '', '%cx');
+push @invalid32, permute_att ('', '%eax', '', '%ebx', '', '', '%cx');
+push @invalid32, permute_att ('', '%eax', '', '%ebx', '2', '', '%cx');
+push @invalid32, permute_att ('', '', '', '%ebx', '2', '', '%cx');
+
+push @invalid32, permute_disp_att_all ('', '', '', 'varname', '2', '6');
+
+push @invalid32, permute_disp_att_all ('', '%eebx', '', '', '', '6');
+push @invalid32, permute_disp_att_all ('', '%eebx', '', '%cx', '', '6');
+push @invalid32, permute_disp_att_all ('', '%eebx', '', '%ecx', '', '6');
+push @invalid32, permute_disp_att_all ('', '%cx', '', '%eebx', '', '6');
+push @invalid32, permute_disp_att_all ('', '%ecx', '', '%eebx', '', '6');
+push @invalid32, permute_disp_att_all ('', '%cx', '', '%si', '', '6');
+push @invalid32, permute_disp_att_all ('', '%eax -', '', '', '', '6');
+push @invalid32, permute_disp_att_all ('', '%eax -', '', '%ebx', '', '6');
+push @invalid32, permute_disp_att_all ('', '%eax -', '', '%ebx', '4', '6');
+push @invalid32, permute_disp_att_all ('', 'bsi', '', '%cx', '2', '6');
+push @invalid32, permute_disp_att_all ('', '%si', '', 'bcx', '2', '6');
+push @invalid32, permute_disp_att_all ('-', '%bx', '', '', '', '');
 
 # ----------- 64-bit
 
-is ( is_valid_64bit_addr_att ('zzz(,1)'), 1, 'zzz(,1) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rax)'), 1, '(%rax) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('1(%rax)'), 1, '1(%rax) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('-1(%rax)'), 1, '-1(%rax) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rax, %rbx)'), 1, '(%rax, %rbx) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('2(%rax, %rbx)'), 1, '2(%rax, %rbx) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('-2(%rax, %rbx)'), 1, '-2(%rax, %rbx) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rax, %rbx, 1)'), 1, '(%rax, %rbx, 1) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('3( %rax, %rbx, 2)'), 1, '3( %rax, %rbx, 2) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('-9(%rax, %rbx, 4)'), 1, '-9(%rax, %rbx, 4) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(, %rbx, 8)'), 1, '(, %rbx, 8) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('7(, %rcx, 4)'), 1, '7(, %rcx, 4) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('-7(, %rdx, 2)'), 1, '-7(, %rdx, 2) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('11(,1)'), 1, '11(,1) is a valid 64-bit addressing scheme' );
+my @valid64 = ();
+my @invalid64 = ();
 
-# -----------
+push @invalid64, permute_att ('', 'r%ax', '', '', '', '', '');
+push @invalid64, permute_att ('', '%brax', '', '', '', '', '');
+push @invalid64, permute_att ('', '%raxd', '', '', '', '', '');
+push @invalid64, permute_att ('', '%rbx', '', 'r%ax', '', '', '');
 
-is ( is_valid_64bit_addr_att ('%cs:zzz(,1)'), 1, '%cs:zzz(,1) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%ds:(%rax)'), 1, '%ds:(%rax) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%es:1(%rax)'), 1, '%es:1(%rax) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%fs:-1(%rax)'), 1, '%fs:-1(%rax) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%gs:(%rax, %rbx)'), 1, '%gs:(%rax, %rbx) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%ss:2(%rax, %rbx)'), 1, '%ss:2(%rax, %rbx) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%cs:-2(%rax, %rbx)'), 1, '%cs:-2(%rax, %rbx) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%ds:(%rax, %rbx, 1)'), 1, '%ds:(%rax, %rbx, 1) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%es:3( %rax, %rbx, 2)'), 1, '%es:3( %rax, %rbx, 2) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%fs:-9(%rax, %rbx, 4)'), 1, '%fs:-9(%rax, %rbx, 4) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%gs:(, %rbx, 8)'), 1, '%gs:(, %rbx, 8) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%ss:7(, %rcx, 4)'), 1, '%ss:7(, %rcx, 4) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%cs:-7(, %rdx, 2)'), 1, '%cs:-7(, %rdx, 2) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%ds:11(,1)'), 1, '%ds:11(,1) is a valid 64-bit addressing scheme' );
+foreach my $r1 ('%bx', '%si', '%di', '%bp') {
 
-# -----------
+	push @invalid64, permute_disp_att_all ('', $r1, '', '', '', '1');
+}
 
-is ( is_valid_64bit_addr_att ('1(%cr0)'), 0, '1(%cr0) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('1(%rax, %cr0)'), 0, '1(%rax, %cr0) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('2(%cr0, %rbx, 2)'), 0, '2(%cr0, %rbx, 2) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('-1(%st7)'), 0, '-1(%st7) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('-2(%rax, %dr0)'), 0, '-2(%rax, %dr0) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%xmm3)'), 0, '(%xmm3) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%mm2)'), 0, '(%mm2) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rax, %xmm5)'), 0, '(%rax, %xmm5) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rbx, %mm2)'), 0, '(%rbx, %mm2) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('%rax(%rbx)'), 0, '%rax(%rbx) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('-%rax(%rbx)'), 0, '-%rax(%rbx) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('3(-%rsi)'), 0, '3(-%rsi) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rax, %r12d)'), 0, '(%rax, %r12d) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rbx, %r12d, 2)'), 0, '(%rbx, %r12d, 2) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rax, -%rbx)'), 0, '(%rax, -%rbx) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rax, -%rbx, 4)'), 0, '(%rax, -%rbx, 4) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(,%rsp, 2)'), 0, '(,%rsp, 2) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rax ,%rsp, 2)'), 0, '(%rax ,%rsp, 2) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rax ,%rip, 2)'), 0, '(%rax ,%rsp, 2) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rax -, %rbx)'), 0, '(%rax -, %rbx) is a valid 64-bit addressing scheme' );
-is ( is_valid_64bit_addr_att ('(%rax -, %rbx, 4)'), 0, '(%rax -, %rbx, 4) is a valid 64-bit addressing scheme' );
+foreach my $r1 ('%cx', '%cs', '%st0', '%cl', '%cr0', '%dr2', '%mm0', '%xmm3',
+	'%ymm2', '%zmm3', '%k1') {
+
+	push @invalid64, permute_disp_att_all ('', $r1, '', '', '', '1');
+	push @invalid64, permute_disp_att_all ('-', $r1, '', '', '', '1');
+	push @invalid64, permute_disp_att_all ('', $r1, '', '%rbx', '', '1');
+	push @invalid64, permute_disp_att_all ('', $r1, '', '%rbx', '2', '1');
+	push @invalid64, permute_disp_att_all ('', '', '', $r1, '', '1');
+	push @invalid64, permute_disp_att_all ('', '', '', $r1, '2', '1');
+	push @invalid64, permute_disp_att_all ('', '%rbx', '', $r1, '', '1');
+	push @invalid64, permute_disp_att_all ('', '%rbx', '', $r1, '2', '1');
+
+	push @invalid64, permute_reg64_invalid_att ($r1);
+}
+
+foreach my $s ('', '1', '2', '4', '8') {
+
+	push @valid64, permute_disp_att_all ('', '', '', '%rax', $s, '1');
+	push @valid64, permute_disp_att_all ('', '%rbx', '', '%rdi', $s, '1');
+	push @valid64, permute_disp_att_all ('', '%rbx', '', '%rdi', $s, 'varname');
+}
+
+push @valid64, permute_disp_att_all ('', '%rax', '', '', '', '1');
+push @valid64, permute_disp_att_all ('', '%rax', '', '', '', 'varname');
+
+push @valid64, permute_disp_att_all ('', '%eax', '', '', '', '1');
+push @valid64, permute_disp_att_all ('', '%r9d', '', '', '', '1');
+
+foreach my $r1 ('%r9d', '%ecx') {
+
+	foreach my $s ('',  '2') {
+
+		push @invalid64, permute_disp_att_all ('', '%rbx', '', $r1, $s, '1');
+		push @invalid64, permute_disp_att_all ('', '%rbx', '', $r1, $s, 'varname');
+
+		push @invalid64, permute_disp_att_all ('', $r1, '', '%rbx', $s, '1');
+		push @invalid64, permute_disp_att_all ('', $r1, '', '%rbx', $s, 'varname');
+	}
+}
+
+foreach my $s ('',  '4') {
+
+	push @valid64, permute_disp_att_all ('', '', '', '%r9d', $s, '1');
+	push @valid64, permute_disp_att_all ('', '', '', '%eax', $s, '1');
+	push @valid64, permute_disp_att_all ('', '%eax', '', '%r9d', $s, '1');
+	push @valid64, permute_disp_att_all ('', '%r9d', '', '%eax', $s, '1');
+}
+
+push @invalid64, permute_disp_att_all ('-', '%rax', '', '', '', '1');
+push @invalid64, permute_disp_att_all ('-', '%rbx', '', '%rdi', '', '1');
+push @invalid64, permute_disp_att ('', '%rbx', '', '', '', '%rax');
+push @invalid64, permute_disp_att ('', '', '', '%rdi', '', '%rax');
+push @invalid64, permute_disp_att ('', '', '', '%rdi', '2', '%rax');
+
+foreach my $s ('', '2') {
+
+	push @invalid64, permute_disp_att ('', '%rbx', '', '%rdi', $s, '%rax');
+	push @invalid64, permute_disp_att_all ('-', '%rbx', '', '%rdi', $s, '%rax');
+	push @invalid64, permute_disp_att_all ('', '%rbx', '-', '%rdi', $s, '%rax');
+	push @invalid64, permute_disp_att_all ('-', '%rbx', '-', '%rdi', $s, '%rax');
+}
+
+push @valid64, permute_att ('', '', '', '', '', '', '1');
+push @valid64, permute_att ('', '', '', '', '', '', 'varname');
+push @valid64, permute_att ('', 'varname', '', '', '', '', '');
+push @invalid64, permute_att ('', '', '', 'varname', '', '', '');
+push @invalid64, permute_att ('', '', '', 'varname', '', '', '2');
+push @invalid64, permute_att ('', '', '', 'varname', '2', '', '');
+push @invalid64, permute_att ('', '', '', 'varname', '2', '', 'varname');
+push @invalid64, permute_att ('', 'varname', '', '', '', '', 'varname');
+push @invalid64, permute_att ('', 'varname', '', 'varname', '2', '', '');
+push @invalid64, permute_att ('', 'varname', '', 'varname', '2', '', 'varname');
+
+foreach my $r1 ('%rax', '%rbp', '%rcx', '%rsi') {
+
+	push @valid64, permute_disp_att_all ('', '%rbx', '', $r1, '1', '3');
+	push @invalid64, permute_disp_att_all ('-', '%rbx', '', $r1, '1', '7');
+	push @invalid64, permute_disp_att_all ('', '%rbx', '-', $r1, '1', '9');
+	push @invalid64, permute_disp_att_all ('-', '%rbx', '-', $r1, '1', '5');
+	push @valid64, permute_disp_att_all ('', '', '', $r1, '1', '3');
+	push @invalid64, permute_disp_att_all ('', '', '-', $r1, '1', '5');
+}
+
+push @invalid64, permute_disp_att_all ('', '', '', '1', '8', '29');
+push @invalid64, permute_disp_att_all ('', '', '-', '1', '8', '29');
+
+push @invalid64, permute_disp_att_all ('', '%rbx', '', '1', '8', '31');
+push @invalid64, permute_disp_att_all ('', '%rbx', '-', '1', '8', '31');
+
+push @invalid64, permute_att ('', '%rbx', '', '1', '8', '', '%rax');
+push @invalid64, permute_att ('', '%rbx', '-', '1', '8', '', '%rax');
+
+push @invalid64, permute_disp_att_all ('', '3', '', '%rbx', '8', '33');
+push @invalid64, permute_disp_att_all ('', '3', '-', '%rbx', '8', '33');
+
+push @invalid64, permute_att ('', '%rbx*2', '', '%rax', '8', '', '');
+
+foreach my $r1 ('%rsp', '%rip') {
+
+	foreach my $s ('', '1', 'z', '2') {
+
+		push @invalid64, permute_disp_att_all ('', '', '', $r1, $s, '17');
+		push @invalid64, permute_disp_att_all ('', '%rcx', '', $r1, $s, '19');
+	}
+	push @invalid64, permute_sign_disp_att_all ($r1, '2', '1', '%rax');
+}
+
+push @valid64, permute_disp_att_all ('', '%rsp', '', '%rcx', '', '11');
+push @valid64, permute_disp_att_all ('', '%rsp', '', '%rcx', '1', '13');
+push @valid64, permute_disp_att_all ('', '%rsp', '', '%rbp', '1', '15');
+
+push @invalid64, permute_disp_att_all ('', '%rip', '', '%rcx', '', '11');
+push @invalid64, permute_disp_att_all ('', '%rip', '', '%rcx', '1', '13');
+push @invalid64, permute_disp_att_all ('', '%rip', '', '%rbp', '1', '15');
+
+push @invalid64, permute_disp_att_all ('', '', '', '%rax', '5', '17');
+push @invalid64, permute_disp_att_all ('', '', '-', '%rax', '5', '17');
+push @invalid64, permute_sign_disp_att_all ('%rbx', '%rax', '5', '17');
+
+push @invalid64, permute_disp_att_all ('', '', '', '%rax', '%rdx', '19');
+push @invalid64, permute_disp_att_all ('', '', '-', '%rax', '%rdx', '19');
+
+push @invalid64, permute_sign_disp_att_all ('%rbx', '%rax', '%rdx', '19');
+
+push @invalid64, permute_disp_att_segreg_all ('%ax', '', '', '', '', '', 'varname');
+push @invalid64, permute_disp_att_segreg_all ('%ax', '', 'varname', '', '', '', '');
+push @invalid64, permute_disp_att_segreg_all ('%ax', '', '%rbx', '', '', '', 'varname');
+push @invalid64, permute_disp_att_segreg_all ('%ax', '', '%rbx', '', '%rsi', '', 'varname');
+push @invalid64, permute_disp_att_segreg_all ('%ax', '', '', '', '%rsi', '', 'varname');
+push @invalid64, permute_disp_att_segreg_all ('%ax', '', '%rbx', '', '%rsi', '2', 'varname');
+push @invalid64, permute_disp_att_segreg_all ('%ax', '', '', '', '%rsi', '2', 'varname');
+push @invalid64, permute_disp_att_segreg_all ('%ax', '', '', '-', '%rsi', '2', 'varname');
+
+push @invalid64, permute_disp_att_segreg_all ('%ax', '-', '%rbx', '', '', '', '1');
+push @invalid64, permute_disp_att_segreg_all ('%ax', '', '', '', '%rdi', '', '23');
+push @invalid64, permute_disp_att_segreg_all ('%ax', '', '', '-', '%rdi', '', '23');
+
+foreach my $s ('', '2') {
+
+	push @invalid64, permute_sign_disp_att_segreg_all ('%ax', '%rbx', '%rdi', $s, '23');
+	push @invalid64, permute_sign_disp_att_segreg_all ('%ax', '%cs', '%rbx', $s, '25');
+	push @invalid64, permute_sign_disp_att_segreg_all ('%ax', '%rbx', '%cs', $s, '27');
+}
+
+push @invalid64, permute_disp_att_segreg_all ('%ax', '', '%cs', '', '', '', '25');
+push @invalid64, permute_disp_att_segreg_all ('%ax', '-', '%cs', '', '', '', '25');
+
+push @invalid64, permute_att ('', '', '', '', '', '', '%cx');
+push @invalid64, permute_att ('', '%rax', '', '', '', '', '%cx');
+push @invalid64, permute_att ('', '%si', '', '', '', '', '%cx');
+push @invalid64, permute_att ('', '%rax', '', '%rbx', '', '', '%cx');
+push @invalid64, permute_att ('', '%rax', '', '%rbx', '2', '', '%cx');
+push @invalid64, permute_att ('', '', '', '%rbx', '2', '', '%cx');
+
+push @invalid64, permute_disp_att_all ('', '', '', 'varname', '2', '6');
+push @invalid64, permute_disp_att_all ('', '%rax', '', 'varname', '2', '6');
+push @invalid64, permute_disp_att_all ('', 'varname', '', '%rax', '', '6');
+push @invalid64, permute_disp_att_all ('', 'varname', '', '%rax', '2', '6');
+
+push @invalid64, permute_disp_att_all ('', '%eebx', '', '', '', '6');
+push @invalid64, permute_disp_att_all ('', '%eebx', '', '%cx', '', '6');
+push @invalid64, permute_disp_att_all ('', '%cx', '', '%eebx', '', '6');
+push @invalid64, permute_disp_att_all ('', '%erbx', '', '', '', '6');
+push @invalid64, permute_disp_att_all ('', '%erbx', '', '%cx', '', '6');
+push @invalid64, permute_disp_att_all ('', '%erbx', '', '%rcx', '', '6');
+push @invalid64, permute_disp_att_all ('', '%cx', '', '%erbx', '', '6');
+push @invalid64, permute_disp_att_all ('', '%rcx', '', '%erbx', '', '6');
+push @invalid64, permute_disp_att_all ('', '%cx', '', '%si', '', '6');
+push @invalid64, permute_disp_att_all ('', '%si', '', '%cx', '', '6');
+push @invalid64, permute_disp_att_all ('', '%cx', '', '%si', '8', '6');
+push @invalid64, permute_disp_att_all ('', '%si', '', '%cx', '8', '6');
+push @invalid64, permute_disp_att_all ('', '%rax -', '', '', '', '6');
+push @invalid64, permute_disp_att_all ('', '%rax -', '', '%rbx', '', '6');
+push @invalid64, permute_disp_att_all ('', '%rax -', '', '%rbx', '4', '6');
+push @invalid64, permute_disp_att_all ('', 'bsi', '', '%cx', '2', '6');
+push @invalid64, permute_disp_att_all ('', '%si', '', 'bcx', '2', '6');
+push @invalid64, permute_disp_att_all ('-', '%bx', '', '', '', 'varname');
 
 # ----------- mixed
 
-is ( is_valid_addr_att ('(%ebx, %ax)'), 0, '(%ebx, %ax) is a valid addressing scheme' );
-is ( is_valid_addr_att ('(%si, %eax)'), 0, '(%si, %eax) is a valid addressing scheme' );
-is ( is_valid_addr_att ('2(%ebx,%ax)'), 0, '2(%ebx,%ax) is a valid addressing scheme' );
-is ( is_valid_addr_att ('(-%cx,%ebx,2)'), 0, '(-%cx,%ebx,2) is a valid addressing scheme' );
-is ( is_valid_addr_att ('(%si,%esi,8)'), 0, '(%si,%esi,8) is a valid addressing scheme' );
-is ( is_valid_addr_att ('(%edi,%sp)'), 0, '(%edi,%sp) is a valid addressing scheme' );
+my @valid_mixed = ();
+my @invalid_mixed = ();
 
-is ( is_valid_addr_att ('(%rax,%ebx)'), 0, '(%rax,%ebx) is a valid addressing scheme' );
-is ( is_valid_addr_att ('(%rbx,%r8d)'), 0, '(%rbx,%r8d) is a valid addressing scheme' );
-is ( is_valid_addr_att ('(%ecx,%rsi)'), 0, '(%ecx,%rsi) is a valid addressing scheme' );
-is ( is_valid_addr_att ('(%rsi,%ecx,2)'), 0, '(%rsi,%ecx,2) is a valid addressing scheme' );
-is ( is_valid_addr_att ('+-1(%ecx,%edx)'), 1, '+-1(%ecx,%edx) is a valid addressing scheme' );
-is ( is_valid_addr_att ('+-1(%ecx,%rdx)'), 0, '+-1(%ecx,%rdx) is a valid addressing scheme' );
-is ( is_valid_addr_att ('+-1(%rdx,%ecx,8)'), 0, '+-1(%edx,%ecx,8) is a valid addressing scheme' );
-is ( is_valid_addr_att ('+-1(%rdx,%ecx,8)'), 0, '+-1(%rdx,%rcx,8) is a valid addressing scheme' );
-is ( is_valid_addr_att ('-1(%esi,%rax)'), 0, '-1(%esi,%rax) is a valid addressing scheme' );
-is ( is_valid_addr_att ('-%rcx(%esi)'), 0, '-%rcx(%esi) is a valid addressing scheme' );
-is ( is_valid_addr_att ('(-%rcx, %esi)'), 0, '(-%rcx, %esi) is a valid addressing scheme' );
-is ( is_valid_addr_att ('(%esi, -%rcx)'), 0, '(%esi, -%rcx) is a valid addressing scheme' );
-is ( is_valid_addr_att ('-%rcx(,1)'), 0, '-%rcx(,1) is a valid addressing scheme' );
-is ( is_valid_addr_att ('-1(-%rcx)'), 0, '-1(-%rcx) is a valid addressing scheme' );
-is ( is_valid_addr_att ('1(-%rcx)'), 0, '1(-%rcx) is a valid addressing scheme' );
-is ( is_valid_addr_att ('12(%rax,%rsp)'), 1, '12(%rax,%rsp) is a valid addressing scheme' );
-is ( is_valid_addr_att ('%cs:5(%ecx,%esi)'), 1, '%cs:5(%ecx,%esi) is a valid addressing scheme' );
-is ( is_valid_addr_att ('%ss:(%bp,%si)'), 1, '%ss:(%bp,%si) is a valid addressing scheme' );
+push @invalid_mixed, '(%ebx, %ax)';
+push @invalid_mixed, '(%si, %eax)';
+push @invalid_mixed, '2(%ebx,%ax)';
+push @invalid_mixed, '(-%cx,%ebx,2)';
+push @invalid_mixed, '(%si,%esi,8)';
+push @invalid_mixed, '(%edi,%sp)';
+push @invalid_mixed, '(%rax,%ebx)';
+push @invalid_mixed, '(%rbx,%r8d)';
+push @invalid_mixed, '(%ecx,%rsi)';
+push @invalid_mixed, '(%rsi,%ecx,2)';
+push @valid_mixed, '+-1(%ecx,%edx)';
+push @invalid_mixed, '+-1(%ecx,%rdx)';
+push @invalid_mixed, '+-1(%rdx,%ecx,8)';
+push @invalid_mixed, '-1(%esi,%rax)';
+push @invalid_mixed, '-%rcx(%esi)';
+push @invalid_mixed, '(-%rcx, %esi)';
+push @invalid_mixed, '(%esi, -%rcx)';
+push @invalid_mixed, '-%rcx(,1)';
+push @invalid_mixed, '-1(-%rcx)';
+push @invalid_mixed, '1(-%rcx)';
+push @invalid_mixed, '12(%rax,%rsp)';
+push @valid_mixed, '%cs:5(%ecx,%esi)';
+push @valid_mixed, '%ss:(%bp,%si)';
 
-#is ( is_valid_64bit_addr_att ('()'), 0, ' is a valid 64-bit addressing scheme' );
+# -----------
+
+# Test::More:
+plan tests => @valid16 + 3 + @invalid16 + 2
+	+ @valid32 + 3 + @invalid32 + 2
+	+ @valid64 + 3 + @invalid64 + 2
+	+ @valid_mixed + 2 + @invalid_mixed + 2;
+
+foreach (@valid16) {
+	is ( is_valid_16bit_addr_att ($_), 1, "'$_' is a valid 16-bit AT&T addressing scheme" );
+}
+is ( is_valid_16bit_addr_intel ($valid16[0]), 0, "'$valid16[0]' is not a valid 16-bit Intel addressing scheme" );
+is ( is_valid_16bit_addr ($valid16[0]), 1, "'$valid16[0]' is a valid 16-bit addressing scheme" );
+is ( is_valid_addr ($valid16[0]), 1, "'$valid16[0]' is a valid addressing scheme" );
+
+foreach (@invalid16) {
+	is ( is_valid_16bit_addr_att ($_), 0, "'$_' is not a valid 16-bit AT&T addressing scheme" );
+}
+is ( is_valid_16bit_addr_intel ($invalid16[0]), 0, "'$invalid16[0]' is not a valid 16-bit Intel addressing scheme" );
+is ( is_valid_16bit_addr ($invalid16[0]), 0, "'$invalid16[0]' is not a valid 16-bit addressing scheme" );
+# NOTE: no test for is_valid_addr() here, because addresses valid in other modes are present
+
+foreach (@valid32) {
+	is ( is_valid_32bit_addr_att ($_), 1, "'$_' is a valid 32-bit AT&T addressing scheme" );
+}
+is ( is_valid_32bit_addr_intel ($valid32[0]), 0, "'$valid32[0]' is not a valid 32-bit Intel addressing scheme" );
+is ( is_valid_32bit_addr ($valid32[0]), 1, "'$valid32[0]' is a valid 32-bit addressing scheme" );
+is ( is_valid_addr ($valid32[0]), 1, "'$valid32[0]' is a valid addressing scheme" );
+
+foreach (@invalid32) {
+	is ( is_valid_32bit_addr_att ($_), 0, "'$_' is not a valid 32-bit AT&T addressing scheme" );
+}
+is ( is_valid_32bit_addr_intel ($invalid32[0]), 0, "'$invalid32[0]' is not a valid 32-bit Intel addressing scheme" );
+is ( is_valid_32bit_addr ($invalid32[0]), 0, "'$invalid32[0]' is not a valid 32-bit addressing scheme" );
+# NOTE: no test for is_valid_addr() here, because addresses valid in other modes are present
+
+foreach (@valid64) {
+	is ( is_valid_64bit_addr_att ($_), 1, "'$_' is a valid 64-bit AT&T addressing scheme" );
+}
+is ( is_valid_64bit_addr_intel ($valid64[0]), 0, "'$valid64[0]' is not a valid 64-bit Intel addressing scheme" );
+is ( is_valid_64bit_addr ($valid64[0]), 1, "'$valid64[0]' is a valid 64-bit addressing scheme" );
+is ( is_valid_addr ($valid64[0]), 1, "'$valid64[0]' is a valid addressing scheme" );
+
+foreach (@invalid64) {
+	is ( is_valid_64bit_addr_att ($_), 0, "'$_' is not a valid 64-bit AT&T addressing scheme" );
+}
+is ( is_valid_64bit_addr_intel ($invalid64[0]), 0, "'$invalid64[0]' is not a valid 64-bit Intel addressing scheme" );
+is ( is_valid_64bit_addr ($invalid64[0]), 0, "'$invalid64[0]' is not a valid 64-bit addressing scheme" );
+# NOTE: no test for is_valid_addr() here, because addresses valid in other modes are present
+
+foreach (@valid_mixed) {
+	is ( is_valid_addr_att ($_), 1, "'$_' is a valid AT&T addressing scheme" );
+}
+is ( is_valid_addr_intel ($valid_mixed[0]), 0, "'$valid_mixed[0]' is not a valid Intel addressing scheme" );
+is ( is_valid_addr ($valid_mixed[0]), 1, "'$valid_mixed[0]' is a valid addressing scheme" );
+
+foreach (@invalid_mixed) {
+	is ( is_valid_addr_att ($_), 0, "'$_' is not a valid AT&T addressing scheme" );
+}
+is ( is_valid_addr_intel ($invalid_mixed[0]), 0, "'$invalid_mixed[0]' is not a valid Intel addressing scheme" );
+is ( is_valid_addr ($invalid_mixed[0]), 0, "'$invalid_mixed[0]' is not a valid addressing scheme" );

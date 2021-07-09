@@ -14,10 +14,11 @@ unless ($json_dir && -e $json_dir) {  plan skip_all => 'No credential file found
 use Webservice::OVH;
 
 my $api = Webservice::OVH->new_from_json($json_dir);
+ok($api, "module ok");
 
 my $example_email_domains = $api->email->domain->domains;
 my $example_email_domain  = $example_email_domains->[0];
-
+=head2 keine email Tests mehr, da keine accounts vorhanden
 ok( $example_email_domain, "example domain ok" );
 ok( $example_email_domain->service_infos && ref $example_email_domain->service_infos eq 'HASH', "service_info ok" );
 ok( $example_email_domain->properties    && ref $example_email_domain->properties eq 'HASH',    "properties ok" );
@@ -33,6 +34,7 @@ if ( scalar @$redirections ) {
     my $redirection = $redirections->[0];
     ok( ref $redirection eq 'Webservice::OVH::Email::Domain::Domain::Redirection', "Type ok" );
 }
+
 
 my $accounts        = $example_email_domain->accounts;
 my $example_account = $accounts->[0];
@@ -57,5 +59,5 @@ if ($example_mailing_list) {
 ok ( scalar keys %{$example_email_domain->{_redirections}} == scalar @$redirections, 'intern redirections ok' );
 ok ( scalar keys %{$example_email_domain->{_accounts}} == scalar @$accounts, 'intern accounts ok' );
 ok ( scalar keys %{$example_email_domain->{_mailing_lists}} == scalar @$mailing_lists, 'intern mailing_lists ok' );
-
+=cut
 done_testing();

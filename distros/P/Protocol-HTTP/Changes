@@ -1,3 +1,18 @@
+1.1.3    xx.xx.2021
+           - fix compilation warnings
+           - use allow_extended_chars for parsing uris
+1.1.2    14.05.2021
+           - speedup XS adapter
+           - add expects_continue() to Request
+           - add optional data to final_chunk() in XS API
+           - docs
+1.1.1    19.04.2021
+           - update docs
+           - add MANIFEST.SKIP
+1.1.0    08.04.2021
+           - C++ codes moved to its own library with cmake
+           - do not automatically add "Content-Length: 0" header to response for 304 code unless provided by user
+           - treat protocol-relative urls as path
 1.0.11   25.11.2020
            - improve makefile
            - change constant names

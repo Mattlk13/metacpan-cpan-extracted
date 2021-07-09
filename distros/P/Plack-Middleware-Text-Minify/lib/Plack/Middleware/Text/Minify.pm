@@ -12,16 +12,18 @@ use parent qw/ Plack::Middleware /;
 use Plack::Util;
 use Plack::Util::Accessor qw/ path type /;
 use Ref::Util qw/ is_arrayref is_coderef /;
-use Text::Minify::XS v0.3.6 ();
+use Text::Minify::XS v0.4.0 ();
 
 # RECOMMEND PREREQ:  Ref::Util::XS
 
-our $VERSION = 'v0.1.4';
+our $VERSION = 'v0.2.0';
 
 sub call {
     my ($self, $env) = @_;
 
     my $res = $self->app->($env);
+
+    return $res if $env->{'psgix.no-minify'};
 
     my $method = $env->{REQUEST_METHOD};
     unless ($method =~ /^(GET|POST)$/) {
@@ -91,7 +93,7 @@ Plack::Middleware::Text::Minify - minify text responses on the fly
 
 =head1 VERSION
 
-version v0.1.4
+version v0.2.0
 
 =head1 SYNOPSIS
 
@@ -111,6 +113,9 @@ version v0.1.4
 
 This middleware uses L<Text::Minify::XS> to remove indentation and
 trailing whitespace from text content.
+
+It will be disabled if the C<psgix.no-minify> environment key is set
+to a true value. (Added in v0.2.0.)
 
 =head1 ATTRIBUTES
 
@@ -140,6 +145,26 @@ By default, it will match against any "text/" MIME type.
 
 This module requires Perl v5.9.3 or newer, which is the minimum
 version supported by L<Text::Minify::XS>.
+
+=head2 Use with templating directive that collapse whitespace
+
+If you are using a templating system with directives that collapse
+whitespace in HTML documents, e.g. in L<Template-Toolkit|Template>
+
+    [%- IF something -%]
+      <div class="foo">
+        ...
+      </div>
+    [%- END -%]
+
+then you may find it worth removing these and letting the middleware
+clean up extra whitespace.
+
+=head2 Collapsed Newlines
+
+The underlying minifier does not understand markup, so newlines will
+still be collapsed in HTML elements where whitespace is meaningful,
+e.g. C<pre> or C<textarea>.
 
 =head1 SEE ALSO
 

@@ -50,7 +50,12 @@ sub generate {
         local $Pad = '    ';
         local $Sortkeys = 1;
         join "", map {
-            (my $dump = Dumper($_)) =~ s{$}{,}; $dump
+            my $dump = Dumper($_);
+            $dump =~ s{$}{,};
+            # the '+' is to make sure Perl::Critic does not consider
+            # this an anonymous subroutine
+            $dump =~ s[^(\s+)\s({)][\1+\2]mg;
+            $dump
         } @{$args{mappings}};
     };
     my @descriptors = @{$args{descriptors} || []};
@@ -96,6 +101,7 @@ my %boolean_options = map +($_ => [$_, 1], "no_$_" => [$_, 0]), qw(
     check_required_fields
     explicit_defaults
     encode_defaults
+    encode_defaults_proto3
     check_enum_values
     fail_ref_coercion
     generic_extension_methods
@@ -208,7 +214,7 @@ Google::ProtocolBuffers::Dynamic::MakeModule
 
 =head1 VERSION
 
-version 0.29
+version 0.32
 
 =head1 AUTHOR
 

@@ -9,7 +9,6 @@ BEGIN {
 }
 
 use Test::NoBreakpoints 'all_perl_files';
-use Test::Exception;
 
 # test that all files in the test directory are found properly
 my @tests = qw|

@@ -6,6 +6,7 @@ use vars qw(@net_log $VERSION @ISA @EXPORT_OK);
 
 use Archive::Tar;
 use Archive::Zip;
+use Env::Path;
 use File::Temp qw(tempfile);
 use File::Type;
 use LWP::UserAgent;
@@ -21,7 +22,7 @@ require Exporter;
 @ISA = qw(Exporter);
 @EXPORT_OK = qw(finddeps);
 
-$VERSION = '3.04';
+$VERSION = '3.08';
 
 use constant MAXINT => ~0;
 
@@ -193,6 +194,13 @@ by paying attention to the depth of each object.
 
 The ordering of any particular module's immediate 'children' can be
 assumed to be random - it's actually hash key order.
+
+=head1 TREE PRUNING
+
+The dependency tree is pruned to remove duplicates. This means that even though
+C<Test::More>, for example, is a dependency of almost everything on the CPAN,
+it will only be listed once.
+
 
 =head1 SECURITY
 
@@ -553,10 +561,19 @@ sub _getreqs {
                 } elsif(File::Type->mime_type($file_data) =~ m{^application/x-(gzip|tar)$}) {
                     $rval = $tar_extractor->($tempfile);
                 } elsif(File::Type->mime_type($file_data) eq 'application/x-bzip2') {
-                    open(my $fh, '-|', qw(bzip2 -dc), $tempfile) ||
+                    no warnings qw(exec);
+                    # can't use list form of pipe open because it's broken
+                    # on Windows perl < 5.22. See https://github.com/perl/perl5/issues/13574
+                    # and can't rely on open() to return false if bzip2 doesn't exist
+                    # on Windows either, hence finding the binary the hard way first. We then
+                    # rely on being able to find it in the PATH because apparently
+                    # C:\Program Files\... is toooo haaaaard for Windows to understand.
+                    if((my $bzip2exe) = Env::Path->PATH->Whence('bzip2')) {
+                        open(my $fh, "bzip2 -dc $tempfile |");
+                        $rval = $tar_extractor->($fh);
+                    } else {
                         $self->_yell("Can't unbzip2 $tempfile: $!");
-                    if($fh) { $rval = $tar_extractor->($fh); }
-                    close($fh);
+                    }
                 } else { $rval = $file_data; } # oh, it must have been a meta file
                 return $rval;
             },

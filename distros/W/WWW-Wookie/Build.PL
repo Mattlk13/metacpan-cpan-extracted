@@ -4,29 +4,32 @@ use Module::Build;
 Module::Build->new(
     module_name => 'WWW::Wookie',
     license     => 'perl',
-    dist_author => 'Roland van Ipenburg <ipenburg@xs4all.nl>',
+    dist_author => 'Roland van Ipenburg <roland@rolandvanipenburg.com>',
     requires    => {
-        'perl'                         => '5.20.0',
         'Exception::Class'             => 0,
         'HTTP::Headers'                => 0,
         'HTTP::Request'                => 0,
         'HTTP::Request::Common'        => 0,
         'HTTP::Status'                 => 0,
         'LWP::UserAgent'               => 0,
-        'Log::Log4perl'                => 0,
         'Moose'                        => 0,
         'Moose::Role'                  => 0,
         'Moose::Util::TypeConstraints' => 0,
         'Readonly'                     => 0,
         'Regexp::Common'               => 0,
-        'URI'                          => 0,
-        'URI::Escape'                  => 0,
+        'URI'                          => 1.62,
+        'URI::Escape'                  => 1.62,
         'XML::Simple'                  => 0,
         'namespace::autoclean'         => 0,
         'overload'                     => 0,
+        'perl'                         => '5.20.0',
+        'strict'                       => 0,
+        'utf8'                         => 0,
+        'warnings'                     => 0,
     },
     configure_requires => { 'Module::Build' => 0.40, },
-    build_requires     => {
+    build_requires     => { 'Module::Build' => 0.40, },
+    test_requires      => {
         'Test::More'       => 0.81,
         'Test::NoWarnings' => 0.81,
     },
@@ -46,14 +49,17 @@ Module::Build->new(
         'Test::Perl::Critic'         => 0,
         'Test::Pod'                  => 1.41,
         'Test::Pod::Coverage'        => 1.00,
-		'Test::Spelling'             => 0,
+        'Test::Spelling'             => 0,
         'Test::TestCoverage'         => 0.08,
         'Test::CheckManifest'        => 1.01,
     },
-    script_files => [ qw(scripts/TestWookieService.pl) ],
+    script_files => [qw(scripts/TestWookieService.pl)],
     sign         => 1,
     meta_merge   => {
-        resources =>
-          { repository => 'https://github.com/ipenburg/WWW-Wookie' }
+        resources => {
+            repository => 'https://bitbucket.org/rolandvanipenburg/www-wookie',
+            bugtracker =>
+              'https://bitbucket.org/rolandvanipenburg/www-wookie/issues',
+        },
     },
 )->create_build_script;

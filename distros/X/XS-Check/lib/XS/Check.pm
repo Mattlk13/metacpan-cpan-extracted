@@ -3,8 +3,8 @@ use warnings;
 use strict;
 use Carp;
 use utf8;
-our $VERSION = '0.11';
-use C::Tokenize '0.14', ':all';
+our $VERSION = '0.13';
+use C::Tokenize '0.18', ':all';
 use Text::LineNumber;
 use File::Slurper 'read_text';
 use Carp qw/croak carp cluck confess/;
@@ -53,15 +53,20 @@ sub report
 # Match a call to SvPV
 
 my $svpv_re = qr/
-		    ((?:$word_re(?:->|\.))*$word_re)
-		    \s*=[^;]*
-		    SvPV
-		    \s*\(\s*
-		    ($word_re)
-		    \s*,\s*
-		    ($word_re)
-		    \s*\)
-		/x;
+    (
+	(?:$word_re(?:->|\.))*$word_re
+    )
+    \s*=[^;]*
+    (
+	SvPV(?:byte|utf8)?
+	(?:x|_(?:force|nolen))?
+    )
+    \s*\(\s*
+    ($word_re)
+    \s*,\s*
+    ($word_re)
+    \s*\)
+/x;
 
 # Look for problems with calls to SvPV.
 
@@ -69,9 +74,7 @@ sub check_svpv
 {
     my ($o) = @_;
     while ($o->{xs} =~ /($svpv_re)/g) {
-	my $match = $1;
-	my $lvar = $2;
-	my $arg2 = $4;
+	my ($match, $lvar, $svpv, $arg1, $arg2) = ($1, $2, $3, $4, $5);
 	my $lvar_type = $o->get_type ($lvar);
 	my $arg2_type = $o->get_type ($arg2);
 	if ($o->{verbose}) {
@@ -82,6 +85,9 @@ sub check_svpv
 	}
 	if ($arg2_type && $arg2_type !~ /\bSTRLEN\b/) {
 	    $o->report ("$arg2 is not a STRLEN variable ($arg2_type)");
+	}
+	if ($svpv !~ /bytes?|utf8/) {
+	    $o->report ("Specify either SvPVbyte or SvPVutf8 to avoid ambiguity; see perldoc perlguts");
 	}
     }
 }
@@ -128,22 +134,22 @@ sub check_perl_prefix
 # Regular expression to match a C declaration.
 
 my $declare_re = qr/
-		       (
-			   (
-			       (?:
-				   (?:$reserved_re|$word_re)
-				   (?:\b|\s+)
-			       |
-				   \*\s*
-			       )+
-			   )
-			   (
-			       $word_re
-			   )
-		       )
-		       # Match initial value.
-		       \s*(?:=[^;]+)?;
-		   /x;
+    (
+	(
+	    (?:
+		(?:$reserved_re|$word_re)
+		(?:\b|\s+)
+	    |
+		\*\s*
+	    )+
+	)
+	(
+	    $word_re
+	)
+    )
+    # Match initial value.
+    \s*(?:=[^;]+)?;
+/x;
 
 # Read the declarations.
 
@@ -221,15 +227,15 @@ sub cleanup
 # Regex to match (void) in XS function call.
 
 my $void_re = qr/
-		    $word_re\s*
-		    \(\s*void\s*\)\s*
-		    (?=
-			# CODE:, PREINIT:, etc.
-			[A-Z]+:
-#		    |
-			# Normal C function start
-#			\{
-		    )
+    $word_re\s*
+    \(\s*void\s*\)\s*
+    (?=
+	# CODE:, PREINIT:, etc.
+	[A-Z]+:
+	#		    |
+	# Normal C function start
+	#			\{
+    )
 /xsm;
 
 # Look for (void) XS functions
@@ -248,19 +254,22 @@ check_hash_comments
     my ($o) = @_;
     while ($o->{xs} =~ /^#\s*(\w*)/gsm) {
 	my $hash = $1;
-	if ($hash !~ /^(?:
-			  define|
-			  else|
-			  endif|
-			  error|
-			  ifdef|
-			  ifndef|
-			  if|
-			  include|
-			  line|
-			  undef|
-			  warning|
-			  ZZZZZZZZZZZ)(\s+|$)/x) {
+	if ($hash !~ /
+	    ^(?:
+		define|
+		elif|
+		else |
+		endif|
+		error|
+		ifdef|
+		ifndef|
+		if |
+		include|
+		line|
+		undef|
+		warning|
+		ZZZZZZZZZZZ)(\s+|$
+	    )/x) {
 	    $o->report ("Put whitespace before # in comments");
 	}
     }

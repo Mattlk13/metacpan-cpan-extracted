@@ -1,8 +1,5 @@
 package Slovo::Plugin::MojoDBx;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
-use feature qw(lexical_subs unicode_strings);
-## no critic qw(TestingAndDebugging::ProhibitNoWarnings)
-no warnings "experimental::lexical_subs";
 
 sub register ($self, $app, $conf = {}) {
   $conf = $self->_check_config($app, $conf);
@@ -96,14 +93,14 @@ sub _check_config ($self, $app, $conf) {
     #      }
   ];
   ref $conf->{on_connection} eq 'ARRAY'
-    || croak('on_connection must be an ARRAY reference');
+    || croak('"on_connection" must be an ARRAY reference');
 
   $conf->{max_connections} //= 3;
   $conf->{auto_migrate}    //= 1;
   $conf->{migration_file}  //= $resources->child("data/migrations.sql")->to_string;
   $conf->{tables}          //= ['users', 'groups', 'domove', 'stranici', 'celini'];
   ref $conf->{tables} eq 'ARRAY'
-    || croak('on_connection must be an ARRAY reference of table names,'
+    || croak('"tables" must be an ARRAY reference of table names,'
       . ' e.g. [qw(users groups ...)]');
   return $conf;
 }
@@ -113,7 +110,7 @@ sub _check_config ($self, $app, $conf) {
 
 =head1 NAME
 
-Slovo::Plugin::MojoDBx - load and use Mojo::Pg/mysql/SQLite
+Slovo::Plugin::MojoDBx - load and use Mojo::Pg|mysql|SQLite
 
 =head1 SYNOPSIS
 

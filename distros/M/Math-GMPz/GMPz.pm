@@ -18,7 +18,7 @@
 
 use subs qw( __GNU_MP_VERSION __GNU_MP_VERSION_MINOR __GNU_MP_VERSION_PATCHLEVEL
              __GNU_MP_RELEASE __GMP_CC __GMP_CFLAGS GMP_LIMB_BITS GMP_NAIL_BITS
-             __MATH_GMPz_IV_MAX);
+             MATH_GMPz_IV_MAX  MATH_GMPz_IV_MIN  MATH_GMPz_UV_MAX);
 
 use overload
     '+'    => \&overload_add,
@@ -71,14 +71,16 @@ Rmpz_cmpabs_d Rmpz_cmpabs_ui Rmpz_com Rmpz_combit Rmpz_congruent_2exp_p
 Rmpz_congruent_p Rmpz_congruent_ui_p Rmpz_div Rmpz_divmod Rmpz_div_ui
 Rmpz_divmod_ui Rmpz_div_2exp Rmpz_mod_2exp Rmpz_divexact Rmpz_divexact_ui
 Rmpz_divisible_2exp_p Rmpz_divisible_p Rmpz_divisible_ui_p Rmpz_even_p
-Rmpz_export Rmpz_fac_ui Rmpz_2fac_ui Rmpz_mfac_uiui Rmpz_primorial_ui
+Rmpz_export Rmpz_export_UV
+Rmpz_fac_ui Rmpz_2fac_ui Rmpz_mfac_uiui Rmpz_primorial_ui
 Rmpz_fdiv_q Rmpz_fdiv_q_2exp Rmpz_fdiv_q_ui
 Rmpz_fdiv_qr Rmpz_fdiv_qr_ui Rmpz_fdiv_r Rmpz_fdiv_r_2exp Rmpz_fdiv_r_ui
 Rmpz_fdiv_ui Rmpz_fib2_ui Rmpz_fib_ui Rmpz_fits_sint_p Rmpz_fits_slong_p
 Rmpz_fits_sshort_p Rmpz_fits_uint_p Rmpz_fits_ulong_p Rmpz_fits_ushort_p
 Rmpz_fprintf Rmpz_sprintf Rmpz_snprintf
 Rmpz_gcd Rmpz_gcd_ui Rmpz_gcdext Rmpz_get_d_2exp Rmpz_get_si Rmpz_get_str
-Rmpz_get_ui Rmpz_getlimbn Rmpz_hamdist Rmpz_import Rmpz_init Rmpz_init2
+Rmpz_get_ui Rmpz_getlimbn Rmpz_hamdist Rmpz_import Rmpz_import_UV
+Rmpz_init Rmpz_init2
 Rmpz_init2_nobless Rmpz_init_nobless Rmpz_init_set Rmpz_init_set_d
 Rmpz_init_set_IV Rmpz_init_set_NV
 Rmpz_set_IV Rmpz_set_NV Rmpz_cmp_NV
@@ -109,12 +111,18 @@ zgmp_randinit_set zgmp_randinit_default_nobless zgmp_randinit_mt_nobless
 zgmp_randinit_lc_2exp_nobless zgmp_randinit_lc_2exp_size_nobless zgmp_randinit_set_nobless
 zgmp_urandomb_ui zgmp_urandomm_ui
     );
-    our $VERSION = '0.48';
+    our $VERSION = '0.51';
     #$VERSION = eval $VERSION;
 
-    DynaLoader::bootstrap Math::GMPz $VERSION;
+    Math::GMPz->DynaLoader::bootstrap($VERSION);
 
-    $Math::GMPz::NULL = _Rmpz_NULL();
+    $Math::GMPz::NULL              = _Rmpz_NULL();
+    $Math::GMPz::utf8_no_downgrade = 0; # allow utf8::downgrade of utf8 strings
+                                        # passed to Rmpz_import.
+    $Math::GMPz::utf8_no_warn      = 0; # warn  if utf8 string is passed to Rmpz_import.
+    $Math::GMPz::utf8_no_croak     = 0; # croak if utf8::downgrade fails in Rmpz_import.
+    $Math::GMPz::utf8_no_fail      = 0; # warn  if $Math::GMPz::utf8_no_croak is true &&
+                                        #          utf8::downgrade fails in Rmpz_import.
 
     %Math::GMPz::EXPORT_TAGS =(mpz => [qw(
 MATH_GMPz_IV_MAX MATH_GMPz_IV_MIN MATH_GMPz_UV_MAX
@@ -126,14 +134,16 @@ Rmpz_cmpabs_d Rmpz_cmpabs_ui Rmpz_com Rmpz_combit Rmpz_congruent_2exp_p
 Rmpz_congruent_p Rmpz_congruent_ui_p Rmpz_div Rmpz_divmod Rmpz_div_ui
 Rmpz_divmod_ui Rmpz_div_2exp Rmpz_mod_2exp Rmpz_divexact Rmpz_divexact_ui
 Rmpz_divisible_2exp_p Rmpz_divisible_p Rmpz_divisible_ui_p Rmpz_even_p
-Rmpz_export Rmpz_fac_ui Rmpz_2fac_ui Rmpz_mfac_uiui Rmpz_primorial_ui
+Rmpz_export Rmpz_export_UV
+Rmpz_fac_ui Rmpz_2fac_ui Rmpz_mfac_uiui Rmpz_primorial_ui
 Rmpz_fdiv_q Rmpz_fdiv_q_2exp Rmpz_fdiv_q_ui
 Rmpz_fdiv_qr Rmpz_fdiv_qr_ui Rmpz_fdiv_r Rmpz_fdiv_r_2exp Rmpz_fdiv_r_ui
 Rmpz_fdiv_ui Rmpz_fib2_ui Rmpz_fib_ui Rmpz_fits_sint_p Rmpz_fits_slong_p
 Rmpz_fits_sshort_p Rmpz_fits_uint_p Rmpz_fits_ulong_p Rmpz_fits_ushort_p
 Rmpz_fprintf Rmpz_sprintf Rmpz_snprintf
 Rmpz_gcd Rmpz_gcd_ui Rmpz_gcdext Rmpz_get_d_2exp Rmpz_get_si Rmpz_get_str
-Rmpz_get_ui Rmpz_getlimbn Rmpz_hamdist Rmpz_import Rmpz_init Rmpz_init2
+Rmpz_get_ui Rmpz_getlimbn Rmpz_hamdist Rmpz_import Rmpz_import_UV
+Rmpz_init Rmpz_init2
 Rmpz_init2_nobless Rmpz_init_nobless Rmpz_init_set Rmpz_init_set_d
 Rmpz_init_set_d_nobless Rmpz_init_set_nobless Rmpz_init_set_si
 Rmpz_init_set_si_nobless Rmpz_init_set_str Rmpz_init_set_str_nobless
@@ -540,14 +550,14 @@ sub Rmpz_snprintf {
     return $len;
 }
 
-sub __GNU_MP_VERSION {return ___GNU_MP_VERSION()}
-sub __GNU_MP_VERSION_MINOR {return ___GNU_MP_VERSION_MINOR()}
-sub __GNU_MP_VERSION_PATCHLEVEL {return ___GNU_MP_VERSION_PATCHLEVEL()}
-sub __GNU_MP_RELEASE {return ___GNU_MP_RELEASE()}
-sub __GMP_CC {return ___GMP_CC()}
-sub __GMP_CFLAGS {return ___GMP_CFLAGS()}
-sub GMP_LIMB_BITS {return _GMP_LIMB_BITS()}
-sub GMP_NAIL_BITS {return _GMP_NAIL_BITS()}
+sub __GNU_MP_VERSION            () {return ___GNU_MP_VERSION()}
+sub __GNU_MP_VERSION_MINOR      () {return ___GNU_MP_VERSION_MINOR()}
+sub __GNU_MP_VERSION_PATCHLEVEL () {return ___GNU_MP_VERSION_PATCHLEVEL()}
+sub __GNU_MP_RELEASE            () {return ___GNU_MP_RELEASE()}
+sub __GMP_CC                    () {return ___GMP_CC()}
+sub __GMP_CFLAGS                () {return ___GMP_CFLAGS()}
+sub GMP_LIMB_BITS               () {return _GMP_LIMB_BITS()}
+sub GMP_NAIL_BITS               () {return _GMP_NAIL_BITS()}
 
 *zgmp_randseed =                      \&Math::GMPz::Random::Rgmp_randseed;
 *zgmp_randseed_ui =                   \&Math::GMPz::Random::Rgmp_randseed_ui;

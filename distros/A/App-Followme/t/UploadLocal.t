@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 use strict;
 
-use Cwd;
 use IO::File;
 use File::Path qw(rmtree);
 use File::Spec::Functions qw(catdir catfile rel2abs splitdir);
@@ -24,7 +23,7 @@ my $test_dir = catdir(@path, 'test');
 my $local_dir = catdir(@path, 'test', 'here');
 my $remote_dir = catdir(@path, 'test', 'there');
 
-rmtree($test_dir);
+rmtree($test_dir) if -e $test_dir;
 
 mkdir $test_dir or die $!;
 chmod 0755, $test_dir;
@@ -34,7 +33,6 @@ mkdir $remote_dir or die $!;
 chmod 0755, $remote_dir;
 
 chdir $local_dir or die $!;
-$local_dir = cwd();
 
 my %configuration = (
                      top_directory => $local_dir,
@@ -49,7 +47,7 @@ do {
 
     my $dir = 'subdir';
     my $remote_file = 'filename.html';
-    my $local_file = rel2abs($remote_file);
+    my $local_file = catfile($local_dir, $remote_file);
 
     my $file = <<EOQ;
 <html>

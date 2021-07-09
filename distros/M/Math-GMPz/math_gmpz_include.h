@@ -99,7 +99,7 @@
 
 #endif						/* end ENABLE_MATH_BIGINT_GMP_OVERLOAD */
 
-#define _overload_callback(_1st_arg,_2nd_arg,_3rd_arg)						\
+#define _overload_callback(_1st_arg,_2nd_arg,_3rd_arg)					\
   dSP;											\
   SV * ret;										\
   int count;										\
@@ -108,7 +108,7 @@
   PUSHMARK(SP);										\
   XPUSHs(b);										\
   XPUSHs(a);										\
-  XPUSHs(sv_2mortal(_3rd_arg));							\
+  XPUSHs(sv_2mortal(_3rd_arg));								\
   PUTBACK;										\
   sprintf(buf, "%s", _1st_arg);								\
   count = call_pv(buf, G_SCALAR);							\
@@ -120,4 +120,30 @@
   LEAVE;										\
   return ret
 
+
+#if defined(_GMP_INDEX_OVERFLOW) && __GNU_MP_VERSION < 7
+#define CHECK_MP_BITCNT_T_OVERFLOW(x)							\
+     if((mp_bitcnt_t)SvUVX(x) < SvUVX(x))						\
+       croak("Magnitude of UV argument overflows mp_bitcnt_t");
+#else
+#define CHECK_MP_BITCNT_T_OVERFLOW(x)
+#endif
+
+#define RMPZ_IMPORT_UTF8_WARN \
+"  UTF8 string encountered in Rmpz_import. It will be utf8-downgraded\n\
+  before being passed to mpz_import, and then will be restored to\n\
+  its original condition by a utf8::upgrade if:\n\
+    1) the downgrade was successful\n\
+      OR\n\
+    2) $Math::GMPz::utf8_no_croak is set to a true integer value.\n\
+  Otherwise, a downgrade failure will cause the program to croak\n\
+  with an explanatory error message.\n\
+  To disable the croak on downgrade failure set $Math::GMPz::utf8_no_croak to 1.\n\
+  See the Rmpz_import documentation for a more detailed explanation.\n"
+
+#define RMPZ_IMPORT_DOWNGRADE_WARN \
+"  An attempted utf8 downgrade has failed, but you have opted to allow\n\
+  the Rmpz_import() to continue. Should you decide that this is not the\n\
+  behaviour that you want, then please reset $Math::GMPz::utf8_no_croak\n\
+  to its original value of 0\n"
 

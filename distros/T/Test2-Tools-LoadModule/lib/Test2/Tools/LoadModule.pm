@@ -19,7 +19,7 @@ use Test2::Util ();
 
 use base qw{ Exporter };
 
-our $VERSION = '0.004';
+our $VERSION = '0.006';
 $VERSION =~ s/ _ //smxg;
 
 {
@@ -186,7 +186,6 @@ sub _load_module_ok {
     return $ctx->fail_and_release( $name, @diag );
 }
 
-
 sub load_module_or_skip (@) {	## no critic (RequireArgUnpacking,RequireFinalReturn)
     my ( $opt, $module, $version, $import, $name, $num ) = _validate_args( 5, @_ );
 
@@ -225,7 +224,6 @@ sub load_module_or_skip_all (@) {	## no critic (RequireArgUnpacking)
 
     return;
 }
-
 
 sub _load_module {
     my ( $opt, $module, $version, $import ) = @_;
@@ -360,7 +358,6 @@ sub _caller_class {
     }
 }
 
-
 sub __build_load_eval {
     my @arg = @_;
     HASH_REF eq ref $arg[0]
@@ -381,7 +378,6 @@ sub __build_load_eval {
 
     return "@eval;";
 }
-
 
 sub _validate_args {
     ( my $max_arg, local @ARGV ) = @_;
@@ -428,7 +424,6 @@ EOD
     return $rslt;
 }
 
-
 sub _get_call_info {
     my $lvl = 0;
     while ( my @info = caller $lvl++ ) {
@@ -439,7 +434,6 @@ sub _get_call_info {
     }
     confess 'Bug - Unable to determine caller';
 }
-
 
 1;
 
@@ -779,7 +773,9 @@ L<Test2::Plugin::BailOnFail|Test2::Plugin::BailOnFail>
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
-L<https://rt.cpan.org>, or in electronic mail to the author.
+L<https://rt.cpan.org/Public/Dist/Display.html?Name=Test2-Tools-LoadModule>,
+L<https://github.com/trwyant/perl-Test2-Tools-LoadModule/issues>, or in
+electronic mail to the author.
 
 =head1 AUTHOR
 
@@ -787,7 +783,7 @@ Thomas R. Wyant, III F<wyant at cpan dot org>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2019-2020 by Thomas R. Wyant, III
+Copyright (C) 2019-2021 by Thomas R. Wyant, III
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl 5.10.0. For more details, see the full text

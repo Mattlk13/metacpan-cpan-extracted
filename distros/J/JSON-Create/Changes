@@ -1,3 +1,25 @@
+0.34 2021-05-01
+
+* Add newlines after isolated scalars, so
+  create_json (undef, indent => 1) becomes "null\n" not "null"
+* Indent/sort added to create_json for pure-Perl version
+
+0.33 2021-04-29
+
+* Allow parallel testing
+* Better handling of string/double/integer scalars
+
+0.32 2021-02-22
+
+* Remove debugging fprintf accidentally sent to CPAN
+* Fix for PP for older versions
+
+0.31 2021-02-11
+
+* Rename "run" to "create"
+* Implement downgrade_utf8 in the PP (Pure Perl) version
+* Add native booleans (JSON::Create::Bool) for this module
+
 0.30 2021-01-04
 
 * Add write_json method based on File::JSON::Slurper

@@ -8,7 +8,7 @@ use warnings;
 use Carp;
 use Time::Local ();
 
-our $VERSION = '0.009';
+our $VERSION = '0.011';
 
 my %mock = (
     KERNEL32	=> {
@@ -240,7 +240,9 @@ L<Win32::API|Win32::API> (the real one).
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
-L<https://rt.cpan.org>, or in electronic mail to the author.
+L<https://rt.cpan.org/Public/Dist/Display.html?Name=Win32API-File-Time>,
+L<https://github.com/trwyant/perl-Win32API-File-Time/issues>, or in
+electronic mail to the author.
 
 =head1 AUTHOR
 
@@ -248,7 +250,7 @@ Tom Wyant (wyant at cpan dot org)
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2016-2017, 2019 by Thomas R. Wyant, III
+Copyright (C) 2016-2017, 2019-2021 by Thomas R. Wyant, III
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl 5.10.0. For more details, see the full text

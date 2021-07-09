@@ -20,7 +20,8 @@ do { my $x = {
                                       'Test::Pod::Coverage' => '1.08',
                                       'Test::Pod::LinkCheck' => '0',
                                       'Test::Portability::Files' => '0',
-                                      'Test::TrailingSpace' => '0.0203'
+                                      'Test::TrailingSpace' => '0.0203',
+                                      'Test::Vars' => '0.015'
                                     }
                     },
        'runtime' => {
@@ -40,7 +41,7 @@ do { my $x = {
                                    'Encode' => '0',
                                    'File::Spec' => '0',
                                    'Module::Metadata' => '0',
-                                   'Test::More' => '0',
+                                   'Test::More' => '1.302183',
                                    'Test::Warnings' => '0',
                                    'utf8' => '0'
                                  }

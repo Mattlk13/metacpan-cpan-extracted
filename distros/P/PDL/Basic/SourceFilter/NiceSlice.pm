@@ -48,10 +48,7 @@ $PDL::NiceSlice::debug = defined($PDL::NiceSlice::debug) ? $PDL::NiceSlice::debu
 # the next one is largely stolen from Regexp::Common
 my $RE_cmt = qr'(?:(?:\#)(?:[^\n]*)(?:\n))';
 
-require PDL::Version; # get PDL version number
-# 
-# remove code for PDL versions earlier than 2.3
-# 
+require PDL; # get PDL version number
 
 use Text::Balanced; # used to find parenthesis-delimited blocks 
 
@@ -304,7 +301,7 @@ sub findslice {
          # $post = '';
          # $call = 'slice_if_pdl';     # handle runtime checks for $self type
          # $arg =~ s/\)$/,q{$found})/;  # add original argument string
-                                        # in case $self is not a piddle
+                                        # in case $self is not an ndarray
                                         # and the original call must be
                                         # generated
       }
@@ -457,9 +454,9 @@ PDL::NiceSlice - toward a nicer slicing syntax for PDL
 
   $x(1:4) .= 2;             # concise syntax for ranges
   print $y((0),1:$end);     # use variables in the slice expression
-  $x->xchg(0,1)->(($pos-1)) .= 0; # default method syntax
+  $x->transpose->(($pos-1)) .= 0; # default method syntax
 
-  $idx = long 1, 7, 3, 0;   # a piddle of indices
+  $idx = long 1, 7, 3, 0;   # an ndarray of indices
   $x(-3:2:2,$idx) += 3;     # mix explicit indexing and ranges
   $x->clump(1,2)->(0:30);   # 'default method' syntax
   $x(myfunc(0,$var),1:4)++; # when using functions in slice expressions
@@ -479,15 +476,15 @@ PDL::NiceSlice - toward a nicer slicing syntax for PDL
 =head1 DESCRIPTION
 
 Slicing is a basic, extremely common operation, and PDL's
-L<slice|PDL::Slices/slice> method would be cumbersome to use in many
+L<PDL::Slices/slice> method would be cumbersome to use in many
 cases.  C<PDL::NiceSlice> rectifies that by incorporating new slicing
 syntax directly into the language via a perl I<source filter> (see
-L<the perlfilter man page|perlfilter>).  NiceSlice adds no new functionality, only convenient syntax.
+L<perlfilter>).  NiceSlice adds no new functionality, only convenient syntax.
 
 NiceSlice is loaded automatically in the perldl or pdl2 shell, but (to avoid
 conflicts with other modules) must be loaded explicitly in standalone
 perl/PDL scripts (see below).  If you prefer not to use a prefilter on
-your standalone scripts, you can use the L<slice|PDL::Slices/slice>
+your standalone scripts, you can use the L<PDL::Slices/slice>
 method in those scripts,
 rather than the more compact NiceSlice constructs.
 
@@ -611,13 +608,13 @@ necessarily obvious for the casual user).
 
 =head1 The new slicing syntax
 
-Using C<PDL::NiceSlice> slicing piddles becomes so much easier since, first of
+Using C<PDL::NiceSlice> slicing ndarrays becomes so much easier since, first of
 all, you don't need to make explicit method calls. No
 
   $pdl->slice(....);
 
 calls, etc. Instead, C<PDL::NiceSlice> introduces two ways in which to
-slice piddles without too much typing:
+slice ndarrays without too much typing:
 
 =over 2
 
@@ -631,9 +628,9 @@ for example
 =item *
 
 using the so called I<default method> invocation in which the
-piddle object is treated as if it were a reference to a
+ndarray object is treated as if it were a reference to a
 subroutine (see also L<perlref>). Take this example that slices
-a piddle that is part of a perl list C<@b>:
+an ndarray that is part of a perl list C<@b>:
 
   $c = $b[0]->(0:-3:4,(0));
 
@@ -648,7 +645,7 @@ An arglist in parentheses following directly after a scalar variable
 name that is I<not> preceded by C<&> will be resolved as a slicing
 command, e.g.
 
-  $x(1:4) .= 2;         # only use this syntax on piddles
+  $x(1:4) .= 2;         # only use this syntax on ndarrays
   $sum += $x(,(1));
 
 However, if the variable name is immediately preceded by a C<&>,
@@ -676,7 +673,7 @@ The second syntax that will be recognized is what I called the
 I<default method> syntax. It is the method arrow C<-E<gt>> directly
 followed by an open parenthesis, e.g.
 
-  $x->xchg(0,1)->(($pos)) .= 0;
+  $x->transpose->(($pos)) .= 0;
 
 Note that this conflicts with the use of normal code references, since you
 can write in plain Perl
@@ -707,17 +704,17 @@ The first syntax C<$x(args)> doesn't work with chained method calls. E.g.
 won't work. It can I<only> be used directly following a valid perl variable
 name. Instead, use the I<default method> syntax in such cases:
 
-  $x->xchg(0,1)->(0);
+  $x->transpose->(0);
 
-Similarly, if you have a list of piddles C<@pdls>:
+Similarly, if you have a list of ndarrays C<@pdls>:
 
   $y = $pdls[5]->(0:-1);
 
 =head2 The argument list
 
 The argument list is a comma separated list. Each argument specifies
-how the corresponding dimension in the piddle is sliced. In contrast
-to usage of the L<slice|PDL::Slices/slice> method the arguments should
+how the corresponding dimension in the ndarray is sliced. In contrast
+to usage of the L<PDL::Slices/slice> method the arguments should
 I<not> be quoted. Rather freely mix literals (1,3,etc), perl
 variables and function invocations, e.g.
 
@@ -779,7 +776,7 @@ Four modifiers are currently implemented:
 
 =item *
 
-C<_> : I<flatten> the piddle before applying the slice expression. Here
+C<_> : I<flatten> the ndarray before applying the slice expression. Here
 is an example
 
    $y = sequence 3, 3;
@@ -797,7 +794,7 @@ which is quite different from the same slice expression without the modifier
 
 =item *
 
-C<|> : L<sever|PDL::Core/sever> the link to the piddle, e.g.
+C<|> : L<sever|PDL::Core/sever> the link to the ndarray, e.g.
 
    $x = sequence 10;
    $y = $x(0:2;|)++;  # same as $x(0:2)->sever++
@@ -877,7 +874,7 @@ whenever possible.
 =head2 Argument formats
 
 In slice expressions you can use ranges and secondly,
-piddles as 1D index lists (although compare the description
+ndarrays as 1D index lists (although compare the description
 of the C<?>-modifier above for an exception).
 
 =over 2
@@ -897,9 +894,9 @@ Examples:
   $x(::2);   # this won't work (in the way you probably intended)
   $x(:-1:2); # this will select every 2nd element in the 1st dim
 
-Just as with L<slice|PDL::Slices/slice> negative indices count from the end of the dimension
+Just as with L<PDL::Slices/slice> negative indices count from the end of the dimension
 backwards with C<-1> being the last element. If the start index is larger
-than the stop index the resulting piddle will have the elements in reverse
+than the stop index the resulting ndarray will have the elements in reverse
 order between these limits:
 
   print $x(-2:0:2);
@@ -911,18 +908,18 @@ A single index just selects the given index in the slice
  [5]
 
 Note, however, that the corresponding dimension is not removed from
-the resulting piddle but rather reduced to size 1:
+the resulting ndarray but rather reduced to size 1:
 
   print $x(5)->info
  PDL: Double D [1]
 
 If you want to get completely rid of that dimension enclose the index
-in parentheses (again similar to the L<slice|PDL::Slices/slice> syntax):
+in parentheses (again similar to the L<PDL::Slices/slice> syntax):
 
   print $x((5));
  5
 
-In this particular example a 0D piddle results. Note that this syntax is
+In this particular example a 0D ndarray results. Note that this syntax is
 only allowed with a single index. All these will be errors:
 
   print $x((0,4));  # will work but not in the intended way
@@ -942,7 +939,7 @@ Alternative ways to select a whole dimension are
   print $x(0:,(0));
 
 Arguments for trailing dimensions can be omitted. In that case
-these dimensions will be fully kept in the sliced piddle:
+these dimensions will be fully kept in the sliced ndarray:
 
   $x = random 3,4,5;
   print $x->info;
@@ -956,13 +953,13 @@ these dimensions will be fully kept in the sliced piddle:
 
 =item * dummy dimensions
 
-As in L<slice|slice>, you can insert a dummy dimension by preceding a
+As in L<PDL::Slices/slice>, you can insert a dummy dimension by preceding a
 single index argument with '*'.  A lone '*' inserts a dummy dimension of 
 order 1; a '*' followed by a number inserts a dummy dimension of that order.
 
-=item * piddle index lists
+=item * ndarray index lists
 
-The second way to select indices from a dimension is via 1D piddles
+The second way to select indices from a dimension is via 1D ndarrays
 of indices. A simple example:
 
   $x = random 10;
@@ -970,33 +967,33 @@ of indices. A simple example:
   $y = $x($idx);
 
 This way of selecting indices was previously only possible using
-L<dice|PDL::Slices/dice> (C<PDL::NiceSlice> attempts to unify the
-C<slice> and C<dice> interfaces). Note that the indexing piddles must
-be 1D or 0D. Higher dimensional piddles as indices will raise an error:
+L<PDL::Slices/dice> (C<PDL::NiceSlice> attempts to unify the
+C<slice> and C<dice> interfaces). Note that the indexing ndarrays must
+be 1D or 0D. Higher dimensional ndarrays as indices will raise an error:
 
   $x = sequence 5, 5;
   $idx2 = ones 2,2;
   $sum = $x($idx2)->sum;
- piddle must be <= 1D at /home/XXXX/.perldlrc line 93
+ ndarray must be <= 1D at /home/XXXX/.perldlrc line 93
 
-Note that using index piddles is not as efficient as using ranges.
+Note that using index ndarrays is not as efficient as using ranges.
 If you can represent the indices you want to select using a range
-use that rather than an equivalent index piddle. In particular,
-memory requirements are increased with index piddles (and execution
-time I<may> be longer). That said, if an index piddle is the way to
+use that rather than an equivalent index ndarray. In particular,
+memory requirements are increased with index ndarrays (and execution
+time I<may> be longer). That said, if an index ndarray is the way to
 go use it!
 
 =back
 
-As you might have expected ranges and index piddles can be freely
+As you might have expected ranges and index ndarrays can be freely
 mixed in slicing expressions:
 
   $x = random 5, 5;
   $y = $x(-1:2,pdl(3,0,1));
 
-=head2 piddles as indices in ranges
+=head2 ndarrays as indices in ranges
 
-You can use piddles to specify indices in ranges. No need to
+You can use ndarrays to specify indices in ranges. No need to
 turn them into proper perl scalars with the new slicing syntax.
 However, make sure they contain not more than one element! Otherwise
 a runtime error will be triggered. First a couple of examples that
@@ -1017,12 +1014,12 @@ illustrate proper usage:
 The next one raises an error 
 
   print $x($rg+1,:$rg(0:1));
- multielement piddle where only one allowed at XXX/Core.pm line 1170.
+ multielement ndarray where only one allowed at XXX/Core.pm line 1170.
 
-The problem is caused by using the 2-element piddle C<$rg(0:1)> as the
+The problem is caused by using the 2-element ndarray C<$rg(0:1)> as the
 stop index in the second argument C<:$rg(0:1)> that is interpreted as
-a range by C<PDL::NiceSlice>. You I<can> use multielement piddles as
-index piddles as described above but not in ranges. And
+a range by C<PDL::NiceSlice>. You I<can> use multielement ndarrays as
+index ndarrays as described above but not in ranges. And
 C<PDL::NiceSlice> treats any expression with unprotected C<:>'s as a
 range.  I<Unprotected> means as usual 
 I<"not occurring between matched parentheses">.
@@ -1036,7 +1033,7 @@ compiler. C<PDL::NiceSlice> searches through your Perl source code and when
 it finds the new slicing syntax it rewrites the argument list
 appropriately and splices a call to the C<slice> method using the
 modified arg list into your perl code. You can see how this works in
-the L<perldl|perldl> or L<pdl2|PDL::Perldl2> shells by switching on
+the L<perldl> or L<pdl2|PDL::Perldl2> shells by switching on
 reporting (see above how to do that).
 
 =head1 BUGS
@@ -1052,14 +1049,14 @@ I<Note>: To avoid clobbering the C<DATA> filehandle C<PDL::NiceSlice>
 switches itself off when encountering the C<__END__> or C<__DATA__> tokens.
 This should not be a problem for you unless you use C<SelfLoader> to load
 PDL code including the new slicing from that section. It is even desirable
-when working with L<Inline::Pdlpp|Inline::Pdlpp>, see below.
+when working with L<Inline::Pdlpp>, see below.
 
-=head2 Possible interaction with L<Inline::Pdlpp|Inline::Pdlpp>
+=head2 Possible interaction with L<Inline::Pdlpp>
 
 There is currently an undesired interaction between C<PDL::NiceSlice>
-and the new L<Inline::Pdlpp|Inline::Pdlpp> module (currently only in 
+and the new L<Inline::Pdlpp> module (currently only in 
 PDL CVS). Since PP code generally
-contains expressions of the type C<$var()> (to access piddles, etc)
+contains expressions of the type C<$var()> (to access ndarrays, etc)
 C<PDL::NiceSlice> recognizes those I<incorrectly> as
 slice expressions and does its substitutions. This is not a problem
 if you use the C<DATA> section for your Pdlpp code -- the recommended

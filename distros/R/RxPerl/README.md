@@ -37,7 +37,7 @@ The documentation in this POD applies to all three adapter modules as well.
 This module is an implementation of [Reactive Extensions](http://reactivex.io/) in Perl. It replicates the
 behavior of [rxjs 6](https://www.npmjs.com/package/rxjs) which is the JavaScript implementation of ReactiveX.
 
-Currently 53 of the 100+ operators in rxjs are implemented in this module.
+Currently 54 of the 100+ operators in rxjs are implemented in this module.
 
 # EXPORTABLE FUNCTIONS
 
@@ -151,7 +151,8 @@ should apply to RxPerl too).
 
     [https://rxjs.dev/api/index/function/from](https://rxjs.dev/api/index/function/from)
 
-    Currently, only arrayrefs, promises, observables and strings are allowed as argument to this function.
+    Currently, only arrayrefs, promises, Futures, observables and strings are allowed as argument
+    to this function.
 
         # 10, 20, 30, complete
         rx_from([10, 20, 30])->subscribe($observer);
@@ -298,8 +299,8 @@ Pipeable operators (also referred to as "operators") are passed as arguments to 
 observables. Their function is to take an observable, transform it somehow, then (similar to piped shell commands) pass
 the result of the transformation to the next pipeable operator in the pipe, or return it to the user.
 
-The following list is the currently implemented operators, with links to relevant rxjs documentation (which should apply to RxPerl
-too).
+The following list is the currently implemented operators, with links to relevant rxjs documentation (which should
+apply to RxPerl too).
 
 - op\_audit\_time
 
@@ -600,6 +601,15 @@ too).
             op_skip(3),
         )->subscribe($observer);
 
+- op\_skip\_until
+
+    [https://rxjs.dev/api/operators/skipUntil](https://rxjs.dev/api/operators/skipUntil)
+
+        # (pause 4 seconds) 3, 4, 5, ...
+        rx_interval(1)->pipe(
+            op_skip_until( rx_timer(3.5) ),
+        )->subscribe($observer);
+
 - op\_start\_with
 
     [https://rxjs.dev/api/operators/startWith](https://rxjs.dev/api/operators/startWith)
@@ -688,6 +698,43 @@ too).
             op_with_latest_from(rx_interval(0.7)),
         )->subscribe($observer);
 
+## PROMISE FUNCTIONS
+
+These functions return a promise or a future, and require the existence of a user-selectable
+promise library which is automatically loaded in runtime. The functions are borrowed from
+rxjs 7, and remain experimental until rxjs 7 is finalized.
+
+You can optionally set the type of promises returned by these functions with the
+`RxPerl::AnyEvent->set_promise_class($promise_class)` class method, unless you're using
+[RxPerl::AnyEvent](https://metacpan.org/pod/RxPerl%3A%3AAnyEvent), in which case it's mandatory.
+
+By default the functions return a [Mojo::Promise](https://metacpan.org/pod/Mojo%3A%3APromise) object (when using with [RxPerl::Mojo](https://metacpan.org/pod/RxPerl%3A%3AMojo)),
+or a [Future](https://metacpan.org/pod/Future) object (when using with [RxPerl::IOAsync](https://metacpan.org/pod/RxPerl%3A%3AIOAsync)).
+
+- first\_value\_from
+
+    Accepts an observable and returns a promise that resolves with the observable's first emitted value
+    as soon as it gets emitted. If no value is emitted before the observable's completion, the promise
+    is rejected.
+
+        use RxPerl::AnyEvent ':all';
+        RxPerl::AnyEvent->set_promise_class('Promise::ES6');
+
+        my $o = ...; # an observable
+        first_value_from($o)->then( ... );
+
+- last\_value\_from
+
+    Accepts an observable and returns a promise that resolves with the observable's last emitted value
+    as soon as the observable completes. If no value is emitted before the observable's completion, the
+    promise is rejected.
+
+        use RxPerl::AnyEvent ':all';
+        RxPerl::AnyEvent->set_promise_class('Promise::ES6');
+
+        my $o = ...; # an observable
+        last_value_from($o)->then( ... );
+
 # OBSERVABLE METHODS
 
 - subscribe
@@ -720,27 +767,6 @@ too).
             op_filter(sub {$_[0] % 2 == 1}),
             op_map(sub {2 * $_[0]}),
         )->subscribe(...)
-
-- any of the pipeable operators
-
-    Apart from passing pipeable operators as arguments to an observable's pipe method, another way to use such operators
-    is as direct methods on the observable object itself. Remember to remove their `op_` prefix first.
-
-        # Instead of:
-        my $o = of(1, 2, 3, 4, 5, 6, 7, 8, 9)->pipe(
-            op_filter(sub { $_[0] % 2 == 1 }),
-            op_map(sub { $_[0] * 10 }),
-            op_take(3),
-        );
-
-        # you could also write:
-        my $o = of(1, 2, 3, 4, 5, 6, 7, 8, 9)
-            ->filter(sub { $_[0] % 2 == 1 })
-            ->map(sub { $_[0] * 10 })
-            ->take(3);
-
-    Note that this way of calling pipeable operators is **EXPERIMENTAL** and subject to change or withdrawal if rxjs in
-    one of its future versions implements an observable method whose name clashes with a pipeable operator.
 
 # CONNECTABLE OBSERVABLE METHODS
 
@@ -806,7 +832,7 @@ ReactiveX to cater for web developers already familiar with rxjs.
 
 - [Ryu](https://metacpan.org/pod/Ryu)
 
-# NOTIFICATIONS FOR NEW VERSIONS
+# NOTIFICATIONS FOR NEW RELEASES
 
 You can start receiving emails for new releases of this module, at [https://perlmodules.net](https://perlmodules.net).
 
@@ -819,4 +845,4 @@ it under the same terms as Perl itself.
 
 # AUTHOR
 
-KARJALA <karjala@cpan.org>
+Alexander Karelas <karjala@cpan.org>

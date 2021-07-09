@@ -20,15 +20,16 @@
   @param g             [out] bignum where generated 'g' is stored (must be initialized by caller)
   @return CRYPT_OK if successful, upon error this function will free all allocated memory
 */
-static int _dsa_make_params(prng_state *prng, int wprng, int group_size, int modulus_size, void *p, void *q, void *g)
+static int s_dsa_make_params(prng_state *prng, int wprng, int group_size, int modulus_size, void *p, void *q, void *g)
 {
   unsigned long L, N, n, outbytes, seedbytes, counter, j, i;
   int err, res, mr_tests_q, mr_tests_p, found_p, found_q, hash;
   unsigned char *wbuf, *sbuf, digest[MAXBLOCKSIZE];
   void *t2L1, *t2N1, *t2q, *t2seedlen, *U, *W, *X, *c, *h, *e, *seedinc;
+  const char *accepted_hashes[] = { "sha3-512", "sha512", "sha3-384", "sha384", "sha3-256", "sha256" };
 
   /* check size */
-  if (group_size >= LTC_MDSA_MAX_GROUP || group_size < 1 || group_size >= modulus_size) {
+  if (group_size > LTC_MDSA_MAX_GROUP || group_size < 1 || group_size >= modulus_size || modulus_size > LTC_MDSA_MAX_MODULUS) {
     return CRYPT_INVALID_ARG;
   }
 
@@ -87,16 +88,15 @@ static int _dsa_make_params(prng_state *prng, int wprng, int group_size, int mod
   else                { mr_tests_q = 64; }
 #endif
 
-  if (N <= 256) {
-    hash = register_hash(&sha256_desc);
+  hash = -1;
+  for (i = 0; i < sizeof(accepted_hashes)/sizeof(accepted_hashes[0]); ++i) {
+    hash = find_hash(accepted_hashes[i]);
+    if (hash != -1) break;
   }
-  else if (N <= 384) {
-    hash = register_hash(&sha384_desc);
+  if (hash == -1) {
+    return CRYPT_INVALID_ARG; /* no appropriate hash function found */
   }
-  else if (N <= 512) {
-    hash = register_hash(&sha512_desc);
-  }
-  else {
+  if (N > hash_descriptor[hash].hashsize * 8) {
     return CRYPT_INVALID_ARG; /* group_size too big */
   }
 
@@ -217,7 +217,7 @@ int dsa_generate_pqg(prng_state *prng, int wprng, int group_size, int modulus_si
       return err;
    }
    /* generate params */
-   err = _dsa_make_params(prng, wprng, group_size, modulus_size, key->p, key->q, key->g);
+   err = s_dsa_make_params(prng, wprng, group_size, modulus_size, key->p, key->q, key->g);
    if (err != CRYPT_OK) {
       goto cleanup;
    }

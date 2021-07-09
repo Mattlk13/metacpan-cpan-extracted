@@ -6,10 +6,8 @@ use strict;
  
 use Config;
 use File::Basename qw(&basename &dirname);
- 
 require './Dev.pm'; PDL::Core::Dev->import;
-use vars qw( %PDL_DATATYPES );
-require './Types.pm'; #for typesrtkeys
+PDL::Core::Dev::loadmod_Types();
 
 # This forces PL files to create target in same directory as PL file.
 # This is so that make depend always knows where to find PL derivatives.
@@ -41,7 +39,6 @@ print OUT <<"!WITH!SUBS!";
  
 print OUT <<'!NO!SUBS!';
 
-#define PDL_CORE      /* For certain ifdefs */
 #include "pdl.h"      /* Data structure declarations */
 #include "pdlcore.h"  /* Core declarations */
 
@@ -49,8 +46,8 @@ print OUT <<'!NO!SUBS!';
 
 # these 2 routines shouldn't need to be changed to handle
 # bad values, since all they do is copy data from
-# one piddle to another of the same type
-# (assuming no per-piddle bad values)
+# one ndarray to another of the same type
+# (assuming no per-ndarray bad values)
 #
 
 for(['readdata_vaffine', "*ap = *pp"],
@@ -74,9 +71,8 @@ void pdl_${name}(pdl *a) {
 
 ##### Generate code for each data type #####
 
-for my $in ( PDL::Types::typesrtkeys() ) {
-
-    my $intype = $PDL_DATATYPES{$in};
+for my $t ( PDL::Types::types() ) {
+    my ($in, $intype) = map $t->$_, qw(sym ctype);
     print OUT <<"!WITH!SUBS!";
     case ${in}:
       {
@@ -145,10 +141,6 @@ void pdl_converttype( pdl** aa, int targtype, Logical changePerl ) {
     STRLEN   nbytes;
     int   diffsize;
     PDL_Indx   i;
-#if (PERL_VERSION >= 5) && (PERL_SUBVERSION >= 57)
-    dXSARGS;
-#endif
-
     PDLDEBUG_f(printf("pdl_converttype %p, %d, %d, %d\n", (void*)a, a->datatype,
     	targtype, changePerl);)
 
@@ -168,21 +160,14 @@ void pdl_converttype( pdl** aa, int targtype, Logical changePerl ) {
 
       if (diffsize) {
          b = a->data;                      /* pointer to old data */
-         a->data     = pdl_malloc(nbytes); /* Space for changed data */
+         a->data     = pdl_smalloc(nbytes); /* Space for changed data */
       }
       else{
          b = a->data; /* In place */
       }
 
     }else{
-
        die("Sorry, temporary type casting is not allowed now");
-
-       b = a->data;          /* Ptr to old data */
-       a = pdl_tmp();        /* Brand new scratch pdl */
-/*       pdl_clone(*aa,  a);  */ /* Copy old pdl entries */
-       a->data     = pdl_malloc(nbytes); /* Space for changed data */
-       *aa = a;              /* Change passed value to new address */
     }
 
     /* Do the conversion as nested switch statements */
@@ -192,10 +177,8 @@ void pdl_converttype( pdl** aa, int targtype, Logical changePerl ) {
 
 ##### Generate code for each pair of data types #####
 
-for my $in ( PDL::Types::typesrtkeys() ) {
-
-    my $intype = $PDL_DATATYPES{$in}; 
-
+for my $t ( PDL::Types::types() ) {
+    my ($in, $intype) = map $t->$_, qw(sym ctype);
     print OUT <<"!WITH!SUBS!";
       case ${in}:
         {
@@ -205,11 +188,9 @@ for my $in ( PDL::Types::typesrtkeys() ) {
          switch ( targtype ) {
 !WITH!SUBS!
 
-    for my $targ ( PDL::Types::typesrtkeys() ) {
-
+    for my $t2 ( PDL::Types::types() ) {
+	my ($targ, $targtype) = map $t2->$_, qw(sym ctype);
 	next if $in eq $targ; # Skip duplicates
-	my $targtype = $PDL_DATATYPES{$targ};
-
 	print OUT <<"!WITH!SUBS!";
 	   case ${targ}:
              {
@@ -343,7 +324,7 @@ void ** pdl_twod( pdl* x ) {
 
    size=pdl_howbig(x->datatype);
 
-   p = pdl_malloc( ny*sizeof(void*) ); /* 1D array of ptrs p[i] */
+   p = pdl_smalloc( ny*sizeof(void*) ); /* 1D array of ptrs p[i] */
    for (i=0;i<ny;i++)
        p[i] = (void*) &xx[i*nx*size];
 

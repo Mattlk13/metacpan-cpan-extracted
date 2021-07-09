@@ -6,7 +6,7 @@
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -34,15 +34,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
 use strict;
 use warnings;
 use feature qw(say);
-use List::Util;
 
 use Photonic::Geometry::FromB;
 use Photonic::LE::NR2::EpsL;
 
 use PDL;
 use PDL::NiceSlice;
-use PDL::Complex;
-
 
 # It is a M-dimensional problem where the macroscopic dielectric
 # tensor components are calculated into the polarization direction
@@ -80,7 +77,7 @@ $B=$B->rvals < $r;
 my $epsA=pdl(4); # used for host A and for metric
 my ($hnu_all,$epsBall)=eps("au"); # used for particle B, gold in this example.
 # in DATA below this file end
-my $elem=$epsBall->dim(1); # how many frequencies for calculation
+my $elem=$epsBall->dim(0); # how many frequencies for calculation
 
 # In this example the Longitudinal Epsilon (LE) is a Photonic::LE::NR2
 # perl-PDL module that heritates to the AllH and EpsL module that
@@ -116,7 +113,7 @@ my @out=(); # list for the output results
 
 #------------------------------------------------------------
 for(my $j=0;$j<$elem;$j++){
-    my $epsB=$epsBall(,($j),(0));
+    my $epsB=$epsBall(($j),(0));
     my $hnu=$hnu_all(($j),(0));
 #----------------------------------------------------------------------------------
 # Non Retarded calculation throw the $epsM_L object of Photonic::LE::NR2::EpsL
@@ -148,15 +145,15 @@ $wgp->plot(xr=>[1.2,3],legend=>['Re','Im'],with=>'lines',lw=>2,$x,$y);
 
 sub eps{
     my $epsi=shift;
-    my @eps=();
     die "This example is prepared only for epsB=au (gold)" unless $epsi eq "au";
+    my (@h_nu, @re, @im);
     while(<main::DATA>){
 	(my $h_nu,my $eps_re,my $eps_im) = split;
-	my $linea=pdl($h_nu,$eps_re,$eps_im);
-	push @eps, $linea;
+        push @h_nu, $h_nu;
+        push @re, $eps_re;
+        push @im, $eps_im;
     }
-    my $eps=pdl(@eps)->mv(-1,0)->(,1)+i*pdl(@eps)->mv(-1,0)->(,2);
-    return (pdl(@eps)->mv(-1,0)->(,0), $eps);
+    (pdl(\@h_nu), pdl(\@re) + pdl(\@im) * i);
 }
 
 __END__

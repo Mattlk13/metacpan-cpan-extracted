@@ -1,3 +1,17 @@
+2021-01-28  Dave Cross  <dave@perlhacks.com>
+
+	* Version 1.0.3
+
+	* Fix typo in previous release
+
+2021-01-24  Dave Cross  <dave@perlhacks.com>
+
+	* Version 1.0.2
+
+	* Add bugtracker to metadata
+
+	* Test improvements
+
 2020-11-04  Dave Cross  <dave@perlhacks.com>
 
         * Version 1.0.1

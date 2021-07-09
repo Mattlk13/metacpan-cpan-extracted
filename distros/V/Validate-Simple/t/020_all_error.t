@@ -35,7 +35,9 @@ my @tests = (
         },
         params => [
             [ { arr => 'text' },    [ '/arr' ] ],
+            [ { arr => [] },        [ '/arr' ] ],
             [ { arr => [ 1, '' ] }, [ '/arr/1' ] ],
+            [ { arr => [ '', 1 ] }, [ '/arr/0' ] ],
         ],
     },
     {
@@ -49,8 +51,13 @@ my @tests = (
             },
         },
         params => [
-            [ { hash => 'text' },    [ '/hash' ] ],
-            [ { hash => { 1 => 2, 'key' => '' } }, [ '/hash/key' ] ],
+            [ { hash => 'text' }, [ '/hash' ] ],
+            [ { hash => {} },     [ '/hash' ] ],
+            [ { hash => {
+                1 => 2,
+                'foo' => '',
+                'bar' => [],
+            } }, [ '/hash/foo', '/hash/bar' ] ],
         ],
     },
     {
@@ -67,8 +74,9 @@ my @tests = (
             },
         },
         params => [
-            [ { arr => 'text' },    [ '/arr' ] ],
-            [ { arr => [ 1, 2 ] }, [ '/arr/0', '/arr/1' ] ],
+            [ { arr => 'text' },        [ '/arr' ] ],
+            [ { arr => [ 1, 2 ] },      [ '/arr/0', '/arr/1' ] ],
+            [ { arr => [ 1, [ 1 ], [] ] }, [ '/arr/0', '/arr/2' ] ],
             [ { arr => [ [ 0 ], [ 1, '', {} ] ] }, [ '/arr/1/1', '/arr/1/2' ] ],
             [ { arr => [ { 0 => 0 }, [ 1, '', {} ] ] }, [ '/arr/0', '/arr/1/1', '/arr/1/2' ] ],
         ],
@@ -110,7 +118,7 @@ my @tests = (
             [ { hash => 'text' }, [ '/hash' ] ],
             [ { hash => [ 1, 2 ] }, [ '/hash' ] ],
             [ { hash => { key => { 2 => 3, foo => 'bar' } } }, [ '/hash/key/foo' ] ],
-            [ { hash => { key => {}, foo => { 1 => 2 }, bar => { 3 => 4 } } }, [ '/hash/key' ] ],
+            [ { hash => { foo => {}, bar => [ 1 ], k1 => { 1 => 2 }, k2 => { 3 => 4 } } }, [ '/hash/foo', '/hash/bar' ] ],
         ],
     },
     {
@@ -131,6 +139,72 @@ my @tests = (
             [ { hash => [ 1, 2 ] }, [ '/hash' ] ],
             [ { hash => { key => [ 2 ], foo => { bar => 'buzz' } } }, [ '/hash/foo' ] ],
             [ { hash => { key => [ 1, 2, '' ], foo => [ 1 ] } }, [ '/hash/key/2' ] ],
+        ],
+    },
+    {
+        name => 'Subspecs',
+        specs => {
+            subspec => {
+                type => 'spec',
+                of => {
+                    n => {
+                        type => 'number',
+                    },
+                    s => {
+                        type => 'string',
+                    },
+                },
+            },
+            nested => {
+                type => 'spec',
+                of => {
+                    n => {
+                        type => 'number',
+                    },
+                    subsubspec => {
+                        type => 'spec',
+                        of => {
+                            arr => {
+                                type => 'array',
+                                of => {
+                                    type => 'integer',
+                                    undef => 1,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+
+        },
+        params => [
+            [ { subspec => [] }, [ '/subspec' ] ],
+            [ { nested => { n => 'text' } }, [ '/nested/n' ] ],
+            [ { subspec => 1, nested => { n => 'text' } }, [ '/subspec', '/nested/n' ] ],
+            [ { nested => { subsubspec => 'text' } }, [ '/nested/subsubspec' ] ],
+            [ { subspec => { s => {} }, nested => { subsubspec => 'text' } }, [ '/subspec/s', '/nested/subsubspec' ] ],
+            [ { nested => { subsubspec => { arr => [ 0, 1, '', 3 ] } } }, [ '/nested/subsubspec/arr/2' ] ],
+            [
+                {
+                    nested => {
+                        subsubspec => {
+                            arr => [ '', 1, '', 3 ],
+                        }
+                    }
+                },
+                [ '/nested/subsubspec/arr/0', '/nested/subsubspec/arr/2' ]
+            ],
+            [
+                {
+                    subspec => { s => {} },
+                    nested => {
+                        subsubspec => {
+                            arr => [ '', 1, '', 3 ],
+                        }
+                    }
+                },
+                [ '/subspec/s', '/nested/subsubspec/arr/0', '/nested/subsubspec/arr/2' ]
+            ],
         ],
     },
 );
@@ -221,7 +295,7 @@ sub compare_errors {
     } $vs->errors();
 
     if ( !$ae ) {
-        ok( scalar( @errors ) == 1, "$desc !\$all_errors - returns only 1 error");
+        ok( scalar( @errors ) == 1, "$desc !\$all_errors - returns only 1 error" );
         ok( exists( $expected{ $errors[0] } ), "$desc !\$all_errors - one of the errors found : " );
     }
     else {

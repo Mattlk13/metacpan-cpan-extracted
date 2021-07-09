@@ -56,7 +56,7 @@ act q|
 
 act q|
 	# xvals and yvals (yes, there is also zvals...)
-	# give you piddles which give the coordinate value.
+	# give you ndarrays which give the coordinate value.
 	$y = xvals $x;
 	output $y;
 |;
@@ -91,7 +91,7 @@ act q|
 act q|
 	# One of the really nifty features is that the
 	# slices are actually references back to the original
-	# piddle:
+	# ndarray:
 	$diag = $y->diagonal(0,1);
 	output $y;
 	output $diag,"\n";
@@ -124,7 +124,7 @@ act q|
 |;
 
 act q|
-	output $y->xchg(0,1);
+	output $y->transpose;
 	output $y->minimum,"\n"; # over first dim.
 	output $y->min,"\n";
 |;

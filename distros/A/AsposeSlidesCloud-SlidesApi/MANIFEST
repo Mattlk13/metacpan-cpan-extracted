@@ -101,6 +101,7 @@ lib/AsposeSlidesCloud/Object/PptxExportOptions.pm
 lib/AsposeSlidesCloud/Object/PresentationsMergeRequest.pm
 lib/AsposeSlidesCloud/Object/PresentationToMerge.pm
 lib/AsposeSlidesCloud/Object/PresetShadowEffect.pm
+lib/AsposeSlidesCloud/Object/ProtectionProperties.pm
 lib/AsposeSlidesCloud/Object/ReflectionEffect.pm
 lib/AsposeSlidesCloud/Object/RemoveShape.pm
 lib/AsposeSlidesCloud/Object/RemoveSlide.pm
@@ -114,7 +115,6 @@ lib/AsposeSlidesCloud/Object/ResponseOutputFile.pm
 lib/AsposeSlidesCloud/Object/Save.pm
 lib/AsposeSlidesCloud/Object/SaveShape.pm
 lib/AsposeSlidesCloud/Object/SaveSlide.pm
-lib/AsposeSlidesCloud/Object/ScaleType.pm
 lib/AsposeSlidesCloud/Object/ScatterChartDataPoint.pm
 lib/AsposeSlidesCloud/Object/ScatterSeries.pm
 lib/AsposeSlidesCloud/Object/Section.pm
@@ -126,14 +126,15 @@ lib/AsposeSlidesCloud/Object/ShapeBase.pm
 lib/AsposeSlidesCloud/Object/ShapeExportFormat.pm
 lib/AsposeSlidesCloud/Object/ShapeImageExportOptions.pm
 lib/AsposeSlidesCloud/Object/Shapes.pm
+lib/AsposeSlidesCloud/Object/ShapesAlignmentType.pm
 lib/AsposeSlidesCloud/Object/ShapeThumbnailBounds.pm
-lib/AsposeSlidesCloud/Object/SizeType.pm
 lib/AsposeSlidesCloud/Object/Slide.pm
 lib/AsposeSlidesCloud/Object/SlideAnimation.pm
 lib/AsposeSlidesCloud/Object/SlideBackground.pm
 lib/AsposeSlidesCloud/Object/SlideComment.pm
 lib/AsposeSlidesCloud/Object/SlideComments.pm
 lib/AsposeSlidesCloud/Object/SlideExportFormat.pm
+lib/AsposeSlidesCloud/Object/SlideProperties.pm
 lib/AsposeSlidesCloud/Object/SlideReplaceResult.pm
 lib/AsposeSlidesCloud/Object/Slides.pm
 lib/AsposeSlidesCloud/Object/SmartArt.pm
@@ -166,7 +167,6 @@ lib/AsposeSlidesCloud/SlidesApi.pm
 LICENSE
 MakeFile.pl
 MANIFEST			This list of files
-prove.pl
 README.md
 META.yml                                 Module YAML meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)

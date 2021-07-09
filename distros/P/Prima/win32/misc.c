@@ -111,133 +111,6 @@ apc_get_user_name()
 	return userName;
 }
 
-PList
-apc_getdir( const char *dirname, Bool is_utf8)
-{
-#ifdef __CYGWIN__
-	DIR *dh;
-	struct dirent *de;
-	PList dirlist = nil;
-	char *type, *dname;
-	char path[ 2048];
-	struct stat s;
-
-	if ( *dirname == '/' && dirname[1] == '/') dirname++;
-	if ( strcmp( dirname, "/") == 0)
-		dname = "";
-	else
-		dname = ( char*) dirname;
-
-
-	if (( dh = opendir( dirname)) && (dirlist = plist_create( 50, 50))) {
-		while (( de = readdir( dh))) {
-			list_add( dirlist, (Handle)duplicate_string( de-> d_name));
-			snprintf( path, 2047, "%s/%s", dname, de-> d_name);
-			type = nil;
-			if ( stat( path, &s) == 0) {
-				switch ( s. st_mode & S_IFMT) {
-				case S_IFIFO:        type = "fifo";  break;
-				case S_IFCHR:        type = "chr";   break;
-				case S_IFDIR:        type = "dir";   break;
-				case S_IFBLK:        type = "blk";   break;
-				case S_IFREG:        type = "reg";   break;
-				case S_IFLNK:        type = "lnk";   break;
-				case S_IFSOCK:       type = "sock";  break;
-				}
-			}
-			if ( !type) type = "reg";
-			list_add( dirlist, (Handle)duplicate_string( type));
-		}
-		closedir( dh);
-	}
-	return dirlist;
-#else
-	long		 len;
-	WCHAR		 scanname[MAX_PATH+3];
-	WIN32_FIND_DATAW FindData;
-	HANDLE		 fh;
-	WCHAR *          dirname_w;
-
-	DWORD            fattrs;
-	PList            ret;
-	Bool             wasDot = false, wasDotDot = false;
-
-#define add_entry(file,info)  {                         \
-	list_add( ret, ( Handle) duplicate_string(file));   \
-	list_add( ret, ( Handle) duplicate_string(info));   \
-}
-
-#define add_fentry  {                                                         \
-	WideCharToMultiByte(CP_UTF8, 0, \
-		FindData.cFileName, -1, \
-		(LPSTR)scanname, sizeof(scanname), \
-		NULL, false); \
-	add_entry((char*) scanname, \
-		( FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? DIR : FILE); \
-	if ( wcscmp( L".", FindData.cFileName) == 0)                               \
-		wasDot = true;                                                         \
-	else if ( wcscmp( L"..", FindData.cFileName) == 0)                         \
-		wasDotDot = true;                                                      \
-}
-
-
-#define DIR  "dir"
-#define FILE "reg"
-
-	dirname_w = is_utf8 ?
-		alloc_utf8_to_wchar( dirname, -1, NULL) :
-		alloc_ascii_to_wchar( dirname, -1);
-
-	len = wcslen(dirname_w);
-	if (len > MAX_PATH) {
-		free(dirname_w);
-		return NULL;
-	}
-		
-	/* check to see if filename is a directory */
-	fattrs = GetFileAttributesW( dirname_w);
-	if ( fattrs == 0xFFFFFFFF || ( fattrs & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-		free(dirname_w);
-		return NULL;
-	}
-
-	/* Create the search pattern */
-	wcscpy(scanname, dirname_w);
-	if (scanname[len-1] != '/' && scanname[len-1] != '\\')
-		scanname[len++] = '/';
-	scanname[len++] = '*';
-	scanname[len] = '\0';
-	free(dirname_w);
-
-	/* do the FindFirstFile call */
-	fh = FindFirstFileW(scanname, &FindData);
-	if (fh == INVALID_HANDLE_VALUE) {
-		/* FindFirstFile() fails on empty drives! */
-		if (GetLastError() != ERROR_FILE_NOT_FOUND)
-			return NULL;
-		ret = plist_create( 2, 16);
-		add_entry( ".",  DIR);
-		add_entry( "..", DIR);
-		return ret;
-	}
-
-	ret = plist_create( 16, 16);
-	add_fentry;
-	while ( FindNextFileW(fh, &FindData))
-		add_fentry;
-	FindClose(fh);
-
-	if ( !wasDot)
-		add_entry( ".",  DIR);
-	if ( !wasDotDot)
-		add_entry( "..", DIR);
-
-#undef FILE
-#undef DIR
-	return ret;
-#endif
-}
-
 Bool
 apc_show_message( const char * message, Bool utf8)
 {
@@ -303,17 +176,17 @@ apc_sys_get_value( int sysValue)
 		return GetSystemMetrics( SM_CMOUSEBUTTONS);
 	case svSubmenuDelay   :
 		RegOpenKeyEx( HKEY_CURRENT_USER, "Control Panel\\Desktop", 0, KEY_READ, &hKey);
-		RegQueryValueEx( hKey, "MenuShowDelay", nil, &valType, ( LPBYTE) buf, &valSize);
+		RegQueryValueEx( hKey, "MenuShowDelay", NULL, &valType, ( LPBYTE) buf, &valSize);
 		RegCloseKey( hKey);
 		return atol( buf);
 	case svFullDrag       :
 		RegOpenKeyEx( HKEY_CURRENT_USER, "Control Panel\\Desktop", 0, KEY_READ, &hKey);
-		RegQueryValueEx( hKey, "DragFullWindows", nil, &valType, ( LPBYTE)buf, &valSize);
+		RegQueryValueEx( hKey, "DragFullWindows", NULL, &valType, ( LPBYTE)buf, &valSize);
 		RegCloseKey( hKey);
 		return atol( buf);
 	case svDblClickDelay   :
 		RegOpenKeyEx( HKEY_CURRENT_USER, "Control Panel\\Mouse", 0, KEY_READ, &hKey);
-		RegQueryValueEx( hKey, "DoubleClickSpeed", nil, &valType, ( LPBYTE)buf, &valSize);
+		RegQueryValueEx( hKey, "DoubleClickSpeed", NULL, &valType, ( LPBYTE)buf, &valSize);
 		RegCloseKey( hKey);
 		return atol( buf);
 	case svWheelPresent    : return GetSystemMetrics( SM_MOUSEWHEELPRESENT);
@@ -343,7 +216,6 @@ apc_sys_get_value( int sysValue)
 	case svCanUTF8_Output  : return 1;
 	case svCompositeDisplay: return is_dwm_enabled();
 	case svLayeredWidgets: return guts. displayBMInfo. bmiHeader. biBitCount > 8;
-	case svDWM: return set_dwm_blur((HWND) 0, 0, (HRGN)0, 0);
 	case svFixedPointerSize: return 0;
 	case svMenuCheckSize   : return GetSystemMetrics( SM_CXMENUCHECK );
 	case svFriBidi         : return use_fribidi;
@@ -424,7 +296,7 @@ prf_find( HKEY hk, char * path, List * ids, int firstName, char * result)
 
 	while ( j--) {
 		snprintf( buf, MAXREGLEN, "%s\\%s", path, ( char*) ids[j].items[ firstName]);
-		if ( prf_exists( hk, buf, nil)) {
+		if ( prf_exists( hk, buf, NULL)) {
 			if ( ids[j].count > firstName + 1) {
 				if ( prf_find( hk, buf, ids, firstName + 1, result))
 					return true;
@@ -562,9 +434,9 @@ alloc_utf8_to_wchar( const char * utf8, int length, int * mb_len)
 	size = MultiByteToWideChar(CP_UTF8, 0, utf8, length, NULL, 0);
 	if ( size < 0) {
 		if ( mb_len ) *mb_len = 0;
-		return nil;
+		return NULL;
 	}
-	if ( !( ret = malloc( size * sizeof( WCHAR)))) return nil;
+	if ( !( ret = malloc( size * sizeof( WCHAR)))) return NULL;
 	MultiByteToWideChar(CP_UTF8, 0, utf8, length, ret, size);
 	if ( mb_len ) *mb_len = size;
 	return ret;
@@ -583,9 +455,9 @@ alloc_utf8_to_wchar_visual( const char * utf8, int length, int * mb_len)
 	size = MultiByteToWideChar(CP_UTF8, 0, utf8, length, NULL, 0);
 	if ( size < 0) {
 		if ( mb_len ) *mb_len = 0;
-		return nil;
+		return NULL;
 	}
-	if ( !( ret = malloc((size + 1) * sizeof( WCHAR)))) return nil;
+	if ( !( ret = malloc((size + 1) * sizeof( WCHAR)))) return NULL;
 /*
 U+202A (LRE)	LEFT-TO-RIGHT EMBEDDING	Treats the following text as embedded left-to-right.
 U+202B (RLE)	RIGHT-TO-LEFT EMBEDDING	Treats the following text as embedded right to left.
@@ -633,7 +505,7 @@ alloc_ascii_to_wchar( const char * text, int length)
 	WCHAR * ret;
 	if ( text == NULL ) text = "";
 	if ( length < 0) length = strlen( text) + 1;
-	if ( !( ret = malloc( length * sizeof( WCHAR)))) return nil;
+	if ( !( ret = malloc( length * sizeof( WCHAR)))) return NULL;
 	MultiByteToWideChar( CP_ACP, MB_PRECOMPOSED, text, length, ret, length * 2);
 	return ret;
 }

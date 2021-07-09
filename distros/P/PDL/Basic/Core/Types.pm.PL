@@ -5,9 +5,12 @@
 #
 
 use strict;
-
 use Config;
 use File::Basename qw(&basename &dirname);
+
+my @TYPE_VERBATIM = qw/
+  realctype ppforcetype usenan real unsigned integer
+/;
 
 # Figure out the 4 byte integer type on this machine
 
@@ -39,14 +42,6 @@ sub typeof_PDL_i64 {
     die "Can not find an integer 64 bit type";
 }
 
-my $bvalflag = 0;
-for (@ARGV) {
-  if(/^BADVALS=(.*)$/)
-    {
-      $bvalflag = $1;
-    }
-}
-
 # Data types *must* be listed in order of complexity!!
 # this is critical for type conversions!!!
 #
@@ -59,6 +54,9 @@ my @types = (
 	      usenan => 0,           # do we need NaN handling for this type?
 	      packtype => 'C*',      # the perl pack type
 	      defaultbadval => 'UCHAR_MAX',
+	      real=>1,
+	      integer=>1,
+	      unsigned=>1,
 	     },
 	     {
 	      identifier => 'S',
@@ -68,6 +66,9 @@ my @types = (
 	      usenan => 0,
 	      packtype => 's*',
 	      defaultbadval => 'SHRT_MIN',
+	      real=>1,
+	      integer=>1,
+	      unsigned=>0,
 	     },
 	     {
 	      identifier => 'US',
@@ -78,6 +79,9 @@ my @types = (
 	      usenan => 0,
 	      packtype => 'S*',
 	      defaultbadval => 'USHRT_MAX',
+	      real=>1,
+	      integer=>1,
+	      unsigned=>1,
 	     },
 	     {
 	      identifier => 'L',
@@ -87,13 +91,14 @@ my @types = (
 	      usenan => 0,
 	      packtype => 'l*',
 	      defaultbadval => 'INT_MIN',
+	      real=>1,
+	      integer=>1,
+	      unsigned=>0,
 	     },
 
-#
 # The PDL_Indx type will be either the same as PDL_Long or, probably,
 # the same as PDL_LongLong depending on the platform.  Will need to
 # determine the actual type at build time.
-
        {
         identifier => 'IND',
         onecharident => 'N',   # only needed if different from identifier
@@ -103,12 +108,13 @@ my @types = (
         usenan => 0,
         packtype => &packtypeof_PDL_Indx,
         defaultbadval => 'LONG_MIN',
+        real=>1,
+        integer=>1,
+        unsigned=>0,
        },
-#
-#
+
 # note that the I/O routines have *not* been updated to be aware of
 # such a type yet
-#
        {
 	identifier => 'LL',
 	onecharident => 'Q',   # only needed if different from identifier
@@ -121,15 +127,18 @@ my @types = (
 		                     # but LLONG_MIN/LLONG_MAX are probably
 		                     # nonportable
 	                             # on the other hand 2^63 should be the
-                                     # value of of llong_max which we should be
+                                     # value of llong_max which we should be
                                      # able to compute at runtime ?!
+	real=>1,
+	integer=>1,
+	unsigned=>0,
       },
 
 # IMPORTANT:
 # PDL_F *must* be the first non-integer type in this list
 # as there are many places in the code (.c/.xs/.pm/.pd)
 # with tests like this:
-#                        if (piddletype < PDL_F) { ... }
+#                        if (ndarraytype < PDL_F) { ... }
 	      {
 		  identifier => 'F',
 		  pdlctype => 'PDL_Float',
@@ -138,6 +147,12 @@ my @types = (
 		  usenan => 1,
 		  packtype => 'f*',
 	          defaultbadval => '-FLT_MAX',
+	          real=>1,
+		  complexversion=> 'G',
+	          integer=>0,
+	          unsigned=>0,
+	          isnan=>'isnan(%1$s)',
+	          floatsuffix=>'f',
 	      },
 	      {
 		  identifier => 'D',
@@ -147,6 +162,50 @@ my @types = (
 		  usenan => 1,
 		  packtype => 'd*',
 	          defaultbadval => '-DBL_MAX',
+	          real=>1,
+		  complexversion=> 'C',
+	          integer=>0,
+	          unsigned=>0,
+	          isnan=>'isnan(%1$s)',
+	          floatsuffix=>'',
+	      },
+# the complex types need to be in the same order as their real
+# counterparts, because the "real" ppforcetype relies on a fixed interval
+# between real and complex versions
+# they also need to occur at the end of the types, as a < PDL_CF
+# comparison is done at C level to see if a type is real, analogous to
+# the < PDL_F above
+	      {
+		  identifier => 'CF',
+		  onecharident => 'G',   # only needed if different from identifier
+		  pdlctype => 'PDL_CFloat',
+		  realctype => 'complex float',
+		  ppforcetype => 'cfloat',
+		  usenan => 1,
+		  packtype => '(ff)*',
+	          defaultbadval => '(-FLT_MAX - I*FLT_MAX)',
+	          real=>0,
+	          realversion=>'F',
+	          integer=>0,
+	          unsigned=>0,
+	          isnan=>'(isnan(crealf(%1$s)) || isnan(cimagf(%1$s)))',
+	          floatsuffix=>'f',
+	      },
+	      {
+		  identifier => 'CD',
+		  onecharident => 'C',   # only needed if different from identifier
+		  pdlctype => 'PDL_CDouble',
+		  realctype => 'complex double',
+		  ppforcetype => 'cdouble',
+		  usenan => 1,
+		  packtype => '(dd)*',
+	          defaultbadval => '(-DBL_MAX - I*DBL_MAX)',
+	          real=>0,
+	          realversion=>'D',
+	          integer=>0,
+	          unsigned=>0,
+	          isnan=>'(isnan(creal(%1$s)) || isnan(cimag(%1$s)))',
+	          floatsuffix=>'',
 	      },
 	      );
 
@@ -195,23 +254,24 @@ sub convertfunc {
 
 sub gentypehashentry ($$) {
   my ($type,$num) = @_;
-  for my $field (qw/identifier pdlctype realctype ppforcetype usenan
-		 defaultbadval/)
-    {checktypehas $field, $type}
-  my $newhash = {
-		 ctype => $type->{pdlctype},
-		 realctype => $type->{realctype},
-		 ppsym => $type->{onecharident} || $type->{identifier},
-		 ppforcetype => $type->{ppforcetype},
-		 convertfunc => &convertfunc($type),
-		 sym => &gentypenames($type),
-		 numval => $num,
-		 usenan => $type->{usenan},
-		 ioname => &convertfunc($type), # same as the name of the
-		                                # convertfunc
-		 defbval => $type->{defaultbadval},
-		};
-  return $newhash;
+  checktypehas $_, $type
+    for qw/identifier pdlctype defaultbadval/, @TYPE_VERBATIM;
+  my $convertfunc = convertfunc($type);
+  (my $shortctype = $type->{pdlctype}) =~ s/PDL_//;
+  my $ppsym = $type->{onecharident} || $type->{identifier};
+  +{
+    ctype => $type->{pdlctype},
+    ppsym => $ppsym,
+    convertfunc => $convertfunc,
+    sym => &gentypenames($type),
+    numval => $num,
+    ioname => $convertfunc,
+    defbval => $type->{defaultbadval},
+    shortctype => $shortctype,
+    realversion => $type->{realversion} || $ppsym,
+    complexversion => $type->{complexversion} || (!$type->{real} ? $ppsym : 'G'),
+    (map +($_ => $type->{$_}), @TYPE_VERBATIM, qw(isnan floatsuffix)),
+  };
 }
 
 sub gentypehashcode {
@@ -223,7 +283,7 @@ sub gentypehashcode {
   local $Data::Dumper::Pad = "\t\t";
   my $i = 0;
   my $perlcode = '';
-  $perlcode .= "%PDL::Types::typehash = (\n";
+  $perlcode .= "our %typehash = (\n";
   for my $type (@types) {
     print STDOUT "making ".gentypenames($type)."...\n";
     $perlcode .= "\t".gentypenames($type)." =>\n";
@@ -273,24 +333,30 @@ print OUT <<'!NO!SUBS!';
 ### Generated from Types.pm.PL automatically - do not modify! ###
 
 package PDL::Types;
+use strict;
+use warnings;
 require Exporter;
 use Carp;
 
 !NO!SUBS!
 
 print OUT qq{
-\@EXPORT = qw( $typeexports
+our \@EXPORT = qw( $typeexports
 	       \@pack \%typehash );
 };
 
 print OUT <<'!NO!SUBS!';
 
-@EXPORT_OK = (@EXPORT, qw/types ppdefs typesrtkeys mapfld typefld/);
-%EXPORT_TAGS = (
-	All=>[@EXPORT,qw/types ppdefs typesrtkeys mapfld typefld/],
+our @EXPORT_OK = (@EXPORT,
+  qw/types typesrtkeys mapfld typefld
+    ppdefs ppdefs_complex ppdefs_all
+  /
+);
+our %EXPORT_TAGS = (
+	All=>[@EXPORT,@EXPORT_OK],
 );
 
-@ISA    = qw( Exporter );
+our @ISA    = qw( Exporter );
 
 !NO!SUBS!
 
@@ -298,10 +364,10 @@ print OUT qq{
 
 # Data types/sizes (bytes) [must be in order of complexity]
 # Enum
-( $typevars ) = (0..$ntypesm1);
+our ( $typevars ) = (0..$ntypesm1);
 # Corresponding pack types
-\@pack= qw/$packtypes/;
-\@names= qw/$typenames/;
+our \@pack= qw/$packtypes/;
+our \@names= qw/$typenames/;
 
 };
 
@@ -311,15 +377,13 @@ print OUT gentypehashcode @types;
 print OUT <<'!NO!SUBS!';
 
 # Cross-reference by common names
-%PDL::Types::typenames = ();
-for my $k(keys %PDL::Types::typehash) {
-    my $n = $PDL::Types::typehash{$k}->{'numval'};
-    $PDL::Types::typenames{$k} = $n;
-    $PDL::Types::typenames{$n} = $n;
-    $PDL::Types::typenames{$PDL::Types::typehash{$k}->{ioname}} = $n;
-    $PDL::Types::typenames{$PDL::Types::typehash{$k}->{ctype}} = $n;
+my @HASHES = sort {$a->{numval} <=> $b->{numval}} values %typehash;
+my @RTKEYS = map $_->{sym}, @HASHES;
+our %typenames;
+for my $h (@HASHES) {
+  my $n = $h->{numval};
+  $typenames{$_} = $n for $n, @$h{qw(sym ioname ctype ppforcetype ppsym)};
 }
-
 
 =head1 NAME
 
@@ -364,28 +428,57 @@ Returns an array of keys of typehash sorted in order of type complexity
 
 =cut
 
-sub typesrtkeys {
-  return sort {$typehash{$a}->{numval} <=> $typehash{$b}->{numval}}
-	keys %typehash;
-}
+sub typesrtkeys { @RTKEYS }
 
 =head2 ppdefs
 
 =for ref
 
-Returns an array of pp symbols for all known types
+Returns an array of pp symbols for all real types. This informs the
+default C<GenericTypes> for C<pp_def> functions, making support for
+complex types require an "opt-in".
 
 =for example
 
- pdl> @ppdefs = PDL::Types::ppdefs
- pdl> print @ppdefs;
+ pdl> print PDL::Types::ppdefs
  B S U L N Q F D
 
 =cut
 
-sub ppdefs {
-	return map {$typehash{$_}->{ppsym}} typesrtkeys;
-}
+my @PPDEFS = map $_->{ppsym}, grep $_->{real}, @HASHES;
+sub ppdefs { @PPDEFS }
+
+=head2 ppdefs_complex
+
+=for ref
+
+Returns an array of pp symbols for all complex types.
+
+=for example
+
+ pdl> print PDL::Types::ppdefs_complex
+ G C
+
+=cut
+
+my @PPDEFS_CPLX = map $_->{ppsym}, grep !$_->{real}, @HASHES;
+sub ppdefs_complex { @PPDEFS_CPLX }
+
+=head2 ppdefs_all
+
+=for ref
+
+Returns an array of pp symbols for all types including complex.
+
+=for example
+
+ pdl> print PDL::Types::ppdefs_all
+ B S U L N Q F D G C
+
+=cut
+
+my @PPDEFS_ALL = map $_->{ppsym}, @HASHES;
+sub ppdefs_all { @PPDEFS_ALL }
 
 =head2 typefld
 
@@ -474,23 +567,13 @@ return C header text for F<pdl.h> and F<pdlsimple.h>.
 
 sub datatypes_header {
     require Config;
-    $PDL_Indx_type = $Config::Config{'ivtype'};
     warn "Using new 64bit index support\n" if $Config::Config{'ivsize'}==8;
 
-    my $anyval_union = '';
-    my $enum = 'PDL_INVALID=-1, ';
-    my $typedefs = '';
-    for (sort { $typehash{$a}{'numval'}<=>$typehash{$b}{'numval'} }  keys %typehash) {
-     $enum .= $typehash{$_}{'sym'}.", ";
-     $anyval_union .= "        $typehash{$_}{'ctype'} $typehash{$_}{'ppsym'};\n";
-     $typedefs .= "typedef $typehash{$_}{'realctype'}              $typehash{$_}{'ctype'};\n";
-    }
-    chop $enum;
-    chop $enum;
-
-    $typedefs .= "typedef struct {\n    pdl_datatypes type;\n    union {\n";
-    $typedefs .= $anyval_union;
-    $typedefs .= "    } value;\n} PDL_Anyval;\n";
+    my $enum = join ', ', 'PDL_INVALID=-1', map $_->{sym}, @HASHES;
+    my $typedefs = join '', map "typedef $_->{realctype} $_->{ctype};\n", @HASHES;
+    $typedefs .= "typedef struct {\n  pdl_datatypes type;\n  union {\n";
+    $typedefs .= join '', map "  $_->{ctype} $_->{ppsym};\n", @HASHES;
+    $typedefs .= "  } value;\n} PDL_Anyval;\n";
 
     my $indx_type = typefld('PDL_IND','realctype');
     $typedefs .= '#define IND_FLAG ';
@@ -501,9 +584,9 @@ sub datatypes_header {
     } else {
 	$typedefs .= qq|"d"|;
     }
-    $typedefs .= "\n\n";
+    $typedefs .= "\n";
 
-    my $PDL_DATATYPES = <<"EOD";
+    <<EOD . "\n".typesynonyms()."\n";
 
 /*****************************************************************************/
 /*** This section of .h file generated automatically by ***/
@@ -517,20 +600,15 @@ typedef enum { $enum } pdl_datatypes;
 
 $typedefs
 
-/* typedef $PDL_Indx_type    PDL_Indx; */
-
 /*****************************************************************************/
 
 EOD
-
-    $PDL_DATATYPES .= "\n".typesynonyms()."\n";
-    $PDL_DATATYPES;
 }
 
 =head1 PDL::Type OBJECTS
 
 This module declares one class - C<PDL::Type> - objects of this class
-are returned by the L<type|PDL::Core/type> method of a piddle.  It has
+are returned by the L<type|PDL::Core/type> method of an ndarray.  It has
 several methods, listed below, which provide an easy way to access
 type information:
 
@@ -575,33 +653,17 @@ The value returned by C<ctype> without the 'PDL_' prefix.
 The special numerical value used to represent bad values for this type.
 See L<badvalue routine in PDL::Bad|PDL::Bad/badvalue> for more details.
 
-=cut
+=item isnan
 
-!NO!SUBS!
+Given a string representing a C value, will return a C expression for
+this type that indicates whether that value is NaN.
 
-=pod
+=item floatsuffix
 
-You happen to be reading this on CPAN, but if you were reading this on your
-own machine and your PDL did not have support for bad values, you would see
-a small paragraph saying:
-
-=cut
-
-unless ($bvalflag) {
-  print OUT << '!NO!SUBS!';
-
-=pod
-
-You do not have bad value support enabled, so this returns undef.
+The string appended to floating-point functions for this floating-point
+type. Dies if called on non-floating-point type.
 
 =cut
-
-!NO!SUBS!
-
-}
-
-
-print OUT <<'!NO!SUBS!';
 
 =item orig_badvalue
 
@@ -610,131 +672,80 @@ type. (You can change the value that represents bad values for each type
 during runtime.) See the
 L<orig_badvalue routine in PDL::Bad|PDL::Bad/orig_badvalue> for more details.
 
-=cut
-
-!NO!SUBS!
-
-=pod
-
-You happen to be reading this on CPAN, but if you were reading this on your
-own machine and your PDL did not have support for bad values, you would see
-a small paragraph saying:
-
-=cut
-
-unless ($bvalflag) {
-  print OUT << '!NO!SUBS!';
-
-=pod
-
-You do not have bad value support enabled, so this returns undef.
-
-=cut
-
-!NO!SUBS!
-  
-}
-
-print OUT <<'!NO!SUBS!';
-
 =back
 
 =cut
 
+my @CACHED_TYPES = map bless([$_->{numval}, $_], 'PDL::Type'), @HASHES;
+# return all known types as type objects
+sub types { @CACHED_TYPES }
+
 {
     package PDL::Type;
+    use Carp;
     sub new {
-        my($type,$val) = @_;
-        if("PDL::Type" eq ref $val) { return bless [@$val],$type; }
-        if(ref $val and $val->isa(PDL)) {
-            if($val->getndims != 0) {
-              PDL::Core::barf(
-                "Can't make a type out of non-scalar piddle $val!");
-            }
+        my ($type,$val) = @_;
+        return $val if "PDL::Type" eq ref $val;
+        if(ref $val and $val->isa('PDL')) {
+            PDL::Core::barf("Can't make a type out of non-scalar ndarray $val!")
+              if $val->getndims != 0;
             $val = $val->at;
         }
-      PDL::Core::barf("Can't make a type out of non-scalar $val!".
-          (ref $val)."!") if ref $val;
-
-	if(length($PDL::Types::typenames{$val})) {
-	    $val =~ s/^\s*//o;
-	    $val =~ s/\s*$//o;
-	    return bless [$PDL::Types::typenames{$val}],$type;
-	} else {
-	    die("Unknown type string '$val' (should be one of ".
-                            join(",",map { $PDL::Types::typehash{$_}->{ioname} } @names).
-			    ")\n");
-	}
+        confess "Can't make a type out of non-scalar $val (".
+            (ref $val).")!" if ref $val;
+        confess "Unknown type string '$val' (should be one of ".
+            join(",",map $PDL::Types::typehash{$_}->{ioname}, @names).
+            ")\n"
+            if !defined $PDL::Types::typenames{$val};
+        $CACHED_TYPES[$PDL::Types::typenames{$val}];
     }
 
-sub enum   { return $_[0]->[0]; }
-sub symbol { return $PDL::Types::names[ $_[0]->enum ]; }
-sub PDL::Types::types { # return all known types as type objects
-  map { new PDL::Type PDL::Types::typefld($_,'numval') } 
-      PDL::Types::typesrtkeys();
-}
+    sub enum { $_[0][0] }
+    *symbol = \&sym;
+
+    sub realversion {
+      $CACHED_TYPES[$PDL::Types::typenames{ $_[0][1]{realversion} }];
+    }
+
+    sub complexversion {
+      $CACHED_TYPES[$PDL::Types::typenames{ $_[0][1]{complexversion} }];
+    }
+
+    sub isnan { sprintf $_[0][1]{isnan}, $_[1] }
+
+    sub floatsuffix { $_[0][1]{floatsuffix} // 'floatsuffix called on non-float type' }
 
 !NO!SUBS!
 
-foreach my $name ( qw( ctype ppsym realctype ppforcetype convertfunc
-		       sym numval usenan ioname defbval) ) {
+foreach my $name ( qw( ctype ppsym convertfunc shortctype
+		       sym numval ioname defbval
+                       ), @TYPE_VERBATIM ) {
   print OUT << "EOS";
-sub $name {
-  return \$PDL::Types::typehash{\$_[0]->symbol}->{$name};
-}
+    sub $name { \$_[0][1]{$name}; }
 EOS
 }
 
-## add the code for returning the bad value for a particular
-## type. Up to (and including) 2.3.4, this code was actually in
-## Basic/Bad/bad.pd.
-##
-
-if ( $bvalflag ) {
-    print OUT <<'!NO!SUBS!';
-
-no strict 'refs';
-sub badvalue {
-  my ( $self, $val ) = @_;
-  my $name = "PDL::_badvalue_int" . $self->enum();
-  if ( defined $val ) { return &{$name}( $val )->sclr; }
-  else                { return &{$name}( undef )->sclr; }
-}
-
-sub orig_badvalue {
-  my $self = shift;
-  my $name = "PDL::_default_badvalue_int" . $self->enum();
-  return &{$name}()->sclr;
-}
-use strict 'refs';
-
-!NO!SUBS!
-
-} else {
-    print OUT qq{
-sub badvalue { return undef; }
-sub orig_badvalue { return undef; }
-};
-
-} # if: $bvalflag
-
 print OUT <<'!NO!SUBS!';
-
-sub shortctype { my $txt = $_[0]->ctype; $txt =~ s/PDL_//; return $txt; }
+sub badvalue {
+  my $name = "PDL::_badvalue_int$_[0][0]";
+  no strict 'refs';
+  $name->( $_[1] );
+}
+sub orig_badvalue {
+  my $name = "PDL::_default_badvalue_int$_[0][0]";
+  no strict 'refs';
+  $name->();
+}
 
 # make life a bit easier
 use overload (
-	      "\"\""  => sub { lc $_[0]->shortctype },
-              "eq"    => sub { my($self, $other, $swap) = @_;
-          		     return ("$self" eq $other);
-              },
-              "cmp"   => sub { my($self, $other, $swap) = @_;
-          		     return ($swap ? $other cmp "$self" : "$self" cmp $other);
-              },
-	      "<=>"   => sub { $_[2] ? $_[1]->enum <=> $_[0]->enum :
-	                               $_[0]->enum <=> $_[1]->enum },
-	     );
-
+  '""'  => sub { lc $_[0]->shortctype },
+  "eq"  => sub { my ($self, $other, $swap) = @_; ("$self" eq $other); },
+  "cmp" => sub { my ($self, $other, $swap) = @_;
+    $swap ? $other cmp "$self" : "$self" cmp $other;
+  },
+  "<=>" => sub { $_[2] ? $_[1][0] <=> $_[0][0] : $_[0][0] <=> $_[1][0] },
+);
 
 } # package: PDL::Type
 # Return
@@ -762,6 +773,10 @@ taken from the actual code that defines the C<ushort> type:
 	      ppforcetype => 'ushort',
 	      usenan => 0,
 	      packtype => 'S*',
+	      defaultbadval => 'USHRT_MAX',
+	      real=>1,
+	      integer=>1,
+	      unsigned=>1,
 	     },
 
 Before we start to explain the fields please take this important
@@ -828,6 +843,36 @@ Generally only required for floating point types.
 packtype
 
 I<Required>. The Perl pack type used to pack Perl values into the machine representation for this type. For details see C<perldoc -f pack>.
+
+=item *
+
+integer
+
+I<Required>. Boolean - is this an integer type?
+
+=item *
+
+unsigned
+
+I<Required>. Boolean - is this an unsigned type?
+
+=item *
+
+real
+
+I<Required>. Boolean - is this a real (not complex) type?
+
+=item *
+
+realversion
+
+String - the real version of this type (e.g. cdouble -> 'D').
+
+=item *
+
+complexversion
+
+String - the complex version of this type (e.g. double -> 'C').
 
 =back
 

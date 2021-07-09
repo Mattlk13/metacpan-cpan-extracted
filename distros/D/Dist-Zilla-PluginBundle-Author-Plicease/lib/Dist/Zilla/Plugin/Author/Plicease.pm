@@ -1,9 +1,11 @@
-package Dist::Zilla::Plugin::Author::Plicease 2.59 {
+package Dist::Zilla::Plugin::Author::Plicease 2.66 {
 
   use strict;
   use warnings;
+  use 5.020;
   use Path::Tiny ();
   use File::ShareDir::Dist ();
+  use File::Which ();
 
   # ABSTRACT: Dist::Zilla plugins used by Plicease
 
@@ -32,6 +34,12 @@ package Dist::Zilla::Plugin::Author::Plicease 2.59 {
       return $share;
     }
   }
+
+
+  sub git
+  {
+    File::Which::which('git') && eval { require Dist::Zilla::Plugin::Git; 1 } ? 1 : 0
+  }
 }
 
 1;
@@ -48,7 +56,7 @@ Dist::Zilla::Plugin::Author::Plicease - Dist::Zilla plugins used by Plicease
 
 =head1 VERSION
 
-version 2.59
+version 2.66
 
 =head1 DESCRIPTION
 
@@ -68,13 +76,19 @@ L<Dist::Zilla::PluginBundle::Author::Plicease>
 
 Returns this distributions share directory.
 
+=head2 git
+
+ my $bool = Dist::Zilla::Plugin::Author::Plicease->git;
+
+Returns true if C<git> and the Git plugins are installed.
+
 =head1 AUTHOR
 
 Graham Ollis <plicease@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012,2013,2014,2015,2016,2017,2018,2019,2020 by Graham Ollis.
+This software is copyright (c) 2012,2013,2014,2015,2016,2017,2018,2019,2020,2021 by Graham Ollis.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

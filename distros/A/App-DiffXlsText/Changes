@@ -1,8 +1,27 @@
+0.007   2021-07-07  Released-By: PERLANCAR; Urgency: medium
+
+	- Check for the right xls2csv from Spreadsheet::Read.
+
+
+0.006   2021-07-07  Released-By: PERLANCAR; Urgency: medium
+
+	- [ux] Pull modules Spreadsheet::Read, Spreadsheet::ParseExcel,
+	  Spreadsheet::ParseXLSX, Spreadsheet::XLSX as dependencies, for
+	  convenience.
+
+
+0.005   2020-12-01  Released-By: PERLANCAR; Urgency: medium
+
+        - No functional changes.
+
+        - Edit Changes.
+
+
 0.004   2020-12-01  Released-By: PERLANCAR; Urgency: medium
 
-	[cli diff-xls-text-between-conflicted-git-versions]
+        - Add script: diff-xls-text-between-conflicted-git-versions.
 
-        - [bugfix] Forgot to pass --transpose-csv option.
+        - Use CLI::MetaUtil::Getopt::Long & CLI::Meta::diff.
 
 
 0.003   2020-10-27  Released-By: PERLANCAR; Urgency: medium

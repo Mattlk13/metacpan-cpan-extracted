@@ -2,6 +2,8 @@ use 5.016;
 use warnings;
 use lib 't/lib'; use MyTest;
 
+test_catch '[loop]';
+
 subtest 'basic' => sub {
     my $loop = UniEvent::Loop->new();
     is ref $loop, 'UniEvent::Loop';
@@ -27,6 +29,9 @@ subtest 'default loop' => sub {
     is(UniEvent::Loop->default, UniEvent::Loop->default, "default loop returns the same");
     is(UniEvent::Loop->global, UniEvent::Loop->global, "global loop returns the same");
     is(UniEvent::Loop->global, UniEvent::Loop->default, "global loop is the same as default loop in main thread");
+    
+    ok(UE::Check->new()->loop->is_default, "no loop in handle ctor is default loop");
+    ok(UE::Check->new(undef)->loop->is_default, "undef loop in handle ctor is default loop");
 };
 
 my $loop = UniEvent::Loop->default;
@@ -133,6 +138,29 @@ subtest 'kill mortals after loop iteration' => sub {
     
     subtest "default loop" => $test, UE::Loop->default_loop;
     subtest "global loop"  => $test, UE::Loop->global_loop;
+};
+
+subtest "track load average" => sub {
+    my $test = new UE::Test::Async(2, 2);
+    $test->loop->track_load_average(1);
+    my $p = MyTest::make_p2p($test->loop);
+    $p->{sconn}->read_event->add(sub {
+        $test->happens();
+        select undef, undef, undef, 0.01;
+    });
+    $p->{sconn}->eof_event->add(sub {
+        $test->happens();
+        select undef, undef, undef, 0.01;
+        $test->loop->stop();
+    });
+    $p->{client}->write("epta");
+    $p->{client}->disconnect();
+
+    my $t = UE::timer 1, sub { select undef, undef, undef, 0.01 }, $test->loop;
+    
+    $test->run();
+
+    cmp_ok $test->loop->get_load_average(), '>', 0, "we got load average";
 };
 
 done_testing();

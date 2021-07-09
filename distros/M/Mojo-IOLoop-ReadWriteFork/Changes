@@ -1,5 +1,43 @@
 Revision history for perl distribution Mojo-IOLoop-ReadWriteFork
 
+1.02 2021-04-21T13:01:11+0900
+ - Fix Mojo::Promise->timer require Mojolicious 8.41 #18
+
+1.01 2021-04-11T12:00:35+0900
+ - Fix issue in SYNOPSIS
+ - Fix Test::Memory::Cycle issues
+
+1.00 2021-03-25T11:05:26+0900
+ - Add pids() to Mojo::IOLoop::ReadWriteFork::SIGCHLD
+ - Add run_and_capture_p()
+ - Add "asset" event
+ - Documented "drain" event
+ - Replaced "before_fork" event with "prepare"
+ - Replaced "close" event with "finish"
+ - Replaced "fork" event with "spawn"
+
+0.43 2021-03-24T16:45:18+0900
+ - Fix not triggering "error" on EIO
+
+0.42 2021-03-24T15:26:25+0900
+ - Fix $rwf to keep track of itself as long as the child process is running
+ - Using Mojo::IOLoop::Stream, since $ioloop->reactor is hard
+
+0.41 2021-03-15T17:26:23+0900
+ - Fix circular references
+
+0.40 2021-03-05T18:23:49+0900
+ - Fix infinite loop, when die() is called inside "close" event
+
+0.39 2021-02-26T14:17:23+0900
+ - Add "before_fork" hook
+
+0.38 2021-02-17T10:15:57+0900
+ - Require Mojolicious 8.0
+ - Add run_p()
+ - Add fix for premature close in special pty cases #12
+   Contributor: Ole Bjørn Hessen
+
 0.37 2018-09-26T13:51:13+0900
  - Fix minion test requires Minion::Backend::SQLite >=4.001
 

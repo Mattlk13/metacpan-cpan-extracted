@@ -4,8 +4,8 @@
 #
 package PDL::GSLSF::LAGUERRE;
 
-@EXPORT_OK  = qw( PDL::PP gsl_sf_laguerre_n );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP gsl_sf_laguerre_n );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::GSLSF::LAGUERRE ;
 
@@ -64,7 +64,7 @@ Evaluate generalized Laguerre polynomials.
 =for bad
 
 gsl_sf_laguerre_n does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

@@ -1,5 +1,5 @@
 package Yancy::Command::backend::copy;
-our $VERSION = '1.068';
+our $VERSION = '1.074';
 # ABSTRACT: Copy data between backends
 
 #pod =head1 SYNOPSIS
@@ -65,7 +65,7 @@ Yancy::Command::backend::copy - Copy data between backends
 
 =head1 VERSION
 
-version 1.068
+version 1.074
 
 =head1 SYNOPSIS
 
@@ -90,7 +90,7 @@ Doug Bell <preaction@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Doug Bell.
+This software is copyright (c) 2021 by Doug Bell.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

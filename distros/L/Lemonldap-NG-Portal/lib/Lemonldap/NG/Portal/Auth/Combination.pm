@@ -180,6 +180,11 @@ sub getUser {
     return $self->try( 1, 'getUser', @_ );
 }
 
+sub findUser {
+    my $self = shift;
+    return $self->try( 1, 'findUser', @_ );
+}
+
 sub setSessionInfo {
     my $self = shift;
     return $self->try( 1, 'setSessionInfo', @_ );
@@ -248,7 +253,9 @@ sub try {
       $req->data->{dataKeep}->{combinationTry};
     if ( $res > 0 and $res != PE_FIRSTACCESS ) {
         $self->userLogger->warn( 'All schemes failed'
-              . ( $req->user ? ' for user ' . $req->user : '' ) );
+              . ( $req->user ? ' for user ' . $req->user : '' ) . ' ('
+              . $req->address
+              . ')' );
     }
     return $res;
 }

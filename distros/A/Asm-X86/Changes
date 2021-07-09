@@ -1,13 +1,125 @@
 Revision history for Asm-X86
 
-2020-07-19	Bogdan Drozdowski <bogdandr@op.pl>
+2021-06-19	Bogdan Drozdowski <bogdro@cpan.org>
+
+	* Version 0.61
+	  Fixed compatibility issues.
+	* Makefile.PL: corrected hash keys and values to be strings
+	* t/zz_regs_{att,intel}.t: fix passing parameters and hash usage
+
+2021-06-16	Bogdan Drozdowski <bogdro@cpan.org>
+
+	* Version 0.60
+	  Fixed compatibility issues. Significant code simplification in the
+	  module. Better checks in address validation, especially in AT&T
+	  syntax. More code clean-up in unit tests.
+	* lib/Asm/X86.pm (is_valid_16bit_addr_intel, is_valid_32bit_addr_intel,
+	  is_valid_64bit_addr_intel, is_valid_16bit_addr_att,
+	  is_valid_32bit_addr_att, is_valid_64bit_addr_att): moved common
+	  validation code to private subroutines, saving on duplication
+	* lib/Asm/X86.pm (is_valid_16bit_addr_att): some expressions have been
+	  widened to allow more matches.
+	* lib/Asm/X86.pm (is_valid_16bit_addr_att, is_valid_32bit_addr_att,
+	  is_valid_64bit_addr_att): disallow sign characters inside
+	  parentheses (rejected by GNU as).
+	* lib/Asm/X86.pm (_add_percent, _remove_duplicates, _nopluses): removed
+	  "my sub" and added an underscore to the name to mark the subroutines
+	  as private and still make POD coverage tests skip them.
+	* lib/Asm/X86.pm (is_reg_intel, is_reg_att, is_reg8_intel, is_reg8_att,
+	  is_reg16_intel, is_reg16_att, is_segreg_intel, is_segreg_att,
+	  is_reg32_intel, is_reg32_att, is_addressable32_intel,
+	  is_addressable32_att, is_r32_in64_intel, is_r32_in64_att,
+	  is_reg64_intel, is_reg64_att, is_reg_mm_intel, is_reg_mm_att,
+	  is_reg_fpu_intel, is_reg_fpu_att, is_reg_opmask_intel,
+	  is_reg_opmask_att, is_instr_intel, is_instr_att): use new private
+	  subroutines to search though the arrays and simplify the code
+	* t/{zz_regs_att.t,zz_regs_intel.t}: re-write and simplify the code
+	* t/{zz_addr_att.t,zz_addr_intel.t}: added testing the invalidity of
+	  addresses containing one of the xmm, ymm, zmm or opmask registers
+	* t/zz_{addr_att,addr_intel,conv,duplicates,regs_att,regs_intel}.t:
+	  added prototypes to subroutines and fixed the tests where necessary
+
+2021-06-05	Bogdan Drozdowski <bogdro@cpan.org>
+
+	* Version 0.50
+	  Fixed some defects found by comparing new test results and GNU as
+	  output. Significant rewrite of the unit tests.
+	* lib/Asm/X86.pm (is_valid_16bit_addr_intel): checking the sign in
+	  more cases, corrected one regex
+	* lib/Asm/X86.pm (is_valid_16bit_addr_att): disallow %segreg:var(var)
+	  %segreg:number(number) constructs. Check if %xxx names are registers
+	* lib/Asm/X86.pm (is_valid_16bit_addr_att, is_valid_32bit_addr_att,
+	  is_valid_64bit_addr_att): check if %xxx names are registers in some
+	  cases
+	* lib/Asm/X86.pm (is_valid_32bit_addr_att): disallow %esp as the index
+	  register in more cases (following GNU as). Allow 16-bit addressing
+	  in 32-bit mode.
+	* lib/Asm/X86.pm (is_valid_64bit_addr_att): disallow %rsp and %rip as
+	  the index register in more cases (following GNU as).
+	* lib/Asm/X86.pm (is_reg_intel, is_reg_att, is_reg8_intel, is_reg8_att,
+	  is_reg16_intel, is_reg16_att, is_segreg_intel, is_segreg_att,
+	  is_reg32_intel, is_reg32_att, is_addressable32_intel,
+	  is_addressable32_att, is_r32_in64_intel, is_r32_in64_att,
+	  is_reg64_intel, is_reg64_att, is_reg_mm_intel, is_reg_mm_att,
+	  is_reg_fpu_intel, is_reg_fpu_att, is_reg_opmask_intel,
+	  is_reg_opmask_att, is_instr_intel, is_instr_att): added a pre-check
+	  to check the syntax of the expression before checking the list
+	* lib/Asm/X86.pm (is_valid_32bit_addr_att, is_valid_64bit_addr_att):
+	  allow '(, reg)' modes
+	* lib/Asm/X86.pm (add_percent, remove_duplicates, nopluses): made the
+	  subroutines 'my' and removed them from the manual
+	* lib/Asm/X86.pm: layout fixes for the POD documentation and man page.
+	  Added information that some of the subroutines work best on input
+	  after all preprocessing.
+	* Makefile.PL: added a variable with the module name
+	* MANIFEST, KEY: added the GnuPG key used to sign the module
+	* t/*.t, Makefile.PL: fixed the interpreter line
+	* t/*.t: significant re-write of tests - using generating procedures,
+	  arrays and loops
+	* t/zz_addr_mixed.t: partially merged into zz_addr_att.t and
+	  zz_addr_intel.t with a possibility to extend
+	* t/zz_regs_mixed.t: merged into zz_regs_att.t and zz_regs_intel.t and
+	  deleted the file
+
+2021-05-09	Bogdan Drozdowski <bogdro@cpan.org>
+
+	* Version 0.40
+	  Fixed many defects revealed by new unit tests. 100% code is now
+	  covered by unit tests. Updated documentation and metadata.
+	* lib/Asm/X86.pm (is_valid_16bit_addr_att, is_valid_32bit_addr_att):
+	  fixed accepting invalid addresses: 'zzz(yyy)' and 'zzz(-yyy)',
+	  removed unnecessary conditions
+	* lib/Asm/X86.pm (is_valid_64bit_addr_intel): allowing valid 64-bit
+	  addressing modes: '[r32]', 'segreg:[r32]', '[segreg:r32]'.
+	* lib/Asm/X86.pm (is_valid_64bit_addr_att): allowing valid 64-bit
+	  addressing modes with only 32-bit registers.
+	* lib/Asm/X86.pm (add_att_suffix_instr): added suffixes for 64-bit
+	  instructions
+	* lib/Asm/X86.pm (conv_intel_addr_to_att): fixed regular expressions
+	  and substitutions
+	* lib/Asm/X86.pm (conv_att_instr_to_intel): removed unnecessary
+	  conditions
+	* lib/Asm/X86.pm (conv_intel_instr_to_att): added a missing default
+	  case for instruction suffixes, typo fix, improved changing the
+	  argument order, moved processing MOV[Z/S]X before removing the size
+	  keywords and changing the operand order, added more conditions to
+	  processing MOV[Z/S]X, fixed replacing 'byte', 'word' and similar
+	  size keywords, added 64-bit suffixes
+	* lib/Asm/X86.pm (is_valid_16bit_addr_att, is_valid_32bit_addr_att,
+	  is_valid_64bit_addr_intel): removed unnecessary conditions
+	* lib/Asm/X86.pm (is_valid_16bit_addr_intel): added checking the sign
+	  in some cases
+	* t/*.t: many more unit tests, much more complex and covering 100%
+	* README: updated the links and copyright
+
+2020-07-19	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.33
 	* X86.pm: Updated the instruction list from NASM version 2.15.03.
 	* Makefile.PL: added the minimum Perl version of '5.006' (arbitrarily
 	  chosen based on the version of the Exporter module on my system)
 
-2020-05-20	Bogdan Drozdowski <bogdandr@op.pl>
+2020-05-20	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.32
 	  Fix some build/distribution errors in the previous version (README,
@@ -15,37 +127,37 @@ Revision history for Asm-X86
 	* Makefile.PL: added detecting the "tar" utility type. In case of
 	  detecting BSD tar (default on some systems), use GNU tar mode.
 	  Added a parameter to sign the package.
-	* CONTRIBUTING: added for metacpan.
+	* CONTRIBUTING: added, for metacpan.
 
-2020-05-13	Bogdan Drozdowski <bogdandr@op.pl>
+2020-05-13	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.31
 	* X86.pm: Updated the instruction list from FASM version 1.73.24.
 
-2019-12-23	Bogdan Drozdowski <bogdandr@op.pl>
+2019-12-23	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.30
 	* X86.pm: Updated the instruction list from FASM version 1.73.21.
 
-2019-11-24	Bogdan Drozdowski <bogdandr@op.pl>
+2019-11-24	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.29
 	* X86.pm: Updated the instruction list from FASM version 1.73.18.
 
-2019-08-16	Bogdan Drozdowski <bogdandr@op.pl>
+2019-08-16	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.28
 	* X86.pm: Updated the instruction list from FASM version 1.73.16.
 
-2019-01-03	Bogdan Drozdowski <bogdandr@op.pl>
+2019-01-03	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.27
-	* Makefile.PL: remove hardcoded INSTALLDIRS, allowing it to be set
+	* Makefile.PL: remove hard-coded INSTALLDIRS, allowing it to be set
 	  during the RPM package build or manual installation.
 	* X86.pm: Updated copyright inside the module.
 	* README: updated copyright inside the file.
 
-2018-11-18	Bogdan Drozdowski <bogdandr@op.pl>
+2018-11-18	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.26
 	* X86.pm: Updated the register and instruction list from NASM version
@@ -53,14 +165,14 @@ Revision history for Asm-X86
 	* README: updated copyright inside the file.
 	* Makefile.PL: fixed some rpmlint errors.
 
-2017-05-06	Bogdan Drozdowski <bogdandr@op.pl>
+2017-05-06	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.25
 	* X86.pm: Updated the register and instruction list from NASM version
 	  2.13.01. Updated copyright inside the module.
 	* README: updated copyright inside the file.
 
-2016-03-22	Bogdan Drozdowski <bogdandr@op.pl>
+2016-03-22	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.24
 	* X86.pm: Updated the register and instruction list from FASM version
@@ -68,25 +180,25 @@ Revision history for Asm-X86
 	  module.
 	* README: updated copyright inside the file, quoted module names.
 
-2015-11-01	Bogdan Drozdowski <bogdandr@op.pl>
+2015-11-01	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.23
 	* X86.pm: Updated the register and instruction list from FASM version
 	  1.71.46. Updated copyright inside the module.
 
-2014-11-15	Bogdan Drozdowski <bogdandr@op.pl>
+2014-11-15	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.22
 	* X86.pm: Updated the register and instruction list from NASM version
 	  2.11.06.
 
-2014-03-01	Bogdan Drozdowski <bogdandr@op.pl>
+2014-03-01	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.21
 	* X86.pm: Updated the register and instruction list from NASM version
 	  2.11.02.
 
-2014-01-11	Bogdan Drozdowski <bogdandr@op.pl>
+2014-01-11	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.20
 	* X86.pm: Updated the register and instruction list from NASM version
@@ -94,22 +206,22 @@ Revision history for Asm-X86
 	  (K[0-7]) registers. Added subroutines to check for opmask registers.
 	  Upgraded tests.
 
-2013-12-07	Bogdan Drozdowski <bogdandr@op.pl>
+2013-12-07	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.16
 	* X86.pm: Updated the register list with YMM registers.
 
-2012-09-16	Bogdan Drozdowski <bogdandr@op.pl>
+2012-09-16	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.15
 	* X86.pm: Updated the instruction list from NASM version 2.10.05.
 
-2012-07-21	Bogdan Drozdowski <bogdandr@op.pl>
+2012-07-21	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.14
 	* X86.pm: Updated the instruction list from NASM version 2.10.02.
 
-2012-03-31	Bogdan Drozdowski <bogdandr@op.pl>
+2012-03-31	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.13
 	* X86.pm: Updated the instruction list from NASM version 2.10 and
@@ -122,7 +234,7 @@ Revision history for Asm-X86
 	* X86.pm (conv_intel_addr_to_att): removing double percent character
 	  that may be created during the conversion.
 
-2012-01-22	Bogdan Drozdowski <bogdandr@op.pl>
+2012-01-22	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.12
 	* X86.pm: Removed duplicates from the instruction and mnemonic list.
@@ -135,48 +247,48 @@ Revision history for Asm-X86
 	* zz_duplicates.t: a new test to detect duplicate entries in all the
 	  arrays exported by the module.
 
-2011-12-30	Bogdan Drozdowski <bogdandr@op.pl>
+2011-12-30	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.11:
 	  Updated the instruction and mnemonic list from FASM version 1.69.35.
 
-2010-09-08	Bogdan Drozdowski <bogdandr@op.pl>
+2010-09-08	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.10:
 	  Updated the instruction list from NASM version 2.09.01.
 
-2010-04-18	Bogdan Drozdowski <bogdandr@op.pl>
+2010-04-18	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.09:
 	  Updated the instruction list from NASM version 2.08.01. Minor
-	  whitespace changes in the source, for better readbility.
+	  whitespace changes in the source, for better readability.
 
-2009-07-05	Bogdan Drozdowski <bogdandr@op.pl>
+2009-07-05	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.08:
 	  Updated the instruction list from NASM version 2.06. Changed one
 	  private procedure's name.
 
-2008-11-09	Bogdan Drozdowski <bogdandr@op.pl>
+2008-11-09	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.07:
 	  Documentation fixes.
 	  Verified instruction list to be complete with fasm-1.67.28 and
 	  updated it from nasm-2.05.01.
 
-2008-10-24	Bogdan Drozdowski <bogdandr@op.pl>
+2008-10-24	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.06:
 	  Updated instruction list from fasm-1.67.27. Changed double to
 	  single quotes in one place.
 
-2008-05-18	Bogdan Drozdowski <bogdandr@op.pl>
+2008-05-18	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.05:
 	  A bit better coding style.
 	  Added the tests to the package.
 
-2008-04-17	Bogdan Drozdowski <bogdandr@op.pl>
+2008-04-17	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.04:
 	  Added functions checking if the given string represents a register
@@ -204,7 +316,7 @@ Revision history for Asm-X86
 	  Added the compile-once flag where applicable.
 	  Added PRIVATE to documentation of private non-exported subroutines.
 
-2008-03-29	Bogdan Drozdowski <bogdandr@op.pl>
+2008-03-29	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.03:
 	  Fixed a bug with 64-bit addressing, where valid addresses of the
@@ -212,7 +324,7 @@ Revision history for Asm-X86
 	  Added the "SUPPORT AND DOCUMENTATION" section from the README file
 	   to the module.
 
-2008-03-27	Bogdan Drozdowski <bogdandr@op.pl>
+2008-03-27	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.02:
 	  Fixed a bug with the 'fs' segment register.
@@ -223,11 +335,10 @@ Revision history for Asm-X86
 	  Added a list of FPU registers and a function for checking
 	   if a given string represents an FPU register.
 
-2008-03-08	Bogdan Drozdowski <bogdandr@op.pl>
+2008-03-08	Bogdan Drozdowski <bogdro@cpan.org>
 
 	* Version 0.01:
 	  Includes all known by FASM instruction mnemonics and registers.
 	  Includes functions that check if a given string is a register
 	  (any type or explicit: 8-, 16-, 32-, 64-bit or multimedia) and
 	  functions that check if a given string is a mnemonic.
-

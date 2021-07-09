@@ -12,12 +12,2207 @@
 
 
 <ul id="index">
+  <li><a href="#Issues-fixed-after-release-20210402">Issues fixed after release 20210402</a></li>
+  <li><a href="#Issues-fixed-after-release-20210111">Issues fixed after release 20210111</a></li>
   <li><a href="#Issues-fixed-after-release-20201207">Issues fixed after release 20201207</a></li>
   <li><a href="#Issues-fixed-after-release-20201202">Issues fixed after release 20201202</a></li>
   <li><a href="#Issues-fixed-after-release-20201001">Issues fixed after release 20201001</a></li>
   <li><a href="#Issues-fixed-after-release-20200907">Issues fixed after release 20200907</a></li>
   <li><a href="#Open-Issues">Open Issues</a></li>
 </ul>
+
+<h1 id="Issues-fixed-after-release-20210402">Issues fixed after release 20210402</h1>
+
+<dl>
+
+<dt id="Adjust-tolerances-to-fix-some-unstable-edge-cases"><b>Adjust tolerances to fix some unstable edge cases</b></dt>
+<dd>
+
+<p>Testing with random input parameters produced a number of edge cases of unstable formatting which were traced to the parameter combinations which included -lp and some other unusual settings.</p>
+
+<p>This fixes cases b1103 b1134 b1135 b1136 b1138 b1140 b1143 b1144 b1145 b1146 b1147 b1148 b1151 b1152 b1153 b1154 b1156 b1157 b1163 b1164 b1165</p>
+
+<p>There are no other known cases of formatting instability at the present time, but testing with random input parameters will continue.</p>
+
+<p>21 Jun 2021.</p>
+
+</dd>
+<dt id="Adjust-tolerances-to-fix-some-unstable-edge-cases1"><b>Adjust tolerances to fix some unstable edge cases</b></dt>
+<dd>
+
+<p>Testing with random input parameters produced a number of edge cases of unstable formatting which were traced to the parameter combinations which included -bbxi=2 and -cab=2. A small adjustment to length tolerances was made to fix the problem.</p>
+
+<p>This fixes cases b1137 b1149 b1150 b1155 b1158 b1159 b1160 b1161 b1166 b1167 b1168.</p>
+
+<p>19 Jun 2021, 4d4970a.</p>
+
+</dd>
+<dt id="Added-flag--atnl---add-terminal-newline-see-git-58"><b>Added flag -atnl, --add-terminal-newline, see git #58</b></dt>
+<dd>
+
+<p>This flag, which is enabled by default, allows perltidy to terminate the last line of the output stream with a newline character, regardless of whether or not the input stream was terminated with a newline character. If this flag is negated, with <b>-natnl</b>, then perltidy will add a terminal newline to the the output stream only if the input stream is terminated with a newline.</p>
+
+<p>Negating this flag may be useful for manipulating one-line scripts intended for use on a command line.</p>
+
+<p>This update also removes the description of the obsolete --check-syntax flag from the man pages and help text.</p>
+
+<p>18 Jun 2021, 6f83170.</p>
+
+</dd>
+<dt id="Allow---delete-side-comments-to-work-with--nanl"><b>Allow --delete-side-comments to work with -nanl</b></dt>
+<dd>
+
+<p>The -nanl flag (--noadd-newlines) was preventing side comments from being deleted, for example:</p>
+
+<pre><code>    # perltidy -dsc -nanl
+    calc()    # side comment</code></pre>
+
+<p>The same issue was happening for --delete-closing-side comments. This has been fixed.</p>
+
+<p>18 Jun 2021, dbfd802.</p>
+
+</dd>
+<dt id="Update-welding-rule-to-avoid-unstable-states"><b>Update welding rule to avoid unstable states</b></dt>
+<dd>
+
+<p>Testing with random input parameters produced a formatting instability involving an unusual parameter combination:</p>
+
+<pre><code>    --noadd-whitespace
+    --break-before-paren=3
+    --continuation-indentation=8
+    --delete-old-whitespace
+    --line-up-parentheses
+    --weld-nested-containers</code></pre>
+
+<p>and the following code</p>
+
+<pre><code>        if(defined$hints{family}){
+            @infos=({
+                     family=&gt;$hints{family},
+                     socktype=&gt;$hints{socktype},
+                     protocol=&gt;$hints{protocol},
+            });
+        }</code></pre>
+
+<p>This update fixes the problem, case b1162.</p>
+
+<p>18 Jun 2021, 76873ea.</p>
+
+</dd>
+<dt id="Convert-some-weld-sub-calls-to-hash-lookups"><b>Convert some weld sub calls to hash lookups</b></dt>
+<dd>
+
+<p>This is a minor optimization. These subs are eliminated: is_welded_right_at_K, is_welded_left_at_K, weld_len_right_at_K.</p>
+
+<p>17 Jun 2021, 1691013.</p>
+
+</dd>
+<dt id="Update-LineSink.pm-to-allow-undefined-line-endings"><b>Update LineSink.pm to allow undefined line endings</b></dt>
+<dd>
+
+<p>This update is necessary to eventually prevent an unwanted terminal newline being added to a file.</p>
+
+<p>17 Jun 2021, 2600533.</p>
+
+</dd>
+<dt id="Fix-incorrect-sub-call"><b>Fix incorrect sub call</b></dt>
+<dd>
+
+<p>This fixes an incorrect call which could cause an incorrect weld.</p>
+
+<p>16 Jun 2021, 068a28b.</p>
+
+</dd>
+<dt id="Add---code-skipping-option-see-git-65"><b>Add --code-skipping option, see git #65</b></dt>
+<dd>
+
+<p>Added a new option &#39;--code-skipping&#39;, requested in git #65, in which code between comment lines &#39;#&lt;&lt;V&#39; and &#39;#&gt;&gt;V&#39; is passed verbatim to the output stream without error checking. It is simmilar to --format skipping but there is no error checking, and is useful for skipping an extended syntax.</p>
+
+<p>16 Jun 2021, 99ec876.</p>
+
+</dd>
+<dt id="Handle-nested-print-format-blocks"><b>Handle nested print format blocks</b></dt>
+<dd>
+
+<p>Perltidy was producing an error at nested print format blocks, such as</p>
+
+<pre><code>    format NEST =
+    @&lt;&lt;&lt;
+    {
+        my $birds = &quot;birds&quot;;
+        local *NEST = *BIRDS{FORMAT};
+        write NEST;
+        format BIRDS =
+    @&lt;&lt;&lt;&lt;&lt;
+    $birds;
+    .
+    &quot;nest&quot;
+      }
+    .</code></pre>
+
+<p>It was ending the first format at the first &#39;.&#39; rather than the second &#39;.&#39; in this example. This update fixes this, issue c019.</p>
+
+<p>13 Jun 2021.</p>
+
+</dd>
+<dt id="Allow-stacked-labels-without-spaces"><b>Allow stacked labels without spaces</b></dt>
+<dd>
+
+<p>When labels are stacked in a single line, such as</p>
+
+<p>A:B:C:</p>
+
+<p>the default is to space them:</p>
+
+<p>A: B: C:</p>
+
+<p>This update allows the spaces to be removed if desired:</p>
+
+<p># perltidy -naws -dws A:B:C:</p>
+
+<p>13 Jun 2021, c2a63b2</p>
+
+</dd>
+<dt id="Fix-edge-cases-of-instability-involving--wn--lp"><b>Fix edge cases of instability involving -wn -lp</b></dt>
+<dd>
+
+<p>Random testing produced some cases of instability involving -wn -lp and some unusual additional parameters. These were traced to a test for welding, and were fixed by refining a certain tolerance. This fixes cases b1141, b1142.</p>
+
+<p>12 Jun 2021, 125494b.</p>
+
+</dd>
+<dt id="Remove-incorrect-warning-at-repeated-function-paren-call"><b>Remove incorrect warning at repeated function paren call</b></dt>
+<dd>
+
+<p>This update removes an incorrect error messagge at the construct &#39;)(&#39;. To illustrate, the following is a valid program:</p>
+
+<pre><code>    my @words = qw(To view this email as a web page go here);
+    my @subs;
+    push @subs, sub { my $i=shift; $i %= @words; print &quot;$words[$i] &quot;; return $subs[0]};
+    $subs[0](0)(1)(2)(3)(4)(5)(6)(7)(8)(9)(10)(11);
+    print &quot;\n&quot;;</code></pre>
+
+<p>However perltidy was giving an error message at the &#39;)(&#39; combination, which is unusual in perl scripts. This update fixes this.</p>
+
+<p>These are function call parens, so logically they should be under control of the -sfp or --space-function-parens parameter. I wrote a patch to do this, but decided not to implement it. The reason is that, as noted in the manual, subtle errors in perl scripts can occur when spaces are placed before parens. So, to avoid possible problems, the -sfp parameter will be restricted to spaces between a bareword [assumed to be a function] and a paren.</p>
+
+<p>This update is in Tokenizer.pm and fixes case c017.</p>
+
+<p>6 Jun 2021, 6551d65.</p>
+
+</dd>
+<dt id="Add-warning-when-lexical-sub-names-match-some-builtins"><b>Add warning when lexical sub names match some builtins</b></dt>
+<dd>
+
+<p>This update adds a warning when lexical subs have names which match some builtin names which will almost certainly cause a parsing error in the current version of perltidy. For example, the following program is valid and will run, but perltidy will produce an error.</p>
+
+<pre><code>    use feature qw(lexical_subs);
+    use warnings; no warnings &quot;experimental::lexical_subs&quot;;
+    {
+      my sub y { print &quot;Hello from y: $_[0]\n&quot;; }
+      y(1);
+    }</code></pre>
+
+<p>6 Jun 2021, 32729fb.</p>
+
+</dd>
+<dt id="Minor-cleanups"><b>Minor cleanups</b></dt>
+<dd>
+
+<p>This update fixes a case of formatting instability recently found with random testing. It also does some minor coding cleanups.</p>
+
+<p>This fixes case b1139.</p>
+
+<p>5 Jun 2021, b8527ab.</p>
+
+</dd>
+<dt id="Revised-data-structures-for-welding"><b>Revised data structures for welding</b></dt>
+<dd>
+
+<p>This update replaces the data structures used for the welding option with simpler but more general structures. This cleans up the code and will simplify future coding. No formatting changes should occur with this update.</p>
+
+<p>4 Jun 2021, 4a886c8.</p>
+
+</dd>
+<dt id="improved-treatment-of-lexical-subs"><b>improved treatment of lexical subs</b></dt>
+<dd>
+
+<p>This update improves the treatment of lexical subs. Previously they were formatted correctly but an error would have been produced if the same name was used for lexical subs defined in different blocks.</p>
+
+<p>For example, running the previous version of perltidy on the following:</p>
+
+<pre><code>    use feature qw(lexical_subs);
+    use warnings; no warnings &quot;experimental::lexical_subs&quot;;
+    {
+        my sub hello { print &quot;Hello from hello1\n&quot; }
+        {
+            my sub hello { print &quot;Hello from hello2\n&quot; }
+            hello();
+        }
+        hello();
+    }
+    {
+        my sub hello { print &quot;Hello from hello3\n&quot; }
+        hello();
+    }</code></pre>
+
+<p>gave the (incorrect) error message:</p>
+
+<pre><code>    6: already saw definition of &#39;sub hello&#39; in package &#39;main&#39; at line 4
+    12: already saw definition of &#39;sub hello&#39; in package &#39;main&#39; at line 6</code></pre>
+
+<p>This update fixes that.</p>
+
+<p>1 Jun 2021, 85ecb7a.</p>
+
+</dd>
+<dt id="add-v-string-underscores-warn-of-leading-commas"><b>add v-string underscores; warn of leading commas</b></dt>
+<dd>
+
+<p>This update cleans up a couple of open issues in the tokenizer.</p>
+
+<p>A warning message will be produced for a list which begins with a comma:</p>
+
+<pre><code>            my %string = (
+              ,       &quot;saddr&quot;,    $stest,  &quot;daddr&quot;,
+              $dtest, &quot;source&quot;,   $sname,  &quot;dest&quot;)</code></pre>
+
+<p>This warning had been temporarily deactivated.</p>
+
+<p>Underscores in v-strings without a leading &#39;v&#39; are now parsed correctly.</p>
+
+<p>Several comments have been updated.</p>
+
+<p>31 May 2021, ef44e70.</p>
+
+</dd>
+<dt id="Fix-parsing-error-at-operator-following-a-comma"><b>Fix parsing error at operator following a comma</b></dt>
+<dd>
+
+<p>The following lines are syntactically correct but some were producing a syntax error</p>
+
+<pre><code>    print &quot;hello1\n&quot;, || print &quot;hi1\n&quot;;
+    print &quot;hello2\n&quot;, &amp;&amp; print &quot;bye2\n&quot;;
+    print &quot;hello3\n&quot;, or print &quot;bye3\n&quot;;
+    print &quot;hello4\n&quot;, and print &quot;bye4\n&quot;;</code></pre>
+
+<p>For example, the first line produced this message</p>
+
+<pre><code>    1: print &quot;hello1\n&quot;, || print &quot;hi1\n&quot;;
+                       - ^
+    found || where term expected (previous token underlined)</code></pre>
+
+<p>This has been fixed. This fixes case c015.</p>
+
+<p>27 May 2021, b537a72.</p>
+
+</dd>
+<dt id="Added-optional-o-in-octal-number-definitions"><b>Added optional o in octal number definitions</b></dt>
+<dd>
+
+<p>An optional letter &#39;o&#39; or &#39;O&#39; in the octal representation of numbers, which was added in perl version 5.33.5, is now recogized. The leading zero is still required.</p>
+
+<p>For example:</p>
+
+<pre><code>    $a = 0o100;
+    $a = 0O100;</code></pre>
+
+<p>26 May 2021, 544df8c.</p>
+
+</dd>
+<dt id="Fix-several-problems-with--lp-formatting"><b>Fix several problems with -lp formatting</b></dt>
+<dd>
+
+<p>This update fixes several problems with -lp formatting which are all somewhat related.</p>
+
+<p>ISSUE #1 (cases c002 and c004): A problem involving -lp -wn and certain qw lists</p>
+
+<p>The last line of a welded qw list was being outdented even if it contained text as well as the closing container token. This update fixes the problem and simplifies the logic.</p>
+
+<p>A few examples (all use &#39;perltidy -wn -lp&#39;):</p>
+
+<pre><code>    # OLD and NEW: OK, closing qw paren is on separate line
+    $roads-&gt;add_capacity_path( qw( CoolCity 10 ChocolateGulch 8
+                               PecanPeak 10 BlueberryWoods 6
+                               HotCity
+    ) );
+
+    # OLD: poor; outdented text not aligned with previous text
+    $roads-&gt;add_capacity_path( qw( CoolCity 10 ChocolateGulch 8
+                               PecanPeak 10 BlueberryWoods 6
+    HotCity ) );
+
+    # NEW:
+    $roads-&gt;add_capacity_path( qw( CoolCity 10 ChocolateGulch 8
+                               PecanPeak 10 BlueberryWoods 6
+                               HotCity ) );
+
+    # OLD:
+    $roads-&gt;add_capacity_path( qw( ChocolateGulch 3 StrawberryFields 0
+    StrawberryFields ) );
+
+    # NEW:
+    $roads-&gt;add_capacity_path( qw( ChocolateGulch 3 StrawberryFields 0
+                               StrawberryFields ) );
+
+    # OLD:
+    my $mon_name = ( qw(January February March April
+                     May June July August
+    September October November December) )[$mon];
+
+    # NEW
+    my $mon_name = ( qw(January February March April
+                     May June July August
+                     September October November December) )[$mon];</code></pre>
+
+<p>ISSUE #2 (case c007): A rare program error could be triggered with -lp -xci</p>
+
+<p>In some very rare circumstances it was possible to trigger a &quot;Program error&quot; message. The program still ran to completion. The conditions for this to occur were that flags -lp -xci were set, and that there was a container of sort/map/grep blocks, and there was a side comment on the closing paren. For example:</p>
+
+<pre><code>    # OLD: perltidy -lp -xci, gave an error message and extra indentation here
+    my %specified_opts = (
+          (
+                          map { /^no-?(.*)$/i ? ($1 =&gt; 0) : ($_ =&gt; 1) }
+                          map { /^--([\-_\w]+)$/ } @ARGV
+          ),    # this comment caused an error with flags -lp -xci
+    );
+
+    # NEW: perltidy -lp -xci, no error
+    my %specified_opts = (
+          (
+             map { /^no-?(.*)$/i ? ( $1 =&gt; 0 ) : ( $_ =&gt; 1 ) }
+             map { /^--([\-_\w]+)$/ } @ARGV
+          ),    # this comment caused an error with flags -lp -xci
+    );</code></pre>
+
+<p>ISSUE #3 (case c008): In some unusual cases the -lp formatting style was not being applied when it should have been. For example (text is shifted right):</p>
+
+<pre><code>    # NEW: perltidy -lp
+    $result = runperl(
+        switches =&gt; [ &#39;-I.&#39;, &quot;-w&quot; ],
+        stderr   =&gt; 1,
+        prog     =&gt; &lt;&lt;&#39;PROG&#39; );
+    SIG
+    PROG
+
+    # NEW: perltidy -lp
+    $result = runperl(
+                       switches =&gt; [ &#39;-I.&#39;, &quot;-w&quot; ],
+                       stderr   =&gt; 1,
+                       prog     =&gt; &lt;&lt;&#39;PROG&#39; );
+    SIG
+    PROG</code></pre>
+
+<p>25 May 2021, 6947fe9.</p>
+
+</dd>
+<dt id="Modify-welding-rules"><b>Modify welding rules</b></dt>
+<dd>
+
+<p>This is an update to the patch 19 Apr 2021, eeeaf09. It restricts that patch to -lp formatting mode.</p>
+
+<p>This fixes case b1131.</p>
+
+<p>21 May 2021, a4ec4c1.</p>
+
+</dd>
+<dt id="Fix-inconsistency-involving-counting-commas"><b>Fix inconsistency involving counting commas</b></dt>
+<dd>
+
+<p>Random testing produced a formatting instability involving the combination of flags -bbp=2 -xci -vt=2 -bvtc=2. The problem was traced to an error in counting the number of line ending commas in lists.</p>
+
+<p>This fixes case b1130.</p>
+
+<p>15 May 2021, 90cceb1.</p>
+
+</dd>
+<dt id="Slightly-modify-line-breaks-for--lp-indentation"><b>Slightly modify line breaks for -lp indentation</b></dt>
+<dd>
+
+<p>Random testing produced an edge case of formatting instability for -lp indentation which was traced to checking for an old line break at a &#39;=&gt;&#39;. This has been fixed. Some existing formatting with deeply nested structures may be slightly changed due to the fix, but most existing formatting will be unchanged.</p>
+
+<p>This fixes b1035.</p>
+
+<p>15 May 2021, dd42648.</p>
+
+</dd>
+<dt id="Rewrite-coding-for--bom-flag"><b>Rewrite coding for -bom flag</b></dt>
+<dd>
+
+<p>Random testing produced some examples of formatting instability involving the -bom flag in combination with certain other flags which are fixed with this update. As part of this update, a previous update to fix case b977 (21 Feb 2021, commit 28114e9) was revised to use a better criterion for deciding when not to keep a &#39;)-&gt;&#39; break. The previous criterion was that the opening and closing containers should be separated by more than one line. The new criterion is that they should contain a list. This still fixes case b977. Another case, b1120, was fixed by requiring that only parentheses expressions be considered for keeping a line break, not &#39;}-&gt;&#39; or &#39;]-&gt;&#39;.</p>
+
+<p>Some issues are illustrated in the following examples using &#39;-bom -gnu&#39;. In the first example the leading &#39;)-&gt;&#39; was being lost due to the old b977 fix:</p>
+
+<pre><code>    # input:
+    $show = $top-&gt;Entry( &#39;-width&#39; =&gt; 20,
+                       )-&gt;pack(&#39;-side&#39; =&gt; &#39;left&#39;);
+
+    # OLD: perltidy -gnu -bom
+    $show = $top-&gt;Entry(&#39;-width&#39; =&gt; 20,)-&gt;pack(&#39;-side&#39; =&gt; &#39;left&#39;);
+
+    # NEW: perltidy -gnu -bom
+    $show = $top-&gt;Entry(
+                        &#39;-width&#39; =&gt; 20,
+                       )-&gt;pack(&#39;-side&#39; =&gt; &#39;left&#39;);</code></pre>
+
+<p>In the following example a leading &#39;-&gt;&#39; was being lost. The NEW version keeps the leading &#39;-&gt;&#39; but has to give up on the -lp alignment because of complexity:</p>
+
+<pre><code>        # input
+        $_make_phase_arg = join(&quot; &quot;,
+                           map {CPAN::HandleConfig
+                                 -&gt;safe_quote($_)} @{$prefs-&gt;{$phase}{args}},
+                          );
+
+        # OLD: perltidy -gnu -bom
+        $_make_phase_arg = join(&quot; &quot;,
+                                map { CPAN::HandleConfig-&gt;safe_quote($_) }
+                                  @{$prefs-&gt;{$phase}{args}},
+                               );
+
+        # NEW: perltidy -gnu -bom
+        $_make_phase_arg = join(
+            &quot; &quot;,
+            map {
+                CPAN::HandleConfig
+                  -&gt;safe_quote($_)
+            } @{$prefs-&gt;{$phase}{args}},
+        );</code></pre>
+
+<p>In the following example, a leading &#39;)-&gt;&#39; was being converted to a leading &#39;-&gt;&#39; due to the old b977 fix:</p>
+
+<pre><code>    # Starting script
+    $lb = $t-&gt;Scrolled(&quot;Listbox&quot;, -scrollbars =&gt; &quot;osoe&quot;
+                      )-&gt;pack(-fill =&gt; &quot;both&quot;, -expand =&gt; 1);
+
+    # OLD: perltidy -bom -gnu
+    $lb = $t-&gt;Scrolled( &quot;Listbox&quot;, -scrollbars =&gt; &quot;osoe&quot; )
+      -&gt;pack( -fill =&gt; &quot;both&quot;, -expand =&gt; 1 );
+
+    # NEW: perltidy -bom -gnu
+    $lb = $t-&gt;Scrolled(
+                       &quot;Listbox&quot;, -scrollbars =&gt; &quot;osoe&quot;
+                      )-&gt;pack(-fill =&gt; &quot;both&quot;, -expand =&gt; 1);</code></pre>
+
+<p>In the following example, a leading &#39;)-&gt;&#39; was being lost, again due to the old b977 fix:</p>
+
+<pre><code>    $myDiag-&gt;Label(-text =&gt; $text,
+                                  )-&gt;pack(-fill =&gt; &#39;x&#39;,
+                                                  -padx =&gt; 3,
+                                                  -pady =&gt; 3);
+
+    # OLD: -gnu -bom
+    $myDiag-&gt;Label(-text =&gt; $text,)-&gt;pack(
+                                          -fill =&gt; &#39;x&#39;,
+                                          -padx =&gt; 3,
+                                          -pady =&gt; 3
+                                         );
+
+    # NEW -gnu -bom
+    $myDiag-&gt;Label(
+                   -text =&gt; $text,
+      )-&gt;pack(
+              -fill =&gt; &#39;x&#39;,
+              -padx =&gt; 3,
+              -pady =&gt; 3
+             );</code></pre>
+
+<p>This update fixes case b1120 and revises the fix for b977.</p>
+
+<p>13 May 2021, d0ac5e9.</p>
+
+</dd>
+<dt id="Adjust-tolerances-for-some-line-length-tests"><b>Adjust tolerances for some line length tests</b></dt>
+<dd>
+
+<p>Random testing produced some edge cases of unstable formatting involving the -lp format. These were fixed by using a slightly larger tolerance in the length test for containers which were broken in the input file.</p>
+
+<p>This fixes cases b1059 b1063 b1117.</p>
+
+<p>13 May 2021, 24a11d3.</p>
+
+</dd>
+<dt id="Do-not-apply--lp-formatting-to-containers-with-here-doc-text"><b>Do not apply -lp formatting to containers with here-doc text</b></dt>
+<dd>
+
+<p>If a container contains text of a here-doc then the indentation is fixed by the here-doc text, so applying -lp formatting does not work well. So this update turns off the -lp formatting in this case.</p>
+
+<p>But note that if a container contains a here target but not the here text so it still gets the -lp indentation:</p>
+
+<pre><code>    # perltidy -lp
+    &amp;WH::Spell::AddSpell(
+                          &quot;Cause Light Wounds&quot;, &quot;WFP&quot;,
+                          &quot;CauseLightWounds&quot;,   &lt;&lt;&#39;EOH&#39;);
+    ...
+    EOH</code></pre>
+
+<p>This fixes case b1081.</p>
+
+<p>10 May 2021, 4f7a56b.</p>
+
+</dd>
+<dt id="Fix-some-edge-welding-cases"><b>Fix some edge welding cases</b></dt>
+<dd>
+
+<p>Some adjustments in welding coding was made to maintain stability for some unusual parameter combinations.</p>
+
+<p>This fixes cases b1111 b1112.</p>
+
+<p>9 May 2021, 68f619a.</p>
+
+</dd>
+<dt id="Improve-tolerance-for-welding-qw-quotes"><b>Improve tolerance for welding qw quotes</b></dt>
+<dd>
+
+<p>The tolerance for welding qw quotes has been update to be the same as used for welding other tokens. This fixes case b1129.</p>
+
+<p>9 May 2021, d1de85f.</p>
+
+</dd>
+<dt id="Revise-weld-tolerances-simplify-code-fix-welded-ci"><b>Revise weld tolerances, simplify code, fix welded ci</b></dt>
+<dd>
+
+<p>The welding process uses a tolerance to keep results stable. Basically, a zero tolerance is used if it looks like it is welding an existing weld, while a finite tolerance is used otherwise. The effect is to reject a few marginal welds to gain stability. The coding to do this was simplified and the tolerance was made more precise to fix case b1124.</p>
+
+<p>Another change with this update is that at welded containers, the value of the -ci flag of an outer opening token is transferred to the inner opening token. This may improve some indentation in a few cases if the -lp flag is also used. It has no effect if -lp is not used.</p>
+
+<pre><code>    # OLD: perltidy -wn -gnu
+    emit_symbols([qw(
+     ctermid
+     get_sysinfo
+     Perl_OS2_init
+     ...
+     CroakWinError
+    )]);
+
+    # NEW: perltidy -wn -gnu
+    emit_symbols([qw(
+        ctermid
+        get_sysinfo
+        Perl_OS2_init
+        ...
+        CroakWinError
+    )]);</code></pre>
+
+<p>9 May 2021, ad8870b.</p>
+
+</dd>
+<dt id="Correct-brace-types-mismarked-by-tokenizer-update"><b>Correct brace types mismarked by tokenizer, update</b></dt>
+<dd>
+
+<p>This is a generalization of commit 7d3bf4 in which the tokenizer sends a signal to the formatter if the type of a brace following an unknown bareword had to be guessed. The formatter has more information and can fix the problem. This fixes case b1128.</p>
+
+<p>8 May 2021, b3eaf23.</p>
+
+</dd>
+<dt id="Added-warning-when--ci-has-to-be-reduced-ref-rt-136415"><b>Added warning when -ci has to be reduced; ref rt #136415</b></dt>
+<dd>
+
+<p>In commit c16c5ee an update was made to prevent instability with -xci when the value of -ci exceeds -i (which is not recommended). This update adds a warning message to avoid confusing the user.</p>
+
+<p>7 May 2021, e9e14e4.</p>
+
+</dd>
+<dt id="Improve-indentation-of-welded-multiline-qw-quotes"><b>Improve indentation of welded multiline qw quotes</b></dt>
+<dd>
+
+<p>Formatting of multiline qw lists with welding works best if the opening and closing qw tokens are on separate lines, like this:</p>
+
+<pre><code>    # perltidy -wn
+    my $mon_name = ( qw(
+        January February March April
+        May June July August
+        September October November December
+    ) )[$mon];
+
+    # perltidy -wn -lp
+    my $mon_name = ( qw(
+                     January February March April
+                     May June July August
+                     September October November December
+    ) )[$mon];</code></pre>
+
+<p>Otherwise formatting can be poor, particularly if the last line has text and a closing container.</p>
+
+<pre><code>    # OLD: perltidy -wn
+    my $mon_name = ( qw(January February March April
+        May June July August
+    September October November December) )[$mon];</code></pre>
+
+<p>Note that perltidy does not change the line breaks within multiline quotes, so they must be changed by hand if desired.</p>
+
+<p>This update indents the last line of a multiline quote which contains both text and the closing token, such as:</p>
+
+<pre><code>    # NEW: perltidy -wn
+    my $mon_name = ( qw(January February March April
+        May June July August
+        September October November December) )[$mon];</code></pre>
+
+<p>This update is only when the -lp flag is not used. If -lp is used and the last line contains text, the last line is still outdented:</p>
+
+<pre><code>    $ OLD and NEW: perltidy -wn -lp
+    my $mon_name = ( qw(January February March April
+                     May June July August
+    September October November December) )[$mon];</code></pre>
+
+<p>This is difficult to fix. The best solution is to place the closing qw qw containers on a separate line.</p>
+
+<p>This fix is for case c002.</p>
+
+<p>6 May 2021, 176f8a7.</p>
+
+</dd>
+<dt id="Test-length-of-closing-multiline-qw-quote-before-welding"><b>Test length of closing multiline qw quote before welding</b></dt>
+<dd>
+
+<p>Random testing produced an unstable state which was due to not checking for excessive length of the last line of a multiline qw quote. A check was added, this fixes issue b1039.</p>
+
+<p>5 May 2021, b72ad24.</p>
+
+</dd>
+<dt id="Update-welding-rule-to-avoid-blinking-states"><b>Update welding rule to avoid blinking states</b></dt>
+<dd>
+
+<p>Random testing with unusual parameter combinations produced some unstable welds. For example case b1106 has these parameters</p>
+
+<pre><code>    --noadd-whitespace
+    --continuation-indentation=6
+    --delete-old-whitespace
+    --line-up-parentheses
+    --maximum-line-length=36
+    --variable-maximum-line-length
+    --weld-nested-containers</code></pre>
+
+<p>and was switching between these two states:</p>
+
+<pre><code>            return map{
+                ($_,[$self-&gt;$_(@_[1..$#_])])
+            }@every;
+
+            return map { (
+                $_, [ $self-&gt;$_( @_[ 1 .. $#_ ] ) ]
+            ) } @every;</code></pre>
+
+<p>An existing rule, WELD RULE 2, was updated to prevent welding to an intact one-line weld, as in the first snippet, if it is on a separate line from the first opening token. With this change, both of these states are stable.</p>
+
+<p>This update fixes cases b1082 b1102 b1106 b1115.</p>
+
+<p>4 May 2021, 07efa9d.</p>
+
+</dd>
+<dt id="Fix-problem-of-conflict-of--otr-and--lp"><b>Fix problem of conflict of -otr and -lp</b></dt>
+<dd>
+
+<p>Several random test cases produced an instability involving -otr and -lp. In -lp mode, when an opening paren follows an equals and is far to the right, a break is made at the equals to minimize the indentation of the next lines. The -otr flag is a suggestion that an opening paren should be place on the right. A check has been made to avoid this in -lp mode following an equals, since that defeats the purpose of the original break.</p>
+
+<p>This fixes cases b964 b1040 b1062 b1083 b1089.</p>
+
+<p>4 May 2021, 24a0d32.</p>
+
+</dd>
+<dt id="Add-option--pvtc-3-requested-in-rt136417"><b>Add option -pvtc=3, requested in rt136417</b></dt>
+<dd>
+
+<p>A new integer option, n=3, has been added to the vertical tightness closing flags. For a container with n=3, the closing token will behave as for n=0 if the opening token is preceded by an &#39;=&#39; or &#39;=&gt;&#39;, and like n=1 otherwise.</p>
+
+<p>3 May 2021, 93063a7.</p>
+
+</dd>
+<dt id="Fix-vertical-alignment-issue-in-rt136416"><b>Fix vertical alignment issue in rt136416</b></dt>
+<dd>
+
+<p>This update fixes a problem with unwanted vertical alignment rasied in rt#136416. The example is</p>
+
+<pre><code>    use File::Spec::Functions &#39;catfile&#39;, &#39;catdir&#39;;
+    use Mojo::Base &#39;Mojolicious&#39;,        &#39;-signatures&#39;;</code></pre>
+
+<p>An update was made to reject alignments in use statements with different module names. The test file t/snippets/align35.in has more examples.</p>
+
+<p>3 May 2021, 048126c.</p>
+
+</dd>
+<dt id="Fix-some-rare-issues-with-the--lp-option"><b>Fix some rare issues with the -lp option</b></dt>
+<dd>
+
+<p>Random testing produced some rare cases of unstable formatting involving the <b>-lp</b> option which are fixed with this update. This is a generalization of commit edc7878 of 23 Jan 2021. This fixes cases b1109 b1110.</p>
+
+<p>2 May 2021, a8d1c8b.</p>
+
+</dd>
+<dt id="Correct-brace-types-mismarked-by-tokenizer"><b>Correct brace types mismarked by tokenizer</b></dt>
+<dd>
+
+<p>This is a generalization of commit 7d23bf4 to fix some additional cases found in random testing in which the type of a curly brace could not be determined in the tokenizer and was not being corrected by the formatter.</p>
+
+<p>This fixes cases b1125 b1126 b1127.</p>
+
+<p>2 May 2021i, dac97cb.</p>
+
+</dd>
+<dt id="Avoid-instability-of-combination--bbx-2--lp-and--xci"><b>Avoid instability of combination -bbx=2 -lp and -xci</b></dt>
+<dd>
+
+<p>Random testing produced several cases in which the flags -bbx=2 -lp and -xci were causing formatting instability. The fix is to locally turn off -xci when -lp and -bbx=2 are in effect. This is an extension of commit 2b05051.</p>
+
+<p>This fixes cases b1090 b1095 b1101 b1116 b1118 b1121 b1122 b1099</p>
+
+<p>1 May 2021, 4cb81ba.</p>
+
+</dd>
+<dt id="Restrict-use-of-flag--cab-3-to-simple-structures"><b>Restrict use of flag -cab=3 to simple structures</b></dt>
+<dd>
+
+<p>Logic was added to turn off -cab=3 in complex structures. Otherwise, instability can occur. When it is overridden the behavior of the closest match, -cab=2, is used instead.</p>
+
+<p>For example, using these parameters for case b1113</p>
+
+<pre><code>    --noadd-whitespace
+    --break-before-hash-brace-and-indent=2
+    --break-before-hash-brace=1
+    --comma-arrow-breakpoints=3
+    --continuation-indentation=9
+    --maximum-line-length=76
+    --variable-maximum-line-length</code></pre>
+
+<p>formatting of the following snippet was unstable:</p>
+
+<pre><code>    $STYLESHEET{&#39;html-light&#39;}={
+        &#39;tags&#39;=&gt;{
+            &#39;predefined identifier&#39;=&gt;
+                     {
+                &#39;start&#39;=&gt;&#39;&lt;font color=&quot;#2040a0&quot;&gt;&lt;strong&gt;&#39;,
+                &#39;stop&#39;=&gt;&#39;&lt;/strong&gt;&lt;/font&gt;&#39;
+                     },
+        }
+    };</code></pre>
+
+<p>This update fixes cases b1096 b1113.</p>
+
+<p>29 Apr 2021, 32a1830.</p>
+
+</dd>
+<dt id="Update-docs-for-git-64-regarding--lp-and-side-comments"><b>Update docs for git #64 regarding -lp and side comments</b></dt>
+<dd>
+
+<p>The wording regarding when -lp reverts to the default indentation scheme has been revised to include side comment as follows:</p>
+
+<p>In situations where perltidy does not have complete freedom to choose line breaks it may temporarily revert to its default indentation method. This can occur for example if there are blank lines, block comments, multi-line quotes, or side comments between the opening and closing parens, braces, or brackets.</p>
+
+<p>The word &#39;may&#39; is significant for side comments. In a list which is just one level deep side comments will work (perhaps with -iscl if side comments are long). For example this is ok</p>
+
+<pre><code>    # perltidy -lp
+    $gif-&gt;arc(
+               50, 50,     # Center x, y.
+               30, 30,     # Width, Height.
+               0,  360,    # Start Angle, End Angle.
+               $red
+    );</code></pre>
+
+<p>But if a list is more than one level deep then the default indentation is used.</p>
+
+<p>28 Apr 2021, 49977b8.</p>
+
+</dd>
+<dt id="Fix-line-break-rules-for-uncontained-commas-cleanups"><b>Fix line break rules for uncontained commas + cleanups</b></dt>
+<dd>
+
+<p>This is an adjustment of update 344519e which had to do with breaking lines with commas which were not inside of a container. In a few cases it was producing very long lines when <b>-l=0</b> was set. The solution was to remove the concatenation operator from the list of operators at which breaks were prevented.</p>
+
+<p>Other updates are: Remove unused indentation table. Correct maximum_line_length table for -vmll when -wc is also set. Also fix whitespace rule for &#39;$ =&#39; within a signature to fix case b1123.</p>
+
+<p>26 Apr 2021, d014c2a.</p>
+
+</dd>
+<dt id="Fix-problem-with--wn-and--wc-n"><b>Fix problem with -wn and -wc=n</b></dt>
+<dd>
+
+<p>Random testing produced some cases in which the -wn flag was unstable when -wc=n was used with very small n. This has been fixed.</p>
+
+<p>This fixes cases: b1098 b1107 25 Apr 2021, 92babdf.</p>
+
+</dd>
+<dt id="Adjust-line-break-rules-for-uncontained-commas"><b>Adjust line break rules for uncontained commas</b></dt>
+<dd>
+
+<p>Random testing produced case c1119 which was unstable due to the formatting rules for breaking lines at commas which occur outside of containers. The rules were modified to fix the problem.</p>
+
+<p>20 Apr 2021, 344519e.</p>
+
+</dd>
+<dt id="Fix-a-bad-line-break-choice-at-a-slash"><b>Fix a bad line break choice at a slash</b></dt>
+<dd>
+
+<p>Random testing produced case c001 in which the following snipppet</p>
+
+<pre><code>   ok $mi/(@mtime-1) &gt;= 0.75 &amp;&amp; $ai/(@atime-1) &gt;= 0.75 &amp;&amp;
+             $ss/(@mtime+@atime) &gt;= 0.2;</code></pre>
+
+<p>when processed with these parameters</p>
+
+<pre><code>    --maximum-line-length=20
+    --nowant-right-space=&#39; / &#39;
+    --want-break-before=&#39;* /&#39;</code></pre>
+
+<p>produced the following result</p>
+
+<pre><code>    ok $mi
+      /( @mtime - 1 ) &gt;=
+      0.75
+      &amp;&amp; $ai
+      /( @atime - 1 )
+      &gt;= 0.75
+      &amp;&amp; $ss
+      /( @mtime +
+          @atime ) &gt;=
+      0.2;</code></pre>
+
+<p>using &#39;perl -cw&#39; on this snippet gives a syntax error</p>
+
+<pre><code>    syntax error at /tmp/issues.t line 5, near &quot;/( &quot;
+        (Might be a runaway multi-line // string starting on line 2)</code></pre>
+
+<p>The error is due to perl&#39;s weird parsing rules near a possible indrect object. This is a situation where perltidy must ignore a user spacing and line break request. This should have been done but in this case a flag to prevent this was not being propagated to later stages of formatting. This has been fixed.</p>
+
+<p>20 Apr 2021, 4fbc69a.</p>
+
+</dd>
+<dt id="Fix-rare-problem-with--lp--wn"><b>Fix rare problem with -lp -wn</b></dt>
+<dd>
+
+<p>Random testing produced case b1114 which gave unstable formatting with these parameters</p>
+
+<pre><code>    --noadd-whitespace
+    --indent-columns=8
+    --line-up-parentheses
+    --maximum-line-length=25
+    --weld-nested-containers</code></pre>
+
+<p>and this snippet</p>
+
+<pre><code>    is(length(pack(&quot;j&quot;, 0)),
+        $Config{ivsize});</code></pre>
+
+<p>Fixed 19 Apr 2021, eeeaf09.</p>
+
+</dd>
+<dt id="Fix-issue-git-63"><b>Fix issue git#63</b></dt>
+<dd>
+
+<p>The following lines produced an error message due to the side comment</p>
+
+<pre><code>    my $fragment = $parser-&gt;    #parse_html_string
+      parse_balanced_chunk($I);</code></pre>
+
+<p>Fixed 18 Apr 2021, c2030cf.</p>
+
+</dd>
+<dt id="Avoid-welding-at-sort-map-grep-paren-calls"><b>Avoid welding at sort/map/grep paren calls</b></dt>
+<dd>
+
+<p>Random testing produced several cases of unstable welds in which the inner container something like &#39;sort (&#39;. The problem was that there are special rules which prevent a break following such a paren. The problem was fixed by preventing welds at these locations.</p>
+
+<p>This update fixes cases b1077 b1092 b1093 b1094 b1104 b1105 b1108.</p>
+
+<p>17 Apr 2021, d679b48.</p>
+
+</dd>
+<dt id="Fix-issue-git-62"><b>Fix issue git#62</b></dt>
+<dd>
+
+<p>This fixes issue git #62. A similar issue for the % operator was fixed. 17 Apr 2021, f80d677.</p>
+
+</dd>
+<dt id="Fix-problem-involving--bbx-2--xci--osbr-and-similar--otr-flags"><b>Fix problem involving -bbx=2 -xci -osbr and similar -otr flags</b></dt>
+<dd>
+
+<p>Random testing produced case b1100 in which the output style produced by the --opening-token-right flags interfered with counting line-ending commas, and this in turn caused the -bbx flag to turn off the -xci flag. This problem was fixed.</p>
+
+<p>15 Apr 2021, 21ef53b.</p>
+
+</dd>
+<dt id="Fix-rare-line-break-problem"><b>Fix rare line break problem</b></dt>
+<dd>
+
+<p>Random testing produced case b1097 with this parameter set</p>
+
+<pre><code>    --brace-vertical-tightness-closing=1
+    --continuation-indentation=8
+    --indent-columns=10
+    --maximum-line-length=36</code></pre>
+
+<p>and either this output</p>
+
+<pre><code>          my (@files) = @{
+                    $args{-files} };</code></pre>
+
+<p>or this output</p>
+
+<pre><code>          my (@files) =
+                  @{ $args{-files}
+                  };</code></pre>
+
+<p>The different results were caused by the unusual combination of parameters. The problem was fixed by not allowing the formatter to consider existing breaks at highly stressed locations such as these.</p>
+
+<p>15 Apr 2021, 9f15b9d.</p>
+
+</dd>
+<dt id="Fix-problem-parsing-anonymous-subs-with-attribute-lists"><b>Fix problem parsing anonymous subs with attribute lists</b></dt>
+<dd>
+
+<p>Random testing produced case b994 with unstable formatting:</p>
+
+<pre><code>    do
+    sub :
+    lvalue
+    {
+    return;
+    }</code></pre>
+
+<p>when run with parameters:</p>
+
+<pre><code>    --continuation-indentation=0
+    --ignore-old-breakpoints
+    --maximum-line-length=7
+    --opening-anonymous-sub-brace-on-new-line</code></pre>
+
+<p>The line &#39;sub :&#39; was being correctly parsed but the following opening block brace was not correctly marked as an anonymous sub brace. This fixes cases b994 and b1053.</p>
+
+<p>15 Apr 2021, 84c1123.</p>
+
+</dd>
+<dt id="Correct-brace-types-mismarked-by-tokenizer1"><b>Correct brace types mismarked by tokenizer</b></dt>
+<dd>
+
+<p>Testing with random parameters produced a case in which a brace following an unknown bareword was marked by the tokenizer as a code block brace rather than a hash brace. This can cause poor formatting. The problem was solved by having the tokenizer send a signal to the formatter if a block type was guessed. The formatter has more information and can fix the problem. This fixes case b1085.</p>
+
+<p>11 Apr 2021, 7d23bf4.</p>
+
+</dd>
+<dt id="Unify-coding-for-welded-quotes-and-other-welded-containers"><b>Unify coding for welded quotes and other welded containers</b></dt>
+<dd>
+
+<p>Random testing produced some cases where welded quotes were not converging. These were found to be due to the same problem previouly encountered and fixed for normal containers. The problem was fixed by moving the corrected coding to a new common sub.</p>
+
+<p>This update fixes cases b1066 b1067 b1071 b1079 b1080.</p>
+
+<p>10 Apr 2021, 5d73dd5.</p>
+
+</dd>
+<dt id="Slight-change-in-weld-length-calculation"><b>Slight change in weld length calculation</b></dt>
+<dd>
+
+<p>Random testing produced some cases of instability with some unusual input parameter combinations involving the -wn parameter. This was fixed by revising a line length calculation. This fixes cases b604 and b605.</p>
+
+<p>9 Apr 2021, a25cfaa.</p>
+
+</dd>
+<dt id="Improve-treatment-of--vmll-with--wn"><b>Improve treatment of -vmll with -wn</b></dt>
+<dd>
+
+<p>Random testing showed a weakness in the treatment of the -vmll flag in combination with the -wn flag. This has been fixed.</p>
+
+<p>This fixes cases b866 b1074 b1075 b1084 b1086 b1087 b1088</p>
+
+<p>8 Apr 2021, a6effa3.</p>
+
+</dd>
+<dt id="Merge-weld-rule-6-into-rule-3"><b>Merge weld rule 6 into rule 3</b></dt>
+<dd>
+
+<p>One of the welding rules, RULE 6, has been merged into RULE 3 for generality. This rule restricts welding to an opening container followed by a bare word, which can cause instability in some cases. The updated code is less restrictive and fixes some cases recently found with random testing, b1078 b1091.</p>
+
+<p>8 Apr 2021, f28ab55.</p>
+
+</dd>
+<dt id="Moved-logic-of-previous-update-to-the-FileWriter-module"><b>Moved logic of previous update to the FileWriter module</b></dt>
+<dd>
+
+<p>The previous update regarding blank line generation was not sufficiently general to handle all possible parameter combinations. The problem was solved and simplified by moving the logic to a lower level, in the FileWriter module.</p>
+
+<p>6 Apr 2021, 756e930.</p>
+
+</dd>
+<dt id="Fix-problem-with-excess-blank-line-generation-with--blao"><b>Fix problem with excess blank line generation with -blao</b></dt>
+<dd>
+
+<p>Random testing produced some cases where excess blank lines could be generated with the parameter -blank-lines-after-opening-block. Case b1073 has the following script</p>
+
+<pre><code>    sub stop {
+
+        1;
+    }</code></pre>
+
+<p>and the following parameters</p>
+
+<pre><code>    --blank-lines-after-opening-block=2
+    --maximum-consecutive-blank-lines=10
+    --maximum-line-length=15</code></pre>
+
+<p>When run, blank lines keep getting generated until the maximum is reached. This has been fixed.</p>
+
+<p>6 Apr 2021, 9216298.</p>
+
+</dd>
+<dt id="Fix-edge-case-involving--wn-and--lp-or--bbao"><b>Fix edge case involving -wn and -lp or -bbao</b></dt>
+<dd>
+
+<p>A change was made to a welding rule involving the -lp option or -wbb=&#39;=&#39;, and very short maximum line lengths. This correctly fixes case b1041. It replaces a fix for this case reported on 2 Apr 2021.</p>
+
+<p>5 Apr 2021.</p>
+
+</dd>
+<dt id="Modify-a-condition-for-applying--bbx-2"><b>Modify a condition for applying -bbx=2</b></dt>
+<dd>
+
+<p>Random testing produced some edge cases in which formatting with the -bbx=2 flags, in combination with certain other parameters, was not converging. An existing criterion for the -bbx=2 flag to apply is that there be a broken sub-list with at least one line-ending comma. This was updated to also require either a fat comma or one additional line-ending comma. This filters out some problem cases without changing much existing formatting.</p>
+
+<p>This update fixes cases b1068 b1069 b1070 b1072 b1073 b1076.</p>
+
+<p>5 Apr 2021, 16c4591.</p>
+
+</dd>
+<dt id="Improve-previous--wn-update"><b>Improve previous -wn update</b></dt>
+<dd>
+
+<p>The previous update produced some problems in testing which are corrected with this update.</p>
+
+<p>5 Apr 2021, ffef089.</p>
+
+</dd>
+<dt id="Fix-rare-convergence-problem-with--wn"><b>Fix rare convergence problem with -wn</b></dt>
+<dd>
+
+<p>Random testing produced some cases in which unusual parameter combinations caused lack of convergence for the -wn flag. The problem was fixed by adjusting a tolerance in the line length calculation.</p>
+
+<p>This fixes cases b1041 b1055.</p>
+
+<p>2 Apr 2021, a8b6259.</p>
+
+</dd>
+<dt id="Avoid-conflict-of--bli-and--xci"><b>Avoid conflict of -bli and -xci</b></dt>
+<dd>
+
+<p>Random testing produced a case with the combination -bli and -xci which did not converge. This was fixed by turning off -xci for braces under -bli control.</p>
+
+<p>This fixes case b1065.</p>
+
+<p>2 Apr 2021, d20ea80.</p>
+
+</dd>
+</dl>
+
+<h1 id="Issues-fixed-after-release-20210111">Issues fixed after release 20210111</h1>
+
+<dl>
+
+<dt id="Avoid-conflict-of--bbp-2-and--xci"><b>Avoid conflict of -bbp=2 and -xci</b></dt>
+<dd>
+
+<p>Random testing produced a number of cases of unstable formatting when both -xci and -bbp=2 or similar flags were set. The problem was that -xci can cause one-line blocks to break open, causing the -bbp=2 flag to continually switch formatting. The problem is fixed by locally turning off -xci at containers which do not themselves contain broken containers.</p>
+
+<p>This fixes cases b1033 b1036 b1037 b1038 b1042 b1043 b1044 b1045 b1046 b1047 b1051 b1052 b1061.</p>
+
+<p>30 Mar 2021, 2b05051.</p>
+
+</dd>
+<dt id="Fix-rule-for-welding-with-barewords"><b>Fix rule for welding with barewords</b></dt>
+<dd>
+
+<p>Random testing produced a case which was not converging due to a rule which avoids welding when a bareword follows. The rule was modified to allow an exception for an existing one-line weld. A non-fatal typo was also discovered and fixed.</p>
+
+<p>This fixes cases b1057 b1064.</p>
+
+<p>29 Mar 2021, d677082.</p>
+
+</dd>
+<dt id="Fix-conflict-between--wba-and--opr"><b>Fix conflict between -wba=&#39;||&#39; and -opr</b></dt>
+<dd>
+
+<p>Random testing produced a problem with convergence due to a conflict between two parameters for the following code</p>
+
+<pre><code>    my $lxy =
+      ( @$cx - @$cy ) ||
+      (
+        length ( int ( $cx-&gt;[-1] ) ) -
+        length ( int ( $cy-&gt;[-1] ) ) );</code></pre>
+
+<p>when using these parameters</p>
+
+<pre><code>    --break-after-all-operators
+    --maximum-line-length=61
+    --opening-paren-right</code></pre>
+
+<p>Both the &#39;||&#39; and the &#39;(&#39; want to be at the end of a line according to the parameters. The problem is resolved by giving priority to the &#39;||&#39;. This fixes case b1060.</p>
+
+<p>29 Mar 2021, 6921a7d.</p>
+
+</dd>
+<dt id="Follow-user-requests-better-to-break-before-operators"><b>Follow user requests better to break before operators</b></dt>
+<dd>
+
+<p>Random testing produced some cases in which user requests to break before selected operators were not being followed. For example</p>
+
+<pre><code>    # OLD: perltidy -wbb=&#39;.=&#39;
+    $value .=
+      ( grep /\s/, ( $value, $next ) )
+      ? &quot; $next&quot;
+      : $next;
+
+    # FIXED: perltidy -wbb=&#39;.=&#39;
+    $value
+      .= ( grep /\s/, ( $value, $next ) )
+      ? &quot; $next&quot;
+      : $next;</code></pre>
+
+<p>This fixes case b1054.</p>
+
+<p>28 Mar 2021, 94f0877.</p>
+
+</dd>
+<dt id="Fix-problems-with-combinations-of--iob--lp"><b>Fix problems with combinations of -iob -lp</b></dt>
+<dd>
+
+<p>This is an correction to the update of 13 Mar 2021, 71adc77. Random testing produced several additional problems with convergence involving the combination -iob -lp. This update fixes the problem by overriding -iob at some breakpoins which are essential to the -lp parameter.</p>
+
+<p>This update fixes these old cases: b1021 b1023</p>
+
+<p>and these new cases: b1034 b1048 b1049 b1050 b1056 b1058</p>
+
+<p>27 Mar 2021, cc94623.</p>
+
+</dd>
+<dt id="Add-flag--lpxl-s-to-provide-control-over--lp-formatting"><b>Add flag -lpxl=s to provide control over -lp formatting</b></dt>
+<dd>
+
+<p>The flag -lpxl=s provides control over which containers get -lp formatting. A shortcut flag -lfp is also added for limiting -lp to simple function calls.</p>
+
+<p>Updated 25 Mar 2021, bfc00fp.</p>
+
+</dd>
+<dt id="Fix-error-message-for-multiple-conflicting-specifications-in--wnxl"><b>Fix error message for multiple conflicting specifications in -wnxl</b></dt>
+<dd>
+
+<p>There was an error in the coding for an error message which checks for conflicting requests in the -wnxl parameter.</p>
+
+<p>Fixed 21 Mar 2021, 2ef97a2.</p>
+
+</dd>
+<dt id="Fix-issue-git-57-Warn_count-was-not-initialized"><b>Fix issue git #57, Warn_count was not initialized</b></dt>
+<dd>
+
+<p>This update fixes issue git #57, in which a warning flag was not getting zeroed on each new call to perltidy.</p>
+
+<p>19 Mar 2021, b6d296a.</p>
+
+</dd>
+<dt id="Fix-rare-problem-with-combination--lp--wn--naws"><b>Fix rare problem with combination -lp -wn -naws</b></dt>
+<dd>
+
+<p>This update fixes case b1032 by includeing lines starting with &#39;if&#39;, &#39;or&#39;, and || among the stable breakpoints for welding when -lp -naws flags are also set.</p>
+
+<p>This update also modifies update 7a6be43 of 16 Mar 2021 to exclude list items when checking token lengths. This reduces changes to existing formatting while still fixing the problem in case b1031.</p>
+
+<p>18 Mar 2021, 6200034.</p>
+
+</dd>
+<dt id="Fix-definition-of-list-within-list-for--bbx-flags"><b>Fix definition of list within list for -bbx flags</b></dt>
+<dd>
+
+<p>Testing produced a blinking state involving a -bbx=2 flag with an unusual combination of other parameters. The problem was traced to the definition of a list containing another list being too restrictive. This update fixes case 1024.</p>
+
+<p>17 Mar 2021, 7f5da0a.</p>
+
+</dd>
+<dt id="Fix-problem-with--xci-and-long-tokens"><b>Fix problem with -xci and long tokens</b></dt>
+<dd>
+
+<p>Testing produced an unstable situation involving the -xci flag and tokens which exceed the maximum line length. This fix identifies this situation and locally deactivates the -xci flag. This fixes case b1031.</p>
+
+<p>16 Mar 2021, 7a6be43.</p>
+
+</dd>
+<dt id="Fix-error-in-parsing-use-statement-curly-brace"><b>Fix error in parsing use statement curly brace</b></dt>
+<dd>
+
+<p>Testing with random parameters produced some cases where the -xci option was not producing stable results when the maximum line length was set to a very small value. The problem was traced to the tokenizer misparsing a hash brace of a use statement as a code block type. This influences the value of continuation indentation within the braces. The problem was fixed.</p>
+
+<p>This fixes cases b1022 b1025 b1026 b1027 b1028 b1029 b1030</p>
+
+<p>16 Mar 2021, 6371be2.</p>
+
+</dd>
+<dt id="Fix-problems-with-combinations-of--iob--lp--wn--dws--naws"><b>Fix problems with combinations of -iob -lp -wn -dws -naws</b></dt>
+<dd>
+
+<p>Testing with random parameters produced some situation where the parameter -iob interfered with convergence when parameters -lp and/or -wn were also set. The combination -wn -lp -dws -naws also produced some non-converging states in testing. This update fixes these issues.</p>
+
+<p>The following cases are fixed: b1019 b1020 b1021 b1023</p>
+
+<p>13 Mar 2021, 71adc77.</p>
+
+</dd>
+<dt id="Simplify-sub-weld_nested_containers"><b>Simplify sub weld_nested_containers</b></dt>
+<dd>
+
+<p>This update consolidates a number of specialized rules for welding into fewer, simpler rules which accomplish the same effect.</p>
+
+<p>These cases are fixed with this update: b186 b520 b872 b937 b996 b997 b1002 b1003 b1004 b1005 b1006 b1013 b1014</p>
+
+<p>There are no current open issues with the weld logic.</p>
+
+<p>10 Mar 2021, cf3ed23.</p>
+
+</dd>
+<dt id="Adjust-line-length-tolerance-for-welding"><b>Adjust line length tolerance for welding</b></dt>
+<dd>
+
+<p>A minor tolerance adjustment was needed to fix some edge welding cases.</p>
+
+<p>This fixes cases b995 b998 b1000 b1001 b1007 b1008 b1009 b1010 b1011 b1012 b1016 b1017 b1018</p>
+
+<p>7 Mar 2021, b9166ca.</p>
+
+</dd>
+<dt id="Fix-problem-with--vtc-n-and-outdented-long-lines"><b>Fix problem with -vtc=n and outdented long lines</b></dt>
+<dd>
+
+<p>Random testing produced an issue with -vtc=1 and an outdented long line. The parameters for b999 are</p>
+
+<pre><code>    --maximum-line-length=75
+    --paren-vertical-tightness-closing=1</code></pre>
+
+<p>File &#39;b999.in&#39; state 1 is</p>
+
+<pre><code>                while ( $line =~
+    s/^([^\t]*)(\t+)/$1.(&quot; &quot; x ((length($2)&lt;&lt;3)-(length($1)&amp;7)))/e
+                  )</code></pre>
+
+<p>and state 2 is</p>
+
+<pre><code>                while ( $line =~
+    s/^([^\t]*)(\t+)/$1.(&quot; &quot; x ((length($2)&lt;&lt;3)-(length($1)&amp;7)))/e)</code></pre>
+
+<p>The problem was fixed by turning off caching for outdented long lines. This fixes case b999.</p>
+
+<p>7 Mar 2021, 3da7e41.</p>
+
+</dd>
+<dt id="Fix-problem-with-combination--lp-and--wbb"><b>Fix problem with combination -lp and -wbb=&#39;=&#39;</b></dt>
+<dd>
+
+<p>Random testing produced case b932 in which the combination -lp and -wbb=&#39;=&#39; was not stable.</p>
+
+<p>File &#39;b932.par&#39; is:</p>
+
+<pre><code>    --line-up-parentheses
+    --maximum-line-length=51
+    --want-break-before=&#39;=&#39;</code></pre>
+
+<p>File &#39;b932.in&#39; in the desired state is:</p>
+
+<pre><code>    my @parts
+      = decompose( &#39;(\s+|/|\!|=)&#39;,
+                   $line, undef, 1, undef, &#39;[&quot;\&#39;]&#39; );</code></pre>
+
+<p>The alternate state is</p>
+
+<pre><code>    my @parts = decompose( &#39;(\s+|/|\!|=)&#39;,
+                     $line, undef, 1, undef, &#39;[&quot;\&#39;]&#39; );</code></pre>
+
+<p>The problem was that the -lp code which set a line break at the equals did not check the -wba flag setting.</p>
+
+<p>This update fixes case b932.</p>
+
+<p>7 Mar 2021, 63129c3.</p>
+
+</dd>
+<dt id="Fix-edge-formatting-cases-with-parameter--bbx-2"><b>Fix edge formatting cases with parameter -bbx=2</b></dt>
+<dd>
+
+<p>Random testing produced some cases where formatting with parameters of the form --break-before-..=2 can lead to unstable final states. The problem lies in the definition of a broken list. The problem is fixed by defining a broken list for this particular flag to be a list with at least one non-terminal line-ending comma. This insures that the list will remain broken on subsequent iterations. This fixes cases b789 and b938.</p>
+
+<p>6 Mar 2021, 360d669.</p>
+
+</dd>
+<dt id="Add-flag--fpva---function-paren-vertical-alignment"><b>Add flag -fpva, --function-paren-vertical-alignment</b></dt>
+<dd>
+
+<p>A flag -fpva, --function-paren-vertical-alignment, is added to prevent vertical alignment of function parens when the -sfp flag is used. This is on by default, so that existing formatting remains unchanged unless the user requests that vertical alignment not occur with -nfpva.</p>
+
+<p>5 Mar 2021, 312be4c.</p>
+
+</dd>
+<dt id="Fix-for-issue-git-53-do-not-align-spaced-function-parens"><b>Fix for issue git #53, do not align spaced function parens</b></dt>
+<dd>
+
+<p>Introducing a space before a function call paren had a side effect of allowing the vertical aligner to align the parens, as in the example.</p>
+
+<pre><code>    # OLD and NEW, default without -sfp:
+    log_something_with_long_function( &#39;This is a log message.&#39;, 2 );
+    Coro::AnyEvent::sleep( 3, 4 );
+
+    # OLD: perltidy -sfp 
+    log_something_with_long_function ( &#39;This is a log message.&#39;, 2 );
+    Coro::AnyEvent::sleep            ( 3, 4 );
+
+    # NEW: perltidy -sfp 
+    log_something_with_long_function ( &#39;This is a log message.&#39;, 2 );
+    Coro::AnyEvent::sleep ( 3, 4 );</code></pre>
+
+<p>This update changes the default to not do this vertical alignment. This should have been the default but this side-effect was missed when the -sfp parameter was added. Note that parens following keywords are likewise not vertically aligned.</p>
+
+<p>5 Mar 2021, 00431bf.</p>
+
+</dd>
+<dt id="Fix-issue-git-54-involving--bbp-n-and--bbpi-n"><b>Fix issue git#54 involving -bbp=n and -bbpi=n</b></dt>
+<dd>
+
+<p>In this issue, different results were obtained depending upon the existence of a comma in a list. To fix this, the definition of a list was adjusted from requiring one or more commas to requiring either a fat comma or a comma.</p>
+
+<p>At the same time, a known problem involving the combination -lp -bbp=n -bbpi=n was fixed. This fixes cases b826 b909 b989.</p>
+
+<p>4 Mar 2021, 872d4b4.</p>
+
+</dd>
+<dt id="Fix-several-minor-weld-issues"><b>Fix several minor weld issues</b></dt>
+<dd>
+
+<p>Some edge cases for the welding parameter -wn have been fixed. There are no other currently known weld issues. Some debug code for welding has been left in the code for possible future use.</p>
+
+<p>This fixes cases b109 b110 b520 b756 b901 b937 b965 b982 b988 b991 b992 b993</p>
+
+<p>3 Mar 2021, cfef087.</p>
+
+</dd>
+<dt id="Update-tokenizer-recognition-of-indirect-object"><b>Update tokenizer recognition of indirect object</b></dt>
+<dd>
+
+<p>This is the parameter file b990.pro: --noadd-whitespace --continuation-indentation=0 --maximum-line-length=7 --space-terminal-semicolon</p>
+
+<p>Applying perltidy -pro=b990.pro to the following snippet gave two states</p>
+
+<pre><code>    # State 1
+    print
+    H;
+
+    # State 2
+    print H
+    ;</code></pre>
+
+<p>The tokenizer was alternately parsing &#39;H&#39; as either possble indirect object, &#39;Z&#39;, or indirect object, &#39;Y&#39;. Two fixes were tested. The first was to modify the tokenizer to recognize a &#39;;&#39; as well as a space as a direct object terminator. An alternative fix is to not allowing a break before type &#39;Y&#39; so that the tokenizer kept parsing as type &#39;Y&#39;. Both fixes work, but the latter fix would change existing formatting by the -extrude option, so the first fix was used. With this fix, the stable state is &#39;State 1&#39; above.</p>
+
+<p>This update is a generalization of the update <a href="#Fixed-blinker-related-to-line-break-at-indirect-object">&quot;Fixed blinker related to line break at indirect object&quot;</a> of 16 Jan 2021.</p>
+
+<p>This fixes case b990. 1 Mar 2021, 49cd66f.</p>
+
+</dd>
+<dt id="Do-not-start-a-batch-with-a-blank-token"><b>Do not start a batch with a blank token</b></dt>
+<dd>
+
+<p>Perltidy does final formatting in discrete batches of tokens, where a batch is a continuous section of the total token list. A batch begins a new line and will be broken into one or more lines. If a batch starts with a blank token it will simply be skipped on on output. However, some rare problems have been found in random testing which can occur if a batch starts with a blank. An example is case b984 which has the following parameters:</p>
+
+<pre><code>        # this is file &#39;b984.pro&#39;
+        --block-brace-vertical-tightness=2
+        --indent-columns=10
+        --maximum-line-length=27
+        --outdent-keywords
+        --variable-maximum-line-length
+
+          # OLD: perltidy -pro=b984.pro
+          unless (
+                    exists $self-&gt;{
+                              &#39;accession_number&#39;} )
+          {         return &quot;unknown&quot;;
+          }
+
+          # NEW: perltidy -pro=b984.pro
+          unless (
+                    exists $self-&gt;{
+                              &#39;accession_number&#39;} )
+          {       return &quot;unknown&quot;;
+          }</code></pre>
+
+<p>Both look OK, but the OLD version did not outdent the keyword &#39;return&#39; as requested with the -okw flag.</p>
+
+<p>This update fixes cases b149 b888 b984 b985 b986 b987.</p>
+
+<p>28 Feb 2021, 8aaf599.</p>
+
+</dd>
+<dt id="Avoid-double-spaces-in--csc-text-output"><b>Avoid double spaces in -csc text output</b></dt>
+<dd>
+
+<p>Random testing produced some rare cases where two spaces could occur in -csc text. This happened when there were multiple lines and the formatter placed a leading blank in one of the continuation lines as padding. This has been fixed.</p>
+
+<p>For example</p>
+
+<pre><code>    while (
+        &lt;&gt;;
+      )
+    {
+       ...
+    } ## end while ( &lt;&gt;; )</code></pre>
+
+<p>Previously, the last line had an extra space after the &#39;;&#39;</p>
+
+<pre><code>    } ## end while ( &lt;&gt;;  )</code></pre>
+
+<p>Another example</p>
+
+<pre><code>    while (
+        do {
+            { package DB; @a = caller( $i++ ) }
+        }
+      )
+    {
+      ...
+    } ## end while ( do { { package DB...}})</code></pre>
+
+<p>Previously the last line had an extra space between the opening braces:</p>
+
+<pre><code>    } ## end while ( do {  { package DB...}})</code></pre>
+
+<p>27 Feb 2021, b22e891.</p>
+
+</dd>
+<dt id="Remove-control-of-debug-flag--fll"><b>Remove control of debug flag -fll</b></dt>
+<dd>
+
+<p>Random testing produced an unstable state when a debug flag, -nfll, was set. The only time it is appropriate to set this flag is if the -extrude option is set, so a check was added to verify this. This fixes case b935.</p>
+
+<p>27 Feb 2021, 9155b3d.</p>
+
+</dd>
+<dt id="Restrict-previous-update-to-just--vmll"><b>Restrict previous update to just -vmll</b></dt>
+<dd>
+
+<p>The previous update was found to occasionally needlessly change existing formatting with very long long lines. So it is restricted to just when -vmll is set. For example, it is ok to keep the long quote following the opening paren in the following case.</p>
+
+<pre><code>  # perltidy -gnu
+  ok( &quot;got to the end without dying (note without DEBUGGING passing this test means nothing)&quot;
+    );</code></pre>
+
+<p>26 Feb 2021, 2b88464.</p>
+
+</dd>
+<dt id="Add-a-gap-calculation-in-line-length-tests-with--vmll"><b>Add a gap calculation in line length tests with -vmll</b></dt>
+<dd>
+
+<p>This fixes case b965. The -vmll flag can produce gaps in lines which need to be included in weld line length estimates.</p>
+
+<p>26 Feb 2021, a643cf2.</p>
+
+</dd>
+<dt id="Update-rule-for-spacing-paren-after-constant-function"><b>Update rule for spacing paren after constant function</b></dt>
+<dd>
+
+<p>Random testing produced an unstable state for the following snippet (case b934)</p>
+
+<pre><code>        sub pi();
+        if (
+            $t &gt;
+            pi( )
+              )</code></pre>
+
+<p>when run with these parameters:</p>
+
+<pre><code>  --continuation-indentation=6
+  --maximum-line-length=17
+  --paren-vertical-tightness-closing=2</code></pre>
+
+<p>The formatting was stable without the first line, which declares &#39;pi&#39; to be a constant sub. The problem was fixed by updating a regex to treat the spacing of a paren following a sub the same for the two token types, &#39;U&#39; or &#39;C&#39; (constant function).</p>
+
+<p>This fixes case b934, 12bfdfe.</p>
+
+<p>26 Feb 2021.</p>
+
+</dd>
+<dt id="Improve-line-length-test-for-the--vtc-2-option"><b>Improve line length test for the -vtc=2 option</b></dt>
+<dd>
+
+<p>This is a small change to the update of 13 Feb 2021, f79a4f1. Random testing produced additional blinking states caused by the combination of -vtc=2 and -vmll flag, plus several others. The problem was that a line length check in the vertical aligner was being skipped as an optimization if it didn&#39;t appear necessary. The unusual properties of the -vmll flag require that the check always be done.</p>
+
+<p>This fixes cases b656 b862 b971 b972.</p>
+
+<p>26 Feb 2021, 80107e0.</p>
+
+</dd>
+<dt id="Improve-one-line-block-length-tests"><b>Improve one-line block length tests</b></dt>
+<dd>
+
+<p>Some oscillating states produced in random parameter tests were traced to problems with forming one-line blocks. A more precise length test was added to fix this.</p>
+
+<p>This fixes cases b562 b563 b574 b777 b778 b924 b936 b975 b976 b983.</p>
+
+<p>In the process of fixing this issue, a glitch was discovered in the previous coding of the -bl (braces-left) flag that caused somewhat random results for block types sort/map/grep/eval. The problem was a conflict between the logic for forming one-line blocks and the logic for applying the -bl flag. Usually, -bl formatting was not applied to these block types, but occasionally it was. To minimize changes in existing formatting, in the new version the -bl flag is not applied to these block types. A future flag could be added to give user control over which of these block types are under -bl control.</p>
+
+<p>25 Feb 2021, 92bec8d.</p>
+
+</dd>
+<dt id="Add-tolerance-to-one-line-block-length-tests"><b>Add tolerance to one-line block length tests</b></dt>
+<dd>
+
+<p>Testing with random input parameters produced some cases in which a stable solution could not be found due to attempts to form one-line blocks near the end of a long line. The problem was fixed by adding a small tolerance to the line length test. This does not change existing formatting.</p>
+
+<p>This fixes cases b069 b070 b077 b078.</p>
+
+<p>21 Feb 2021, 0b97b94.</p>
+
+</dd>
+<dt id="Restrict--bom-at-cuddled-method-calls"><b>Restrict -bom at cuddled method calls</b></dt>
+<dd>
+
+<p>The -bom flag tries to keep old breakpoints at lines beginning with &#39;-&gt;&#39; and also with some lines beginning with &#39;)-&gt;&#39;. These latter lines can lead to blinking states in cases where the opening paren is on the previous line. To fix this, a restriction was added that the line difference between the opening and closing parens should be more than 1.</p>
+
+<p>This fixes case b977.</p>
+
+<p>21 Feb 2021, 28114e9.</p>
+
+</dd>
+<dt id="Add-weld-rule-to-avoid-conflict-between--wn-and--bom"><b>Add weld rule to avoid conflict between -wn and -bom</b></dt>
+<dd>
+
+<p>Testing with ramdom input parameters produced states which were oscillating because of a conflict between the -wn and -bom parameters. The problem was resolved by giving the -bom parameter priority over -wn.</p>
+
+<p>These cases are fixed with this update: b966 b973</p>
+
+<p>20 Feb 2021.</p>
+
+</dd>
+<dt id="Limit-the-value-of--ci-n-to-that-of--i-n-when--xci-is-set"><b>Limit the value of -ci=n to that of -i=n when -xci is set</b></dt>
+<dd>
+
+<p>Testing with random input parameters produced a number of oscillating states which had both parameter -xci as well as a value of -ci=n which exceeded the value of -i=n. To correct this, perltidy will silently reduce the -ci value to the -i value when -xci is also set. This should not change existing formatting because a value of -ci greater than -i would not normally be used in practice.</p>
+
+<p>These cases are fixed with this update: b707 b770 b912 b920 b930 b933 b939 b940 b941 b942 b978 b974 b979 b980 b981</p>
+
+<p>20 Feb 2021, c16c5ee.</p>
+
+</dd>
+<dt id="Modify-length-tolerance-for-welding-to-qw-lists"><b>Modify length tolerance for welding to qw lists</b></dt>
+<dd>
+
+<p>Several cases of alternating states were produced in random testing which were caused by line length limits being reached when welding to qw lists. This was fixed by adding a small tolerance to line length tests.</p>
+
+<p>This fixes cases b654 b655 b943 b944 b967 b968 b969 b970.</p>
+
+<p>19 Feb 2021, 0baafc8.</p>
+
+</dd>
+<dt id="Modify-space-rule-between-binary-plus-or-minus-and-a-bareword"><b>Modify space rule between binary plus or minus and a bareword</b></dt>
+<dd>
+
+<p>The update of 13 Feb 2021, cf414fe, has been modified to be less restrictive. Space between a binary plus and minus and a bareword may now be removed in some cases where no tokenization ambiguity exists. 18 Feb 2021, a8564c8.</p>
+
+</dd>
+<dt id="Do-not-apply--xci-if-it-would-put-tokens-beyond-the-maximum-line-length"><b>Do not apply -xci if it would put tokens beyond the maximum line length</b></dt>
+<dd>
+
+<p>This update fixes cases b899 b935. 17 Feb 2021, b955a7c.</p>
+
+</dd>
+<dt id="Do-not-weld-to-a-hash-brace"><b>Do not weld to a hash brace</b></dt>
+<dd>
+
+<p>The reason is that it has a very strong bond strength to the next token, so a line break after it may not work. Previously we allowed welding to something like &#39;@{&#39; but even that caused blinking states (cases b751, b779).</p>
+
+<p>This will not change much existing code. This update fixes cases b751 b779.</p>
+
+<p>16 Feb 2021, eb2f4e7.</p>
+
+</dd>
+<dt id="Avoid-line-breaks-after-token-type-G"><b>Avoid line breaks after token type &#39;G&#39;</b></dt>
+<dd>
+
+<p>Random testing with very short maximum line lengths produced some blinking states which were traced to the tokenizer alternately parsed an unknown bareword as type &#39;w&#39; or type &#39;G&#39;, depending on whether or not an opening block brace immediately followed on the same line. To fix this, a rule was added which prevents a line break between a type &#39;G&#39; token and an opening code block brace.</p>
+
+<p>This update fixes these cases: b900 b902 b928 b929</p>
+
+<p>15 Feb 2021, f005a95.</p>
+
+</dd>
+<dt id="Restrict-breaking-at-old-uncontained-commas"><b>Restrict breaking at old uncontained commas</b></dt>
+<dd>
+
+<p>Random testing with very short maximum line lengths produced some blinking states which were traced to duplicating old comma breakpoints which were not really good breakpoints. A patch was made to be more selective.</p>
+
+<p>These cases are fixed with this update: b610 b757 b931</p>
+
+<p>15 Feb 2021, 98b41a0.</p>
+
+</dd>
+<dt id="Modify-line-length-test-for-the--vtc-2-option"><b>Modify line length test for the -vtc=2 option</b></dt>
+<dd>
+
+<p>The line length test which was added Feb 13 2021 turns out to be more restrictive than necessary. A modification was made to only apply it if a new one-line block would be formed. This prevents it from needlessly changing existing formatting.</p>
+
+<p>The following cases were re-activated after this update: b654 b655 b656 b862</p>
+
+<p>15 Feb 2021, 4673fdd.</p>
+
+</dd>
+<dt id="Use-increased-line-length-tolerance-if-ci-exceeds-i"><b>Use increased line length tolerance if ci exceeds i</b></dt>
+<dd>
+
+<p>In testing perltidy with random input parameters, some blinking states occurred when the value of -ci was significantly larger than the value of -i. (In actual practice, -ci is not normally set greater than -i). This update adds a tolerance to line length tests which avoids this problem. This fixes the following cases</p>
+
+<p>b775 b776 b826 b908 b910 b911 b923 b925 b926 b927</p>
+
+<p>14 Feb 2021, 8451f2f.</p>
+
+</dd>
+<dt id="Keep-space-between-binary-plus-or-minus-and-a-bareword"><b>Keep space between binary plus or minus and a bareword</b></dt>
+<dd>
+
+<p>This update makes a space between a binary + or - and a bareword an essential whitespace. Otherwise, they may be converted into unary + or - on the next pass, which can lead to blinking states. Fixes cases b660 b670 b780 b781 b787 b788 b790.</p>
+
+<p>13 Feb 2021, cf414fe.</p>
+
+</dd>
+<dt id="Prevent-breaks-after-unary-plus-and-minus"><b>Prevent breaks after unary plus and minus</b></dt>
+<dd>
+
+<p>Some alternating states were produced when extremely maximum line lengths forced a break after a unary plus or minus. Fixes cases b670 b790.</p>
+
+<p>13 Feb 2021, cf414fe.</p>
+
+</dd>
+<dt id="Add-line-length-test-for-the--vtc-2-option"><b>Add line length test for the -vtc=2 option</b></dt>
+<dd>
+
+<p>Random testing produced a number of cases of blinking states which were caused when the -vtc=2 flag caused the vertical aligner to combine lines which exceeded the allowable line length. These long lines were then getting reduced in size on every other iteration. A line length test was added in the vertical aligner to prevent this. This fixes these cases:</p>
+
+<p>b654 b655 b656 b657 b761 b762 b763 b764 b765 b766 b767 b768 b769 b862 b904 b905 b906 b907 b913 b914 b915 b916 b917 b918 b919</p>
+
+<p>13 Feb 2021, f79a4f1.</p>
+
+</dd>
+<dt id="Define-left-side-bond-strengths-for-unary-plus-and-minus"><b>Define left side bond strengths for unary plus and minus</b></dt>
+<dd>
+
+<p>Random testing produced a blinking state which was traced to the unary plus not having a defined strength in the line break algorithm. This was fixed by setting it to be the same as the left strength of a plus. This fixes case b511. 12 Feb 2021, 58a7895.</p>
+
+</dd>
+<dt id="Fix-problem-with-breaking-at-an-sign"><b>Fix problem with breaking at an = sign</b></dt>
+<dd>
+
+<p>Random testing produced some blinking cases which were related to detecting an old good breakpoint at an equals. If the user requested that a break be done before an equals, and the input script had a break after an equals, then that break should not have been marked as a good existing break point before a keyword. This update fixes cases b434 b903.</p>
+
+<p>11 Feb 2021, f9a8543.</p>
+
+</dd>
+<dt id="Fix-conflict-of--kbl-0-and-essential-space-after-cut"><b>Fix conflict of -kbl=0 and essential space after =cut</b></dt>
+<dd>
+
+<p>Random testing produced a case where a blank line after an =cut was alternately being deleted and added due to a conflict with the flag setting -keep-old-blank-lines=0. This was resolved by giving prioritiy to the essential blank line after the =cut line.</p>
+
+<p>This fixes case b860. 11 Feb 2021, 8c13609.</p>
+
+</dd>
+<dt id="Do-not-break-one-line-block-at-here-target"><b>Do not break one-line block at here target</b></dt>
+<dd>
+
+<p>A blinking state produced by random testing was traced to a line of coding which which unnecessarily prevented one-line blocks from being formed when a here-target was encountered. This has been fixed.</p>
+
+<p>For example, the code block in the following contains a here target and was being broken into two lines:</p>
+
+<pre><code>    unless ($INC{$file}) {
+        die &lt;&lt;&quot;END_DIE&quot; }</code></pre>
+
+<p>These will now be output with the blocks intact, like this</p>
+
+<pre><code>    unless ($INC{$file}) { die &lt;&lt;&quot;END_DIE&quot; }</code></pre>
+
+<p>This fixes case b523. 11 Feb 2021, 6d5bb74.</p>
+
+</dd>
+<dt id="Skip-processing--kgb-flags-in-lists-or-if--maximum-consecutive-blank-lines-0"><b>Skip processing -kgb* flags in lists or if -maximum-consecutive-blank-lines=0</b></dt>
+<dd>
+
+<p>Random testing produced an alternating state which was caused by -kgb flags being active on keywords which were in a list rather than a code block. A check was added to prevent this. Also, the -kgb* flags have no effect if no blank lines can be output, so a check was added for this situation. This fixes case b760.</p>
+
+<p>10 Feb 2021, 177fc3a.</p>
+
+</dd>
+<dt id="Modify-tolerance-in-testing-for-welds"><b>Modify tolerance in testing for welds</b></dt>
+<dd>
+
+<p>Random testing with unusual parameters produced some blinking weld states which were fixed by modifying a tolerance used in a line length test. The following cases were fixed with this update:</p>
+
+<p>b746 b748 b749 b750 b752 b753 b754 b755 b756 b758 b759 b771 b772 b773 b774 b782 b783 b784 b785 b786</p>
+
+<p>9 Feb 2021, a4609ac.</p>
+
+</dd>
+<dt id="Modified-rule-for-breaking-lines-at-old-commas"><b>Modified rule for breaking lines at old commas</b></dt>
+<dd>
+
+<p>Random testing produced some blinking cases resulting from the treatment of old line breaks at commas not contained within containers. The following cases were fixed with this update:</p>
+
+<p>b064 b065 b068 b210 b747</p>
+
+<p>This change has no effect on scripts with normal parameter values. 9 Feb 2021, 5c23661.</p>
+
+</dd>
+<dt id="Restrict-references-to-old-line-breaks"><b>Restrict references to old line breaks</b></dt>
+<dd>
+
+<p>A number of cases of blinking states were traced to code which biased the breaking of long lines to existing breaks. This was fixed by restricting this coding to just use old comma line break points.</p>
+
+<p>The following cases were fixed with this update:</p>
+
+<p>b193 b194 b195 b197 b198 b199 b216 b217 b218 b219 b220 b221 b244 b245 b246 b247 b249 b251 b252 b253 b254 b256 b257 b258 b259 b260 b261 b262 b263 b264 b265 b266 b268 b269 b270 b271 b272 b274 b275 b278 b280 b281 b283 b285 b288 b291 b295 b296 b297 b299 b302 b304 b305 b307 b310 b311 b312 b313 b314 b315 b316 b317 b318 b319 b320 b321 b322 b323 b324 b325 b326 b327 b329 b330 b331 b332 b333 b334 b335 b336 b337 b338 b339 b340 b341 b342 b343 b344 b345 b346 b347 b348 b349</p>
+
+<p>8 Feb 2021, 66be455.</p>
+
+</dd>
+<dt id="Fix-rare-problem-involving-interaction-of--olbn-n-and--wn-flags"><b>Fix rare problem involving interaction of -olbn=n and -wn flags</b></dt>
+<dd>
+
+<p>Random testing revealed a rare alternating state which could occur when both flags --one-line-block-nesting=n and --weld-nested-containers are set, and the maximum line length is set very low. The problem was fixed by ignoring the first flag at welded tokens. This should not have any effect on scripts with realistic parameter values.</p>
+
+<p>The following case was fixed with this update: b690.</p>
+
+<p>6 Feb 2021, 3e96930.</p>
+
+</dd>
+<dt id="add-rule-to-avoid-welding-at-some-barewords"><b>add rule to avoid welding at some barewords</b></dt>
+<dd>
+
+<p>A rule was added to prevent certain rare blinking states involving welding. The rule is that if an opening container is immediately followed by a bareword which is unknown, a weld will be avoided.</p>
+
+<p>The following cases were fixed with this update: b611 b626.</p>
+
+<p>6 Feb 2021, 6b1f44a</p>
+
+</dd>
+<dt id="further-simplify--bbxi-n-implementation"><b>further simplify -bbxi=n implementation</b></dt>
+<dd>
+
+<p>This update adds a new variable which indicates if a container is permanently broken due to a side comment or blank line. This helps reduce the number of cases where the -bbxi=n flag cannot be applied. Another change was to always apply the -bbx=n flag, even if the -bbxi=n flag cannot be applied. These two flags now operate almost exactly as in previous versions but without the blinking problem. The only difference is that now the -bbxi=n flag with n&gt;0 will revert to n=0 for some short containers which might not be broken open.</p>
+
+</dd>
+<dt id="reset--bbxi-2-to--bbxi-0-if--lp-is-set-to-avoid-blinking-states"><b>reset -bbxi=2 to -bbxi=0 if -lp is set to avoid blinking states</b></dt>
+<dd>
+
+<p>The options of the form bbxi=2, such as break-before-paren-and-indent=2, have been found to cause blinking states if the -lp flag is set. Both of these options are fairly rare. To correct this the -bbxi=2 flag is now reset to -bbxi=0 if the -lp flag is set. Note that -bbxi=2 and -bbxi=0 give the same formatting result with the common setting -ci=4 and -i=4.</p>
+
+<p>The following cases were fixed with this update:</p>
+
+<p>b396 b397 b398 b429 b435 b457 b502 b503 b504 b505 b538 b540 b542 b617 b618 b619 b620 b621</p>
+
+<p>3 Feb 2021, 67ab0ef.</p>
+
+</dd>
+<dt id="rewrite-sub-break_before_list_opening_containers"><b>rewrite sub break_before_list_opening_containers</b></dt>
+<dd>
+
+<p>sub break_before_list_opening_containers was rewritten to reduce the chance of producing alternating states.</p>
+
+<p>The following cases were fixed with this update:</p>
+
+<p>b030 b032 b455 b456 b458 b459 b460 b461 b462 b536 b622 b651 b652 b653 b708 b709 b710 b713 b714 b719 b723 b724 b725 b726 b727 b729 b731 b733 b735 b736 b737 b738 b739 b740 b743 b744</p>
+
+<p>3 Feb 2021, 5083ab9.</p>
+
+</dd>
+<dt id="redefine-list-to-have-at-least-one-internal-comma"><b>redefine list to have at least one internal comma</b></dt>
+<dd>
+
+<p>Random testing produced some blinking states which could be fixed by changing the definition of a list, for formatting purposes, to have one or more interior commas rather than simply one or more commas. The difference is that something with a single terminal comma, like &#39;( $x, )&#39;, is no longer classified as a list. This makes no difference except when perltidy is stress tested with unusual parameters.</p>
+
+<p>The following cases were fixed with this update:</p>
+
+<p>b116 b119 b122 b174 b179 b187 b361 b369 b370 b372 b376 b427 b428 b448 b449 b450 b451 b452 b453 b469 b473 b474 b475 b476 b477 b479 b480 b481 b482 b497 b552 b553 b554 b558 b559 b634 b637 b642 b644 b645 b647 b650 b661 b662 b663 b664 b666 b677 b685 b688 b698 b699 b700 b702 b703 b704 b711 b712 b715 b716 b717 b718 b721 b730 b734 b741 b742</p>
+
+<p>1 Feb 2021, 35078f7.</p>
+
+</dd>
+<dt id="rewrite-and-combine-coding-for--bbx-n-and--bbxi-n"><b>rewrite and combine coding for -bbx=n and -bbxi=n</b></dt>
+<dd>
+
+<p>Random testing produced a large number of blinking states involving parameters such as --break-before-parens=n and --break-before-parens-and-indent=n and similar pairs. The problem was traced to the fact that the former parameter was implemented late in the pipeline whereas the latter parameter was implemented early in the pipeline. Normally there was no problem, but in some extreme cases, often involving very short maximum line lengths, this could produce alternating output states. The problem was resolved by combining the implementation of both flags in a single new sub to avoid any inconsistencies. The following cases were fixed with this update:</p>
+
+<p>b018 b066 b071 b079 b090 b105 b146 b149 b158 b160 b161 b163 b164 b166 b167 b169 b170 b171 b172 b178 b185 b190 b192 b203 b206 b222 b223 b224 b237 b359 b362 b377 b379 b381 b382 b389 b395 b407 b408 b409 b410 b411 b412 b414 b417 b418 b419 b421 b433 b438 b443 b444 b478 b483 b484 b486 b490 b492 b493 b494 b496 b506 b507 b517 b521 b522 b524 b525 b535 b537 b539 b541 b543 b546 b550 b551 b555 b564 b566 b567 b569 b570 b572 b573 b575 b576 b577 b578 b579 b580 b582 b586 b587 b588 b589 b590 b591 b592 b593 b603 b607 b609 b613 b615 b616 b623 b624 b630 b635 b636 b638 b639 b640 b641 b643 b646 b648 b649 b658 b659 b665 b667 b668 b669 b671 b672 b673 b674 b675 b676 b678 b679 b680 b681 b682 b683 b684 b686 b687 b689 b691 b692 b693 b694 b695 b696 b697 b701 b705 b706 b720 b722 b728 b732 b745</p>
+
+<p>31 Jan 2021, 10e8bfd.</p>
+
+</dd>
+<dt id="adjust-line-length-and-token-count-tolerances-for--wn"><b>adjust line length and token count tolerances for -wn</b></dt>
+<dd>
+
+<p>Most remaining edge cases of blinking states involving the -wn parameter have been fixed by adjusting some tolerances in sub weld_nested_containers. The following cases are fixed with this update:</p>
+
+<p>b156 b157 b186 b196 b454 b520 b527 b530 b532 b533 b534 b612 b614 b625 b627</p>
+
+<p>This update has no effect for realistic parameter settings.</p>
+
+<p>30 Jan 2021, d359a60.</p>
+
+</dd>
+<dt id="fix-additional-edge-blinker-cases-involving--wn"><b>fix additional edge blinker cases involving -wn</b></dt>
+<dd>
+
+<p>Some blinking cases produced in random testing were traced to welding in very short lines (length = 20 for example) in which a weld was made to a square bracket containing just a single parameter, so that it had no good internal breaking points. A rule was added to avoid welding to a square bracket not containing any commas. The following cases were fixed with the update:</p>
+
+<p>b002 b003 b005 b006 b007 b009 b010 b014 b015 b017 b020 b111 b112 b113 b124 b126 b128 b151 b153 b439 b606</p>
+
+<p>29 Jan 2021, 33f1f2b.</p>
+
+</dd>
+<dt id="fix-additional-edge-blinker-cases-involving--wn1"><b>fix additional edge blinker cases involving -wn</b></dt>
+<dd>
+
+<p>Random testing produced some blinking states which were traced to the precision of a line length test. In sub weld_nested_containers, the test</p>
+
+<pre><code>    $do_not_weld ||= $excess_length_to_K-&gt;($Kinner_opening) &gt; 0;</code></pre>
+
+<p>was changed to allow a 1 character margin of error:</p>
+
+<pre><code>    $do_not_weld ||= $excess_length_to_K-&gt;($Kinner_opening) &gt;= 0;</code></pre>
+
+<p>The following cases were fixed with this update:</p>
+
+<p>b025 b075 b091 b109 b110 b152 b154 b155 b162 b168 b176 b422 b423 b424 b425 b426 b565</p>
+
+<p>29 Jan 2021, 33f1f2b.</p>
+
+</dd>
+<dt id="fix-some-edge-blinker-cases-involving--wn"><b>fix some edge blinker cases involving -wn</b></dt>
+<dd>
+
+<p>Random testing produced some blinking states which were eliminated by a simplification of the definition of a one_line_weld in sub weld_nested_containers. The following cases were fixed with this update:</p>
+
+<p>b131 b134 b136 b205 b233 b238 b284 b350 b352 b358 b385 b487 b604 b605</p>
+
+<p>29 Jan 2021, 33f1f2b.</p>
+
+</dd>
+<dt id="fix-some-edge-blinker-cases-involving--bbxi-n-esp.-with--boc"><b>fix some edge blinker cases involving -bbxi=n esp. with -boc</b></dt>
+<dd>
+
+<p>The following cases were fixed with this update:</p>
+
+<p>b041 b182 b184 b366 b367 b368 b370 b371 b382 b420 b432 b438 b464 b466 b467 b468 b500 b501 b508 b509 b510 b512 b513 b514 b515 b516 b526 b528 b529 b531 b544 b545 b547 b548 b549 b556 b557 b568 b571 b581 b583 b584 b585 b594 b595 b596 b597 b598 b599 b600 b601 b602 b608 b041 b182 b184 b355 b356 b366 b367 b368 b371 b420 b432 b464 b465 b466 b467 b468 b500 b501 b508 b509 b510 b512 b513 b514 b515 b516 b526 b528 b529 b531 b544 b545 b547 b548 b549 b556 b557 b568 b571 b581 b583 b584</p>
+
+<p>28 Jan 2021.</p>
+
+</dd>
+<dt id="fix-problem-with-combination--cab-2-and-bbhbi-n"><b>fix problem with combination -cab=2 and bbhbi=n</b></dt>
+<dd>
+
+<p>Random testing produced a number of cases in which the combination -cab=2 and bbhbi=n and similar flags were in conflict, causing alternating states. This was fixed by not changing ci for containers which can fit entirely on one line, which is what -cab=2 says to do. The following cases were fixed with this update:</p>
+
+<p>b046 b061 b081 b084 b089 b093 b130 b133 b135 b138 b142 b145 b147 b150 b165 b173 b191 b211 b294 b309 b360 b363 b364 b365 b373 b386 b387 b388 b392 b437 b440 b472 b488 b489</p>
+
+<p>27 Jan 2021, 6d710de.</p>
+
+</dd>
+<dt id="fix-problem-with--freeze-whitespace"><b>fix problem with -freeze-whitespace</b></dt>
+<dd>
+
+<p>Random testing produced a case in which the --freeze-whitespace flag (which is mainly useful for testing) could cause a blank space which kept increasing. The problem was caused by the &quot;vertical tightness&quot; mechanism. Turning it off when the -freeze-whitespace-flag is on fixed the problem. The following cases were fixed with this update:</p>
+
+<p>b037 b038 b043 b059 b060 b067 b072 b215 b225 b267 b273 b276 b279 b282 b289 b292 b300 b303 b354 b374 b375 b383 b384 b402 b403 b404 b405 b436 b441 b445 b446 b471 b485 b498 b499</p>
+
+<p>27 Jan 2021, 6d710de.</p>
+
+</dd>
+<dt id="Avoid-blinking-states-associated-with--bbpi-and-similar-flags"><b>Avoid blinking states associated with -bbpi and similar flags</b></dt>
+<dd>
+
+<p>Random testing with extreme parameter values revealed blinking states associated with the -bbpi and related flags. The problem was that continuation indentation was sometimes being added according to the flag but the lists were not actually being broken. After this was fixed the following cases ran correctly:</p>
+
+<p>b024 b035 b036 b040 b042 b047 b049 b050 b051 b052 b053 b054 b057 b062 b063 b073 b074 b076 b080 b083 b085 b086 b087 b088 b102 b103 b104 b106 b107 b108 b115 b118 b121 b123 b125 b127 b132 b137 b139 b140 b141 b143 b144 b148 b159 b175 b177 b180 b181 b188 b189 b200 b201 b202 b204 b207 b212 b213 b214 b226 b227 b228 b229 b230 b232 b239 b240 b241 b243 b248 b250 b255 b277 b286 b287 b290 b293 b298 b301 b306 b308 b328 b351 b353 b357 b378 b380 b390 b391 b393 b394 b399 b400 b401 b406 b413 b415 b416 b430 b431 b442 b447 b463 b470 b491 b495</p>
+
+<p>27 Jan 2021, 96144a3.</p>
+
+</dd>
+<dt id="Revise-coding-for-the---freeze-whitespace-option"><b>Revise coding for the --freeze-whitespace option</b></dt>
+<dd>
+
+<p>Random testing produced some blinking states which were traced to an incorrect implementation of the <b>--freeze-whitespace</b> option (which is mainly useful in stress testing perltidy). A related flag, --add-whitespace is involved. This update corrects these problems. Test cases include b057, b183, b242. 24 Jan 2021, 9956a57.</p>
+
+</dd>
+<dt id="Fix-for-issue-git-51-closing-qw-paren-not-outdented-when--ndnl-is-set"><b>Fix for issue git #51, closing qw paren not outdented when -ndnl is set</b></dt>
+<dd>
+
+<p>The problem is that a bare closing qw paren was not being outdented if the flag &#39;-nodelete-old-newlines is set. For example</p>
+
+<pre><code>    # OLD (OK, outdented): perltidy -ci=4 -xci
+    {
+        modules =&gt; [
+            qw(
+                JSON
+            )
+        ],
+    }
+
+
+    # OLD (indented) : perltidy -ndnl -ci=4 -xci
+    {
+        modules =&gt; [
+            qw(
+                JSON
+                )
+        ],
+    }
+
+    # FIXED: perltidy -ndnl -ci=4 -xci
+    {
+        modules =&gt; [
+            qw(
+                JSON
+            )
+        ],
+    }</code></pre>
+
+<p>The problem happened because the -ndnl flag forces each line to be written immediately, so the next line (which needs to be checked in this case) was not available when the outdent decision had to be made. A patch to work around this was added 24 Jan 2021, 52996fb.</p>
+
+</dd>
+<dt id="Some-issues-with-the--lp-option"><b>Some issues with the -lp option</b></dt>
+<dd>
+
+<p>Random testing revealed some problems involving the <b>-lp</b> option which are fixed with this update.</p>
+
+<p>The problem is illustrated with the following snippet</p>
+
+<pre><code>    # perltidy -lp
+    Alien::FillOutTemplate(
+                &quot;$main::libdir/to-$main::desttype/$main::filetype/spec&quot;,
+                &quot;$workdir/$fields{NAME}-$fields{VERSION}-$fields{RELEASE}.spec&quot;,
+                %fields
+    );</code></pre>
+
+<p>which alternately formats to this form</p>
+
+<pre><code>    # perltidy -lp
+    Alien::FillOutTemplate(
+                &quot;$main::libdir/to-$main::desttype/$main::filetype/spec&quot;,
+                &quot;$workdir/$fields{NAME}-$fields{VERSION}-$fields{RELEASE}.spec&quot;,
+                %fields );</code></pre>
+
+<p>when formatted with the single parameter <b>-lp</b>. A number of similar examples were found in testing. The problem was traced to the treatment of the space which perltidy tentatively adds wherever there is a newline, just in case the formatted output has different line breaks. The problem was that the indentation level of these spaces was being set as the level of the next token rather than the previous token. Normally the indentation level of a space has no effect, but the <b>-lp</b> option does use it and this caused the problem. This was fixed 23 Jan 2021, edc7878.</p>
+
+</dd>
+<dt id="added-rule-for--wn-do-not-weld-to-a-hash-brace"><b>added rule for -wn, do not weld to a hash brace</b></dt>
+<dd>
+
+<p>In random testing, the following two alternating states</p>
+
+<pre><code>    # State 1
+    {
+        if ( defined
+        ($symbol_table{$direccion}) )
+    }
+    
+    # State 2
+    {
+        if (defined (
+                $symbol_table{
+                    $direccion}
+            )
+        )
+    }</code></pre>
+
+<p>were occurring with the following particular parameter set</p>
+
+<pre><code>    --weld-nested-containers
+    --maximum-line-length=40
+    --continuation-indentation=7
+    --paren-tightness=2
+    --extended-continuation-indentation</code></pre>
+
+<p>The problem was traced to welding to the opening hash brace. A rule was added to prevent this, and testing with a large body of code showed that it did not significantly change existing formatting. With this change, the above snippet formats in the stable state</p>
+
+<pre><code>    {
+        if (defined(
+            $symbol_table{$direccion}
+        ))
+    }</code></pre>
+
+<p>20 Jan 2021, 4021436.</p>
+
+</dd>
+<dt id="Do-not-let--kgb-option-delete-essential-blank-after-cut"><b>Do not let -kgb option delete essential blank after =cut</b></dt>
+<dd>
+
+<p>A blinking state was found in random testing for the following snippet</p>
+
+<pre><code>    =head1 TODO
+    
+    handle UNIMARC encodings
+    
+    =cut
+    
+    use strict;
+    use warnings;</code></pre>
+
+<p>when run with the following parameters</p>
+
+<pre><code>    --keyword-group-blanks-size=&#39;2.8&#39;
+    --keyword-group-blanks-before=0</code></pre>
+
+<p>The space after the =cut was alternately being added as an essential blank which is required by pod utilities, and then deleted by these parameters. This was fixed 17 Jan 2021, b9a5f5d.</p>
+
+</dd>
+<dt id="Turn-off--boc-flag-if--iob-is-set"><b>Turn off -boc flag if -iob is set</b></dt>
+<dd>
+
+<p>In random testing, the cause of a blinker was traced to both flags --ignore-old-breakpoints and --break-at-old-comma-breakpoints being set. There is a warning message but the -boc flag was not actually being turned off. This was fixed 17 Jan 2021, b9a5f5d.</p>
+
+</dd>
+<dt id="Modified-spacing-rule-for-token-type-Y"><b>Modified spacing rule for token type Y</b></dt>
+<dd>
+
+<p>A space following a token type &#39;Y&#39; (filehandle) should not be removed. Otherwise it might be converted into type &#39;Z&#39; (possible filehandle). If that were to happen, the space could not be added back automatically in later formatting, so the user would have to do it by hand. This fix prevents this from happening. 17 Jan 2021, bef9a83.</p>
+
+</dd>
+<dt id="Fixed-blinker-related-to-line-break-at-indirect-object"><b>Fixed blinker related to line break at indirect object</b></dt>
+<dd>
+
+<p>In random testing a blinker was reduced to the following snippet</p>
+
+<pre><code>    {
+             print FILE
+              GD::Barcode
+              -&gt;new();
+    }</code></pre>
+
+<p>which switched to the following state on each iteration</p>
+
+<pre><code>    {
+             print FILE GD::Barcode
+              -&gt;new();
+    }</code></pre>
+
+<p>with the following parameters</p>
+
+<pre><code>    --maximum-line-length=20
+    --indent-columns=9
+    --continuation-indentation=1</code></pre>
+
+<p>The problem was that the token &#39;FILE&#39; was either parsed as type &#39;Y&#39; or &#39;Z&#39; depending on the existence of a subsequent space. These have different line break rules, causing a blinker. The problem was fixed by modifying the tokenizer to consider a newline to be a space. Updated 16 Jan 2021, d40cca9.</p>
+
+</dd>
+<dt id="Turn-off--bli-if--bar-is-set"><b>Turn off -bli if -bar is set</b></dt>
+<dd>
+
+<p>A conflict arises if both <b>-bli</b> and <b>-bar</b> are set. In this case a warning message is given and <b>-bli</b> is turned off. Updated 15 Jan 2021, ef69531.</p>
+
+</dd>
+<dt id="Fixed-blinker-related-to-large--ci-short-line-length-and--bbsbi-2--bbsb-1"><b>Fixed blinker related to large -ci, short line length and -bbsbi=2 -bbsb=1</b></dt>
+<dd>
+
+<p>A blinking state was discovered in testing between the following two states</p>
+
+<pre><code>    my$table=
+         [[1,2,3],[2,4,6],[3,6,9],
+         ];
+
+    my$table=
+        [[1,2,3],[2,4,6],[3,6,9],];</code></pre>
+
+<p>with these parameters</p>
+
+<pre><code>    --continuation-indentation=5
+    --maximum-line-length=31
+    --break-before-square-bracket-and-indent=2
+    --break-before-square-bracket=1
+    --noadd-whitespace</code></pre>
+
+<p>The problem was found to be caused by the -bbsb parameters causing the indentation level of the first square bracket to change depending upon whether the term was broken on input or not. Two fixes would correct this. One is to turn off the option if the -ci=n value exceeds the -i=n value. The other is to require a broken container to span at least three lines before turning this option on. The latter option was made to sub &#39;adjust_container_indentation&#39;. With this change the snippet remains stable at the second state above. Fixed 14 Jan 2021, 5c793a1.</p>
+
+</dd>
+<dt id="Fixed-blinker-related-to-large--ci-short-line-length-and--wn"><b>Fixed blinker related to large -ci, short line length and -wn</b></dt>
+<dd>
+
+<p>In random testing with convergence a &#39;blinker&#39; (oscillating states) was found for the following script</p>
+
+<pre><code>    sub _prompt {
+
+          print $_[0];
+          return (
+                readline
+                       (*{$_[1]})!~
+                       /^q/i)
+                 ; # Return false if user types &#39;q&#39;
+
+    }</code></pre>
+
+<p>with the following specific parameters:</p>
+
+<pre><code>    --maximum-line-length=32
+    --indent-columns=6
+    --continuation-indentation=7
+    --weld-nested-containers
+    --extended-continuation-indentation
+    --noadd-whitespace</code></pre>
+
+<p>The other state was</p>
+
+<pre><code>    sub _prompt {
+
+          print $_[0];
+          return (
+                readline(
+                      *{
+                            $_
+                                   [
+                                   1
+                                   ]
+                      }
+                )!~/^q/i
+                 )
+                 ; # Return false if user types &#39;q&#39;
+
+    }</code></pre>
+
+<p>All of the listed parameters are required to cause this, but the main cause is the very large continuation indentation and short line length. Welding was being turned on and off in this case. Normally welding is not done if all containers are on a single line, but an exception was made to detect a situation like this and keep the welded string together. Updated 13 Jan 2021, 5c793a1.</p>
+
+</dd>
+<dt id="Fixed-incorrect-guess-of-division-vs-pattern"><b>Fixed incorrect guess of division vs pattern</b></dt>
+<dd>
+
+<p>A syntax error was produced in random testing when perltidy was fed the following line:</p>
+
+<pre><code>    sub _DR () { pi2 /360 } sub _RD () { 360 /pi2 }</code></pre>
+
+<p>The bareword &#39;pi2&#39; was not recognized and the text between the two slashes was a taken as a possible pattern argument in a parenless call to pi2. Two fixes were made to fix this. Perltidy looks for &#39;pi&#39; but not &#39;pi2&#39;, so the first fix was to expand its table to include all variations of &#39;pi&#39; in Trig.pm. Second, the fact that the first slash was followed by a number should have tipped the guess to favor division, so this was fixed. As it was, a backup spacing rule was used, which favored a pattern.</p>
+
+<p>The formatted result is now</p>
+
+<pre><code>    sub _DR () { pi2 / 360 }
+    sub _RD () { 360 / pi2 }</code></pre>
+
+<p>This update was made 13 Jan 2021, a50ecf8.</p>
+
+</dd>
+<dt id="Correct-formula-for-estimating-line-length-with--wn-option"><b>Correct formula for estimating line length with -wn option</b></dt>
+<dd>
+
+<p>A formula used to estimating maximum line length when the -wn option is set was missing a term for continuation indentation. No actual changes in formatting have been seen. This update made 12 Jan 2021.</p>
+
+</dd>
+<dt id="Fixed-unusual-blinker-related-to-large--ci-and--mft-n"><b>Fixed unusual blinker related to large -ci and -mft=n</b></dt>
+<dd>
+
+<p>The following blinker was found in random testing. The following statement (with @j starting at level 0)</p>
+
+<pre><code>    @j = ( $x, $y, $z );</code></pre>
+
+<p>run with the following parameters</p>
+
+<pre><code>    --indent-columns=5
+    --continuation-indentation=7
+    --maximum-line-length=20
+    --break-before-paren-and-indent=2
+    --break-before-paren=2
+    --maximum-fields-per-table=4</code></pre>
+
+<p>caused an oscillation between two states. An unusual feature which contributed to the problem is the very large ci value. This is fixed in a patch made 12 Jan 2021, 9a97dba.</p>
+
+</dd>
+</dl>
 
 <h1 id="Issues-fixed-after-release-20201207">Issues fixed after release 20201207</h1>
 
@@ -116,7 +2311,7 @@
 <dt id="Improve-rule-for-forgetting-last-side-comment-location"><b>Improve rule for forgetting last side comment location</b></dt>
 <dd>
 
-<p>The code which aligns side comments remembers the most recent side comment and in some cases tries to start aligning at that column for later side comments. Sometimes the old side comment column was being remembered too long, causing occasional poor formatting and causing a noticable and unexpected drift of side comment locations to the right. The rule for forgetting the previous side comment column has been modified to reduce this problem. The new rule is essentially to forget the previous side comment location at a new side comment with different indentation level or significant number of lines without side comments (about 12). The previous implementation forgetting changes in indentation level across code blocks only. Below is an example where the old method gets into trouble and the new method is ok:</p>
+<p>The code which aligns side comments remembers the most recent side comment and in some cases tries to start aligning at that column for later side comments. Sometimes the old side comment column was being remembered too long, causing occasional poor formatting and causing a noticeable and unexpected drift of side comment locations to the right. The rule for forgetting the previous side comment column has been modified to reduce this problem. The new rule is essentially to forget the previous side comment location at a new side comment with different indentation level or significant number of lines without side comments (about 12). The previous implementation forgetting changes in indentation level across code blocks only. Below is an example where the old method gets into trouble and the new method is ok:</p>
 
 <pre><code>        # OLD:
         foreach my $r (@$array) {
@@ -587,7 +2782,7 @@
 <dt id="Improve-vertical-alignment-in-some-marginal-matches"><b>Improve vertical alignment in some marginal matches</b></dt>
 <dd>
 
-<p>In perltidy a &#39;marginal match&#39; occurs for example when two lines share some alignment tokens but are somewhat different. When this happens some limits are placed on the size of the padding spaces that can be introduced. In this update the amount of allowed padding is significatly increased for certain &#39;good&#39; alignment tokens. Results of extensive testing were favorable provided that the change is restricted to alignments of &#39;=&#39;, &#39;if&#39; and &#39;unless&#39;. Update made 10 Dec 2020, a585f0b.</p>
+<p>In perltidy a &#39;marginal match&#39; occurs for example when two lines share some alignment tokens but are somewhat different. When this happens some limits are placed on the size of the padding spaces that can be introduced. In this update the amount of allowed padding is significantly increased for certain &#39;good&#39; alignment tokens. Results of extensive testing were favorable provided that the change is restricted to alignments of &#39;=&#39;, &#39;if&#39; and &#39;unless&#39;. Update made 10 Dec 2020, a585f0b.</p>
 
 <pre><code>    # OLD
     my @roles = $self-&gt;role_names;
@@ -1057,7 +3252,7 @@
         }, on_exit =&gt; sub ( $worker, $status ) { return; },
     );</code></pre>
 
-<p>Notice that the break after the comma has been lost. The problem was traced to a short-cut taken by the code looking for one-line blocks. The unique circumstances in which this occured involved a hash of anonymous subs, one with a signature with multiple parameters and short enough to be a one-line block, as in the last sub definition line. This was fixed 17 Oct 2020 in &#39;fix missing line break for hash of subs with signatures&#39;, 51428db.</p>
+<p>Notice that the break after the comma has been lost. The problem was traced to a short-cut taken by the code looking for one-line blocks. The unique circumstances in which this occurred involved a hash of anonymous subs, one with a signature with multiple parameters and short enough to be a one-line block, as in the last sub definition line. This was fixed 17 Oct 2020 in &#39;fix missing line break for hash of subs with signatures&#39;, 51428db.</p>
 
 </dd>
 <dt id="fix-issues-with-prototype-and-signature-parsing"><b>fix issues with prototype and signature parsing</b></dt>
@@ -1221,7 +3416,7 @@
 <dt id="fix-incorrect-parsing-of-certain-deprecated-empty-here-docs"><b>fix incorrect parsing of certain deprecated empty here-docs </b></dt>
 <dd>
 
-<p>The following snippet was being incorrecly parsed:</p>
+<p>The following snippet was being incorrectly parsed:</p>
 
 <pre><code> print &lt;&lt;
  # Hello World 13!
@@ -1476,7 +3671,7 @@
 <dt id="crash-due-to-bad-index-named-j_terminal_match"><b>crash due to bad index named &#39;$j_terminal_match&#39;</b></dt>
 <dd>
 
-<p>This crash was due to an index error which caused a non-existant object to be referenced. The problem is fixed 2020-09-07 in &quot;fix problem of undefined values involving j_terminal_match&quot;, c5bfa77. The particular parameters which caused this were:</p>
+<p>This crash was due to an index error which caused a non-existent object to be referenced. The problem is fixed 2020-09-07 in &quot;fix problem of undefined values involving j_terminal_match&quot;, c5bfa77. The particular parameters which caused this were:</p>
 
 <pre><code>    --noadd-newlines --nowant-left-space=&#39;=&#39; </code></pre>
 
@@ -1580,7 +3775,7 @@
 <pre><code>  use Test::More;
   ok open($stdin, &quot;&lt;&amp;&quot;, $1), &#39;open ... &quot;&lt;&amp;&quot;, $magical_fileno&#39;, ||  _diag $!;</code></pre>
 
-<p>Note the unusual situation of a comma followed by an &#39;||&#39;. Perltidy will format this satisfactorally but it will write an error message. The syntax is correct, however. Perl knows the prototype of the &#39;ok&#39; function, which is called here without parens, so the last comma marks the last arg and is needed to keep the || from attaching to the last arg.</p>
+<p>Note the unusual situation of a comma followed by an &#39;||&#39;. Perltidy will format this satisfactorily but it will write an error message. The syntax is correct, however. Perl knows the prototype of the &#39;ok&#39; function, which is called here without parens, so the last comma marks the last arg and is needed to keep the || from attaching to the last arg.</p>
 
 <p>Full support of peren-less calls will probably never be implemented in perltidy because it would require that it parse all of the modules used to find the prototypes. This would make it impossible to run perltidy on small snippets of code from within an editor.</p>
 

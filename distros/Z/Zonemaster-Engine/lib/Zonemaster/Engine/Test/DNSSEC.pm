@@ -5,11 +5,13 @@ use 5.014002;
 use strict;
 use warnings;
 
-use version; our $VERSION = version->declare( "v1.1.25" );
+use version; our $VERSION = version->declare( "v1.1.44" );
 
 ###
 ### This test module implements DNSSEC tests.
 ###
+
+use Zonemaster::LDNS::RR;
 
 use Zonemaster::Engine;
 
@@ -267,6 +269,18 @@ sub all {
             push @results, $class->dnssec14( $zone );
         }
 
+        if ( Zonemaster::Engine::Util::should_run_test( q{dnssec15} ) ) {
+            push @results, $class->dnssec15( $zone );
+        }
+
+        if ( Zonemaster::Engine::Util::should_run_test( q{dnssec16} ) ) {
+            push @results, $class->dnssec16( $zone );
+        }
+
+        if ( Zonemaster::Engine::Util::should_run_test( q{dnssec17} ) ) {
+            push @results, $class->dnssec17( $zone );
+        }
+
     }
 
     push @results, info( TEST_CASE_END => { testcase => (split /::/, (caller(0))[3])[-1] } );
@@ -453,6 +467,41 @@ sub metadata {
               TEST_CASE_START
               ),
         ],
+        dnssec15 => [
+            qw(
+              DS15_HAS_CDNSKEY_NO_CDS
+              DS15_HAS_CDS_AND_CDNSKEY
+              DS15_HAS_CDS_NO_CDNSKEY
+              DS15_INCONSISTENT_CDNSKEY
+              DS15_INCONSISTENT_CDS
+              DS15_MISMATCH_CDS_CDNSKEY
+              DS15_NO_CDS_CDNSKEY
+              ),
+        ],
+        dnssec16 => [
+            qw(
+              DS16_CDS_INVALID_RRSIG
+              DS16_CDS_MATCHES_NO_DNSKEY
+              DS16_CDS_SIGNED_BY_UNKNOWN_DNSKEY
+              DS16_CDS_UNSIGNED
+              DS16_CDS_WITHOUT_DNSKEY
+              DS16_DELETE_CDS
+              DS16_DNSKEY_NOT_SIGNED_BY_CDS
+              DS16_MIXED_DELETE_CDS
+              ),
+        ],
+        dnssec17 => [
+            qw(
+              DS17_CDNSKEY_INVALID_RRSIG
+              DS17_CDNSKEY_MATCHES_NO_DNSKEY
+              DS17_CDNSKEY_SIGNED_BY_UNKNOWN_DNSKEY
+              DS17_CDNSKEY_UNSIGNED
+              DS17_CDNSKEY_WITHOUT_DNSKEY
+              DS17_DELETE_CDNSKEY
+              DS17_DNSKEY_NOT_SIGNED_BY_CDNSKEY
+              DS17_MIXED_DELETE_CDNSKEY
+              ),
+        ],
     };
 } ## end sub metadata
 
@@ -463,52 +512,59 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     ALGORITHM_DEPRECATED => sub {
         __x    # DNSSEC:ALGORITHM_DEPRECATED
-          'The DNSKEY with tag {keytag} uses deprecated algorithm number {algorithm} ({description}).',
+          'The DNSKEY with tag {keytag} uses deprecated algorithm number '
+          . '{algo_num} ({algo_descr}).',
           @_;
     },
     ALGORITHM_NOT_RECOMMENDED => sub {
         __x    # DNSSEC:ALGORITHM_NOT_RECOMMENDED
-          'The DNSKEY with tag {keytag} uses an algorithm number {algorithm} ({description}) '
-          . 'which is not recommended to be used.',
+          'The DNSKEY with tag {keytag} uses an algorithm number '
+          . '{algo_num} ({algo_descr}) which is not recommended to be used.',
           @_;
     },
     ALGORITHM_NOT_ZONE_SIGN => sub {
         __x    # DNSSEC:ALGORITHM_NOT_ZONE_SIGN
-          'The DNSKEY with tag {keytag} uses algorithm number not meant for zone signing, '
-          . 'algorithm number {algorithm} ({description}).',
+          'The DNSKEY with tag {keytag} uses algorithm number not meant for '
+          . 'zone signing, algorithm number {algo_num} ({algo_descr}).',
           @_;
     },
     ALGORITHM_OK => sub {
         __x    # DNSSEC:ALGORITHM_OK
-          'The DNSKEY with tag {keytag} uses algorithm number {algorithm} ({description}), which is OK.',
+          'The DNSKEY with tag {keytag} uses algorithm number {algo_num} '
+          . '({algo_descr}), which is OK.',
           @_;
     },
     ALGORITHM_PRIVATE => sub {
         __x    # DNSSEC:ALGORITHM_PRIVATE
-          'The DNSKEY with tag {keytag} uses private algorithm number {algorithm} ({description}).', @_;
+          'The DNSKEY with tag {keytag} uses private algorithm number '
+          . '{algo_num} ({algo_descr}).',
+          @_;
     },
     ALGORITHM_RESERVED => sub {
         __x    # DNSSEC:ALGORITHM_RESERVED
-          'The DNSKEY with tag {keytag} uses reserved algorithm number {algorithm} ({description}).', @_;
+          'The DNSKEY with tag {keytag} uses reserved algorithm number '
+          . '{algo_num} ({algo_descr}).',
+          @_;
     },
     ALGORITHM_UNASSIGNED => sub {
         __x    # DNSSEC:ALGORITHM_UNASSIGNED
-          'The DNSKEY with tag {keytag} uses unassigned algorithm number {algorithm} ({description}).', @_;
+          'The DNSKEY with tag {keytag} uses unassigned algorithm number '
+          . '{algo_num} ({algo_descr}).',
+          @_;
     },
     ALGO_NOT_SIGNED_RRSET => sub {
         __x    # DNSSEC:ALGO_NOT_SIGNED_RRSET
-          'Nameserver {ns} responded with no RRSIG for RRset {rrtype} created by the '
-          . 'algorithm {algorithm}.',
+          'Nameserver {ns} responded with no RRSIG for RRset {rrtype} created '
+          . 'by the algorithm {algo_num}.',
           @_;
     },
     ALL_ALGO_SIGNED => sub {
         __x    # DNSSEC:ALL_ALGO_SIGNED
-          'All the tested RRset (SOA/DNSKEY/NS) are signed by each algorithm present in the DNSKEY RRset.',
-          @_;
+          'All the tested RRset (SOA/DNSKEY/NS) are signed by each algorithm present in the DNSKEY RRset.', @_;
     },
     BROKEN_DNSSEC => sub {
         __x    # DNSSEC:BROKEN_DNSSEC
-          'All nameservers for zone {zone} responds with neither NSEC nor NSEC3 records when such '
+          'All nameservers for zone {domain} responds with neither NSEC nor NSEC3 records when such '
           . 'records are expected.',
           @_;
     },
@@ -559,11 +615,11 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     DNSKEY_SIGNATURE_NOT_OK => sub {
         __x    # DNSSEC:DNSKEY_SIGNATURE_NOT_OK
-          'Signature for DNSKEY with tag {signature} failed to verify with error \'{error}\'.', @_;
+          'Signature for DNSKEY with tag {keytag} failed to verify with error \'{error}\'.', @_;
     },
     DNSKEY_SIGNATURE_OK => sub {
         __x    # DNSSEC:DNSKEY_SIGNATURE_OK
-          'A signature for DNSKEY with tag {signature} was correctly signed.', @_;
+          'A signature for DNSKEY with tag {keytag} was correctly signed.', @_;
     },
     DNSKEY_SIGNED => sub {
         __x    # DNSSEC:DNSKEY_SIGNED
@@ -571,61 +627,201 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     DNSKEY_SMALLER_THAN_REC => sub {
         __x    # DNSSEC:DNSKEY_SMALLER_THAN_REC
-          'DNSKEY with tag {keytag} and using algorithm {algorithm_number} ({algorithm_description}) '
-          . 'has a size ({keysize}) smaller than the recommended one ({keysizerec}).',
+          'DNSKEY with tag {keytag} and using algorithm {algo_num} '
+          . '({algo_descr}) has a size ({keysize}) smaller than the '
+          . 'recommended one ({keysizerec}).',
           @_;
     },
     DNSKEY_TOO_SMALL_FOR_ALGO => sub {
         __x    # DNSSEC:DNSKEY_TOO_SMALL_FOR_ALGO
-          'DNSKEY with tag {keytag} and using algorithm {algorithm_number} ({algorithm_description}) '
-          . 'has a size ({keysize}) smaller than the minimum one ({keysizemin}).',
+          'DNSKEY with tag {keytag} and using algorithm {algo_num} '
+          . '({algo_descr}) has a size ({keysize}) smaller than the minimum '
+          . 'one ({keysizemin}).',
           @_;
     },
     DNSKEY_TOO_LARGE_FOR_ALGO => sub {
         __x    # DNSSEC:DNSKEY_TOO_LARGE_FOR_ALGO
-          'DNSKEY with tag {keytag} and using algorithm {algorithm_number} ({algorithm_description}) '
-          . 'has a size ({keysize}) larger than the maximum one ({keysizemax}).',
+          'DNSKEY with tag {keytag} and using algorithm {algo_num} '
+          . '({algo_descr}) has a size ({keysize}) larger than the maximum one '
+          . '({keysizemax}).',
+          @_;
+    },
+    DS15_HAS_CDNSKEY_NO_CDS => sub {
+        __x    # DS15_HAS_CDNSKEY_NO_CDS
+          'CDNSKEY RRset is found on nameservers that resolve to IP addresses '
+          . '({ns_ip_list}), but no CDS RRset.',
+          @_;
+    },
+    DS15_HAS_CDS_AND_CDNSKEY => sub {
+        __x    # DS15_HAS_CDS_AND_CDNSKEY
+          'CDNSKEY and CDS RRsets are found on nameservers that resolve to IP addresses '
+          . '({ns_ip_list}).',
+          @_;
+    },
+    DS15_HAS_CDS_NO_CDNSKEY => sub {
+        __x    # DS15_HAS_CDS_NO_CDNSKEY
+          'CDS RRset is found on nameservers that resolve to IP addresses '
+          . '({ns_ip_list}), but no CDNSKEY RRset.',
+          @_;
+    },
+    DS15_INCONSISTENT_CDNSKEY => sub {
+        __x    # DS15_INCONSISTENT_CDNSKEY
+          'All servers do not have the same CDNSKEY RRset.', @_;
+    },
+    DS15_INCONSISTENT_CDS => sub {
+        __x    # DS15_INCONSISTENT_CDS
+          'All servers do not have the same CDS RRset.', @_;
+    },
+    DS15_MISMATCH_CDS_CDNSKEY => sub {
+        __x    # DS15_MISMATCH_CDS_CDNSKEY
+          'Both CDS and CDNSKEY RRsets are found on nameservers that resolve to IP '
+          . 'addresses ({ns_ip_list}) but they do not match.',
+          @_;
+    },
+    DS15_NO_CDS_CDNSKEY => sub {
+        __x    # DS15_NO_CDS_CDNSKEY
+          'No CDS or CDNSKEY RRsets are found on any name server.', @_;
+    },
+    DS16_CDS_INVALID_RRSIG => sub {
+        __x    # DS16_CDS_INVALID_RRSIG
+          'The CDS RRset is signed with an RRSIG with tag {keytag}, but the RRSIG does '
+          . 'not match the DNSKEY with the same key tag. Fetched from the nameservers '
+          . 'with IP addresses "{ns_ip_list}".',
+          @_;
+    },
+    DS16_CDS_MATCHES_NO_DNSKEY => sub {
+        __x    # DS16_CDS_MATCHES_NO_DNSKEY
+          'The CDS record with tag {keytag} does not match any DNSKEY record. Fetched '
+          . 'from the nameservers with IP addresses "{ns_ip_list}".',
+          @_;
+    },
+    DS16_CDS_SIGNED_BY_UNKNOWN_DNSKEY => sub {
+        __x    # DS16_CDS_SIGNED_BY_UNKNOWN_DNSKEY
+          'The CDS RRset is signed by RRSIG with tag {keytag} but that is not in the '
+          . 'DNSKEY RRset. Fetched from the nameservers with P addresses "{ns_ip_list}".',
+          @_;
+    },
+    DS16_CDS_UNSIGNED => sub {
+        __x    # DS16_CDS_UNSIGNED
+          'The CDS RRset is not signed. Fetched from the nameservers with IP addresses '
+          . '"{ns_ip_list}".',
+          @_;
+    },
+    DS16_CDS_WITHOUT_DNSKEY => sub {
+        __x    # DS16_CDS_WITHOUT_DNSKEY
+          'A CDS RRset exists, but no DNSKEY record exists. Fetched from the '
+          . 'nameservers with IP addresses "{ns_ip_list}".',
+          @_;
+    },
+    DS16_DELETE_CDS => sub {
+        __x    # DS16_DELETE_CDS
+          'A single "delete" CDS record is found on the nameservers with IP addresses '
+          . '"{ns_ip_list}".',
+          @_;
+    },
+    DS16_DNSKEY_NOT_SIGNED_BY_CDS => sub {
+        __x    # DS16_DNSKEY_NOT_SIGNED_BY_CDS
+          'The DNSKEY RRset is not signed by the DNSKEY that the CDS record with tag '
+          . '{keytag} points to. Fetched from the nameservers with IP addresses '
+          . '"{ns_ip_list}".',
+          @_;
+    },
+    DS16_MIXED_DELETE_CDS => sub {
+        __x    # DS16_MIXED_DELETE_CDS
+          'The CDS RRset is a mixture between "delete" record and other records. '
+          . 'Fetched from the nameservers with IP addresses "{ns_ip_list}".',
+          @_;
+    },
+    DS17_CDNSKEY_INVALID_RRSIG => sub {
+        __x    # DS17_CDNSKEY_INVALID_RRSIG
+          'The CDNSKEY RRset is signed with an RRSIG with tag {keytag}, but the RRSIG does '
+          . 'not match the DNSKEY with the same key tag. Fetched from the nameservers '
+          . 'with IP addresses "{ns_ip_list}".',
+          @_;
+    },
+    DS17_CDNSKEY_MATCHES_NO_DNSKEY => sub {
+        __x    # DS17_CDNSKEY_MATCHES_NO_DNSKEY
+          'The CDNSKEY record with tag {keytag} does not match any DNSKEY record. Fetched '
+          . 'from the nameservers with IP addresses "{ns_ip_list}".',
+          @_;
+    },
+    DS17_CDNSKEY_SIGNED_BY_UNKNOWN_DNSKEY => sub {
+        __x    # DS17_CDNSKEY_SIGNED_BY_UNKNOWN_DNSKEY
+          'The CDNSKEY RRset is signed by RRSIG with tag {keytag} but that is not in the '
+          . 'DNSKEY RRset. Fetched from the nameservers with P addresses "{ns_ip_list}".',
+          @_;
+    },
+    DS17_CDNSKEY_UNSIGNED => sub {
+        __x    # DS17_CDNSKEY_UNSIGNED
+          'The CDNSKEY RRset is not signed. Fetched from the nameservers with IP addresses '
+          . '"{ns_ip_list}".',
+          @_;
+    },
+    DS17_CDNSKEY_WITHOUT_DNSKEY => sub {
+        __x    # DS17_CDNSKEY_WITHOUT_DNSKEY
+          'A CDNSKEY RRset exists, but no DNSKEY record exists. Fetched from the '
+          . 'nameservers with IP addresses "{ns_ip_list}".',
+          @_;
+    },
+    DS17_DELETE_CDNSKEY => sub {
+        __x    # DS17_DELETE_CDNSKEY
+          'A single "delete" CDNSKEY record is found on the nameservers with IP addresses '
+          . '"{ns_ip_list}".',
+          @_;
+    },
+    DS17_DNSKEY_NOT_SIGNED_BY_CDNSKEY => sub {
+        __x    # DS17_DNSKEY_NOT_SIGNED_BY_CDNSKEY
+          'The DNSKEY RRset is not signed by the DNSKEY that the CDNSKEY record with tag '
+          . '{keytag} points to. Fetched from the nameservers with IP addresses '
+          . '"{ns_ip_list}".',
+          @_;
+    },
+    DS17_MIXED_DELETE_CDNSKEY => sub {
+        __x    # DS17_MIXED_DELETE_CDNSKEY
+          'The CDNSKEY RRset is a mixture between "delete" record and other records. '
+          . 'Fetched from the nameservers with IP addresses "{ns_ip_list}".',
           @_;
     },
     DS_ALGORITHM_NOT_DS => sub {
         __x    # DNSSEC:DS_ALGORITHM_NOT_DS
-          '{ns} returned a DS record created by algorithm {algorithm_number} '
-          . '({algorithm_mnemonic}) which is not meant for DS. The DS record is for the DNSKEY '
-          . 'record with keytag {keytag} in zone {zone}.',
+          '{ns} returned a DS record created by algorithm {algo_num} '
+          . '({algo_mnemo}) which is not meant for DS. The DS record is for '
+          . 'the DNSKEY record with keytag {keytag} in zone {domain}.',
           @_;
     },
     DS_ALGORITHM_DEPRECATED => sub {
         __x    # DNSSEC:DS_ALGORITHM_DEPRECATED
-          '{ns} returned a DS record created by algorithm {algorithm_number} '
-          . '({algorithm_mnemonic}), which is deprecated. The DS record is for the DNSKEY '
-          . 'record with keytag {keytag} in zone {zone}.',
+          '{ns} returned a DS record created by algorithm {algo_num} '
+          . '({algo_mnemo}), which is deprecated. The DS record is for the '
+          . 'DNSKEY record with keytag {keytag} in zone {domain}.',
           @_;
     },
     DS_ALGORITHM_MISSING => sub {
         __x    # DNSSEC:DS_ALGORITHM_MISSING
-          '{ns} returned no DS record created by algorithm {algorithm_number} '
-          . '({algorithm_mnemonic}) for zone {zone}, which is required.',
+          '{ns} returned no DS record created by algorithm {algo_num} '
+          . '({algo_mnemo}) for zone {domain}, which is required.',
           @_;
     },
     DS_ALGORITHM_OK => sub {
         __x    # DNSSEC:DS_ALGORITHM_OK
-          '{ns} returned a DS record created by algorithm {algorithm_number} '
-          . '({algorithm_mnemonic}), which is OK. The DS record is for the DNSKEY record with '
-          . 'keytag {keytag} in zone {zone}.',
+          '{ns} returned a DS record created by algorithm {algo_num} '
+          . '({algo_mnemo}), which is OK. The DS record is for the DNSKEY '
+          . 'record with keytag {keytag} in zone {domain}.',
           @_;
     },
     DS_ALGORITHM_RESERVED => sub {
         __x    # DNSSEC:DS_ALGORITHM_RESERVED
-          '{ns} returned a DS record created by with an algorithm not assigned (algorithm number '
-          . '{algorithm_number}), which is not OK. The DS record is for the DNSKEY record with keytag {keytag} '
-          . 'in zone {zone}.',
+          '{ns} returned a DS record created by with an algorithm not assigned '
+          . '(algorithm number {algo_num}), which is not OK. The DS record is '
+          . 'for the DNSKEY record with keytag {keytag} in zone {domain}.',
           @_;
     },
     DS_ALGO_SHA1_DEPRECATED => sub {
         __x    # DNSSEC:DS_ALGO_SHA1_DEPRECATED
-          'Nameserver {ns} returned a DS record created by algorithm {algorithm_number} '
-          . '({algorithm_mnemonic}) which is deprecated, while it is still widely used. The DS record is '
-          . 'for the DNSKEY record with keytag {keytag} in zone {zone}.',
+          'Nameserver {ns} returned a DS record created by algorithm '
+          . '{algo_num} ({algo_mnemo}) which is deprecated, while it is still '
+          . 'widely used. The DS record is for the DNSKEY record with keytag '
+          . '{keytag} in zone {domain}.',
           @_;
     },
     DS_BUT_NOT_DNSKEY => sub {
@@ -634,17 +830,17 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     DS_MATCHES => sub {
         __x    # DNSSEC:DS_MATCHES
-          'The DS records in the parent zone match DNSKEY records in the child zone.',  @_;
+          'The DS records in the parent zone match DNSKEY records in the child zone.', @_;
     },
     DURATION_LONG => sub {
         __x    # DNSSEC:DURATION_LONG
-          'RRSIG with keytag {tag} and covering type(s) {types} '
+          'RRSIG with keytag {keytag} and covering type(s) {types} '
           . 'has a duration of {duration} seconds, which is too long.',
           @_;
     },
     DURATION_OK => sub {
         __x    # DNSSEC:DURATION_OK
-          'RRSIG with keytag {tag} and covering type(s) {types} '
+          'RRSIG with keytag {keytag} and covering type(s) {types} '
           . 'has a duration of {duration} seconds, which is just fine.',
           @_;
     },
@@ -666,19 +862,15 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     INCONSISTENT_DNSSEC => sub {
         __x    # DNSSEC:INCONSISTENT_DNSSEC
-          'Some, but not all, nameservers for zone {zone} respond with neither NSEC nor NSEC3 records when '
+          'Some, but not all, nameservers for zone {domain} respond with neither NSEC nor NSEC3 records when '
           . 'such records are expected.',
           @_;
     },
     INCONSISTENT_NSEC_NSEC3 => sub {
         __x    # DNSSEC:INCONSISTENT_NSEC_NSEC3
-          'Some nameservers for zone {zone} respond with NSEC records and others respond with NSEC3 records. '
+          'Some nameservers for zone {domain} respond with NSEC records and others respond with NSEC3 records. '
           . 'Consistency is expected.',
           @_;
-    },
-    INVALID_NAME_RCODE => sub {
-        __x    # DNSSEC:INVALID_NAME_RCODE
-          'When asked for the name {name}, which must not exist, the response had RCODE {rcode}.', @_;
     },
     IPV4_DISABLED => sub {
         __x    # DNSSEC:IPV4_DISABLED
@@ -697,16 +889,16 @@ Readonly my %TAG_DESCRIPTIONS => (
           'Key with keytag {keytag} details : Size = {keysize}, Flags ({sep}, {rfc5011}).', @_;
     },
     KEY_SIZE_OK => sub {
-          __x    # DNSSEC:KEY_SIZE_OK
-            'All keys from the DNSKEY RRset have the correct size.', @_;
-      },
+        __x    # DNSSEC:KEY_SIZE_OK
+          'All keys from the DNSKEY RRset have the correct size.', @_;
+    },
     MANY_ITERATIONS => sub {
         __x    # DNSSEC:MANY_ITERATIONS
           'The number of NSEC3 iterations is {count}, which is on the high side.', @_;
     },
     MIXED_NSEC_NSEC3 => sub {
         __x    # DNSSEC:MIXED_NSEC_NSEC3
-          'Nameserver {ns} for zone {zone} responds with both NSEC and NSEC3 '
+          'Nameserver {ns} for zone {domain} responds with both NSEC and NSEC3 '
           . 'records when only one record type is expected.',
           @_;
     },
@@ -720,8 +912,7 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     NO_KEYS_OR_NO_SIGS => sub {
         __x    # DNSSEC:NO_KEYS_OR_NO_SIGS
-          'Cannot test DNSKEY signatures, because we got {keys} DNSKEY records and {sigs} RRSIG records.',
-          @_;
+          'Cannot test DNSKEY signatures, because we got {keys} DNSKEY records and {sigs} RRSIG records.', @_;
     },
     NO_KEYS_OR_NO_SIGS_OR_NO_SOA => sub {
         __x    # DNSSEC:NO_KEYS_OR_NO_SIGS_OR_NO_SOA
@@ -748,8 +939,8 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     NO_NSEC_NSEC3 => sub {
         __x    # DNSSEC:NO_NSEC_NSEC3
-          'Nameserver {ns} for zone {zone} responds with neither NSEC nor NSEC3 record when '
-          . 'when such records are expected.',
+          'Nameserver {ns} for zone {domain} responds with neither NSEC nor '
+          . 'NSEC3 record when when such records are expected.',
           @_;
     },
     NO_RESPONSE_DNSKEY => sub {
@@ -758,7 +949,7 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     NO_RESPONSE_DS => sub {
         __x    # DNSSEC:NO_RESPONSE_DS
-          '{ns} returned no DS records for {zone}.', @_;
+          '{ns} returned no DS records for {domain}.', @_;
     },
     NO_RESPONSE_RRSET => sub {
         __x    # DNSSEC:NO_RESPONSE_RRSET
@@ -778,7 +969,7 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     NSEC3_COVERS_NOT => sub {
         __x    # DNSSEC:NSEC3_COVERS_NOT
-          'NSEC3 record does not cover {name}.', @_;
+          'NSEC3 record does not cover {domain}.', @_;
     },
     NSEC3_NOT_SIGNED => sub {
         __x    # DNSSEC:NSEC3_NOT_SIGNED
@@ -786,11 +977,11 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     NSEC3_SIG_VERIFY_ERROR => sub {
         __x    # DNSSEC:NSEC3_SIG_VERIFY_ERROR
-          'Trying to verify NSEC3 RRset with RRSIG {sig} gave error \'{error}\'.', @_;
+          'Trying to verify NSEC3 RRset with RRSIG {keytag} gave error \'{error}\'.', @_;
     },
     NSEC_COVERS_NOT => sub {
         __x    # DNSSEC:NSEC_COVERS_NOT
-          'NSEC does not cover {name}.', @_;
+          'NSEC does not cover {domain}.', @_;
     },
     NSEC_NOT_SIGNED => sub {
         __x    # DNSSEC:NSEC_NOT_SIGNED
@@ -798,23 +989,23 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     NSEC_SIG_VERIFY_ERROR => sub {
         __x    # DNSSEC:NSEC_SIG_VERIFY_ERROR
-          'Trying to verify NSEC RRset with RRSIG {sig} gave error \'{error}\'.', @_;
+          'Trying to verify NSEC RRset with RRSIG {keytag} gave error \'{error}\'.', @_;
     },
     REMAINING_LONG => sub {
         __x    # DNSSEC:REMAINING_LONG
-          'RRSIG with keytag {tag} and covering type(s) {types} '
+          'RRSIG with keytag {keytag} and covering type(s) {types} '
           . 'has a remaining validity of {duration} seconds, which is too long.',
           @_;
     },
     REMAINING_SHORT => sub {
         __x    # DNSSEC:REMAINING_SHORT
-          'RRSIG with keytag {tag} and covering type(s) {types} '
+          'RRSIG with keytag {keytag} and covering type(s) {types} '
           . 'has a remaining validity of {duration} seconds, which is too short.',
           @_;
     },
     RRSIG_EXPIRATION => sub {
         __x    # DNSSEC:RRSIG_EXPIRATION
-          'RRSIG with keytag {tag} and covering type(s) {types} expires at : {date}.', @_;
+          'RRSIG with keytag {keytag} and covering type(s) {types} expires at ' . ': {date}.', @_;
     },
     RRSET_NOT_SIGNED => sub {
         __x    # DNSSEC:RRSET_NOT_SIGNED
@@ -828,8 +1019,8 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     RRSIG_EXPIRED => sub {
         __x    # DNSSEC:RRSIG_EXPIRED
-          'RRSIG with keytag {tag} and covering type(s) {types} has already expired (expiration '
-          . 'is: {expiration}).',
+          'RRSIG with keytag {keytag} and covering type(s) {types} has already '
+          . 'expired (expiration is: {expiration}).',
           @_;
     },
     RRSIG_NOT_MATCH_DNSKEY => sub {
@@ -842,11 +1033,11 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     SOA_SIGNATURE_NOT_OK => sub {
         __x    # DNSSEC:SOA_SIGNATURE_NOT_OK
-          'Trying to verify SOA RRset with signature {signature} gave error \'{error}\'.', @_;
+          'Trying to verify SOA RRset with signature {keytag} gave error \'{error}\'.', @_;
     },
     SOA_SIGNATURE_OK => sub {
         __x    # DNSSEC:SOA_SIGNATURE_OK
-          'RRSIG {signature} correctly signs SOA RRset.', @_;
+          'RRSIG {keytag} correctly signs SOA RRset.', @_;
     },
     SOA_SIGNED => sub {
         __x    # DNSSEC:SOA_SIGNED
@@ -854,7 +1045,7 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     TEST_ABORTED => sub {
         __x    # DNSSEC:TEST_ABORTED
-          'Nameserver {ns} for zone {zone} responds with RCODE "NOERROR" on a query that '
+          'Nameserver {ns} for zone {domain} responds with RCODE "NOERROR" on a query that '
           . 'is expected to give response with RCODE "NXDOMAIN". Test for NSEC and NSEC3 is aborted '
           . 'for this nameserver.',
           @_;
@@ -873,7 +1064,7 @@ Readonly my %TAG_DESCRIPTIONS => (
     },
     UNEXPECTED_RESPONSE_DS => sub {
         __x    # DNSSEC:UNEXPECTED_RESPONSE_DS
-          'Nameserver {ns} responded with an unexpected rcode ({rcode}) on a DS query for zone {zone}.', @_;
+          'Nameserver {ns} responded with an unexpected rcode ({rcode}) on a DS query for zone {domain}.', @_;
     },
 );
 
@@ -895,62 +1086,128 @@ sub dnssec01 {
 
     if ( my $parent = $zone->parent ) {
         foreach my $ns ( @{ $parent->ns } ) {
-            my $ns_args = {
-                ns     => $ns->string,
-                zone   => q{} . $zone->name,
-                rrtype => q{DS},
-            };
 
             if ( not Zonemaster::Engine::Profile->effective->get(q{net.ipv6}) and $ns->address->version == $IP_VERSION_6 ) {
-                push @results, info( IPV6_DISABLED => $ns_args );
+                push @results,
+                  info(
+                    IPV6_DISABLED => {
+                        ns     => $ns->string,
+                        rrtype => q{DS},
+                    }
+                  );
                 next;
             }
 
             if ( not Zonemaster::Engine::Profile->effective->get(q{net.ipv4}) and $ns->address->version == $IP_VERSION_4 ) {
-                push @results, info( IPV4_DISABLED => $ns_args );
+                push @results,
+                  info(
+                    IPV4_DISABLED => {
+                        ns     => $ns->string,
+                        rrtype => q{DS},
+                    }
+                  );
                 next;
             }
 
             my $ds_p = $ns->query( $zone->name, q{DS}, { usevc => 0, dnssec => 1 } );
             if ( not $ds_p ) {
-                push @results, info( NO_RESPONSE_DS => $ns_args );
+                push @results,
+                  info(
+                    NO_RESPONSE_DS => {
+                        ns     => $ns->string,
+                        domain => q{} . $zone->name,
+                    }
+                  );
                 next;
             }
             elsif ($ds_p->rcode ne q{NOERROR} ) {
-                $ns_args->{rcode} = $ds_p->rcode;
-                push @results, info( UNEXPECTED_RESPONSE_DS => $ns_args );
+                push @results,
+                  info(
+                    UNEXPECTED_RESPONSE_DS => {
+                        ns     => $ns->string,
+                        domain => q{} . $zone->name,
+                        rcode  => $ds_p->rcode,
+                    }
+                  );
                 next;
             }
             else {
                 my $algorithm2 = 0;
                 my @dss = $ds_p->get_records( q{DS}, q{answer} );
-                foreach my $ds ( @dss ) {
-                    my $ds_args = { %$ns_args };
-                    $ds_args->{keytag} = $ds->keytag;
-                    $ds_args->{algorithm_number} = $ds->digtype;
-                    $ds_args->{algorithm_mnemonic} = $digest_algorithms{$ds->digtype};
+                foreach my $ds (@dss) {
+                    my $mnemonic = $digest_algorithms{ $ds->digtype };
                     if ( $ds->digtype == 0 ) {
-                        push @results, info( DS_ALGORITHM_NOT_DS => $ds_args );
+                        push @results,
+                          info(
+                            DS_ALGORITHM_NOT_DS => {
+                                ns         => $ns->string,
+                                domain     => q{} . $zone->name,
+                                keytag     => $ds->keytag,
+                                algo_num   => $ds->digtype,
+                                algo_mnemo => $mnemonic,
+                            }
+                          );
                     }
                     elsif ( $ds->digtype == 1 ) {
-                        push @results, info( DS_ALGO_SHA1_DEPRECATED => $ds_args );
+                        push @results,
+                          info(
+                            DS_ALGO_SHA1_DEPRECATED => {
+                                ns         => $ns->string,
+                                domain     => q{} . $zone->name,
+                                keytag     => $ds->keytag,
+                                algo_num   => $ds->digtype,
+                                algo_mnemo => $mnemonic,
+                            }
+                          );
                     }
                     elsif ( $ds->digtype == 3 ) {
-                        push @results, info( DS_ALGORITHM_DEPRECATED => $ds_args );
+                        push @results,
+                          info(
+                            DS_ALGORITHM_DEPRECATED => {
+                                ns         => $ns->string,
+                                domain     => q{} . $zone->name,
+                                keytag     => $ds->keytag,
+                                algo_num   => $ds->digtype,
+                                algo_mnemo => $mnemonic,
+                            }
+                          );
                     }
                     elsif ( $ds->digtype >= 5 and $ds->digtype <= 255 ) {
-                        push @results, info( DS_ALGORITHM_RESERVED => $ds_args );
+                        push @results,
+                          info(
+                            DS_ALGORITHM_RESERVED => {
+                                ns         => $ns->string,
+                                domain     => q{} . $zone->name,
+                                keytag     => $ds->keytag,
+                                algo_num   => $ds->digtype,
+                                algo_mnemo => $mnemonic,
+                            }
+                          );
                     }
                     else {
                         $algorithm2++ if $ds->digtype == 2;
-                        push @results, info( DS_ALGORITHM_OK => $ds_args );
+                        push @results,
+                          info(
+                            DS_ALGORITHM_OK => {
+                                ns         => $ns->string,
+                                domain     => q{} . $zone->name,
+                                keytag     => $ds->keytag,
+                                algo_num   => $ds->digtype,
+                                algo_mnemo => $mnemonic,
+                            }
+                          );
                     }
                 }
                 if ( not $algorithm2 ) {
-                    my $ds_args = { %$ns_args };
-                    $ds_args->{algorithm_number} = 2;
-                    $ds_args->{algorithm_mnemonic} = $digest_algorithms{2};
-                    push @results, info( DS_ALGORITHM_MISSING => $ds_args );
+                    push @results,
+                      info(
+                        DS_ALGORITHM_MISSING => {
+                            ns         => $ns->string,
+                            domain     => q{} . $zone->name,
+                            algo_num   => 2,
+                            algo_mnemo => $digest_algorithms{2},
+                        }
+                      );
                 }
             }    
         }
@@ -989,8 +1246,14 @@ sub dnssec02 {
                 next;
             }
             elsif ($ds_p->rcode ne q{NOERROR} ) {
-                $ns_args->{rcode} = $ds_p->rcode;
-                push @results, info( UNEXPECTED_RESPONSE_DS => $ns_args );
+                push @results,
+                  info(
+                    UNEXPECTED_RESPONSE_DS => {
+                        ns     => $ns->string,
+                        domain => q{} . $zone->name,
+                        rcode  => $ds_p->rcode,
+                    }
+                  );
                 next;
             }
             else {
@@ -1226,37 +1489,41 @@ sub dnssec04 {
         push @results,
           info(
             RRSIG_EXPIRATION => {
-                date  => scalar( gmtime($sig->expiration) ),
-                tag   => $sig->keytag,
-                types => $sig->typecovered,
+                date   => scalar( gmtime($sig->expiration) ),
+                keytag => $sig->keytag,
+                types  => $sig->typecovered,
             }
           );
 
         my $remaining = $sig->expiration - int( $dnskey_p->timestamp );
         my $result_remaining;
+        my $remaining_short_limit = Zonemaster::Engine::Profile->effective->get( q{test_cases_vars.dnssec04.REMAINING_SHORT} );
+        my $remaining_long_limit  = Zonemaster::Engine::Profile->effective->get( q{test_cases_vars.dnssec04.REMAINING_LONG} );
+        my $duration_long_limit   = Zonemaster::Engine::Profile->effective->get( q{test_cases_vars.dnssec04.DURATION_LONG} );
+
         if ( $remaining < 0 ) {    # already expired
             $result_remaining = info(
                 RRSIG_EXPIRED => {
                     expiration => $sig->expiration,
-                    tag        => $sig->keytag,
+                    keytag     => $sig->keytag,
                     types      => $sig->typecovered,
                 }
             );
         }
-        elsif ( $remaining < ( $DURATION_12_HOURS_IN_SECONDS ) ) {
+        elsif ( $remaining < ( $remaining_short_limit ) ) {
             $result_remaining = info(
                 REMAINING_SHORT => {
                     duration => $remaining,
-                    tag      => $sig->keytag,
+                    keytag   => $sig->keytag,
                     types    => $sig->typecovered,
                 }
             );
         }
-        elsif ( $remaining > ( $DURATION_180_DAYS_IN_SECONDS ) ) {
+        elsif ( $remaining > ( $remaining_long_limit ) ) {
             $result_remaining = info(
                 REMAINING_LONG => {
                     duration => $remaining,
-                    tag      => $sig->keytag,
+                    keytag   => $sig->keytag,
                     types    => $sig->typecovered,
                 }
             );
@@ -1264,11 +1531,11 @@ sub dnssec04 {
 
         my $duration = $sig->expiration - $sig->inception;
         my $result_duration;
-        if ( $duration > ( $DURATION_180_DAYS_IN_SECONDS ) ) {
+        if ( $duration > ( $duration_long_limit ) ) {
             $result_duration = info(
                 DURATION_LONG => {
                     duration => $duration,
-                    tag      => $sig->keytag,
+                    keytag   => $sig->keytag,
                     types    => $sig->typecovered,
                 }
             );
@@ -1283,7 +1550,7 @@ sub dnssec04 {
               info(
                 DURATION_OK => {
                     duration => $duration,
-                    tag      => $sig->keytag,
+                    keytag   => $sig->keytag,
                     types    => $sig->typecovered,
                 }
               );
@@ -1341,9 +1608,9 @@ sub dnssec05 {
         foreach my $key ( @keys ) {
             my $algo      = $key->algorithm;
             my $algo_args = {
-                algorithm   => $algo,
+                algo_num    => $algo,
                 keytag      => $key->keytag,
-                description => $algo_properties{$algo}{description},
+                algo_descr  => $algo_properties{$algo}{description},
             };
 
             if ( $algo_properties{$algo}{status} == $ALGO_STATUS_DEPRECATED ) {
@@ -1503,7 +1770,7 @@ sub dnssec08 {
         return ( @results, info( TEST_CASE_END => { testcase => (split /::/, (caller(0))[3])[-1] } ) );
     }
 
-    my $ok = 0;
+    my $ok = undef;
     foreach my $sig ( @sigs ) {
         my $msg  = q{};
         my $time = $dnskey_p->timestamp;
@@ -1511,7 +1778,7 @@ sub dnssec08 {
             push @results,
               info(
                 DNSKEY_SIGNATURE_OK => {
-                    signature => $sig->keytag,
+                    keytag => $sig->keytag,
                 }
               );
             $ok = $sig->keytag;
@@ -1523,15 +1790,15 @@ sub dnssec08 {
             push @results,
               info(
                 DNSKEY_SIGNATURE_NOT_OK => {
-                    signature => $sig->keytag,
-                    error     => $msg,
-                    time      => $time,
+                    keytag => $sig->keytag,
+                    error  => $msg,
+                    time   => $time,
                 }
               );
         }
     } ## end foreach my $sig ( @sigs )
 
-    if ( $ok ) {
+    if ( defined $ok ) {
         push @results,
           info(
             DNSKEY_SIGNED => {
@@ -1576,7 +1843,7 @@ sub dnssec09 {
         return ( @results, info( TEST_CASE_END => { testcase => (split /::/, (caller(0))[3])[-1] } ) );
     }
 
-    my $ok = 0;
+    my $ok = undef;
     foreach my $sig ( @sigs ) {
         my $msg  = q{};
         my $time = $soa_p->timestamp;
@@ -1584,7 +1851,7 @@ sub dnssec09 {
             push @results,
               info(
                 SOA_SIGNATURE_OK => {
-                    signature => $sig->keytag,
+                    keytag => $sig->keytag,
                 }
               );
             $ok = $sig->keytag;
@@ -1596,14 +1863,14 @@ sub dnssec09 {
             push @results,
               info(
                 SOA_SIGNATURE_NOT_OK => {
-                    signature => $sig->keytag,
-                    error     => $msg,
+                    keytag => $sig->keytag,
+                    error  => $msg,
                 }
               );
         }
     } ## end foreach my $sig ( @sigs )
 
-    if ( $ok ) {
+    if ( defined $ok ) {
         push @results,
           info(
             SOA_SIGNED => {
@@ -1662,8 +1929,8 @@ sub dnssec10 {
             push @results,
               info(
                 TEST_ABORTED => {
-                    ns   => $ns->string,
-                    zone => $zone->name->string,
+                    ns     => $ns->string,
+                    domain => $zone->name->string,
                 }
               );
         }
@@ -1678,18 +1945,22 @@ sub dnssec10 {
             my @nsec  = $a_p->get_records( q{NSEC}, q{authority} );
             my @nsec3 = $a_p->get_records( q{NSEC3}, q{authority} );
             if ( scalar @nsec and scalar @nsec3 ) {
-                my $args = {
-                    ns   => $ns->string,
-                    zone => $zone->name->string,
-                };
-                push @results, info( MIXED_NSEC_NSEC3 => $args );
+                push @results,
+                  info(
+                    MIXED_NSEC_NSEC3 => {
+                        ns     => $ns->string,
+                        domain => $zone->name->string,
+                    }
+                  );
             }
             elsif ( not scalar @nsec and not scalar @nsec3 ) {
-                my $args = {
-                    ns   => $ns->string,
-                    zone => $zone->name->string,
-                };
-                push @results, info( NO_NSEC_NSEC3 => $args );
+                push @results,
+                  info(
+                    NO_NSEC_NSEC3 => {
+                        ns     => $ns->string,
+                        domain => $zone->name->string,
+                    }
+                  );
                 $no_dnssec_zone{$ns->address->short}++;
             }
             elsif ( scalar @nsec and not scalar @nsec3 ) {
@@ -1709,7 +1980,7 @@ sub dnssec10 {
                             foreach my $sig ( @sigs ) {
                                 my $msg = q{};
                                 if ( not scalar @dnskeys ) {
-                                    push @results, info( NSEC_SIG_VERIFY_ERROR => { error => q{DNSKEY missing}, sig => $sig->keytag } );
+                                    push @results, info( NSEC_SIG_VERIFY_ERROR => { error => q{DNSKEY missing}, keytag => $sig->keytag } );
                                 }
                                 elsif (
                                     $sig->verify_time(
@@ -1727,8 +1998,8 @@ sub dnssec10 {
                                     push @results,
                                       info(
                                         NSEC_SIG_VERIFY_ERROR => {
-                                            error => $msg,
-                                            sig   => $sig->keytag,
+                                            error  => $msg,
+                                            keytag => $sig->keytag,
                                         }
                                       );
                                 }
@@ -1740,7 +2011,7 @@ sub dnssec10 {
                     }
                 }
                 if ( not $covered ) {
-                    push @results, info( NSEC_COVERS_NOT => {} );
+                    push @results, info( NSEC_COVERS_NOT => { domain => $non_existent_domain_name } );
                 }
             }
             elsif ( not scalar @nsec and scalar @nsec3 ) {
@@ -1760,7 +2031,7 @@ sub dnssec10 {
                             foreach my $sig ( @sigs ) {
                                 my $msg = q{};
                                 if ( not scalar @dnskeys ) {
-                                    push @results, info( NSEC3_SIG_VERIFY_ERROR => { error => 'DNSKEY missing', sig => $sig->keytag } );
+                                    push @results, info( NSEC3_SIG_VERIFY_ERROR => { error => 'DNSKEY missing', keytag => $sig->keytag } );
                                 }
                                 elsif (
                                     $sig->verify_time(
@@ -1778,8 +2049,8 @@ sub dnssec10 {
                                     push @results,
                                       info(
                                         NSEC3_SIG_VERIFY_ERROR => {
-                                            error => $msg,
-                                            sig   => $sig->keytag,
+                                            error  => $msg,
+                                            keytag => $sig->keytag,
                                         }
                                       );
                                 }
@@ -1791,20 +2062,20 @@ sub dnssec10 {
                     }
                 }
                 if ( not $covered ) {
-                    push @results, info( NSEC3_COVERS_NOT => {} );
+                    push @results, info( NSEC3_COVERS_NOT => { domain => $non_existent_domain_name } );
                 }
             }
         }
     }
 
     if ( scalar keys %no_dnssec_zone and ( scalar keys %nsec_zone or scalar keys %nsec3_zone ) ) {
-        push @results, info( INCONSISTENT_DNSSEC => { zone => $zone->name->string } );
+        push @results, info( INCONSISTENT_DNSSEC => { domain => $zone->name->string } );
     }
     elsif ( scalar keys %no_dnssec_zone and not scalar keys %nsec_zone and not scalar keys %nsec3_zone ) {
-        push @results, info( BROKEN_DNSSEC => { zone => $zone->name->string } );
+        push @results, info( BROKEN_DNSSEC => { domain => $zone->name->string } );
     }
     elsif ( scalar keys %nsec_zone and scalar keys %nsec3_zone ) {
-        push @results, info( INCONSISTENT_NSEC_NSEC3 => { zone => $zone->name->string } );
+        push @results, info( INCONSISTENT_NSEC_NSEC3 => { domain => $zone->name->string } );
     }
     elsif ( scalar keys %nsec_zone and not grep { $_->tag eq q{MIXED_NSEC_NSEC3} } @results ) {
         push @results, info( HAS_NSEC => {} );
@@ -1839,7 +2110,7 @@ sub dnssec11 {
     my %dnskey = map { $_->keytag => $_ } $dnskey_p->get_records_for_name( 'DNSKEY', $zone->name->string );
     my %rrsig  = map { $_->keytag => $_ } $dnskey_p->get_records_for_name( 'RRSIG',  $zone->name->string );
 
-    my $pass = 0;
+    my $pass = undef;
     my @fail;
     if ( scalar( keys %ds ) > 0 ) {
         foreach my $tag ( keys %ds ) {
@@ -1880,7 +2151,7 @@ sub dnssec11 {
         push @fail, 'no_ds';
     }
 
-    if ($pass) {
+    if ( defined $pass ) {
         push @results, info( DELEGATION_SIGNED => { keytag => $pass } )
     } else {
         push @results, info( DELEGATION_NOT_SIGNED => { keytag => 'info', reason => join(';', @fail) } )
@@ -1964,7 +2235,7 @@ sub dnssec13 {
             foreach my $algorithm ( @algorithms ) {
                 if ( not scalar grep { $_->algorithm == $algorithm } @sigs ) {
                     $all_algo_signed = 0;
-                    $ns_args->{algorithm} = $algorithm;
+                    $ns_args->{algo_num} = $algorithm;
                     push @results, info( ALGO_NOT_SIGNED_RRSET => $ns_args );
                 }
             }
@@ -1979,12 +2250,14 @@ sub dnssec13 {
                     @keys = @ks;
                 }
 
+                my $msg  = q{};
+                my $time = $p->timestamp;
                 if ( not scalar @keys ) {
                     $all_algo_signed = 0;
                     $ns_args->{keytag} = $sig->keytag;
                     push @results, info( RRSIG_NOT_MATCH_DNSKEY => $ns_args );
                 }
-                elsif ( not $sig->verify( \@rrs, \@keys ) ) {
+                elsif ( not $sig->verify_time( \@rrs, \@keys, $time, $msg ) ) {
                     $all_algo_signed = 0;
                     $ns_args->{keytag} = $sig->keytag;
                     push @results, info( RRSIG_BROKEN => $ns_args );
@@ -2061,13 +2334,13 @@ sub dnssec14 {
         next if exists $investigated_keys{$key_ref};
 
         my $algo_args = {
-            algorithm_number      => $algo,
-            algorithm_description => $algo_properties{$algo}{description},
-            keytag                => $key->keytag,
-            keysize               => $key->keysize,
-            keysizemin            => $rsa_key_size_details{$algo}{min_size},
-            keysizemax            => $rsa_key_size_details{$algo}{max_size},
-            keysizerec            => $rsa_key_size_details{$algo}{rec_size},
+            algo_num   => $algo,
+            algo_descr => $algo_properties{$algo}{description},
+            keytag     => $key->keytag,
+            keysize    => $key->keysize,
+            keysizemin => $rsa_key_size_details{$algo}{min_size},
+            keysizemax => $rsa_key_size_details{$algo}{max_size},
+            keysizerec => $rsa_key_size_details{$algo}{rec_size},
         };
 
         if ( $key->keysize < $rsa_key_size_details{$algo}{min_size} ) {
@@ -2092,6 +2365,683 @@ sub dnssec14 {
 
     return ( @results, info( TEST_CASE_END => { testcase => (split /::/, (caller(0))[3])[-1] } ) );
 } ## end sub dnssec14
+
+sub dnssec15 {
+    my ( $class, $zone ) = @_;
+    push my @results, info( TEST_CASE_START => { testcase => (split /::/, (caller(0))[3])[-1] } );
+    my @query_types = qw{CDS CDNSKEY};
+    my %cds_rrsets;
+    my %cdnskey_rrsets;
+    my %mismatch_cds_cdnskey;
+    my %has_cds_no_cdnskey;
+    my %has_cdnskey_no_cds;
+    my %has_cds_and_cdnskey;
+
+    my @nss_del   = @{ Zonemaster::Engine::TestMethods->method4( $zone ) };
+    my @nss_child = @{ Zonemaster::Engine::TestMethods->method5( $zone ) };
+    my %nss       = map { $_->name->string . '/' . $_->address->short => $_ } @nss_del, @nss_child;
+    my %ip_already_processed;
+
+    for my $nss_key ( sort keys %nss ) {
+        my $ns = $nss{$nss_key};
+
+        next if exists $ip_already_processed{$ns->address->short};
+        $ip_already_processed{$ns->address->short} = 1;
+
+        if ( not Zonemaster::Engine::Profile->effective->get(q{net.ipv6}) and $ns->address->version == $IP_VERSION_6 ) {
+            push @results, map {
+              info(
+                IPV6_DISABLED => {
+                    ns     => $ns->string,
+                    rrtype => $_,
+                }
+              )
+            } @query_types;
+            next;
+        }
+
+        if ( not Zonemaster::Engine::Profile->effective->get(q{net.ipv4}) and $ns->address->version == $IP_VERSION_4 ) {
+            push @results, map {
+              info(
+                IPV4_DISABLED => {
+                    ns     => $ns->string,
+                    rrtype => $_,
+                }
+              )
+            } @query_types;
+            next;
+        }
+
+        my $cds_p = $ns->query( $zone->name, 'CDS', { dnssec => 1, usevc => 0 } );
+        if ( not $cds_p ) {
+            next;
+        }
+        if ( not $cds_p->aa ) {
+            next;
+        }
+        if ( $cds_p->rcode ne q{NOERROR} ) {
+            next;
+        }
+        my @cds_records = $cds_p->get_records( q{CDS}, q{answer} );
+        push @{ $cds_rrsets{ $ns->address->short } }, @cds_records;
+
+        my $cdnskey_p = $ns->query( $zone->name, 'CDNSKEY', { dnssec => 1, usevc => 0 } );
+        if ( not $cdnskey_p ) {
+            next;
+        }
+        if ( not $cdnskey_p->aa ) {
+            next;
+        }
+        if ( $cdnskey_p->rcode ne q{NOERROR} ) {
+            next;
+        }
+        my @cdnskey_records = $cdnskey_p->get_records( q{CDNSKEY}, q{answer} );
+        push @{ $cdnskey_rrsets{ $ns->address->short } }, @cdnskey_records;
+    }
+    undef %ip_already_processed;
+
+    my $no_cds_cdnskey = 1;
+    for my $ns_ip ( keys %cds_rrsets ) {
+        if ( scalar @{ $cds_rrsets{ $ns_ip } } ) {
+            $no_cds_cdnskey = 0;
+        }
+    }
+    for my $ns_ip ( keys %cdnskey_rrsets ) {
+        if ( scalar @{ $cdnskey_rrsets{ $ns_ip } } ) {
+            $no_cds_cdnskey = 0;
+        }
+    }
+
+    if ( $no_cds_cdnskey ) {
+        push @results, info( DS15_NO_CDS_CDNSKEY => {} );
+    }
+    else {
+        for my $ns_ip ( keys %cds_rrsets ) {
+
+            if ( not exists $cdnskey_rrsets{ $ns_ip } ) {
+                next;
+            }
+
+            if (
+                    scalar @{ $cds_rrsets{ $ns_ip } }
+                and not scalar @{ $cdnskey_rrsets{ $ns_ip } }
+              )
+            {
+                $has_cds_no_cdnskey{ $ns_ip } = 1;
+            }
+            elsif (
+                    scalar @{ $cdnskey_rrsets{ $ns_ip } }
+                and not scalar @{ $cds_rrsets{ $ns_ip } }
+              )
+            {
+                $has_cdnskey_no_cds{ $ns_ip } = 1;
+            }
+            elsif (
+                    scalar @{ $cds_rrsets{ $ns_ip } }
+                and scalar @{ $cdnskey_rrsets{ $ns_ip } }
+              )
+            {
+                $has_cds_and_cdnskey{ $ns_ip } = 1;
+            }
+        }
+
+        for my $ns_ip ( keys %cds_rrsets ) {
+            if (
+                    scalar @{ $cds_rrsets{ $ns_ip } }
+                and exists $cdnskey_rrsets{ $ns_ip }
+                and scalar @{ $cdnskey_rrsets{ $ns_ip } }
+              )
+            {
+                #
+                # Need a fix in Zonemaster::LDNS to prevent that trick
+                #
+                my (@ds, @dnskey);
+                foreach my $cds ( @{ $cds_rrsets{ $ns_ip } } ) {
+                    my $rr_string = $cds->string;
+                    $rr_string =~ s/\s+CDS\s+/ DS /;
+                    push @ds, Zonemaster::LDNS::RR->new( $rr_string );
+                }
+                foreach my $cdnskey ( @{ $cdnskey_rrsets{ $ns_ip } } ) {
+                    my $rr_string = $cdnskey->string;
+                    $rr_string =~ s/\s+CDNSKEY\s+/ DNSKEY /;
+                    push @dnskey, Zonemaster::LDNS::RR->new( $rr_string );
+                }
+                foreach my $ds ( @ds ) {
+                    my @matching_keys = grep { $ds->keytag == $_->keytag } @dnskey;
+                    if ( not scalar @matching_keys ) {
+                        $mismatch_cds_cdnskey{ $ns_ip } = 1;
+                    }
+                }
+                foreach my $dnskey ( @dnskey ) {
+                    my @matching_keys = grep { $dnskey->keytag == $_->keytag } @ds;
+                    if ( not scalar @matching_keys ) {
+                        $mismatch_cds_cdnskey{ $ns_ip } = 1;
+                    }
+                }
+            }
+        }
+
+        if ( scalar keys %has_cds_no_cdnskey ) {
+            push @results,
+              info(
+                DS15_HAS_CDS_NO_CDNSKEY => {
+                    ns_ip_list => join( q{;}, sort keys %has_cds_no_cdnskey )
+                }
+              );
+        }
+
+        if ( scalar keys %has_cdnskey_no_cds ) {
+            push @results,
+              info(
+                DS15_HAS_CDNSKEY_NO_CDS => {
+                    ns_ip_list => join( q{;}, sort keys %has_cdnskey_no_cds )
+                }
+              );
+        }
+
+        if ( scalar keys %has_cds_and_cdnskey ) {
+            push @results,
+              info(
+                DS15_HAS_CDS_AND_CDNSKEY => {
+                    ns_ip_list => join( q{;}, sort keys %has_cds_and_cdnskey )
+                }
+              );
+        }
+
+        my $first_rrset_string = undef;
+        for my $ns_ip ( keys %cds_rrsets ) {
+            my $rrset_string;
+            if ( scalar @{ $cds_rrsets{ $ns_ip } } ) {
+                $rrset_string = join( "\n", sort map { $_->string } @{ $cds_rrsets{ $ns_ip } } );
+            }
+            else {
+                $rrset_string = q{};
+            }
+            if ( not defined $first_rrset_string ) {
+                $first_rrset_string = $rrset_string;
+            }
+            elsif ( $rrset_string ne $first_rrset_string ) {
+                push @results, info( DS15_INCONSISTENT_CDS => {} );
+                last;
+            }
+        }
+
+        $first_rrset_string = undef;
+        for my $ns_ip ( keys %cdnskey_rrsets ) {
+            my $rrset_string;
+            if ( scalar @{ $cdnskey_rrsets{ $ns_ip } } ) {
+                $rrset_string = join( "\n", sort map { $_->string } @{ $cdnskey_rrsets{ $ns_ip } } );
+            }
+            else {
+                $rrset_string = q{};
+            }
+            if ( not defined $first_rrset_string ) {
+                $first_rrset_string = $rrset_string;
+            }
+            elsif ( $rrset_string ne $first_rrset_string ) {
+                push @results, info( DS15_INCONSISTENT_CDNSKEY => {} );
+                last;
+            }
+        }
+
+        if ( scalar keys %mismatch_cds_cdnskey ) {
+            push @results,
+              info(
+                DS15_MISMATCH_CDS_CDNSKEY => {
+                    ns_ip_list => join( q{;}, sort keys %mismatch_cds_cdnskey )
+                }
+              );
+        }
+    }
+    
+    return ( @results, info( TEST_CASE_END => { testcase => (split /::/, (caller(0))[3])[-1] } ) );
+} ## end sub dnssec15
+
+sub dnssec16 {
+    my ( $class, $zone ) = @_;
+    push my @results, info( TEST_CASE_START => { testcase => (split /::/, (caller(0))[3])[-1] } );
+    my @query_types = qw{CDS DNSKEY};
+    my %cds_rrsets;
+    my %dnskey_rrsets;
+    my %mixed_delete_cds;
+    my %delete_cds;
+    my %no_dnskey_rrset;
+    my %no_match_cds_with_dnskey;
+    my %dnskey_not_signed_by_cds;
+    my %cds_not_signed;
+    my %cds_signed_by_unknown_dnskey;
+    my %cds_invalid_rrsig;
+    my @nss_del   = @{ Zonemaster::Engine::TestMethods->method4( $zone ) };
+    my @nss_child = @{ Zonemaster::Engine::TestMethods->method5( $zone ) };
+    my %nss       = map { $_->name->string . '/' . $_->address->short => $_ } @nss_del, @nss_child;
+    my %ip_already_processed;
+
+    for my $nss_key ( sort keys %nss ) {
+        my $ns = $nss{$nss_key};
+
+        next if exists $ip_already_processed{$ns->address->short};
+        $ip_already_processed{$ns->address->short} = 1;
+
+        if ( not Zonemaster::Engine::Profile->effective->get(q{net.ipv6}) and $ns->address->version == $IP_VERSION_6 ) {
+            push @results, map {
+              info(
+                IPV6_DISABLED => {
+                    ns     => $ns->string,
+                    rrtype => $_,
+                }
+              )
+            } @query_types;
+            next;
+        }
+
+        if ( not Zonemaster::Engine::Profile->effective->get(q{net.ipv4}) and $ns->address->version == $IP_VERSION_4 ) {
+            push @results, map {
+              info(
+                IPV4_DISABLED => {
+                    ns     => $ns->string,
+                    rrtype => $_,
+                }
+              )
+            } @query_types;
+            next;
+        }
+
+        my $cds_p = $ns->query( $zone->name, q{CDS}, { dnssec => 1, usevc => 0 } );
+        if ( not $cds_p ) {
+            next;
+        }
+        if ( not $cds_p->aa ) {
+            next;
+        }
+        if ( $cds_p->rcode ne q{NOERROR} ) {
+            next;
+        }
+        my @cds_records = $cds_p->get_records( q{CDS}, q{answer} );
+        if ( not scalar @cds_records ) {
+            next;
+        }
+        my @cds_rrsig_records = $cds_p->get_records( q{RRSIG} , q{answer} );
+        push @{ $cds_rrsets{ $ns->address->short }{cds} }, @cds_records;
+        push @{ $cds_rrsets{ $ns->address->short }{rrsig} }, @cds_rrsig_records;
+        foreach my $cds ( @{ $cds_rrsets{ $ns->address->short }{cds} } ) {
+            my $rr_string = $cds->string;
+            $rr_string =~ s/\s+CDS\s+/ DS /;
+            push @{ $cds_rrsets{ $ns->address->short }{ds} }, Zonemaster::LDNS::RR->new( $rr_string );
+        }
+
+        my $dnskey_p = $ns->query( $zone->name, q{DNSKEY}, { dnssec => 1, usevc => 0 } );
+        if ( not $dnskey_p ) {
+            next;
+        }
+        if ( not $dnskey_p->aa ) {
+            next;
+        }
+        if ( $dnskey_p->rcode ne q{NOERROR} ) {
+            next;
+        }
+        my @dnskey_records = $dnskey_p->get_records( q{DNSKEY}, q{answer} );
+        if ( not scalar @dnskey_records ) {
+            next;
+        }
+        my @dnskey_rrsig_records = $dnskey_p->get_records( q{RRSIG} , q{answer} );
+        push @{ $dnskey_rrsets{ $ns->address->short }{dnskey} }, @dnskey_records;
+        push @{ $dnskey_rrsets{ $ns->address->short }{rrsig} }, @dnskey_rrsig_records;
+
+    }
+    undef %ip_already_processed;
+
+    if ( scalar keys %cds_rrsets ) {
+        for my $ns_ip ( keys %cds_rrsets ) {
+            if ( not scalar @{ $cds_rrsets{ $ns_ip }{cds} } ) {
+                next;
+            }
+            if ( scalar grep { $_->algorithm == 0 } @{ $cds_rrsets{ $ns_ip }{ds} } ) {
+                if ( scalar grep { $_->algorithm != 0 } @{ $cds_rrsets{ $ns_ip }{ds} } ) {
+                    $mixed_delete_cds{ $ns_ip } = 1;
+                }
+                else {
+                    $delete_cds{ $ns_ip } = 1;
+                }
+                next;
+            }
+            if ( not defined $dnskey_rrsets{ $ns_ip }{dnskey} or not scalar @{ $dnskey_rrsets{ $ns_ip }{dnskey} } ) {
+                $no_dnskey_rrset{ $ns_ip } = 1;
+                next;
+            }
+            foreach my $ds ( @{ $cds_rrsets{ $ns_ip }{ds} } ) {
+                if ( not scalar grep { $ds->keytag == $_->keytag } @{ $dnskey_rrsets{ $ns_ip }{dnskey} } ) {
+                    push @{ $no_match_cds_with_dnskey{ $ds->keytag } }, $ns_ip;
+                }
+                elsif ( not scalar grep { $ds->keytag == $_->keytag } @{ $dnskey_rrsets{ $ns_ip }{rrsig} } ) {
+                    push @{ $dnskey_not_signed_by_cds{ $ds->keytag } }, $ns_ip;
+                }
+            }
+            if ( not scalar @{ $cds_rrsets{ $ns_ip }{rrsig} } ) {
+                $cds_not_signed{ $ns_ip } = 1;
+            }
+            else {
+                foreach my $rrsig ( @{ $cds_rrsets{ $ns_ip }{rrsig} } ) {
+                    my @matching_dnskeys = grep { $rrsig->keytag == $_->keytag } @{ $dnskey_rrsets{ $ns_ip }{dnskey} };
+                    if ( not scalar @matching_dnskeys ) {
+                        push @{ $cds_signed_by_unknown_dnskey{ $rrsig->keytag } }, $ns_ip;
+                    }
+                    elsif ( not $rrsig->verify( $cds_rrsets{ $ns_ip }{cds} , \@matching_dnskeys) ) {
+                        push @{ $cds_invalid_rrsig{ $rrsig->keytag } }, $ns_ip;
+                    }
+                }
+            }
+        }
+
+        if ( scalar keys %no_dnskey_rrset ) {
+            push @results,
+              info(
+                DS16_CDS_WITHOUT_DNSKEY => {
+                    ns_ip_list => join( q{;}, sort keys %no_dnskey_rrset )
+                }
+              );
+        }
+
+        if ( scalar keys %mixed_delete_cds ) {
+            push @results,
+              info(
+                DS16_MIXED_DELETE_CDS => {
+                    ns_ip_list => join( q{;}, sort keys %mixed_delete_cds )
+                }
+              );
+        }
+
+        if ( scalar keys %delete_cds ) {
+            push @results,
+              info(
+                DS16_DELETE_CDS => {
+                    ns_ip_list => join( q{;}, sort keys %delete_cds )
+                }
+              );
+        }
+
+        if ( scalar keys %no_match_cds_with_dnskey ) {
+            foreach my $keytag ( keys %no_match_cds_with_dnskey ) {
+                push @results,
+                  info(
+                    DS16_CDS_MATCHES_NO_DNSKEY => {
+                        keytag     => $keytag,
+                        ns_ip_list => join( q{;}, uniq sort @{ $no_match_cds_with_dnskey{ $keytag } } )
+                    }
+                  );
+            }
+        }
+
+        if ( scalar keys %dnskey_not_signed_by_cds ) {
+            foreach my $keytag ( keys %dnskey_not_signed_by_cds ) {
+                push @results,
+                  info(
+                    DS16_DNSKEY_NOT_SIGNED_BY_CDS => {
+                        keytag     => $keytag,
+                        ns_ip_list => join( q{;}, uniq sort @{ $dnskey_not_signed_by_cds{ $keytag } } )
+                    }
+                  );
+            }
+        }
+
+        if ( scalar keys %cds_invalid_rrsig ) {
+            foreach my $keytag ( keys %cds_invalid_rrsig ) {
+                push @results,
+                  info(
+                    DS16_CDS_INVALID_RRSIG => {
+                        keytag     => $keytag,
+                        ns_ip_list => join( q{;}, uniq sort @{ $cds_invalid_rrsig{ $keytag } } )
+                    }
+                  );
+            }
+        }
+
+        if ( scalar keys %cds_not_signed ) {
+            push @results,
+              info(
+                DS16_CDS_UNSIGNED => {
+                    ns_ip_list => join( q{;}, sort keys %cds_not_signed )
+                }
+              );
+        }
+
+        if ( scalar keys %cds_signed_by_unknown_dnskey ) {
+            foreach my $keytag ( keys %cds_signed_by_unknown_dnskey ) {
+                push @results,
+                  info(
+                    DS16_CDS_SIGNED_BY_UNKNOWN_DNSKEY => {
+                        keytag     => $keytag,
+                        ns_ip_list => join( q{;}, uniq sort @{ $cds_signed_by_unknown_dnskey{ $keytag } } )
+                    }
+                  );
+            }
+        }
+    }
+
+    return ( @results, info( TEST_CASE_END => { testcase => (split /::/, (caller(0))[3])[-1] } ) );
+} ## end sub dnssec16
+
+sub dnssec17 {
+    my ( $class, $zone ) = @_;
+    push my @results, info( TEST_CASE_START => { testcase => (split /::/, (caller(0))[3])[-1] } );
+    my @query_types = qw{CDNSKEY DNSKEY};
+    my %cdnskey_rrsets;
+    my %dnskey_rrsets;
+    my %mixed_delete_cdnskey;
+    my %delete_cdnskey;
+    my %no_dnskey_rrset;
+    my %no_match_cdnskey_with_dnskey;
+    my %dnskey_not_signed_by_cdnskey;
+    my %cdnskey_not_signed;
+    my %cdnskey_signed_by_unknown_dnskey;
+    my %cdnskey_invalid_rrsig;
+    my @nss_del   = @{ Zonemaster::Engine::TestMethods->method4( $zone ) };
+    my @nss_child = @{ Zonemaster::Engine::TestMethods->method5( $zone ) };
+    my %nss       = map { $_->name->string . '/' . $_->address->short => $_ } @nss_del, @nss_child;
+    my %ip_already_processed;
+
+    for my $nss_key ( sort keys %nss ) {
+        my $ns = $nss{$nss_key};
+
+        next if exists $ip_already_processed{$ns->address->short};
+        $ip_already_processed{$ns->address->short} = 1;
+
+        if ( not Zonemaster::Engine::Profile->effective->get(q{net.ipv6}) and $ns->address->version == $IP_VERSION_6 ) {
+            push @results, map {
+              info(
+                IPV6_DISABLED => {
+                    ns     => $ns->string,
+                    rrtype => $_,
+                }
+              )
+            } @query_types;
+            next;
+        }
+
+        if ( not Zonemaster::Engine::Profile->effective->get(q{net.ipv4}) and $ns->address->version == $IP_VERSION_4 ) {
+            push @results, map {
+              info(
+                IPV4_DISABLED => {
+                    ns     => $ns->string,
+                    rrtype => $_,
+                }
+              )
+            } @query_types;
+            next;
+        }
+
+        my $cdnskey_p = $ns->query( $zone->name, q{CDNSKEY}, { dnssec => 1, usevc => 0 } );
+        if ( not $cdnskey_p ) {
+            next;
+        }
+        if ( not $cdnskey_p->aa ) {
+            next;
+        }
+        if ( $cdnskey_p->rcode ne q{NOERROR} ) {
+            next;
+        }
+        my @cdnskey_records = $cdnskey_p->get_records( q{CDNSKEY}, q{answer} );
+        if ( not scalar @cdnskey_records ) {
+            next;
+        }
+        my @cdnskey_rrsig_records = $cdnskey_p->get_records( q{RRSIG} , q{answer} );
+        push @{ $cdnskey_rrsets{ $ns->address->short }{cdnskey} }, @cdnskey_records;
+        push @{ $cdnskey_rrsets{ $ns->address->short }{rrsig} }, @cdnskey_rrsig_records;
+        foreach my $cdnskey ( @{ $cdnskey_rrsets{ $ns->address->short }{cdnskey} } ) {
+            my $rr_string = $cdnskey->string;
+            $rr_string =~ s/\s+CDNSKEY\s+/ DNSKEY /;
+            push @{ $cdnskey_rrsets{ $ns->address->short }{dnskey} }, Zonemaster::LDNS::RR->new( $rr_string );
+        }
+
+        my $dnskey_p = $ns->query( $zone->name, q{DNSKEY}, { dnssec => 1, usevc => 0 } );
+        if ( not $dnskey_p ) {
+            next;
+        }
+        if ( not $dnskey_p->aa ) {
+            next;
+        }
+        if ( $dnskey_p->rcode ne q{NOERROR} ) {
+            next;
+        }
+        my @dnskey_records = $dnskey_p->get_records( q{DNSKEY}, q{answer} );
+        if ( not scalar @dnskey_records ) {
+            next;
+        }
+        my @dnskey_rrsig_records = $dnskey_p->get_records( q{RRSIG} , q{answer} );
+        push @{ $dnskey_rrsets{ $ns->address->short }{dnskey} }, @dnskey_records;
+        push @{ $dnskey_rrsets{ $ns->address->short }{rrsig} }, @dnskey_rrsig_records;
+
+    }
+    undef %ip_already_processed;
+
+    if ( scalar keys %cdnskey_rrsets ) {
+        for my $ns_ip ( keys %cdnskey_rrsets ) {
+            if ( not scalar @{ $cdnskey_rrsets{ $ns_ip }{cdnskey} } ) {
+                next;
+            }
+            if ( scalar grep { $_->algorithm == 0 } @{ $cdnskey_rrsets{ $ns_ip }{dnskey} } ) {
+                if ( scalar grep { $_->algorithm != 0 } @{ $cdnskey_rrsets{ $ns_ip }{dnskey} } ) {
+                    $mixed_delete_cdnskey{ $ns_ip } = 1;
+                }
+                else {
+                    $delete_cdnskey{ $ns_ip } = 1;
+                }
+                next;
+            }
+            if ( not defined $dnskey_rrsets{ $ns_ip }{dnskey} or not scalar @{ $dnskey_rrsets{ $ns_ip }{dnskey} } ) {
+                $no_dnskey_rrset{ $ns_ip } = 1;
+                next;
+            }
+            foreach my $dnskey ( @{ $cdnskey_rrsets{ $ns_ip }{dnskey} } ) {
+                if ( not scalar grep { $dnskey->keytag == $_->keytag } @{ $dnskey_rrsets{ $ns_ip }{dnskey} } ) {
+                    push @{ $no_match_cdnskey_with_dnskey{ $dnskey->keytag } }, $ns_ip;
+                }
+                elsif ( not scalar grep { $dnskey->keytag == $_->keytag } @{ $dnskey_rrsets{ $ns_ip }{rrsig} } ) {
+                    push @{ $dnskey_not_signed_by_cdnskey{ $dnskey->keytag } }, $ns_ip;
+                }
+            }
+            if ( not scalar @{ $cdnskey_rrsets{ $ns_ip }{rrsig} } ) {
+                $cdnskey_not_signed{ $ns_ip } = 1;
+            }
+            else {
+                foreach my $rrsig ( @{ $cdnskey_rrsets{ $ns_ip }{rrsig} } ) {
+                    my @matching_dnskeys = grep { $rrsig->keytag == $_->keytag } @{ $dnskey_rrsets{ $ns_ip }{dnskey} };
+                    if ( not scalar @matching_dnskeys ) {
+                        push @{ $cdnskey_signed_by_unknown_dnskey{ $rrsig->keytag } }, $ns_ip;
+                    }
+                    elsif ( not $rrsig->verify( $cdnskey_rrsets{ $ns_ip }{cdnskey} , \@matching_dnskeys) ) {
+                        push @{ $cdnskey_invalid_rrsig{ $rrsig->keytag } }, $ns_ip;
+                    }
+                }
+            }
+        }
+
+        if ( scalar keys %no_dnskey_rrset ) {
+            push @results,
+              info(
+                DS17_CDNSKEY_WITHOUT_DNSKEY => {
+                    ns_ip_list => join( q{;}, sort keys %no_dnskey_rrset )
+                }
+              );
+        }
+
+        if ( scalar keys %mixed_delete_cdnskey ) {
+            push @results,
+              info(
+                DS17_MIXED_DELETE_CDNSKEY => {
+                    ns_ip_list => join( q{;}, sort keys %mixed_delete_cdnskey )
+                }
+              );
+        }
+
+        if ( scalar keys %delete_cdnskey ) {
+            push @results,
+              info(
+                DS17_DELETE_CDNSKEY => {
+                    ns_ip_list => join( q{;}, sort keys %delete_cdnskey )
+                }
+              );
+        }
+
+        if ( scalar keys %no_match_cdnskey_with_dnskey ) {
+            foreach my $keytag ( keys %no_match_cdnskey_with_dnskey ) {
+                push @results,
+                  info(
+                    DS17_CDNSKEY_MATCHES_NO_DNSKEY => {
+                        keytag     => $keytag,
+                        ns_ip_list => join( q{;}, uniq sort @{ $no_match_cdnskey_with_dnskey{ $keytag } } )
+                    }
+                  );
+            }
+        }
+
+        if ( scalar keys %dnskey_not_signed_by_cdnskey ) {
+            foreach my $keytag ( keys %dnskey_not_signed_by_cdnskey ) {
+                push @results,
+                  info(
+                    DS17_DNSKEY_NOT_SIGNED_BY_CDNSKEY => {
+                        keytag     => $keytag,
+                        ns_ip_list => join( q{;}, uniq sort @{ $dnskey_not_signed_by_cdnskey{ $keytag } } )
+                    }
+                  );
+            }
+        }
+
+        if ( scalar keys %cdnskey_invalid_rrsig ) {
+            foreach my $keytag ( keys %cdnskey_invalid_rrsig ) {
+                push @results,
+                  info(
+                    DS17_CDNSKEY_INVALID_RRSIG => {
+                        keytag     => $keytag,
+                        ns_ip_list => join( q{;}, uniq sort @{ $cdnskey_invalid_rrsig{ $keytag } } )
+                    }
+                  );
+            }
+        }
+
+        if ( scalar keys %cdnskey_not_signed ) {
+            push @results,
+              info(
+                DS17_CDNSKEY_UNSIGNED => {
+                    ns_ip_list => join( q{;}, sort keys %cdnskey_not_signed )
+                }
+              );
+        }
+
+        if ( scalar keys %cdnskey_signed_by_unknown_dnskey ) {
+            foreach my $keytag ( keys %cdnskey_signed_by_unknown_dnskey ) {
+                push @results,
+                  info(
+                    DS17_CDNSKEY_SIGNED_BY_UNKNOWN_DNSKEY => {
+                        keytag     => $keytag,
+                        ns_ip_list => join( q{;}, uniq sort @{ $cdnskey_signed_by_unknown_dnskey{ $keytag } } )
+                    }
+                  );
+            }
+        }
+    }
+
+    return ( @results, info( TEST_CASE_END => { testcase => (split /::/, (caller(0))[3])[-1] } ) );
+} ## end sub dnssec17
 
 1;
 
@@ -2186,6 +3136,18 @@ Check that all DNSKEY algorithms are used to sign the zone.
 =item dnssec14($zone)
 
 Check for valid RSA DNSKEY key size
+
+=item dnssec15($zone)
+
+Check existence of CDS and CDNSKEY
+
+=item dnssec16($zone)
+
+Validate CDS
+
+=item dnssec17($zone)
+
+Validate CDNSKEY
 
 =back
 

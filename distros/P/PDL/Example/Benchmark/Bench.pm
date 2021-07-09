@@ -24,12 +24,12 @@ use Benchmark;
 
 sub do_benchmark {
 	$size = 512;
-	$niter = 80;
-	$piddle = (PDL->zeroes($size,$size));
-	$dref = ${$piddle->get_dataref()};
+	$niter = 10000;
+	$ndarray = (PDL->zeroes($size,$size));
+	$dref = ${$ndarray->get_dataref()};
 	timethese($niter, {
-#		'With double piddle' => 'for($i=0; $i<100; $i++) {$piddle++}',
-		'With double piddle' => '$piddle++;',
+#		'With double ndarray' => 'for($i=0; $i<100; $i++) {$ndarray++}',
+		'With double ndarray' => '$ndarray++;',
 		'C using ++' => 'c_use_pp($dref)',
 		'C using foo = bar + baz' => 'c_use_add($dref,$dref,$dref)',
 		'C using incrs and foo = bar + baz' => 'c_use_add_incr($dref,$dref,$dref,1,1,1)'

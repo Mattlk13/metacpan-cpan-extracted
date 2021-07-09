@@ -146,8 +146,9 @@ ref will be flattened. Examples:
   "x-mojo-to": {"controller": "pet", "action": "list", "foo": 123}
   $route->to({controller => "pet", action => "list", foo => 123);
 
-  "x-mojo-to": ["pet#list", {"foo": 123}]
+  "x-mojo-to": ["pet#list", {"foo": 123}, ["format": ["json"]]]
   $route->to("pet#list", {foo => 123});
+  $route->pattern->constraints->{format} = ["json"];
 
 =item * security and securitySchemes
 
@@ -192,7 +193,6 @@ the plugin
   $self->plugin(
     OpenAPI => {
       spec     => $self->static->file("openapi.json")->path,
-      schema   => 'v3',
       security => {
         apiKey => sub {
           my ($c, $definition, $scopes, $cb) = @_;
@@ -232,7 +232,7 @@ See L<Known Issues/File references> for unsupported file references
 
   sub startup {
     my $app = shift;
-    $app->plugin("OpenAPI" => {url => $app->home->rel_file("myapi.json"), schema => 'v3'});
+    $app->plugin("OpenAPI" => {url => $app->home->rel_file("myapi.json")});
   }
 
   1;

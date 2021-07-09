@@ -1,6 +1,33 @@
-Revision history for Games-TabRace
+0.008   2021-06-12  Released-By: PERLANCAR; Urgency: medium
 
-0.003   2016-10-26 (PERLANCAR)
+	- [bugfix] Used the wrong function name of Text::Table::Sprintf.
+
+
+0.007   2021-03-08  Released-By: PERLANCAR; Urgency: medium
+
+	- Replace Text::Table::Tiny with Text::Table::Sprintf.
+
+
+0.006   2021-03-05  Released-By: PERLANCAR; Urgency: low
+
+	- No functional changes.
+
+	- [doc] Mention Complete::Bash, Complete::Util et al.
+
+
+0.005   2021-03-05  Released-By: PERLANCAR; Urgency: low
+
+	- Use proper message format in completion response.
+
+
+0.004   2021-03-05  Released-By: PERLANCAR; Urgency: medium
+
+	- Avoid perl undef warnings.
+
+	- Update instruction.
+
+
+0.003   2016-10-26  Released-By: PERLANCAR
 
 	- No functional changes.
 
@@ -8,7 +35,7 @@ Revision history for Games-TabRace
 	  various shells.
 
 
-0.002   2016-10-26 (PERLANCAR)
+0.002   2016-10-26  Released-By: PERLANCAR
 
 	- [Bugfix] Fix criteria of displaying 'you entered into the high
 	  scores list'.
@@ -16,6 +43,6 @@ Revision history for Games-TabRace
 	- [doc] Add Description.
 
 
-0.001   2016-10-26 (PERLANCAR)
+0.001   2016-10-26  Released-By: PERLANCAR
 
         - First release.

@@ -1,5 +1,5 @@
 package Yancy;
-our $VERSION = '1.068';
+our $VERSION = '1.074';
 # ABSTRACT: The Best Web Framework Deserves the Best CMS
 
 # "Mr. Fry: Son, your name is Yancy, just like me and my grandfather and
@@ -8,26 +8,9 @@ our $VERSION = '1.068';
 
 #pod =encoding utf8
 #pod
-#pod =head1 SYNOPSIS
-#pod
-#pod     # Mojolicious
-#pod     $self->plugin( Yancy => backend => 'postgresql://postgres@/mydb' );
-#pod
-#pod     # Mojolicious::Lite
-#pod     plugin Yancy => backend => 'postgresql://postgres@/mydb'; # mysql, sqlite, dbic...
-#pod
-#pod     # Secure access to the admin UI with Basic authentication
-#pod     my $under = $app->routes->under( '/yancy', sub( $c ) {
-#pod         return 1 if $c->req->url->to_abs->userinfo eq 'Bender:rocks';
-#pod         $c->res->headers->www_authenticate('Basic');
-#pod         $c->render(text => 'Authentication required!', status => 401);
-#pod         return undef;
-#pod     });
-#pod     $self->plugin( Yancy => backend => 'postgresql://postgres@/mydb', route => $under );
-#pod
-#pod     # ... then load the editor at http://127.0.0.1:3000/yancy
-#pod
 #pod =head1 DESCRIPTION
+#pod
+#pod Yancy is a simple content management system (CMS) for the L<Mojolicious> web framework.
 #pod
 #pod =begin html
 #pod
@@ -42,236 +25,82 @@ our $VERSION = '1.068';
 #pod
 #pod =end html
 #pod
-#pod L<Yancy> is a content management system (CMS) for L<Mojolicious>.  It
-#pod includes an admin application to edit content and tools to quickly build
-#pod an application.
+#pod Get started with L<the Yancy documentation|Yancy::Guides>!
 #pod
-#pod =head2 Admin App
+#pod This file documents the application base class. You can use this class directly
+#pod via the C<yancy> command, or you can extend this class to build your own app.
 #pod
-#pod Yancy provides an application to edit content at the path C</yancy> on
-#pod your website. Yancy can manage data in multiple databases using
-#pod different L<backend modules|Yancy::Backend>. You can provide a URL
-#pod string to tell Yancy how to connect to your database, or you can provide
-#pod your database object.  Yancy supports the following databases:
+#pod =head1 Starting Your Own Yancy Application
 #pod
-#pod =head3 Postgres
+#pod If you have an existing L<Mojolicious> application you want to add Yancy
+#pod to, see L<Mojolicious::Plugin::Yancy>.
 #pod
-#pod L<PostgreSQL|http://postgresql.org> is supported through the L<Mojo::Pg>
-#pod module.
-#pod
-#pod     # PostgreSQL: A Mojo::Pg connection string
-#pod     plugin Yancy => backend => 'postgresql://postgres@/test';
-#pod
-#pod     # PostgreSQL: A Mojo::Pg object
-#pod     plugin Yancy => backend => Mojo::Pg->new( 'postgresql://postgres@/test' );
-#pod
-#pod =head3 MySQL
-#pod
-#pod L<MySQL|http://mysql.com> is supported through the L<Mojo::mysql>
-#pod module.
-#pod
-#pod     # MySQL: A Mojo::mysql connection string
-#pod     plugin Yancy => backend => 'mysql://user@/test';
-#pod
-#pod     # MySQL: A Mojo::mysql object
-#pod     plugin Yancy => backend => Mojo::mysql->strict_mode( 'mysql://user@/test' );
-#pod
-#pod =head3 SQLite
-#pod
-#pod L<SQLite|http://sqlite.org> is supported through the L<Mojo::SQLite> module.
-#pod This is a good option if you want to try Yancy out.
-#pod
-#pod     # SQLite: A Mojo::SQLite connection string
-#pod     plugin Yancy => backend => 'sqlite:test.db';
-#pod
-#pod     # SQLite: A Mojo::SQLite object
-#pod     plugin Yancy => backend => Mojo::SQLite->new( 'sqlite::temp:' );
-#pod
-#pod =head3 DBIx::Class
-#pod
-#pod If you have a L<DBIx::Class> schema, Yancy can use it to edit the content.
-#pod
-#pod     # DBIx::Class: A connection string
-#pod     plugin Yancy => backend => 'dbic://My::Schema/dbi:SQLite:test.db';
-#pod
-#pod     # DBIx::Class: A DBIx::Class::Schema object
-#pod     plugin Yancy => backend => My::Schema->connect( 'dbi:SQLite:test.db' );
-#pod
-#pod =head2 Content Tools
-#pod
-#pod =head3 Schema Information and Validation
-#pod
-#pod Yancy scans your database to determine what kind of data is inside, but
-#pod Yancy also accepts a L<JSON Schema|http://json-schema.org> to add more
-#pod information about your data. You can add descriptions, examples, and
-#pod other documentation that will appear in the admin application. You can
-#pod also add type, format, and other validation information, which Yancy
-#pod will use to validate input from users. See L<Yancy::Help::Config/Schema>
-#pod for how to define your schema.
-#pod
-#pod     plugin Yancy => backend => 'postgres://postgres@/test',
-#pod         schema => {
-#pod             employees => {
-#pod                 title => 'Employees',
-#pod                 description => 'Our crack team of loyal dregs.',
-#pod                 properties => {
-#pod                     address => {
-#pod                         description => 'Where to notify next-of-kin.',
-#pod                         # Regexp to validate this field
-#pod                         pattern => '^\d+ \S+',
-#pod                     },
-#pod                     email => {
-#pod                         # Use the browser's native e-mail input
-#pod                         format => 'email',
-#pod                     },
-#pod                 },
-#pod             },
-#pod         };
-#pod
-#pod =head3 Data Helpers
-#pod
-#pod L<Mojolicious::Plugin::Yancy> provides helpers to work with your database content.
-#pod These use the validations provided in the schema to validate user input. These
-#pod helpers can be used in your route handlers to quickly add basic Create, Read, Update,
-#pod and Delete (CRUD) functionality. See L<Mojolicious::Plugin::Yancy/HELPERS> for a list
-#pod of provided helpers.
-#pod
-#pod     # View a list of blog entries
-#pod     get '/' => sub( $c ) {
-#pod         my @blog_entries = $c->yancy->list(
-#pod             blog_entries =>
-#pod             { published => 1 },
-#pod             { order_by => { -desc => 'published_date' } },
-#pod         );
-#pod         $c->render(
-#pod             'blog_list',
-#pod             items => \@blog_entries,
-#pod         );
-#pod     };
-#pod
-#pod     # View a single blog entry
-#pod     get '/blog/:blog_entry_id' => sub( $c ) {
-#pod         my $blog_entry = $c->yancy->get(
-#pod             blog_entries => $c->param( 'blog_entry_id' ),
-#pod         );
-#pod         $c->render(
-#pod             'blog_entry',
-#pod             item => $blog_entry,
-#pod         );
-#pod     };
-#pod
-#pod =head3 Forms
-#pod
-#pod The L<Yancy::Plugin::Form> plugin can generate input fields or entire
-#pod forms based on your schema information. The annotations in your schema
-#pod appear in the forms to help users fill them out. Additionally, with the
-#pod L<Yancy::Plugin::Form::Bootstrap4> module, Yancy can create forms using
-#pod L<Twitter Bootstrap|http://getbootstrap.com> components.
-#pod
-#pod     # Load the form plugin
-#pod     app->yancy->plugin( 'Form::Bootstrap4' );
-#pod
-#pod     # Edit a blog entry
-#pod     any [ 'GET', 'POST' ], '/edit/:blog_entry_id' => sub( $c ) {
-#pod         if ( $c->req->method eq 'GET' ) {
-#pod             my $blog_entry = $c->yancy->get(
-#pod                 blog_entries => $c->param( 'blog_entry_id' ),
-#pod             );
-#pod             return $c->render(
-#pod                 'blog_entry',
-#pod                 item => $blog_entry,
-#pod             );
-#pod         }
-#pod         my $id = $c->param( 'blog_entry_id' );
-#pod         my $item = $c->req->params->to_hash;
-#pod         delete $item->{csrf_token}; # See https://docs.mojolicious.org/Mojolicious/Guides/Rendering#Cross-site-request-forgery
-#pod         $c->yancy->set( blog_entries => $id, $c->req->params->to_hash );
-#pod         $c->redirect_to( '/blog/' . $id );
-#pod     };
-#pod
-#pod     __DATA__
-#pod     @@ blog_form.html.ep
-#pod     %= $c->yancy->form->form_for( 'blog_entries', item => stash 'item' )
-#pod
-#pod =head3 Controllers
-#pod
-#pod Yancy can add basic CRUD operations without writing the code yourself. The
-#pod L<Yancy::Controller::Yancy> module uses the schema information to show, search,
-#pod edit, create, and delete database items.
-#pod
-#pod     # A rewrite of the routes above to use Yancy::Controller::Yancy
-#pod
-#pod     # View a list of blog entries
-#pod     get '/' => {
-#pod         controller => 'yancy',
-#pod         action => 'list',
-#pod         schema => 'blog_entries',
-#pod         filter => { published => 1 },
-#pod         order_by => { -desc => 'published_date' },
-#pod     } => 'blog.list';
-#pod
-#pod     # View a single blog entry
-#pod     get '/blog/:blog_entry_id' => {
-#pod         controller => 'yancy',
-#pod         action => 'get',
-#pod         schema => 'blog_entries',
-#pod     } => 'blog.get';
-#pod
-#pod     # Load the form plugin
-#pod     app->yancy->plugin( 'Form::Bootstrap4' );
-#pod
-#pod     # Edit a blog entry
-#pod     any [ 'GET', 'POST' ], '/edit/:blog_entry_id' => {
-#pod         controller => 'yancy',
-#pod         action => 'set',
-#pod         schema => 'blog_entries',
-#pod         template => 'blog_form',
-#pod         redirect_to => 'blog.get',
-#pod     } => 'blog.edit';
-#pod
-#pod     __DATA__
-#pod     @@ blog_form.html.ep
-#pod     %= $c->yancy->form->form_for( 'blog_entries' )
-#pod
-#pod =head3 Plugins
-#pod
-#pod Yancy also has plugins for...
+#pod The base Yancy class exists to provide a way to rapidly prototype a data-driven
+#pod web application. Apps that inherit from Yancy get these features out-of-the-box:
 #pod
 #pod =over
 #pod
-#pod =item * User authentication: L<Yancy::Plugin::Auth>
+#pod =item * The Yancy CMS (L<Mojolicious::Plugin::Yancy>)
 #pod
-#pod =item * File management: L<Yancy::Plugin::File>
+#pod =item * Database editor (L<Yancy::Plugin::Editor>)
+#pod
+#pod =item * User logins (L<Yancy::Plugin::Auth>)
+#pod
+#pod =item * Role-based access controls (L<Yancy::Plugin::Roles>)
 #pod
 #pod =back
 #pod
-#pod More development will be happening here soon!
+#pod If you're familiar with developing Mojolicious applications, you can start
+#pod from the app skeleton at L<https://github.com/preaction/Yancy/eg/skeleton>.
 #pod
-#pod =head1 GUIDES
+#pod =for comment XXX: Create `yancy generate app` and `yancy generate lite-app` commands
 #pod
-#pod For in-depth documentation on Yancy, see the following guides:
+#pod To begin writing a new application from scratch, create a C<lib>
+#pod directory and add a C<MyApp.pm> file that extends the C<Yancy> class:
+#pod
+#pod     package MyApp;
+#pod     use Mojo::Base 'Yancy', -signatures;
+#pod
+#pod As in any other L<Mojolicious> app, add your routes, plugins, and other setup to
+#pod the C<startup> method. Don't forget to call Yancy's L</startup> method!
+#pod
+#pod     sub startup( $self ) {
+#pod         $self->SUPER::startup;
+#pod         # ... Add your routes and other setup here
+#pod     }
+#pod
+#pod Next, create a configuration file named C<my_app.conf> to connect to your database:
+#pod
+#pod     {
+#pod         backend => 'sqlite:my_app.db',
+#pod     }
+#pod
+#pod Last, create a L<simple application script|https://docs.mojolicious.org/Mojolicious/Guides/Growing#Simplified-application-script>
+#pod named C<script/my_app> to start your application:
+#pod
+#pod     #!/usr/bin/env perl
+#pod
+#pod     use Mojo::Base -strict;
+#pod     use lib qw(lib);
+#pod     use Mojolicious::Commands;
+#pod
+#pod     # Start command line interface for application
+#pod     Mojolicious::Commands->start_app('MyApp');
+#pod
+#pod Now you can run C<./script/my_app daemon> to start your app!
+#pod
+#pod To make developing your app easy and fun, make sure you're familiar with
+#pod these guides:
 #pod
 #pod =over
 #pod
-#pod =item * L<Yancy::Help::Config> - How to configure Yancy
+#pod =item L<The Mojolicious tutorial and guides|https://docs.mojolicious.org>
 #pod
-#pod =item * L<Yancy::Help::Cookbook> - How to cook various apps with Yancy
+#pod =item L<The Yancy tutorial|Yancy::Guides::Tutorial>
 #pod
-#pod =item * L<Yancy::Help::Auth> - How to authenticate and authorize users
-#pod
-#pod =item * L<Yancy::Help::Standalone> - How to use Yancy without a Mojolicious app
-#pod
-#pod =item * L<Yancy::Help::Upgrading> - How to upgrade from previous versions
+#pod =item L<The Yancy guides|Yancy::Guides>
 #pod
 #pod =back
-#pod
-#pod =head1 OTHER RESOURCES
-#pod
-#pod =head2 Example Applications
-#pod
-#pod The L<Yancy Git repository on Github|http://github.com/preaction/Yancy>
-#pod includes some example applications you can use to help build your own
-#pod websites. L<View the example application directory|https://github.com/preaction/Yancy/tree/master/eg>.
 #pod
 #pod =head1 BUNDLED PROJECTS
 #pod
@@ -304,6 +133,7 @@ our $VERSION = '1.068';
 
 use Mojo::Base 'Mojolicious';
 use Mojo::File qw( path );
+use Mojo::Loader qw( data_section );
 
 # Default home should be the current working directory so that config,
 # templates, and static files can be found.
@@ -313,22 +143,52 @@ has home => sub {
 
 sub startup {
     my ( $app ) = @_;
-    $app->plugin( Config => { default => { } } );
+    unshift @{$app->plugins->namespaces}, 'Yancy::Plugin';
+
+    if ( !keys %{ $app->config } ) {
+        $app->plugin( Config => { } );
+    }
     $app->plugin( 'Yancy', $app->config );
 
-    unshift @{$app->plugins->namespaces}, 'Yancy::Plugin';
-    for my $plugin ( @{ $app->config->{plugins} } ) {
-        $app->plugin( @$plugin );
+    # XXX: Add default migrations
+    # Set up default auth plugin if no auth found yet
+    if ( !$app->yancy->can( 'auth' ) ) {
+        # Update schema if needed
+        # XXX: Add named migration support to backends. Migration should
+        # trigger a re-read of the schema.
+        my ( $backend_type ) = ( lc ref $app->yancy->backend ) =~ m{::([^:]+)$};
+        if ( my $sql = data_section __PACKAGE__, "migrations.yancy_logins.$backend_type.sql" ) {
+            my $migrations = (ref $app->yancy->backend->mojodb->migrations)->new( $backend_type => $app->yancy->backend->mojodb );
+            $migrations->name( 'yancy_logins' )->from_string( $sql )->migrate;
+            for my $table ( qw( yancy_logins yancy_login_roles ) ) {
+                my $schema = $app->yancy->backend->read_schema( $table );
+                $app->yancy->schema( $table => $schema );
+            }
+        }
+
+        $app->plugin( Auth => {
+            schema => 'yancy_logins',
+            username_field => 'login_name',
+            plugins => [
+                [
+                    Password => {
+                        password_field => 'password',
+                        password_digest => { type => 'SHA-1' },
+                    },
+                ],
+            ],
+        } );
+
+        # XXX: Create a "Setup" plugin to initialize an admin login if
+        # no logins exist
     }
 
-    $app->routes->get('/*path', { path => 'index' } )
-    ->to( cb => sub {
-        my ( $c ) = @_;
-        my $path = $c->stash( 'path' );
-        return if $c->render_maybe( $path );
-        $path =~ s{(^|/)[^/]+$}{${1}index};
-        return $c->render( $path );
+    $app->plugin( Roles => {
+        schema => 'yancy_login_roles',
+        userid_field => 'login_id',
+        role_field => 'role',
     } );
+
     # Add default not_found renderer
     push @{$app->renderer->classes}, 'Yancy';
 }
@@ -343,28 +203,11 @@ Yancy - The Best Web Framework Deserves the Best CMS
 
 =head1 VERSION
 
-version 1.068
-
-=head1 SYNOPSIS
-
-    # Mojolicious
-    $self->plugin( Yancy => backend => 'postgresql://postgres@/mydb' );
-
-    # Mojolicious::Lite
-    plugin Yancy => backend => 'postgresql://postgres@/mydb'; # mysql, sqlite, dbic...
-
-    # Secure access to the admin UI with Basic authentication
-    my $under = $app->routes->under( '/yancy', sub( $c ) {
-        return 1 if $c->req->url->to_abs->userinfo eq 'Bender:rocks';
-        $c->res->headers->www_authenticate('Basic');
-        $c->render(text => 'Authentication required!', status => 401);
-        return undef;
-    });
-    $self->plugin( Yancy => backend => 'postgresql://postgres@/mydb', route => $under );
-
-    # ... then load the editor at http://127.0.0.1:3000/yancy
+version 1.074
 
 =head1 DESCRIPTION
+
+Yancy is a simple content management system (CMS) for the L<Mojolicious> web framework.
 
 =encoding utf8
 
@@ -377,236 +220,82 @@ version 1.068
 </div>
 </div>
 
-L<Yancy> is a content management system (CMS) for L<Mojolicious>.  It
-includes an admin application to edit content and tools to quickly build
-an application.
+Get started with L<the Yancy documentation|Yancy::Guides>!
 
-=head2 Admin App
+This file documents the application base class. You can use this class directly
+via the C<yancy> command, or you can extend this class to build your own app.
 
-Yancy provides an application to edit content at the path C</yancy> on
-your website. Yancy can manage data in multiple databases using
-different L<backend modules|Yancy::Backend>. You can provide a URL
-string to tell Yancy how to connect to your database, or you can provide
-your database object.  Yancy supports the following databases:
+=head1 Starting Your Own Yancy Application
 
-=head3 Postgres
+If you have an existing L<Mojolicious> application you want to add Yancy
+to, see L<Mojolicious::Plugin::Yancy>.
 
-L<PostgreSQL|http://postgresql.org> is supported through the L<Mojo::Pg>
-module.
-
-    # PostgreSQL: A Mojo::Pg connection string
-    plugin Yancy => backend => 'postgresql://postgres@/test';
-
-    # PostgreSQL: A Mojo::Pg object
-    plugin Yancy => backend => Mojo::Pg->new( 'postgresql://postgres@/test' );
-
-=head3 MySQL
-
-L<MySQL|http://mysql.com> is supported through the L<Mojo::mysql>
-module.
-
-    # MySQL: A Mojo::mysql connection string
-    plugin Yancy => backend => 'mysql://user@/test';
-
-    # MySQL: A Mojo::mysql object
-    plugin Yancy => backend => Mojo::mysql->strict_mode( 'mysql://user@/test' );
-
-=head3 SQLite
-
-L<SQLite|http://sqlite.org> is supported through the L<Mojo::SQLite> module.
-This is a good option if you want to try Yancy out.
-
-    # SQLite: A Mojo::SQLite connection string
-    plugin Yancy => backend => 'sqlite:test.db';
-
-    # SQLite: A Mojo::SQLite object
-    plugin Yancy => backend => Mojo::SQLite->new( 'sqlite::temp:' );
-
-=head3 DBIx::Class
-
-If you have a L<DBIx::Class> schema, Yancy can use it to edit the content.
-
-    # DBIx::Class: A connection string
-    plugin Yancy => backend => 'dbic://My::Schema/dbi:SQLite:test.db';
-
-    # DBIx::Class: A DBIx::Class::Schema object
-    plugin Yancy => backend => My::Schema->connect( 'dbi:SQLite:test.db' );
-
-=head2 Content Tools
-
-=head3 Schema Information and Validation
-
-Yancy scans your database to determine what kind of data is inside, but
-Yancy also accepts a L<JSON Schema|http://json-schema.org> to add more
-information about your data. You can add descriptions, examples, and
-other documentation that will appear in the admin application. You can
-also add type, format, and other validation information, which Yancy
-will use to validate input from users. See L<Yancy::Help::Config/Schema>
-for how to define your schema.
-
-    plugin Yancy => backend => 'postgres://postgres@/test',
-        schema => {
-            employees => {
-                title => 'Employees',
-                description => 'Our crack team of loyal dregs.',
-                properties => {
-                    address => {
-                        description => 'Where to notify next-of-kin.',
-                        # Regexp to validate this field
-                        pattern => '^\d+ \S+',
-                    },
-                    email => {
-                        # Use the browser's native e-mail input
-                        format => 'email',
-                    },
-                },
-            },
-        };
-
-=head3 Data Helpers
-
-L<Mojolicious::Plugin::Yancy> provides helpers to work with your database content.
-These use the validations provided in the schema to validate user input. These
-helpers can be used in your route handlers to quickly add basic Create, Read, Update,
-and Delete (CRUD) functionality. See L<Mojolicious::Plugin::Yancy/HELPERS> for a list
-of provided helpers.
-
-    # View a list of blog entries
-    get '/' => sub( $c ) {
-        my @blog_entries = $c->yancy->list(
-            blog_entries =>
-            { published => 1 },
-            { order_by => { -desc => 'published_date' } },
-        );
-        $c->render(
-            'blog_list',
-            items => \@blog_entries,
-        );
-    };
-
-    # View a single blog entry
-    get '/blog/:blog_entry_id' => sub( $c ) {
-        my $blog_entry = $c->yancy->get(
-            blog_entries => $c->param( 'blog_entry_id' ),
-        );
-        $c->render(
-            'blog_entry',
-            item => $blog_entry,
-        );
-    };
-
-=head3 Forms
-
-The L<Yancy::Plugin::Form> plugin can generate input fields or entire
-forms based on your schema information. The annotations in your schema
-appear in the forms to help users fill them out. Additionally, with the
-L<Yancy::Plugin::Form::Bootstrap4> module, Yancy can create forms using
-L<Twitter Bootstrap|http://getbootstrap.com> components.
-
-    # Load the form plugin
-    app->yancy->plugin( 'Form::Bootstrap4' );
-
-    # Edit a blog entry
-    any [ 'GET', 'POST' ], '/edit/:blog_entry_id' => sub( $c ) {
-        if ( $c->req->method eq 'GET' ) {
-            my $blog_entry = $c->yancy->get(
-                blog_entries => $c->param( 'blog_entry_id' ),
-            );
-            return $c->render(
-                'blog_entry',
-                item => $blog_entry,
-            );
-        }
-        my $id = $c->param( 'blog_entry_id' );
-        my $item = $c->req->params->to_hash;
-        delete $item->{csrf_token}; # See https://docs.mojolicious.org/Mojolicious/Guides/Rendering#Cross-site-request-forgery
-        $c->yancy->set( blog_entries => $id, $c->req->params->to_hash );
-        $c->redirect_to( '/blog/' . $id );
-    };
-
-    __DATA__
-    @@ blog_form.html.ep
-    %= $c->yancy->form->form_for( 'blog_entries', item => stash 'item' )
-
-=head3 Controllers
-
-Yancy can add basic CRUD operations without writing the code yourself. The
-L<Yancy::Controller::Yancy> module uses the schema information to show, search,
-edit, create, and delete database items.
-
-    # A rewrite of the routes above to use Yancy::Controller::Yancy
-
-    # View a list of blog entries
-    get '/' => {
-        controller => 'yancy',
-        action => 'list',
-        schema => 'blog_entries',
-        filter => { published => 1 },
-        order_by => { -desc => 'published_date' },
-    } => 'blog.list';
-
-    # View a single blog entry
-    get '/blog/:blog_entry_id' => {
-        controller => 'yancy',
-        action => 'get',
-        schema => 'blog_entries',
-    } => 'blog.get';
-
-    # Load the form plugin
-    app->yancy->plugin( 'Form::Bootstrap4' );
-
-    # Edit a blog entry
-    any [ 'GET', 'POST' ], '/edit/:blog_entry_id' => {
-        controller => 'yancy',
-        action => 'set',
-        schema => 'blog_entries',
-        template => 'blog_form',
-        redirect_to => 'blog.get',
-    } => 'blog.edit';
-
-    __DATA__
-    @@ blog_form.html.ep
-    %= $c->yancy->form->form_for( 'blog_entries' )
-
-=head3 Plugins
-
-Yancy also has plugins for...
+The base Yancy class exists to provide a way to rapidly prototype a data-driven
+web application. Apps that inherit from Yancy get these features out-of-the-box:
 
 =over
 
-=item * User authentication: L<Yancy::Plugin::Auth>
+=item * The Yancy CMS (L<Mojolicious::Plugin::Yancy>)
 
-=item * File management: L<Yancy::Plugin::File>
+=item * Database editor (L<Yancy::Plugin::Editor>)
+
+=item * User logins (L<Yancy::Plugin::Auth>)
+
+=item * Role-based access controls (L<Yancy::Plugin::Roles>)
 
 =back
 
-More development will be happening here soon!
+If you're familiar with developing Mojolicious applications, you can start
+from the app skeleton at L<https://github.com/preaction/Yancy/eg/skeleton>.
 
-=head1 GUIDES
+=for comment XXX: Create `yancy generate app` and `yancy generate lite-app` commands
 
-For in-depth documentation on Yancy, see the following guides:
+To begin writing a new application from scratch, create a C<lib>
+directory and add a C<MyApp.pm> file that extends the C<Yancy> class:
+
+    package MyApp;
+    use Mojo::Base 'Yancy', -signatures;
+
+As in any other L<Mojolicious> app, add your routes, plugins, and other setup to
+the C<startup> method. Don't forget to call Yancy's L</startup> method!
+
+    sub startup( $self ) {
+        $self->SUPER::startup;
+        # ... Add your routes and other setup here
+    }
+
+Next, create a configuration file named C<my_app.conf> to connect to your database:
+
+    {
+        backend => 'sqlite:my_app.db',
+    }
+
+Last, create a L<simple application script|https://docs.mojolicious.org/Mojolicious/Guides/Growing#Simplified-application-script>
+named C<script/my_app> to start your application:
+
+    #!/usr/bin/env perl
+
+    use Mojo::Base -strict;
+    use lib qw(lib);
+    use Mojolicious::Commands;
+
+    # Start command line interface for application
+    Mojolicious::Commands->start_app('MyApp');
+
+Now you can run C<./script/my_app daemon> to start your app!
+
+To make developing your app easy and fun, make sure you're familiar with
+these guides:
 
 =over
 
-=item * L<Yancy::Help::Config> - How to configure Yancy
+=item L<The Mojolicious tutorial and guides|https://docs.mojolicious.org>
 
-=item * L<Yancy::Help::Cookbook> - How to cook various apps with Yancy
+=item L<The Yancy tutorial|Yancy::Guides::Tutorial>
 
-=item * L<Yancy::Help::Auth> - How to authenticate and authorize users
-
-=item * L<Yancy::Help::Standalone> - How to use Yancy without a Mojolicious app
-
-=item * L<Yancy::Help::Upgrading> - How to upgrade from previous versions
+=item L<The Yancy guides|Yancy::Guides>
 
 =back
-
-=head1 OTHER RESOURCES
-
-=head2 Example Applications
-
-The L<Yancy Git repository on Github|http://github.com/preaction/Yancy>
-includes some example applications you can use to help build your own
-websites. L<View the example application directory|https://github.com/preaction/Yancy/tree/master/eg>.
 
 =head1 BUNDLED PROJECTS
 
@@ -641,7 +330,7 @@ Doug Bell <preaction@cpan.org>
 
 =head1 CONTRIBUTORS
 
-=for stopwords Boris Däppen Ed J Erik Johansen Josh Rabinowitz Mohammad S Anwar Pavel Serikov Rajesh Mallah William Lindley Wojtek Bażant
+=for stopwords Boris Däppen Ed J Erik Johansen flash548 Josh Rabinowitz Mohammad S Anwar Pavel Serikov Rajesh Mallah Roy Storey William Lindley Wojtek Bażant
 
 =over 4
 
@@ -663,6 +352,10 @@ Erik Johansen <uniejo@users.noreply.github.com>
 
 =item *
 
+flash548 <59771551+flash548@users.noreply.github.com>
+
+=item *
+
 Josh Rabinowitz <joshr@joshr.com>
 
 =item *
@@ -679,6 +372,10 @@ Rajesh Mallah <mallah.rajesh@gmail.com>
 
 =item *
 
+Roy Storey <kiwiroy@users.noreply.github.com>
+
+=item *
+
 William Lindley <wlindley@wlindley.com>
 
 =item *
@@ -689,7 +386,7 @@ Wojtek Bażant <wojciech.bazant+ebi@gmail.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Doug Bell.
+This software is copyright (c) 2021 by Doug Bell.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
@@ -697,6 +394,54 @@ the same terms as the Perl 5 programming language system itself.
 =cut
 
 __DATA__
+
+@@ migrations.yancy_logins.mysql.sql
+-- 1 up
+CREATE TABLE yancy_logins (
+    login_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    login_name VARCHAR(191) NOT NULL UNIQUE,
+    password VARCHAR(191) NOT NULL
+);
+CREATE TABLE yancy_login_roles (
+    login_id BIGINT NOT NULL,
+    role VARCHAR(191) NOT NULL,
+    PRIMARY KEY ( login_id, role )
+);
+-- 1 down
+DROP TABLE yancy_logins;
+DROP TABLE yancy_login_roles;
+
+@@ migrations.yancy_logins.sqlite.sql
+-- 1 up
+CREATE TABLE yancy_logins (
+    login_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    login_name VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL
+);
+CREATE TABLE yancy_login_roles (
+    login_id INTEGER NOT NULL,
+    role VARCHAR(255) NOT NULL,
+    PRIMARY KEY ( login_id, role )
+);
+-- 1 down
+DROP TABLE yancy_logins;
+DROP TABLE yancy_login_roles;
+
+@@ migrations.yancy_logins.pg.sql
+-- 1 up
+CREATE TABLE yancy_logins (
+    login_id SERIAL PRIMARY KEY,
+    login_name VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL
+);
+CREATE TABLE yancy_login_roles (
+    login_id INTEGER NOT NULL,
+    role VARCHAR(255) NOT NULL,
+    PRIMARY KEY ( login_id, role )
+);
+-- 1 down
+DROP TABLE yancy_logins;
+DROP TABLE yancy_login_roles;
 
 @@ not_found.development.html.ep
 % layout 'yancy';
@@ -708,11 +453,10 @@ __DATA__
 
             <h2>Getting Started</h2>
             <p>To edit your data, go to <a href="/yancy">/yancy</a>.</p>
-            <p>Add your templates to <tt><%= app->home->child( 'templates' ) %></tt>. Each template becomes a URL in your
-            site:</p>
+            <p>For more information, visit these sites:</p>
             <ul>
-                <li><tt><%= app->home->child( 'templates', 'foo.html.ep' ) %></tt> becomes <a href="/foo">/foo</a>.</li>
-                <li><tt><%= app->home->child( 'templates', 'foo', 'bar.html.ep' ) %></tt> becomes <a href="/foo/bar">/foo/bar</a>.</li>
+                <li><a href="http://preaction.me/yancy/perldoc">Yancy Documentation</a></li>
+                <li><a href="http://docs.mojolicious.org">Mojolicious Documentation</a></li>
             </ul>
             <p>To disable this page, run Yancy in production mode with <kbd>-m production</kbd>.</p>
         </div>

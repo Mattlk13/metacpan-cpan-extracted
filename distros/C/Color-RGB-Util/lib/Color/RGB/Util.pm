@@ -1,9 +1,9 @@
 package Color::RGB::Util;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-06-08'; # DATE
+our $DATE = '2021-01-19'; # DATE
 our $DIST = 'Color-RGB-Util'; # DIST
-our $VERSION = '0.601'; # VERSION
+our $VERSION = '0.604'; # VERSION
 
 use 5.010001;
 use strict;
@@ -155,6 +155,10 @@ sub rand_rgb_colors {
     my $light_color  = exists($opts->{light_color}) ? $opts->{light_color} : 1;
     my $max_attempts = $opts->{max_attempts} // 1000;
     my $avoid_colors = $opts->{avoid_colors};
+    my $hash_prefix = $opts->{hash_prefix};
+
+    my $num_check = 10;
+    my $min_distance = rgb_diff("000000", "ffffff", "approx2") / 2 / $num;
 
     my @res;
     while (@res < $num) {
@@ -175,11 +179,18 @@ sub rand_rgb_colors {
                 if ($avoid_colors && ref $avoid_colors eq 'HASH') {
                     do { $reject++; last } if $avoid_colors->{$rgb}
                 }
+
+                for (1..$num_check) {
+                    last if @res-$_ < 0;
+                    my $prev_rgb = $res[ @res - $_ ];
+                    do { $reject++; last REJECT } if rgb_diff($rgb, $prev_rgb, "approx2") < $min_distance;
+                }
+
             } # REJECT
             last if !$reject;
             last if ++$num_attempts >= $max_attempts;
         }
-        push @res, $rgb;
+        push @res, ($hash_prefix ? "#" : "") . $rgb;
     }
     @res;
 }
@@ -514,7 +525,7 @@ Color::RGB::Util - Utilities related to RGB colors
 
 =head1 VERSION
 
-This document describes version 0.601 of Color::RGB::Util (from Perl distribution Color-RGB-Util), released on 2020-06-08.
+This document describes version 0.604 of Color::RGB::Util (from Perl distribution Color-RGB-Util), released on 2021-01-19.
 
 =head1 SYNOPSIS
 
@@ -694,8 +705,9 @@ Usage:
 
  my @rgbs = rand_rgb_colors([ \%opts ], $num=1);
 
-Produce C<$num> random RGB colors, with some options. Will make reasonable
-attempt to make the colors different from one another.
+Produce C<$num> random RGB colors, with some options. It does not (yet) create a
+palette of optimally distinct colors, but will make reasonable attempt to make
+the colors different from one another.
 
 Known options:
 
@@ -722,6 +734,11 @@ C<avoid_colors>.
 
 When the number of attempts has been exceeded, the generated color is used
 anyway.
+
+=item * hash_prefix
+
+Whether to add hash prefix to produced color codes ("#123456") or not
+("123456").
 
 =back
 
@@ -793,7 +810,10 @@ which is the same as what L</"rgb_distance">() would produce.
 
 =item * approx1
 
-This algorithm uses the following formula:
+This algorithm, described in [1] as "a low cost approximation" and "a
+combination both weighted Euclidean distance functions, where the weight factors
+depend on how big the 'red' component of the colour is" with "results that are
+very close to L*u*v" and "a more stable algorithm", uses the following formula:
 
  ( 2*(R1-R2)**2 + 4*(G1-G2)**2 + 3*(B1-B2)**2 + Rm*((R1-R2)**2 - (B1-B2)**2)/256 )**0.5
 
@@ -821,8 +841,12 @@ preferred.
 
 =back
 
+TODO: redmean low-cost approximation, CMC l:c.
+
 For more about color difference, try reading
 L<https://en.wikipedia.org/wiki/Color_difference>.
+
+[1] https://www.compuphase.com/cmetric.htm
 
 =head2 rgb_distance
 
@@ -883,11 +907,11 @@ Please visit the project's homepage at L<https://metacpan.org/release/Color-RGB-
 
 =head1 SOURCE
 
-Source repository is at L<https://github.com/perlancar/perl-SHARYANTO-Color-Util>.
+Source repository is at L<https://github.com/perlancar/perl-Color-RGB-Util>.
 
 =head1 BUGS
 
-Please report any bugs or feature requests on the bugtracker website L<https://rt.cpan.org/Public/Dist/Display.html?Name=Color-RGB-Util>
+Please report any bugs or feature requests on the bugtracker website L<https://github.com/perlancar/perl-Color-RGB-Util/issues>
 
 When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
@@ -903,7 +927,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2019, 2018, 2015, 2014, 2013 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2019, 2018, 2015, 2014, 2013 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

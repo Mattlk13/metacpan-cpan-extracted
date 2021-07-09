@@ -4,8 +4,8 @@
 #
 package PDL::Ops;
 
-@EXPORT_OK  = qw(  PDL::PP log10 PDL::PP assgn PDL::PP ipow );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw( PDL::PP log10 PDL::PP assgn PDL::PP carg PDL::PP conj PDL::PP czip PDL::PP ipow PDL::PP r2C PDL::PP i2C );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,13 +14,18 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::Ops ;
 
 
 
 
+
+use strict;
+use warnings;
+
+my %OVERLOADS;
 
 =head1 NAME
 
@@ -36,7 +41,7 @@ It also includes the function C<log10>, which should
 be a perl function so that we can overload it!
 
 Matrix multiplication (the operator C<x>) is handled
-by the module L<PDL::Primitive|PDL::Primitive>.
+by the module L<PDL::Primitive>.
 
 =head1 SYNOPSIS
 
@@ -59,6 +64,22 @@ none
 
 
 
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'+'} = $overload_sub = sub(;@) {
+      return PDL::plus(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '+'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
+BEGIN {
+# in1, in2, out, swap if true
+$OVERLOADS{'+='} = sub { PDL::plus($_[0], $_[1], $_[0], 0); $_[0] };
+}
+
+
 
 
 =head2 plus
@@ -69,7 +90,7 @@ none
 
 =for ref
 
-add two piddles
+add two ndarrays
 
 =for example
 
@@ -88,7 +109,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 plus processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -102,6 +123,22 @@ The state of the bad-value flag of the output piddles is unknown.
 
 
 
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'*'} = $overload_sub = sub(;@) {
+      return PDL::mult(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '*'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
+BEGIN {
+# in1, in2, out, swap if true
+$OVERLOADS{'*='} = sub { PDL::mult($_[0], $_[1], $_[0], 0); $_[0] };
+}
+
+
 
 
 =head2 mult
@@ -112,7 +149,7 @@ The state of the bad-value flag of the output piddles is unknown.
 
 =for ref
 
-multiply two piddles
+multiply two ndarrays
 
 =for example
 
@@ -131,7 +168,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 mult processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -145,6 +182,22 @@ The state of the bad-value flag of the output piddles is unknown.
 
 
 
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'-'} = $overload_sub = sub(;@) {
+      return PDL::minus(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '-'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
+BEGIN {
+# in1, in2, out, swap if true
+$OVERLOADS{'-='} = sub { PDL::minus($_[0], $_[1], $_[0], 0); $_[0] };
+}
+
+
 
 
 =head2 minus
@@ -155,7 +208,7 @@ The state of the bad-value flag of the output piddles is unknown.
 
 =for ref
 
-subtract two piddles
+subtract two ndarrays
 
 =for example
 
@@ -174,7 +227,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 minus processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -188,6 +241,22 @@ The state of the bad-value flag of the output piddles is unknown.
 
 
 
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'/'} = $overload_sub = sub(;@) {
+      return PDL::divide(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '/'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
+BEGIN {
+# in1, in2, out, swap if true
+$OVERLOADS{'/='} = sub { PDL::divide($_[0], $_[1], $_[0], 0); $_[0] };
+}
+
+
 
 
 =head2 divide
@@ -198,7 +267,7 @@ The state of the bad-value flag of the output piddles is unknown.
 
 =for ref
 
-divide two piddles
+divide two ndarrays
 
 =for example
 
@@ -217,7 +286,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 divide processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -229,6 +298,18 @@ The state of the bad-value flag of the output piddles is unknown.
 
 *divide = \&PDL::divide;
 
+
+
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'>'} = $overload_sub = sub(;@) {
+      return PDL::gt(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '>'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
 
 
 
@@ -260,7 +341,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 gt processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -272,6 +353,18 @@ The state of the bad-value flag of the output piddles is unknown.
 
 *gt = \&PDL::gt;
 
+
+
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'<'} = $overload_sub = sub(;@) {
+      return PDL::lt(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '<'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
 
 
 
@@ -303,7 +396,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 lt processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -315,6 +408,18 @@ The state of the bad-value flag of the output piddles is unknown.
 
 *lt = \&PDL::lt;
 
+
+
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'<='} = $overload_sub = sub(;@) {
+      return PDL::le(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '<='))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
 
 
 
@@ -346,7 +451,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 le processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -358,6 +463,18 @@ The state of the bad-value flag of the output piddles is unknown.
 
 *le = \&PDL::le;
 
+
+
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'>='} = $overload_sub = sub(;@) {
+      return PDL::ge(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '>='))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
 
 
 
@@ -389,7 +506,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 ge processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -401,6 +518,18 @@ The state of the bad-value flag of the output piddles is unknown.
 
 *ge = \&PDL::ge;
 
+
+
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'=='} = $overload_sub = sub(;@) {
+      return PDL::eq(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '=='))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
 
 
 
@@ -432,7 +561,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 eq processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -444,6 +573,18 @@ The state of the bad-value flag of the output piddles is unknown.
 
 *eq = \&PDL::eq;
 
+
+
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'!='} = $overload_sub = sub(;@) {
+      return PDL::ne(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '!='))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
 
 
 
@@ -475,7 +616,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 ne processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -487,6 +628,22 @@ The state of the bad-value flag of the output piddles is unknown.
 
 *ne = \&PDL::ne;
 
+
+
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'<<'} = $overload_sub = sub(;@) {
+      return PDL::shiftleft(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '<<'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
+BEGIN {
+# in1, in2, out, swap if true
+$OVERLOADS{'<<='} = sub { PDL::shiftleft($_[0], $_[1], $_[0], 0); $_[0] };
+}
 
 
 
@@ -518,7 +675,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 shiftleft processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -530,6 +687,22 @@ The state of the bad-value flag of the output piddles is unknown.
 
 *shiftleft = \&PDL::shiftleft;
 
+
+
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'>>'} = $overload_sub = sub(;@) {
+      return PDL::shiftright(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '>>'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
+BEGIN {
+# in1, in2, out, swap if true
+$OVERLOADS{'>>='} = sub { PDL::shiftright($_[0], $_[1], $_[0], 0); $_[0] };
+}
 
 
 
@@ -561,7 +734,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 shiftright processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -575,6 +748,22 @@ The state of the bad-value flag of the output piddles is unknown.
 
 
 
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'|'} = $overload_sub = sub(;@) {
+      return PDL::or2(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '|'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
+BEGIN {
+# in1, in2, out, swap if true
+$OVERLOADS{'|='} = sub { PDL::or2($_[0], $_[1], $_[0], 0); $_[0] };
+}
+
+
 
 
 =head2 or2
@@ -585,7 +774,7 @@ The state of the bad-value flag of the output piddles is unknown.
 
 =for ref
 
-binary I<or> of two piddles
+binary I<or> of two ndarrays
 
 =for example
 
@@ -604,7 +793,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 or2 processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -618,6 +807,22 @@ The state of the bad-value flag of the output piddles is unknown.
 
 
 
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'&'} = $overload_sub = sub(;@) {
+      return PDL::and2(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '&'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
+BEGIN {
+# in1, in2, out, swap if true
+$OVERLOADS{'&='} = sub { PDL::and2($_[0], $_[1], $_[0], 0); $_[0] };
+}
+
+
 
 
 =head2 and2
@@ -628,7 +833,7 @@ The state of the bad-value flag of the output piddles is unknown.
 
 =for ref
 
-binary I<and> of two piddles
+binary I<and> of two ndarrays
 
 =for example
 
@@ -647,7 +852,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 and2 processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -661,6 +866,22 @@ The state of the bad-value flag of the output piddles is unknown.
 
 
 
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'^'} = $overload_sub = sub(;@) {
+      return PDL::xor(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '^'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
+BEGIN {
+# in1, in2, out, swap if true
+$OVERLOADS{'^='} = sub { PDL::xor($_[0], $_[1], $_[0], 0); $_[0] };
+}
+
+
 
 
 =head2 xor
@@ -671,7 +892,7 @@ The state of the bad-value flag of the output piddles is unknown.
 
 =for ref
 
-binary I<exclusive or> of two piddles
+binary I<exclusive or> of two ndarrays
 
 =for example
 
@@ -690,7 +911,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 xor processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -702,6 +923,9 @@ The state of the bad-value flag of the output piddles is unknown.
 
 *xor = \&PDL::xor;
 
+
+
+BEGIN { $OVERLOADS{'~'} = sub { PDL::bitnot($_[0]) } }
 
 
 
@@ -729,7 +953,7 @@ This function is used to overload the unary C<~> operator/function.
 =for bad
 
 bitnot processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -743,6 +967,22 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'**'} = $overload_sub = sub(;@) {
+      return PDL::power(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '**'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
+BEGIN {
+# in1, in2, out, swap if true
+$OVERLOADS{'**='} = sub { PDL::power($_[0], $_[1], $_[0], 0); $_[0] };
+}
+
+
 
 
 =head2 power
@@ -753,7 +993,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-raise piddle C<$a> to the power C<$b>
+raise ndarray C<$a> to the power C<$b>
 
 =for example
 
@@ -772,7 +1012,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 power processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -786,6 +1026,18 @@ The state of the bad-value flag of the output piddles is unknown.
 
 
 
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'atan2'} = $overload_sub = sub(;@) {
+      return PDL::atan2(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], 'atan2'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
+
+
 
 
 =head2 atan2
@@ -796,7 +1048,7 @@ The state of the bad-value flag of the output piddles is unknown.
 
 =for ref
 
-elementwise C<atan2> of two piddles
+elementwise C<atan2> of two ndarrays
 
 =for example
 
@@ -815,7 +1067,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 atan2 processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -827,6 +1079,22 @@ The state of the bad-value flag of the output piddles is unknown.
 
 *atan2 = \&PDL::atan2;
 
+
+
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'%'} = $overload_sub = sub(;@) {
+      return PDL::modulo(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '%'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
+BEGIN {
+# in1, in2, out, swap if true
+$OVERLOADS{'%='} = sub { PDL::modulo($_[0], $_[1], $_[0], 0); $_[0] };
+}
 
 
 
@@ -858,7 +1126,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 modulo processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -870,6 +1138,18 @@ The state of the bad-value flag of the output piddles is unknown.
 
 *modulo = \&PDL::modulo;
 
+
+
+{
+  my ($foo, $overload_sub);
+  BEGIN { $OVERLOADS{'<=>'} = $overload_sub = sub(;@) {
+      return PDL::spaceship(@_) unless ref $_[1]
+              && (ref $_[1] ne 'PDL')
+              && defined($foo = overload::Method($_[1], '<=>'))
+              && $foo != $overload_sub; # recursion guard
+      $foo->($_[1], $_[0], !$_[2]);
+  }; }
+}
 
 
 
@@ -901,7 +1181,7 @@ This restriction is expected to go away in future releases.
 =for bad
 
 spaceship processes bad values.
-The state of the bad-value flag of the output piddles is unknown.
+The state of the bad-value flag of the output ndarrays is unknown.
 
 
 =cut
@@ -913,6 +1193,9 @@ The state of the bad-value flag of the output piddles is unknown.
 
 *spaceship = \&PDL::spaceship;
 
+
+
+BEGIN { $OVERLOADS{'sqrt'} = sub { PDL::sqrt($_[0]) } }
 
 
 
@@ -940,7 +1223,7 @@ This function is used to overload the unary C<sqrt> operator/function.
 =for bad
 
 sqrt processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -954,43 +1237,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 
-
-
-=head2 abs
-
-=for sig
-
-  Signature: (a(); [o]b())
-
-=for ref
-
-elementwise absolute value
-
-=for example
-
-   $y = abs $x;
-   $x->inplace->abs;  # modify $x inplace
-
-It can be made to work inplace with the C<$x-E<gt>inplace> syntax.
-This function is used to overload the unary C<abs> operator/function.
-
-
-
-=for bad
-
-abs processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
-
-
-=cut
-
-
-
-
-
-
-*abs = \&PDL::abs;
-
+BEGIN { $OVERLOADS{'sin'} = sub { PDL::sin($_[0]) } }
 
 
 
@@ -1018,7 +1265,7 @@ This function is used to overload the unary C<sin> operator/function.
 =for bad
 
 sin processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1030,6 +1277,9 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 *sin = \&PDL::sin;
 
+
+
+BEGIN { $OVERLOADS{'cos'} = sub { PDL::cos($_[0]) } }
 
 
 
@@ -1057,7 +1307,7 @@ This function is used to overload the unary C<cos> operator/function.
 =for bad
 
 cos processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1069,6 +1319,9 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 *cos = \&PDL::cos;
 
+
+
+BEGIN { $OVERLOADS{'!'} = sub { PDL::not($_[0]) } }
 
 
 
@@ -1096,7 +1349,7 @@ This function is used to overload the unary C<!> operator/function.
 =for bad
 
 not processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1108,6 +1361,9 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 *not = \&PDL::not;
 
+
+
+BEGIN { $OVERLOADS{'exp'} = sub { PDL::exp($_[0]) } }
 
 
 
@@ -1135,7 +1391,7 @@ This function is used to overload the unary C<exp> operator/function.
 =for bad
 
 exp processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1147,6 +1403,9 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 *exp = \&PDL::exp;
 
+
+
+BEGIN { $OVERLOADS{'log'} = sub { PDL::log($_[0]) } }
 
 
 
@@ -1174,7 +1433,7 @@ This function is used to overload the unary C<log> operator/function.
 =for bad
 
 log processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1185,6 +1444,97 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 *log = \&PDL::log;
+
+
+
+
+
+=head2 re
+
+=for sig
+
+  Signature: (complexv(); real [o]b())
+
+=for ref
+
+Returns the real part of a complex number.
+
+=for bad
+
+re processes bad values.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
+
+
+=cut
+
+
+
+
+
+
+*re = \&PDL::re;
+
+
+
+
+
+=head2 im
+
+=for sig
+
+  Signature: (complexv(); real [o]b())
+
+=for ref
+
+Returns the imaginary part of a complex number.
+
+=for bad
+
+im processes bad values.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
+
+
+=cut
+
+
+
+
+
+
+*im = \&PDL::im;
+
+
+
+
+
+=head2 _cabs
+
+=for sig
+
+  Signature: (complexv(); real [o]b())
+
+=for ref
+
+Returns the absolute (length) of a complex number.
+
+=for bad
+
+_cabs processes bad values.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
+
+
+=cut
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1213,7 +1563,7 @@ This function is used to overload the unary C<log10> operator/function.
 =for bad
 
 log10 processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1258,7 +1608,7 @@ Plain numerical assignment. This is used to implement the ".=" operator
 
 =for bad
 
-If C<a> is a child piddle (e.g., the result of a slice) and bad values are generated in C<b>,
+If C<a> is a child ndarray (e.g., the result of a slice) and bad values are generated in C<b>,
 the bad value flag is set in C<b>, but it is B<NOT> automatically propagated back to the parent of C<a>.
 The following idiom ensures that the badflag is propagated back to the parent of C<a>:
 
@@ -1283,16 +1633,104 @@ See http://pdl.perl.org/PDLdocs/BadValues.html#dataflow_of_the_badflag for detai
 
 
 
+=head2 carg
+
+=for sig
+
+  Signature: (complexv(); real [o]b())
+
+=for ref
+
+Returns the polar angle of a complex number.
+
+=for bad
+
+carg processes bad values.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
+
+
+=cut
+
+
+
+
+
+
+*carg = \&PDL::carg;
+
+
+
+
+
+=head2 conj
+
+=for sig
+
+  Signature: (complexv();  [o]b())
+
+=for ref
+
+complex conjugate.
+
+=for bad
+
+conj processes bad values.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
+
+
+=cut
+
+
+
+
+
+
+*conj = \&PDL::conj;
+
+
+
+
+
+=head2 czip
+
+=for sig
+
+  Signature: (r(); i(); complex [o]c())
+
+convert real, imaginary to native complex, (sort of) like LISP zip
+function. Will add the C<r> ndarray to "i" times the C<i> ndarray. Only
+takes real ndarrays as input.
+
+
+=for bad
+
+czip does not process bad values.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
+
+
+=cut
+
+
+
+
+
+
+*czip = \&PDL::czip;
+
+
+
+
+
 =head2 ipow
 
 =for sig
 
-  Signature: (a(); b(); [o] ans())
+  Signature: (a(); indx b(); [o] ans())
 
 
 =for ref
 
-raise piddle C<$a> to integer power C<$b>
+raise ndarray C<$a> to integer power C<$b>
 
 =for example
 
@@ -1312,7 +1750,7 @@ Algorithm from L<Wikipedia|http://en.wikipedia.org/wiki/Exponentiation_by_squari
 =for bad
 
 ipow does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1324,6 +1762,138 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 *ipow = \&PDL::ipow;
 
+
+
+
+=head2 abs
+
+=for ref
+
+Returns the absolute value of a number.
+
+=cut
+
+sub PDL::abs { $_[0]->type->real ? goto &PDL::_rabs : goto &PDL::_cabs }
+
+
+BEGIN { $OVERLOADS{'abs'} = sub { PDL::abs($_[0]) } }
+
+
+
+=head2 abs2
+
+=for ref
+
+Returns the square of the absolute value of a number.
+
+=cut
+
+sub PDL::abs2 ($) { my $r = &PDL::abs; $r * $r }
+
+
+
+
+=head2 r2C
+
+=for sig
+
+  Signature: (r(); complex [o]c())
+
+=for ref
+
+convert real to native complex, with an imaginary part of zero
+
+=for bad
+
+r2C does not process bad values.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
+
+
+=cut
+
+
+
+
+sub PDL::r2C ($) {
+  return $_[0] if UNIVERSAL::isa($_[0], 'PDL') and !$_[0]->type->real;
+  my $r = $_[1] // PDL->nullcreate($_[0]);
+  PDL::_r2C_int($_[0], $r);
+  $r;
+}
+
+
+*r2C = \&PDL::r2C;
+
+
+
+
+
+=head2 i2C
+
+=for sig
+
+  Signature: (i(); complex [o]c())
+
+=for ref
+
+convert imaginary to native complex, with a real part of zero
+
+=for bad
+
+i2C does not process bad values.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
+
+
+=cut
+
+
+
+
+sub PDL::i2C ($) {
+  return $_[0] if UNIVERSAL::isa($_[0], 'PDL') and !$_[0]->type->real;
+  my $r = $_[1] // PDL->nullcreate($_[0]);
+  PDL::_i2C_int($_[0], $r);
+  $r;
+}
+
+
+*i2C = \&PDL::i2C;
+
+
+
+# This is to used warn if an operand is non-numeric or non-PDL.
+sub warn_non_numeric_op_wrapper {
+  require Scalar::Util;
+  my ($cb, $op_name) = @_;
+  return sub {
+    my ($op1, $op2) = @_;
+    warn "'$op2' is not numeric nor a PDL in operator $op_name"
+      unless Scalar::Util::looks_like_number($op2)
+            || ( Scalar::Util::blessed($op2) && $op2->isa('PDL') );
+    $cb->(@_);
+  }
+}
+
+{ package PDL;
+  use Carp;
+  use overload %OVERLOADS,
+    "eq"    => PDL::Ops::warn_non_numeric_op_wrapper(\&PDL::eq, 'eq'),
+    "="     => sub {$_[0]},          # Don't deep copy, just copy reference
+    ".="    => sub {
+      my @args = !$_[2] ? @_[1,0] : @_[0,1];
+      PDL::Ops::assgn(@args);
+      return $args[1];
+    },
+    'bool'  => sub {
+      return 0 if $_[0]->isnull;
+      croak("multielement ndarray in conditional expression (see PDL::FAQ questions 6-10 and 6-11)")
+        unless $_[0]->nelem == 1;
+      $_[0]->clump(-1)->at(0);
+    },
+    '++' => sub { $_[0] += 1 },
+    '--' => sub { $_[0] -= 1 },
+  ;
+}
 
 
 ;

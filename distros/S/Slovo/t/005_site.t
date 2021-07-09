@@ -1,4 +1,4 @@
-use Mojo::Base -strict;
+use Mojo::Base -strict, -signatures;
 use FindBin;
 use lib "$FindBin::Bin/lib";
 use Test::More;
@@ -18,6 +18,7 @@ $app->config->{cache_pages} = 1;
 my $not_found = sub {
   for my $alias (qw(скрита изтрита предстояща изтекла несъществуваща)) {
     $t->get_ok("/$alias.html")->status_is(404);
+    $t->meta_names_ok();
   }
 };
 $t->login('краси', 'беров');
@@ -37,6 +38,7 @@ my $site_layout = sub {
 
     ->element_exists('header>nav');
 
+  $t->meta_names_ok();
 };
 
 my $breadcrumb = sub {
@@ -57,15 +59,14 @@ my $breadcrumb = sub {
 };
 
 my $multi_language_pages = sub {
-  $t->get_ok('/вести/alabala.html')->status_is(404)
-    ->text_like('.mui-dropdown > button' => qr'bg-bg')
-    ->element_exists_not('.mui-dropdown__menu > li:nth-child(2) > a:nth-child(1)');
-  my $dom
-    = $t->get_ok("/")->text_like('.mui-dropdown > button' => qr'bg')
-    ->element_exists('.mui-dropdown__menu > li:nth-child(2) > a:nth-child(1)')
-    ->tx->res->dom;
+  $t->get_ok('/вести/alabala.html')->status_is(404)->element_exists('html[lang="bg-bg"]');
 
-  # warn $dom->at('.mui-dropdown__menu');
+# TODO: Review language switching.
+#  my $dom
+#    = $t->get_ok("/")->text_like('.mui-dropdown > button' => qr'bg')
+#    ->element_exists('.mui-dropdown__menu > li:nth-child(2) > a:nth-child(1)')
+#    ->tx->res->dom;
+#  warn $dom->at('.mui-dropdown__menu');
 };
 
 my $cached_pages = sub {
@@ -82,17 +83,17 @@ my $cached_pages = sub {
   my $body = $t->get_ok("/")->status_is(200)->tx->res->body;
   like($body => qr/<html[^>]+><!-- $cached -->/ =>
       'Root page accessed with path / is cached');
-  like(decode('UTF-8', $body) => qr/rel="canonical" href="\/коренъ\.bg-bg\.html"/ =>
+  like(decode('UTF-8', $body) => qr/rel="canonical" href=".+?коренъ\.bg-bg\.html"/ =>
       '... and shows its canonical url.');
 
   # Page with alias as name is cached
   $body = $t->get_ok("/коренъ.html")->status_is(200)->tx->res->body;
   like($body => qr/<html[^>]+><!-- $cached -->/ =>
       'Page  accessed with path /foo.html IS cached');
-  like(decode('UTF-8', $body) => qr/rel="canonical" href="\/коренъ\.bg-bg\.html"/ =>
+  like(decode('UTF-8', $body) => qr/rel="canonical" href=".+?\/коренъ\.bg-bg\.html"/ =>
       '... and shows its canonical url.');
 
-  ok(-s $cache_dir->child(sha1_sum(encode('UTF-8' => 'коренъ.bg-bg.html')) . '.html'),
+  ok(-s $cache_dir->child(sha1_sum(encode('UTF-8' => '/коренъ.bg-bg.html')) . '.html'),
     'and file is on disk');
   ok(!-f $cache_dir->child('коренъ.bg.html'), ' /foo.bg.html IS NOT cached');
 
@@ -195,13 +196,23 @@ my $home_page = sub {
     $t->element_exists($id . ' a[title^="' . ucfirst(substr($p, 0, 5) . '"]'),
       'link with title ' . $p);
   }
+  $t->meta_names_ok();
 };
+
+sub _meta_keywords_description ($text) {
+  my %meta = ();
+  $meta{keywords}
+    = c($text =~ /(\w+)/g)->shuffle->head(int rand 20)->join(',')->to_string;
+  my $descr = c(split /[\n\n]/, $text)->shuffle->head(1)->[0];
+  ($meta{description}) = $text = substr($descr, 0, int rand 100);
+  return %meta;
+}
 
 sub _category_page {
   my ($p, $pages) = @_;
-  my $body
-    = c(split /[\n\n]/, data_section('Slovo::Test::Text', 'text.txt'))->shuffle->head(3)
-    ->join('</p><p>');
+  my $text = data_section('Slovo::Test::Text', 'text.txt');
+  my $body = c(split /[\n\n]/, $text)->shuffle->head(3)->join('</p><p>');
+
   $pages->{$p}{id} = $app->stranici->add({
     title       => ucfirst($p),
     language    => 'bg',
@@ -215,6 +226,7 @@ sub _category_page {
     published   => 2,
     page_type   => 'regular',
     dom_id      => 0,
+    _meta_keywords_description($text),
   });
   _pisania($p, $pages);
   _sub_pages($p, $pages);
@@ -224,9 +236,9 @@ sub _category_page {
 sub _sub_pages {
   my ($p, $pages) = @_;
   my $sub_pages = {};
+  my $text      = data_section('Slovo::Test::Text', 'text.txt');
   for my $sp (qw(днесъ вчера оня-ден)) {
-    my $body = c(split /[\n\n]/, data_section('Slovo::Test::Text', 'text.txt'))
-      ->shuffle->head(2)->join('</p><p>');
+    my $body = c(split /[\n\n]/, $text)->shuffle->head(2)->join('</p><p>');
     $sub_pages->{$sp} = $app->stranici->add({
       title       => ucfirst($sp),
       language    => 'bg',
@@ -241,7 +253,9 @@ sub _sub_pages {
       published   => 2,
       page_type   => 'regular',
       dom_id      => 0,
-      pid         => $pages->{$p}{id}});
+      pid         => $pages->{$p}{id},
+      _meta_keywords_description($text),
+    });
   }
 }
 
@@ -280,6 +294,7 @@ sub _pisania {
       body        => $body,
       permissions => 'rwxr-xr-x',
       published   => 2,
+      _meta_keywords_description($data),
     });
     push @{$pages->{$p}{articles}},
       {
@@ -322,14 +337,12 @@ subtest 'site layout'     => $site_layout;
 subtest breadcrumb        => $breadcrumb;
 
 # Disabled until proper test cases are prepared
-# subtest multi_language_pages => $multi_language_pages;
-subtest cached_pages => $cached_pages;
+subtest multi_language_pages => $multi_language_pages;
+subtest cached_pages         => $cached_pages;
+subtest 'Browser cache'      => $browser_cache;
+subtest home_page            => $home_page;
 
-subtest 'Browser cache' => $browser_cache;
-
-subtest home_page => $home_page;
-
-#subtest aliases   => $aliases;
+# subtest aliases   => $aliases;
 done_testing;
 
 

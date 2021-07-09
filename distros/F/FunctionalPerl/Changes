@@ -1,5 +1,146 @@
 Revision history for FunctionalPerl
 
+0.72.66 2021-5-23
+    - website: add blog, with post about perl weekly challenge
+    - 113-1*: improvements
+
+0.72.65 2021-5-22
+    - 113-1-represent_integer: fix and improve the Haskell version
+
+0.72.64 2021-5-22
+    - sequences: change `any` to return the last false value
+    - List: silence recursion warning in list_map
+    - TransparentLazy: never use `FORCE` transparently
+    - Create FP::Either
+    - 113-1-represent_integer: improvements, add more performant
+      algorithm, and a (currently non-working) Haskell version
+
+0.72.63 2021-5-21
+    - Repl: use FP_REPL_HOME env var if present
+    - t/repl.t: stop spamming the real repl history (and settings?)
+    - TransparentLazy: fix lazyLight
+    - Lazy,TransparentLazy: document behaviour of `lazyLight` in the
+      face of side effects
+    - Perl Weekly Challenges 113-1-represent_integer: use __SUB__
+      instead of FP::fix
+
+0.72.62 2021-5-20
+    - fix a multitude of newly introduced test and dependency bugs
+
+0.72.61 2021-5-20
+    - List: add map_with_tail, insertion_variants, fix `car` and
+      `car_and_cdr` for lazyT, fix cons method
+    - Lazy: add `lazyT_if`, add docstrings
+    - Array: change `any` to return the found true value, like List's
+      `any`
+    - SortedPureArray: 'finish' by adding `sortedpurearray_by`
+      function (and docstring); add it to FunctionalPerl's :sequences
+      tag
+    - Add this week's Perl Weekly Challenges
+
+0.72.60 2021-5-16
+    - Create FP::SortedPureArray, add `as_sorted_by` method to
+      PureArray
+    - Optional: add `have`
+    - Create examples/perl-weekly-challenges/111-1-searchmatrix
+    - Create FP::Id / FP::Abstract::Id
+    - Create FP::Collection
+    - xperlfunc: `xmkdir_p`: take optional mask argument
+    - doc tweak
+
+0.72.59 2021-5-2
+    - Repl: avoid taint check failures (if easily possible)
+    - Documentation
+
+0.72.58 2021-5-1
+    - try to fix Windows test failure
+    - add CPAN signature
+
+0.72.57 2021-5-1
+    - more test failure fixing?
+    - rename `number_cmp` to `real_cmp`
+    - create examples/youtube-extract
+
+0.72.56 2021-4-29
+    - more test failure fixing?
+    - some todo list entries
+    - meta/release: remove wrong `dev` mode again (leave other new
+      features in)
+
+0.72.55 2021-4-29
+    - Equal: add `boolean_equal`
+    - some more test failure fixes?
+    - meta/release: add flexible versioning, incl. wrongly(?)
+      understood underscore based ones
+
+0.72.54 2021-4-28
+    - various small fixes
+    - FP::Text::CSV: require params argument even if undef, to remind
+      of its existence
+    - change examples/{treestat,csv-to-json} to require fewer
+      dependencies
+    - fix various test requirements
+
+0.72.53 2021-4-22
+    - examples/treestat: add print-mtime-fixes
+    - fix yet more dependency declaration failures
+    - fix calling the right Perl from tests once more
+    - add checks for t/*t to release checkups
+
+0.72.52 2021-4-21
+    - more "make test not fail in the absence of JSON.pm"
+
+0.72.51 2021-4-21
+    - make test not fail in the absence of JSON.pm
+
+0.72.50 2021-4-21
+    - Fix "Repl: change to save history as individual files,
+      immediately"
+    - Repl: increase default histlen to 500
+    - Add test for examples/csv-to-json
+    - Create FP::JSON by moving part of csv-to-json
+
+0.72.49 2021-4-8
+    - Array: small fix
+    - support autoboxing for hashes
+    - PureHash: add key_value_pairs, array, purearray, list, sequence
+    - add `examples/csv-to-json`
+
+0.72.48 2021-4-8
+    - Abstract/Sequence: change min, max to use a comparison function
+    - Array: add array_take_upto, array_last_upto
+    - Repl: fix history reading when $/ is localized
+    - Repl: change to save history as individual files, immediately
+    - add `repl2test` script; add `FP::RegexMatch`
+
+0.72.47 2021-3-30
+    - add `group` to the Sequence interface
+    - add `hashkey`, `mesh` and `ziphash` to FP::Hash
+    - add add stdin_utf8, stdout_utf8, stderr_utf8 to Chj::xIOUtil
+
+0.72.46 2021-3-26
+    - examples/treestat: depend on JSON instead of JSON::PP, add begin
+      of merging functionality, add contents hash
+    - update FP::TransparentLazy to follow FP::Lazy developments
+    - Lazy: add `lazyT`; properly implement lazyLight; add
+      `is_forced`; handle nested promises correctly
+    - Updates for lazyT:
+        - FP::List: make final, stop using shortcut for `cdr`
+        - Stream,IOStream: use `lazyT`
+    - StrictList: make `is_proper_sequence` O(1)
+
+0.72.45 2021-3-21
+    - make examples/treestat work with older JSON::PP releases
+
+0.72.44 2021-3-19
+    - Abstract/Sequence: add for_each_with_islast
+    - xgetfile_utf8: check encoding strictly
+    - add examples/treestat
+
+0.72.43 2021-1-18
+    - missed cases in glob conversion, and update docs
+    - add links to testing frameworks
+
 0.72.42 2021-1-6
     - a test fix for Windows
     - big move from globs to \& for passing function references

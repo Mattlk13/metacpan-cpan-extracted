@@ -12,6 +12,8 @@
 #define PERL_CORE
 #define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
+#include "config.h"
+#undef USE_DTRACE
 #include "perl.h"
 #include "XSUB.h"
 
@@ -321,6 +323,9 @@ STATIC void (*da_old_peepp)(pTHX_ OP *);
 STATIC OP *da_tag_rv2cv(pTHX) { return NORMAL; }
 STATIC OP *da_tag_list(pTHX) { return NORMAL; }
 STATIC OP *da_tag_entersub(pTHX) { return NORMAL; }
+#if (PERL_COMBI_VERSION >= 5031002)
+STATIC OP *da_tag_enter(pTHX) { return NORMAL; }
+#endif
 
 STATIC void da_peep(pTHX_ OP *o);
 STATIC void da_peep2(pTHX_ OP *o);
@@ -1882,7 +1887,11 @@ STATIC int da_transform(pTHX_ OP *op, int sib) {
 STATIC void da_peep2(pTHX_ OP *o) {
 	OP *k, *lsop, *pmop, *argop, *cvop, *esop;
 	int useful;
-	while (o->op_ppaddr != da_tag_list) {
+	while (o->op_ppaddr != da_tag_list
+#if (PERL_COMBI_VERSION >= 5031002)
+			&& o->op_ppaddr != da_tag_enter
+#endif
+	) {
 		while (OpHAS_SIBLING(o)) {
 			if ((o->op_flags & OPf_KIDS) && (k = cUNOPo->op_first)){
 				da_peep2(aTHX_ k);
@@ -1897,6 +1906,12 @@ STATIC void da_peep2(pTHX_ OP *o) {
 		if (!(o->op_flags & OPf_KIDS) || !(o = cUNOPo->op_first))
 			return;
 	}
+#if (PERL_COMBI_VERSION >= 5031002)
+	if (o->op_ppaddr == da_tag_enter) {
+	        o = OpSIBLING(o);
+		assert(o);
+	}
+#endif
 	lsop = o;
 	useful = lsop->op_private & OPpUSEFUL;
 	op_null(lsop);
@@ -1916,6 +1931,18 @@ STATIC void da_peep2(pTHX_ OP *o) {
 		return;
 	}
 	esop->op_type = OP_ENTERSUB;
+#if (PERL_COMBI_VERSION >= 5031002)
+	if (cLISTOPx(esop)->op_first->op_ppaddr == da_tag_enter) {
+	        /* the first is a dummy op we inserted to satisfy Perl_scalar/list.
+		   we can't remove it since an op_next points at it, so null it out.
+		*/
+	        OP *nullop = cLISTOPx(esop)->op_first;
+	        assert(nullop->op_type == OP_ENTER);
+		assert(OpSIBLING(nullop));
+		nullop->op_type = OP_NULL;
+		nullop->op_ppaddr = PL_ppaddr[OP_NULL];
+	}
+#endif
 	if (cvop->op_flags & OPf_SPECIAL) {
 		esop->op_ppaddr = DataAlias_pp_copy;
 		da_peep2(aTHX_ pmop);
@@ -1931,6 +1958,8 @@ STATIC void da_peep(pTHX_ OP *o) {
 	da_old_peepp(aTHX_ o);
 	ENTER;
 	SAVEVPTR(PL_curcop);
+	if (da_inside < 0)
+		Perl_croak(aTHX_ "Data::Alias confused in da_peep (da_inside < 0)");
 	if (da_inside && da_iscope == &cxstack[cxstack_ix]) {
 		OP *tmp;
 		while ((tmp = o->op_next))
@@ -1955,6 +1984,7 @@ STATIC OP *da_ck_rv2cv(pTHX_ OP *o) {
 	OP *kid;
 	char *s, *start_s;
 	CV *cv;
+	I32 inside;
 	o = da_old_ck_rv2cv(aTHX_ o);
 #if (PERL_COMBI_VERSION >= 5009005)
 	if (!PL_parser)
@@ -1963,26 +1993,36 @@ STATIC OP *da_ck_rv2cv(pTHX_ OP *o) {
 	if (PL_lex_state != LEX_NORMAL && PL_lex_state != LEX_INTERPNORMAL)
 		return o; /* not lexing? */
 	kid = cUNOPo->op_first;
-	if (kid->op_type != OP_GV || !DA_ACTIVE || (
-			(gvsv = (SV*)kGVOP_gv,
-				cv =
+	if (kid->op_type != OP_GV || !DA_ACTIVE)
+		return o;
+	gvsv = (SV*)kGVOP_gv;
 #if (PERL_COMBI_VERSION >= 5021004)
-					SvROK(gvsv) ? (CV*)SvRV(gvsv) :
+	cv = SvROK(gvsv) ? (CV*)SvRV(gvsv) : GvCV((GV*)gvsv);
+#else
+	cv = GvCV((GV*)gvsv);
 #endif
-					GvCV((GV*)gvsv),
-				1) &&
-			cv != da_cv && cv != da_cvc ))
+	if (cv == da_cv)  // Data::Alias::alias
+		inside = 1;
+	else if (cv == da_cvc)  // Data::Alias::copy
+		inside = 0;
+	else
 		return o;
 	if (o->op_private & OPpENTERSUB_AMPER)
 		return o;
+
+	// make sure the temporary ($) prototype for the parser hack is removed
 	SvPOK_off(cv);
+
+	// tag the op for later recognition
 	o->op_ppaddr = da_tag_rv2cv;
-	if (cv == da_cv)
+	if (inside)
 		o->op_flags &= ~OPf_SPECIAL;
 	else
 		o->op_flags |= OPf_SPECIAL;
+
 	start_s = s = PL_oldbufptr;
 	while (s < PL_bufend && isSPACE(*s)) s++;
+
 	if (memEQ(s, PL_tokenbuf, strlen(PL_tokenbuf))) {
 		s += strlen(PL_tokenbuf);
 		if (PL_bufptr > s) s = PL_bufptr;
@@ -2004,7 +2044,38 @@ STATIC OP *da_ck_rv2cv(pTHX_ OP *o) {
 	} else {
 		s = "";
 	}
-	if (*s == '{') { /* here comes deep magic */
+
+	// if not already done, localize da_inside to this compilation scope.
+	// this ensures it will get restored if we bail out with a compile error.
+	if (da_iscope != &cxstack[cxstack_ix]) {
+		SAVEVPTR(da_iscope);
+		SAVEI32(da_inside);
+		da_iscope = &cxstack[cxstack_ix];
+	}
+
+#if (PERL_COMBI_VERSION >= 5011002)
+	// since perl 5.11.2, when a sub is called with parenthesized argument the
+	// initial rv2cv op gets destroyed and a new one is created.  deal with that.
+	if (da_inside < 0) {
+		if (*s != '(' || da_inside != ~inside)
+			Perl_croak(aTHX_ "Data::Alias confused in da_ck_rv2cv");
+	} else
+#endif
+	{
+		// save da_inside on stack, restored in da_ck_entersub
+		SPAGAIN;
+		XPUSHs(da_inside ? &PL_sv_yes : &PL_sv_no);
+		PUTBACK;
+	}
+#if (PERL_COMBI_VERSION >= 5011002)
+	if (*s == '(' && da_inside >= 0) {
+		da_inside = ~inside;  // first rv2cv op (will be discarded)
+		return o;
+	}
+#endif
+	da_inside = inside;
+
+	if (*s == '{') {  // disgusting parser hack for alias BLOCK (and copy BLOCK)
 		I32 shift;
 		int tok;
 		YYSTYPE yylval = PL_yylval;
@@ -2012,7 +2083,11 @@ STATIC OP *da_ck_rv2cv(pTHX_ OP *o) {
 		PL_expect = XSTATE;
 		tok = yylex();
 		PL_nexttype[PL_nexttoke++] = tok;
-		if (tok == '{') {
+		if (tok == '{'
+#if PERL_COMBI_VERSION >= 5033006
+		    || tok == PERLY_BRACE_OPEN
+#endif
+		    ) {
 			PL_nexttype[PL_nexttoke++] = DO;
 			sv_setpv((SV *) cv, "$");
 			if ((PERL_COMBI_VERSION >= 5021004) ||
@@ -2039,7 +2114,7 @@ STATIC OP *da_ck_rv2cv(pTHX_ OP *o) {
 					PL_bufend+1-PL_bufptr, char);
 				*PL_bufptr = ';';
 				PL_bufend++;
-				SvCUR(PL_linestr)++;
+				SvCUR_set(PL_linestr, SvCUR(PL_linestr)+1);
 			}
 		}
 #if DA_HAVE_LEX_KNOWNEXT
@@ -2068,33 +2143,24 @@ STATIC OP *da_ck_rv2cv(pTHX_ OP *o) {
 				if (len + shift > SvLEN(PL_linestr))
 					len = SvLEN(PL_linestr) - shift;
 				Move(s, s + shift, len, char);
-				SvCUR(PL_linestr) = len + shift - 1;
+				SvCUR_set(PL_linestr, len + shift - 1);
 			} else {
 				STRLEN len = SvCUR(PL_linestr) + shift + 1;
 				Move(s - shift, s, len, char);
-				SvCUR(PL_linestr) += shift;
+				SvCUR_set(PL_linestr, SvCUR(PL_linestr) + shift);
 			}
 			*(PL_bufend = s + SvCUR(PL_linestr)) = '\0';
 			if (start_s < PL_bufptr)
 				memset(start_s, ' ', PL_bufptr-start_s);
 		}
 	}
-	if (da_iscope != &cxstack[cxstack_ix]) {
-		SAVEVPTR(da_iscope);
-		SAVEI32(da_inside);
-		da_iscope = &cxstack[cxstack_ix];
-	}
-	SPAGAIN;
-	XPUSHs(da_inside ? &PL_sv_yes : &PL_sv_no);
-	da_inside = (cv == da_cv);
-	PUTBACK;
 	return o;
 }
 
 STATIC OP *da_ck_entersub(pTHX_ OP *esop) {
 	dDA;
 	OP *lsop, *cvop, *pmop, *argop;
-	int inside;
+	I32 inside;
 	if (!(esop->op_flags & OPf_KIDS))
 		return da_old_ck_entersub(aTHX_ esop);
 	lsop = cUNOPx(esop)->op_first;
@@ -2106,6 +2172,8 @@ STATIC OP *da_ck_entersub(pTHX_ OP *esop) {
 	if (!DA_ACTIVE || cvop->op_ppaddr != da_tag_rv2cv)
 		return da_old_ck_entersub(aTHX_ esop);
 	inside = da_inside;
+	if (inside < 0)
+		Perl_croak(aTHX_ "Data::Alias confused in da_ck_entersub (da_inside < 0)");
 	da_inside = SvIVX(*PL_stack_sp--);
 	SvPOK_off(inside ? da_cv : da_cvc);
 	op_clear(esop);
@@ -2113,6 +2181,21 @@ STATIC OP *da_ck_entersub(pTHX_ OP *esop) {
 	OpLASTSIB_set(lsop, esop);
 	esop->op_type = inside ? OP_SCOPE : OP_LEAVE;
 	esop->op_ppaddr = da_tag_entersub;
+#if (PERL_COMBI_VERSION >= 5031002)
+	if (!inside && !OpHAS_SIBLING(lsop)) {
+	          /* esop is now a leave, and Perl_scalar/Perl_list expects at least two children.
+		     we insert it in the middle (and null it later) since Perl_scalar()
+		     tries to find the last non-(null/state) op *after* the expected enter.
+		   */
+	          OP *enterop;
+	          NewOp(0, enterop, 1, OP);
+		  enterop->op_type = OP_ENTER;
+		  enterop->op_ppaddr = da_tag_enter;
+		  cLISTOPx(esop)->op_first = enterop;
+		  OpMORESIB_set(enterop, lsop);
+		  OpLASTSIB_set(lsop, esop);
+	}
+#endif
 	cLISTOPx(esop)->op_last = lsop;
 	lsop->op_type = OP_LIST;
 	lsop->op_targ = 0;

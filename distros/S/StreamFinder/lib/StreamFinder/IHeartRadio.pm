@@ -4,7 +4,7 @@ StreamFinder::IHeartRadio - Fetch actual raw streamable URLs from radio-station 
 
 =head1 AUTHOR
 
-This module is Copyright (C) 2017-2020 by
+This module is Copyright (C) 2017-2021 by
 
 Jim Turner, C<< <turnerjw784 at yahoo.com> >>
 		
@@ -108,7 +108,8 @@ One or more stream URLs can be returned for each station or podcast.
 
 =over 4
 
-=item B<new>(I<ID>|I<url> [, I<-keep|-skip> => I<streamtypes> | I<-debug> [ => 0|1|2 ] ... ])
+=item B<new>(I<ID>|I<url> [, I<-keep|-skip> => I<streamtypes>] 
+[, I<-secure> [ => 0|1 ]] [, I<-debug> [ => 0|1|2 ] ... ])
 
 Accepts an iheartradio.com station / podcast ID or URL and creates and returns a 
 new station (or podcast) object, or I<undef> if the URL is not a valid IHeart 
@@ -126,29 +127,37 @@ include or skip respectively.  The list for each can be either a comma-separated
 string or an array reference ([...]) of stream types, in the order they should be 
 returned.  Each stream type in the list can be one of:  any, secure, secure_pls, 
 pls, secure_hls, hls, secure_shortcast, shortcast, secure_rtmp, rtmp, (I<ext>, 
-ie. mp4) etc.
+ie. mp4) etc.  NOTE:  If you specify the I<-secure> option, described below, as 1 
+(true), and only non-secure* options above for I<-keep>, you won't get any streams!
 
-DEFAULT keep list is 'secure_shoutcast, shoutcast, secure, any', meaning that all 
+DEFAULT I<-keep> list is 'secure_shoutcast, shoutcast, secure, any', meaning that all 
 secure_shoutcast (https:) streams followed by any other shoutcast streams, then all 
 other secure (https:) streams, followed by any remaining (http:) streams (.m3u8, etc.).  
 More than one value can be specified to control order of search.
 
-NOTE:  This is now the preferred method over the DEPRECIATED one below.  If using 
-this method, do NOT include the inverter ("!") in front of the stream types, as 
-this is not used - these should be put in the I<-skip> list now.  The method 
-below will be REMOVED in a later version soon!
+The optional I<-secure> argument can be either 0 or 1 (I<false> or I<true>).  If 1 
+then only secure ("https://") streams will be returned.
 
-DEPRECIATED:  use The optional I<streamtype> can be one of:  any, secure, 
-secure_pls, pls, secure_hls, hls, secure_shortcast, shortcast, secure_rtmp, 
-rtmp etc.  More than one value can be specified to control 
-order of search.  A I<streamtype> can be preceeded by an exclamantion point 
-("!") to reject that type of stream.  If "any" appears in the list, it should 
-be the last specifier without a "!" preceeding it, and itself should not be 
-preceeded with a "!" (inverter)!  For example, the list:  'secure_shoutcast', 
-'secure', 'any', '!rtmp' would try to find a "secure_shoutcast" (https) 
-shortcast stream, if none found, would then look for any secure (https) 
-stream, failing that, would look for any valid stream.  All the while 
-skipping any that are "rtmp" streams.
+DEFAULT I<-secure> is 0 (false) - return all streams (http and https).
+
+Additional options:
+
+I<-log> => "I<logfile>"
+
+Specify path to a log file.  If a valid and writable file is specified, A line will be 
+appended to this file every time one or more streams is successfully fetched for a url.
+
+DEFAULT i<-none> (no logging).
+
+I<-logfmt> specifies a format string for lines written to the log file.
+
+DEFAULT "I<[time] [url] - [site]: [title] ([total])>".  
+
+The valid field I<[variables]> are:  [stream]: The url of the first/best stream found.  
+[site]:  The site name (IHeartRadio).  [url]:  The url searched for streams.  
+[time]: Perl timestamp when the line was logged.  [title], [artist], [album], 
+[description], [year], [genre], [total], [albumartist]:  The corresponding field data 
+returned (or "-na", if no value).
 
 =item $station->B<get>()
 
@@ -299,7 +308,7 @@ L<http://search.cpan.org/dist/StreamFinder-IHeartRadio/>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2017-2020 Jim Turner.
+Copyright 2017-2021 Jim Turner.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the the Artistic License (2.0). You may obtain a
@@ -346,60 +355,23 @@ use warnings;
 use URI::Escape;
 use HTML::Entities ();
 use LWP::UserAgent ();
-use vars qw(@ISA @EXPORT);
+use parent 'StreamFinder::_Class';
 
 my $DEBUG = 0;
-my $bummer = ($^O =~ /MSWin/);
-my %uops = ();
-my @userAgentOps = ();
-
-require Exporter;
-
-@ISA = qw(Exporter);
-@EXPORT = qw(get getURL getType getID getTitle getIconURL getIconData getImageURL getImageData);
 
 sub new
 {
 	my $class = shift;
 	my $url = shift;
 
-	my $self = {};
 	return undef  unless ($url);
 
-	my $homedir = $bummer ? $ENV{'HOMEDRIVE'} . $ENV{'HOMEPATH'} : $ENV{'HOME'};
-	$homedir ||= $ENV{'LOGDIR'}  if ($ENV{'LOGDIR'});
-	$homedir =~ s#[\/\\]$##;
-	my (@okStreams, @skipStreams, @okStreamsClassic, @skipStreamsClassic);
-	foreach my $p ("${homedir}/.config/StreamFinder/config", "${homedir}/.config/StreamFinder/IHeartRadio/config") {
-		if (open IN, $p) {
-			my ($atr, $val);
-			while (<IN>) {
-				chomp;
-				next  if (/^\s*\#/o);
-				($atr, $val) = split(/\s*\=\>\s*/o, $_, 2);
-				eval "\$uops{$atr} = $val";
-			}
-			close IN;
-		}
-	}
-	foreach my $i (qw(agent from conn_cache default_headers local_address ssl_opts max_size
-			max_redirect parse_head protocols_allowed protocols_forbidden requests_redirectable
-			proxy no_proxy)) {
-		push @userAgentOps, $i, $uops{$i}  if (defined $uops{$i});
-	}
-	push (@userAgentOps, 'agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0')
-			unless (defined $uops{'agent'});
-	$uops{'timeout'} = 10  unless (defined $uops{'timeout'});
-	$DEBUG = $uops{'debug'}  if (defined $uops{'debug'});
+	my $self = $class->SUPER::new('IHeartRadio', @_);
+	$DEBUG = $self->{'debug'}  if (defined $self->{'debug'});
 
+	my (@okStreams, @skipStreams);
 	while (@_) {
-		if ($_[0] =~ /^\!/o) {  #DEPRECIATED, USE -keep AND/OR -skip!
-			(my $i = shift) =~ s/\!//o;
-			push @skipStreamsClassic, $i;
-		} elsif ($_[0] =~ /^\-?debug$/o) {
-			shift;
-			$DEBUG = (defined($_[0]) && $_[0] =~/^[0-9]$/) ? shift : 1;
-		} elsif ($_[0] =~ /^\-?keep$/o) {
+		if ($_[0] =~ /^\-?keep$/o) {
 			shift;
 			if (defined $_[0]) {
 				my $keeporder = shift;
@@ -411,17 +383,15 @@ sub new
 				my $skiporder = shift;
 				@skipStreams = (ref($skiporder) =~ /ARRAY/) ? @{$skiporder} : split(/\,\s*/, $skiporder);
 			}
-		} else {  #DEPRECIATED, USE -keep AND/OR -skip!
-			push @okStreamsClassic, shift;
+		} else {
+			shift;
 		}
 	}
-	@okStreams = @okStreamsClassic  unless (defined $okStreams[0]);
-	@skipStreams = @skipStreamsClassic  unless (defined $skipStreams[0]);
-	if (!defined($okStreams[0]) && defined($uops{'keep'})) {
-		@okStreams = (ref($uops{'keep'}) =~ /ARRAY/) ? @{$uops{'keep'}} : split(/\,\s*/, $uops{'keep'});
+	if (!defined($okStreams[0]) && defined($self->{'keep'})) {
+		@okStreams = (ref($self->{'keep'}) =~ /ARRAY/) ? @{$self->{'keep'}} : split(/\,\s*/, $self->{'keep'});
 	}
-	if (!defined($skipStreams[0]) && defined($uops{'skip'})) {
-		@skipStreams = (ref($uops{'skip'}) =~ /ARRAY/) ? @{$uops{'skip'}} : split(/\,\s*/, $uops{'skip'});
+	if (!defined($skipStreams[0]) && defined($self->{'skip'})) {
+		@skipStreams = (ref($self->{'skip'}) =~ /ARRAY/) ? @{$self->{'skip'}} : split(/\,\s*/, $self->{'skip'});
 	}
 	@okStreams = (qw(secure_shoutcast shoutcast secure any))  unless (defined $okStreams[0]);  # one of:  {secure_pls | pls | stw}
 
@@ -443,10 +413,10 @@ sub new
 	return undef  unless ($self->{'id'});  #STEP 1 FAILED, INVALID STATION URL, PUNT!
 
 	my $html = '';
-	my $ua = LWP::UserAgent->new(@userAgentOps);		
+	my $ua = LWP::UserAgent->new(@{$self->{'_userAgentOps'}});		
 	my $response;
 
-	$ua->timeout($uops{'timeout'});
+	$ua->timeout($self->{'timeout'});
 	$ua->cookie_jar({});
 	$ua->env_proxy;
 	print STDERR "-1 FETCHING URL=$url2fetch= ID=".$self->{'id'}."=\n"  if ($DEBUG);
@@ -489,17 +459,13 @@ TRYIT:
 	my $html2 = '';
 	my $streamhtml0 = ($html =~ /\"streams\"\s*\:\s*\{([^\}]+)\}/) ? $1 : '';
 	print STDERR "-2: streamhtml=$streamhtml0=\n"  if ($DEBUG);
-	$self->{'cnt'} = 0;
-	$self->{'title'} = '';
-	$self->{'description'} = '';
-	$self->{'artist'} = '';
-	$self->{'created'} = '';
-	$self->{'year'} = '';
-	$self->{'streams'} = [];
 	unless ($streamhtml0) {  #NO STREAMS (PODCAST?) - LOOK FOR MEDIAURL:
 		while ($html =~ s#\"mediaUrl\"\:\"([^\"]+)\"##gso) {
-			push @{$self->{'streams'}}, $1;
-			$self->{'cnt'}++;
+			my $one = $1;
+			unless ($self->{'secure'} && $one !~ /^https/o) {
+				push @{$self->{'streams'}}, $one;
+				$self->{'cnt'}++;
+			}
 		}
 		unless ($tryit || $self->{'cnt'} > 0) {
 			print "--no streams found, ID=".$self->{'id'}."= url=$url2fetch= PODCAST PG, MAYBE?\n"  if ($DEBUG);
@@ -520,9 +486,13 @@ TRYIT:
 		my $seedID = ($id =~ /(\d+)$/) ? $1 : '';  #NUMERIC PART
 		$self->{'title'} = $1  if ($html =~ s# rel\=\"alternate\"\s+title\=\"([^\"]+)\"##s);
 		$self->{'title'} ||= ($html =~ s#\<title[^\>]+\>([^\<]+)\<\/title\>##s) ? $1 : '';
-		$self->{'description'} = $1  if ($html =~ s#\"description\"\:\"([^\"]+)##s);
+		if ($html =~ m#\bitemProp\=\"podcastDescription\"\>(.+?)\<\/div\>#s) {
+			$self->{'description'} = $1;
+		}
+		$self->{'description'} ||= $1  if ($html =~ s#\"description\"\:\"([^\"]+)##s);
 		$self->{'description'} ||= $1  if ($html =~ s#\"podcastDescription\"\>\<p\>(.+?)\<\/p\>##s);
-		$self->{'description'} ||= ($html =~ s#\"podcastDescription\"\>(?:\<[^\>]+\>)?([^\<]+)##s) ? $1 : $self->{'title'};
+#		$self->{'description'} ||= ($html =~ s#\"podcastDescription\"\>(?:\<[^\>]+\>)?([^\<]+)##s) ? $1 : $self->{'title'};
+		$self->{'description'} ||= $self->{'title'};
 		$self->{'description'} = HTML::Entities::decode_entities($self->{'description'});
 		$self->{'description'} = uri_unescape($self->{'description'});
 		($self->{'albumartist'} = $url) =~ s#\/episode.+$##;
@@ -548,10 +518,12 @@ TRYIT:
 		}
 		$self->{'year'} = ($html =~ m#\<p\>©\s*(\d\d\d\d)#s) ? $1 : '';
 		$self->{'year'} ||= $1  if ($html =~ m#(\d\d\d\d)\<\!\-\-#s);
+		$self->{'genre'} = 'Podcast';
 		$self->{'imageurl'} = ($html =~ s#\"imageUrl\"\:\"([^\"]+)\"##s) ? $1 : '';
 		$self->{'iconurl'} = $self->{'imageurl'};
 		$self->{'total'} = $self->{'cnt'};
 		print STDERR "\n--SUCCESS2: ID=".$self->{'id'}."=\n--TITLE=".$self->{'title'}."\n--STREAMS=".join('|',@{$self->{'streams'}})."=\n"  if ($DEBUG);
+		$self->_log($url);
 
 		bless $self, $class;   #BLESS IT!
 
@@ -618,7 +590,6 @@ INNER:  while ($streamhtml =~ s#(${streampattern}_stream)\"\s*\:\s*\"([^\"]+)\"#
 					print STDERR $response->status_line  if ($DEBUG);
 				}
 				while ($html =~ s#File\d+\=(\S+)##) {
-					#push @streams, $1;
 					$streams{$1} = $weight  unless (defined $streams{$1});
 					print STDERR "-----5: Adding PLS stream ($1) ($weight)!\n"  if ($DEBUG);
 					++$self->{'cnt'};
@@ -627,9 +598,7 @@ INNER:  while ($streamhtml =~ s#(${streampattern}_stream)\"\s*\:\s*\"([^\"]+)\"#
 			}
 			else  #NON-pls STREAM, WE'LL HAVE A LIST CONTAINING A SINGLE STREAM:
 			{
-				#push @streams, $self->{'streamurl'};
 				$streams{$self->{'streamurl'}} = $weight  unless (defined $streams{$self->{'streamurl'}});
-				#$self->{'streams'} = [$self->{'streamurl'}];
 				print STDERR "-----6: Adding ".$self->{'streamtype'}." stream (".$self->{'streamurl'}.") ($weight)!\n"  if ($DEBUG);
 				++$self->{'cnt'};
 				--$weight
@@ -644,174 +613,21 @@ INNER:  while ($streamhtml =~ s#(${streampattern}_stream)\"\s*\:\s*\"([^\"]+)\"#
 	#$self->{'total'} = $self->{'cnt'};
 	$self->{'total'} = 0;
 	foreach my $s (sort {$streams{$b} <=> $streams{$a}} keys %streams) {
-		push @{$self->{'streams'}}, $s;
-		print STDERR "++++ ADDING STREAM(".$streams{$s}."): $s\n"  if ($DEBUG);
-		++$self->{'total'};
+		unless ($self->{'secure'} && $s !~ /^https/o) {
+			push @{$self->{'streams'}}, $s;
+			print STDERR "++++ ADDING STREAM(".$streams{$s}."): $s\n"  if ($DEBUG);
+			++$self->{'total'};
+		}
 	}
+	$self->{'Url'} = ($self->{'total'} > 0) ? $self->{'streams'}->[0] : '';
 	print STDERR "-(all)count=".$self->{'cnt'}."= iconurl=".$self->{'iconurl'}."= TITLE=".$self->{'title'}."= DESC=".$self->{'description'}."= GENRE=".$self->{'genre'}."=\n"  if ($DEBUG);
-	print STDERR "-SUCCESS: 1st stream=".${$self->{'streams'}}[0]."=\n"  if ($DEBUG);
+	print STDERR "--SUCCESS: 1st stream=".$self->{'Url'}."= total=".$self->{'total'}."=\n"
+			if ($DEBUG && $self->{'cnt'} > 0);
+	$self->_log($url);
 
 	bless $self, $class;   #BLESS IT!
 
 	return $self;
-}
-
-sub get
-{
-	my $self = shift;
-
-	return wantarray ? @{$self->{'streams'}} : ${$self->{'streams'}}[0];
-}
-
-sub getURL   #LIKE GET, BUT ONLY RETURN THE SINGLE ONE W/BEST BANDWIDTH AND RELIABILITY:
-{
-	my $self = shift;
-	my $arglist = (defined $_[0]) ? join('|',@_) : '';
-	my $idx = ($arglist =~ /\b\-?random\b/) ? int rand scalar @{$self->{'streams'}} : 0;
-	if (($arglist =~ /\b\-?nopls\b/ && ${$self->{'streams'}}[$idx] =~ /\.(pls)$/i)
-			|| ($arglist =~ /\b\-?noplaylists\b/ && ${$self->{'streams'}}[$idx] =~ /\.(pls|m3u8?)$/i)) {
-		my $plType = $1;
-		my $firstStream = ${$self->{'streams'}}[$idx];
-		print STDERR "-getURL($idx): NOPLAYLISTS and (".${$self->{'streams'}}[$idx].")\n"  if ($DEBUG);
-		my $ua = LWP::UserAgent->new(@userAgentOps);		
-		$ua->timeout($uops{'timeout'});
-		$ua->cookie_jar({});
-		$ua->env_proxy;
-		my $html = '';
-		my $response = $ua->get($firstStream);
-		if ($response->is_success) {
-			$html = $response->decoded_content;
-		} else {
-			print STDERR $response->status_line  if ($DEBUG);
-			my $no_wget = system('wget','-V');
-			unless ($no_wget) {
-				print STDERR "\n..trying wget...\n"  if ($DEBUG);
-				$html = `wget -t 2 -T 20 -O- -o /dev/null \"$firstStream\" 2>/dev/null `;
-			}
-		}
-		my @lines = split(/\r?\n/, $html);
-		my @plentries = ();
-		my $firstTitle = '';
-		my $plidx = ($arglist =~ /\b\-?random\b/) ? 1 : 0;
-		if ($plType =~ /pls/i) {  #PLS:
-			foreach my $line (@lines) {
-				if ($line =~ m#^\s*File\d+\=(.+)$#o) {
-					push (@plentries, $1);
-				} elsif ($line =~ m#^\s*Title\d+\=(.+)$#o) {
-					$firstTitle ||= $1;
-				}
-			}
-			$self->{'title'} ||= $firstTitle;
-			print STDERR "-getURL(PLS): title=$firstTitle= pl_idx=$plidx=\n"  if ($DEBUG);
-		} elsif ($arglist =~ /\b\-?noplaylists\b/) {  #m3u*:
-			(my $urlpath = ${$self->{'streams'}}[$idx]) =~ s#[^\/]+$##;
-			foreach my $line (@lines) {
-				if ($line =~ m#^\s*([^\#].+)$#o) {
-					my $urlpart = $1;
-					$urlpart =~ s#^\s+##o;
-					$urlpart =~ s#^\/##o;
-					push (@plentries, ($urlpart =~ m#https?\:#) ? $urlpart : ($urlpath . '/' . $urlpart));
-					last  unless ($plidx);
-				}
-			}
-			print STDERR "-getURL(m3u?): pl_idx=$plidx=\n"  if ($DEBUG);
-		}
-		if ($plidx && $#plentries >= 0) {
-			$plidx = int rand scalar @plentries;
-		} else {
-			$plidx = 0;
-		}
-		$firstStream = (defined($plentries[$plidx]) && $plentries[$plidx]) ? $plentries[$plidx]
-				: ${$self->{'streams'}}[$idx];
-
-		return $firstStream;
-	}
-
-	return ${$self->{'streams'}}[$idx];
-}
-
-sub count
-{
-	my $self = shift;
-	return $self->{'total'};  #TOTAL NUMBER OF PLAYABLE STREAM URLS FOUND.
-}
-
-sub getType
-{
-	my $self = shift;
-	return 'IHeartRadio';  #STATION TYPE (FOR PARENT StreamFinder MODULE).
-}
-
-sub getID
-{
-	my $self = shift;
-	return $self->{'fccid'}  if (defined($_[0]) && $_[0] =~ /fcc/i);  #STATION'S CALL LETTERS OR IHEARTRADIO-ID.
-	return $self->{'id'};
-}
-
-sub getTitle
-{
-	my $self = shift;
-	return $self->{'description'}  if (defined($_[0]) && $_[0] =~ /^\-?(?:long|desc)/i);
-	return $self->{'title'};  #STATION'S TITLE(DESCRIPTION), IF ANY.
-}
-
-sub getIconURL
-{
-	my $self = shift;
-	return $self->{'iconurl'};  #URL TO THE STATION'S THUMBNAIL ICON, IF ANY.
-}
-
-sub getIconData
-{
-	my $self = shift;
-	return ()  unless ($self->{'iconurl'});
-
-	my $ua = LWP::UserAgent->new(@userAgentOps);		
-	$ua->timeout($uops{'timeout'});
-	$ua->cookie_jar({});
-	$ua->env_proxy;
-	my $art_image = '';
-	my $response = $ua->get($self->{'iconurl'});
-	if ($response->is_success) {
-		$art_image = $response->decoded_content;
-	} else {
-		print STDERR $response->status_line  if ($DEBUG);
-	}
-	return ()  unless ($art_image);
-
-	(my $image_ext = $self->{'iconurl'}) =~ s/^.+\.//;
-	$image_ext =~ s/[^A-Za-z].*$//;
-
-	return ($image_ext, $art_image);
-}
-
-sub getImageURL
-{
-	my $self = shift;
-	return $self->{'imageurl'};  #URL TO THE STATION'S BANNER IMAGE, IF ANY.
-}
-
-sub getImageData
-{
-	my $self = shift;
-	return ()  unless ($self->{'imageurl'});
-	my $ua = LWP::UserAgent->new(@userAgentOps);		
-	$ua->timeout($uops{'timeout'});
-	$ua->cookie_jar({});
-	$ua->env_proxy;
-	my $art_image = '';
-	my $response = $ua->get($self->{'imageurl'});
-	if ($response->is_success) {
-		$art_image = $response->decoded_content;
-	} else {
-		print STDERR $response->status_line  if ($DEBUG);
-	}
-	return ()  unless ($art_image);
-	my $image_ext = $self->{'imageurl'};
-	$image_ext = ($self->{'imageurl'} =~ /\.(\w+)$/) ? $1 : 'png';
-	$image_ext =~ s/[^A-Za-z].*$//;
-	return ($image_ext, $art_image);
 }
 
 1

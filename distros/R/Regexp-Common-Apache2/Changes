@@ -1,0 +1,15 @@
+Revision history for Perl module Regexp::Common::Apache2
+
+0.2.1 2021-03-07T13:26:25+0900
+    - Corrected slight overlook leading to infinite recursion
+    - Performance improvements
+
+0.2.0 2021-03-07T10:35:10+0900
+    - Made substantial improvements to the regular expressions to allow for more complex Apache expressions
+
+0.1.1 2021-02-17T12:05:43+0900
+    - Improved version with advanced regular expression (trunk) and normal ones
+
+0.1.0 2021-01-30T15:37:11+0900
+    - original version; created by ExtUtils::ModuleMaker 0.63
+    - Initial stable release

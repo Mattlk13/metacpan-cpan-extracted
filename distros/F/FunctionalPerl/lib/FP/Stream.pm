@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2020 Christian Jaeger, copying@christianjaeger.ch
+# Copyright (c) 2013-2021 Christian Jaeger, copying@christianjaeger.ch
 #
 # This is free software, offered under either the same terms as perl 5
 # or the terms of the Artistic License version 2 or the terms of the
@@ -366,10 +366,11 @@ sub stream_append2 {
     my ($l1, $l2) = @_;
     weaken $_[0];
     weaken $_[1];
-    lazy {
+    lazyT {
         $l1 = force $l1;
         is_null($l1) ? $l2 : cons(car($l1), stream_append(cdr($l1), $l2))
     }
+    "FP::List::List"
 }
 
 sub stream_append {
@@ -388,9 +389,10 @@ sub stream_append {
         $ss->rest->fold(
             sub {
                 my ($s, $rest) = @_;
-                lazy {
+                lazyT {
                     stream_append2($s, $rest)
                 }
+                "FP::List::List"
             },
             $ss->first
         )
@@ -450,10 +452,11 @@ sub stream_map {
     @_ == 2 or fp_croak_arity 2;
     my ($fn, $l) = @_;
     weaken $_[1];
-    lazy {
+    lazyT {
         $l = force $l;
         is_null($l) ? null : cons(&$fn(car $l), stream_map($fn, cdr $l))
     }
+    "FP::List::List"
 }
 
 *FP::List::List::stream_map = flip \&stream_map;
@@ -462,12 +465,13 @@ sub stream_map_with_tail {
     @_ == 3 or fp_croak_arity 3;
     my ($fn, $l, $tail) = @_;
     weaken $_[1];
-    lazy {
+    lazyT {
         $l = force $l;
         is_null($l)
             ? $tail
             : cons(&$fn(car $l), stream_map_with_tail($fn, cdr($l), $tail))
     }
+    "FP::Abstract::Sequence"
 }
 
 *FP::List::List::stream_map_with_tail = flip2of3 \&stream_map_with_tail;
@@ -478,13 +482,14 @@ sub stream_zip2 {
     my ($l, $m) = @_;
     do { weaken $_ if is_promise $_ }
         for @_;    #needed?
-    lazy {
+    lazyT {
         $l = force $l;
         $m = force $m;
         (is_null $l or is_null $m)
             ? null
             : cons([car($l), car($m)], stream_zip2(cdr($l), cdr($m)))
     }
+    "FP::List::List"
 }
 
 *FP::List::List::stream_zip2 = \&stream_zip2;
@@ -494,7 +499,7 @@ sub stream_zip {
     my @ps = @_;
     do { weaken $_ if is_promise $_ }
         for @_;    #needed?
-    lazy {
+    lazyT {
         my @vs = map {
             my $v = force $_;
             is_null($v) ? return null : $v
@@ -503,6 +508,7 @@ sub stream_zip {
         my $b = stream_zip(map { cdr $_ } @vs);
         cons($a, $b)
     }
+    "FP::List::List"
 }
 
 *FP::List::List::stream_zip = \&stream_zip;    # XX fall back on zip2
@@ -512,12 +518,13 @@ sub stream_zip_with {
     my ($f, $l1, $l2) = @_;
     weaken $_[1];
     weaken $_[2];
-    lazy {
+    lazyT {
         my $l1 = force $l1;
         my $l2 = force $l2;
         (is_null $l1 or is_null $l2) ? null : cons &$f(car($l1), car($l2)),
             stream_zip_with($f, cdr($l1), cdr($l2))
     }
+    "FP::List::List"
 }
 
 *FP::List::List::stream_zip_with = flip2of3 \&stream_zip_with;
@@ -695,7 +702,9 @@ TEST { stream(1, 2, 3)->strings_join("-") }
 "1-2-3";
 
 sub stream_for_each;
-*stream_for_each = FP::List::make_for_each(1);
+*stream_for_each = FP::List::make_for_each(1, 0);
+sub stream_for_each_with_islast;
+*stream_for_each_with_islast = FP::List::make_for_each(1, 1);
 
 *FP::List::List::stream_for_each = flip \&stream_for_each;
 
@@ -718,7 +727,7 @@ sub stream_take {
     @_ == 2 or fp_croak_arity 2;
     my ($s, $n) = @_;
     weaken $_[0];
-    lazy {
+    lazyT {
         if ($n > 0) {
             $s = force $s;
             is_null($s) ? $s : cons(car($s), stream_take(cdr($s), $n - 1));
@@ -726,6 +735,7 @@ sub stream_take {
             null
         }
     }
+    "FP::List::List"
 }
 
 *FP::List::List::stream_take = \&stream_take;
@@ -734,7 +744,7 @@ sub stream_take_while {
     @_ == 2 or fp_croak_arity 2;
     my ($fn, $s) = @_;
     weaken $_[1];
-    lazy {
+    lazyT {
         $s = force $s;
         if (is_null $s) {
             null
@@ -747,6 +757,7 @@ sub stream_take_while {
             }
         }
     }
+    "FP::List::List"
 }
 
 *FP::List::List::stream_take_while = flip \&stream_take_while;
@@ -762,7 +773,7 @@ sub stream_slice {
         my ($s) = @_;
         weaken $_[0];
         my $rec = $rec;
-        lazy {
+        lazyT {
             $s = force $s;
             if (is_null $s) {
                 $s    # null
@@ -774,6 +785,7 @@ sub stream_slice {
                 }
             }
         }
+        "FP::List::List"
     };
     @_ = ($start);
     goto &{ Weakened $rec};
@@ -787,7 +799,7 @@ sub stream_drop_while {
     @_ == 2 or fp_croak_arity 2;
     my ($pred, $s) = @_;
     weaken $_[1];
-    lazy {
+    lazyT {
     LP: {
             $s = force $s;
             if (!is_null $s and &$pred(car $s)) {
@@ -798,6 +810,7 @@ sub stream_drop_while {
             }
         }
     }
+    "FP::Abstract::Sequence"
 }
 
 *FP::List::List::stream_drop_while = flip \&stream_drop_while;
@@ -833,8 +846,8 @@ sub t_ref {
     ];
 }
 
-t_ref *list, \&cons, "list";
-t_ref *stream, sub {
+t_ref \&list, \&cons, "list";
+t_ref \&stream, sub {
     my ($a, $r) = @_;
     lazy { cons $a, $r }
 }, "stream";
@@ -922,14 +935,14 @@ sub stream_sort {
 
 TEST {
     require FP::Ops;
-    stream(5, 3, 8, 4)->sort (\&FP::Ops::number_cmp)->array
+    stream(5, 3, 8, 4)->sort (\&FP::Ops::real_cmp)->array
 }
 [3, 4, 5, 8];
 
-TEST { ref(stream(5, 3, 8, 4)->sort (\&FP::Ops::number_cmp)) }
+TEST { ref(stream(5, 3, 8, 4)->sort (\&FP::Ops::real_cmp)) }
 'FP::_::PureArray';    # XX ok? Need to `->stream` if a stream is needed
 
-TEST { stream(5, 3, 10, 8, 4)->sort (\&FP::Ops::number_cmp)->stream->car }
+TEST { stream(5, 3, 10, 8, 4)->sort (\&FP::Ops::real_cmp)->stream->car }
 3;
 
 # but then PureArray has `first`, too, if that's all you need.
@@ -960,17 +973,18 @@ sub stream_mixed_flatten {
 *FP::List::List::stream_mixed_flatten = \&stream_mixed_flatten;
 
 sub stream_any {
-    @_ == 2 or fp_croak_arity 2;
-    my ($pred, $l) = @_;
+    @_ == 2 or @_ == 3 or fp_croak_arity "2 or 3";
+    my ($pred, $l, $prev_false) = @_;
     weaken $_[1];
     $l = force $l;
     if (is_pair $l) {
-        (&$pred(car $l)) or do {
+        my $v = $pred->(car $l);
+        $v or do {
             my $r = cdr $l;
-            stream_any($pred, $r)
+            stream_any($pred, $r, $v)
         }
     } elsif (is_null $l) {
-        0
+        $prev_false
     } else {
         die "improper list: $l"
     }
@@ -1113,7 +1127,7 @@ sub stream_cartesian_product_2 {
     $rec = sub {
         my ($a, $b) = @_;
         my $rec = $rec;
-        lazy {
+        lazyT {
             if (is_null $a) {
                 null
             } elsif (is_null $b) {
@@ -1122,6 +1136,7 @@ sub stream_cartesian_product_2 {
                 cons(cons(car($a), car($b)), &$rec($a, cdr $b))
             }
         }
+        "FP::List::List"
     };
     Weakened($rec)->($a, $orig_b)
 }
@@ -1153,7 +1168,7 @@ sub stream_cartesian_product {
     if (!@v) {
         die "stream_cartesian_product: need at least 1 argument"
     } elsif (@v == 1) {
-        stream_map *list, $v[0]
+        stream_map \&list, $v[0]
     } else {
         my $first = shift @v;
         stream_cartesian_product_2($first, stream_cartesian_product(@v))
@@ -1259,7 +1274,7 @@ TEST {
 TEST {
     stream_any sub { $_[0] % 2 }, array_to_stream []
 }
-0;
+undef;
 TEST {
     stream_any sub { $_[0] % 2 }, array_to_stream [2, 5, 8]
 }

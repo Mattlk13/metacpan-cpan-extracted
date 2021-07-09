@@ -1,0 +1,49 @@
+Revision history for List-Keywords
+
+0.08    2021-05-31
+        [CHANGES]
+         * Use the new XPK_*CTX versions of token macros to simplify needing
+           to call op_contextualize() / op_scope()
+
+0.07    2021-05-27
+        [CHANGES]
+         * Added 'reductions'
+
+        [BUGFIXES]
+         * Remember to declare dependency on XS::Parse::Keyword 0.04
+
+0.06    2021-05-24
+        [CHANGES]
+         * Updated for XS::Parse::Keyword 0.04 API change
+
+0.05    2021-05-12
+        [CHANGES]
+         * Added 'reduce'
+
+        [BUGFIXES]
+         * Make sure to optimize/finalize the optree of the code block, as
+           some ops need this (e.g. for dTARG allocation)
+
+0.04    2021-04-30
+        [CHANGES]
+         * Implement B::Deparse hackery so code deparses properly
+         * Now works back to perl 5.14 so declare that as such
+
+        [BUGFIXES]
+         * Fix POD error in docs
+         * Fix maths error in t/95benchmark.t
+
+0.03    2021-04-28
+        [CHANGES]
+         * Added 'first', 'none', 'notall'
+
+0.02    2021-04-27
+        [CHANGES]
+         * Added a benchmarking test to print comparisons with List::Util
+
+        [BUGFIXES]
+         * Back-compat to perl 5.16
+         * Yield correct result when any/all are given an empty list of items
+
+0.01    2021-04-27
+        First version, released on an unsuspecting world.

@@ -24,7 +24,7 @@ post '/test/optional/implicitly' => sub {
   },
   'test3';
 
-plugin OpenAPI => {url => 'data:///api.yml', schema => 'v3'};
+plugin OpenAPI => {url => 'data:///api.yml'};
 
 my $t = Test::Mojo->new();
 
@@ -46,17 +46,22 @@ note 'Invalid JSON should fail';
 $t->post_ok('/test', {'Content-Type' => 'application/json'} => 'invalid_json')->status_is(400)
   ->json_is('/errors/0/message', 'Expected object - got null.');
 
+note 'Invalid Content-Type should fail';
+$t->post_ok('/test', {'Content-Type' => 'application/xml'} => '<?xml version = "1.0"?>')
+  ->status_is(400)
+  ->json_is('/errors/0/message', 'Expected application/json - got application/xml.');
+
 note 'empty requestBody with "required: false"';
 $t->post_ok('/test/optional/explicitly')->status_is(200);
 
 note 'requestBody with "required: false"';
-$t->post_ok('/test/optional/explicitly', json => { foo => 'bar' })->status_is(200);
+$t->post_ok('/test/optional/explicitly', json => {foo => 'bar'})->status_is(200);
 
 note 'empty requestBody without "required: false"';
 $t->post_ok('/test/optional/implicitly')->status_is(200);
 
 note 'requestBody without "required: false"';
-$t->post_ok('/test/optional/implicitly', json => { foo => 'bar' })->status_is(200);
+$t->post_ok('/test/optional/implicitly', json => {foo => 'bar'})->status_is(200);
 
 done_testing;
 

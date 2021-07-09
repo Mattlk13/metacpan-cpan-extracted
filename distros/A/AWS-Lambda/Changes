@@ -1,5 +1,23 @@
 Revision history for Perl extension aws-lambda
 
+0.0.28 2021-06-13T15:46:13Z
+    - Fix mojibake when the input and the output are utf8 encoded
+    - Update WwwCounter v4.0.0 in the examples
+
+0.0.27 2021-05-21T03:58:38Z
+    - Perl 5.34.0 is released
+
+0.0.26 2021-05-09T02:54:24Z
+    - bump Paws 0.43
+
+0.0.25 2021-03-02T05:32:05Z
+    - new region Asia Pacific (Osaka) ap-northeast-3 is available
+    - custom registry name https://gallery.ecr.aws/shogo82148/p5-aws-lambda is now available
+      - old one https://gallery.ecr.aws/w2s0h5h2/p5-aws-lambda is still alive
+
+0.0.24 2021-01-25T10:18:13Z
+    - perl 5.32.1 is released
+
 0.0.23 2021-01-02T02:20:42Z
     - support Container Image format https://aws.amazon.com/jp/blogs/aws/new-for-aws-lambda-container-image-support/
 

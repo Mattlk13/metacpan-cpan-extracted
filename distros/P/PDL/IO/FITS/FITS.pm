@@ -32,7 +32,7 @@ hashes or (if the module is present) Astro::FITS::Header objects that
 are tied to perl hashes.  Astro::FITS::Header objects provide
 convenient access through the tied hash interface, but also allow you
 to control the card structure in more detail using a separate method
-interface; see the L<Astro::FITS::Header|Astro::FITS::Header>
+interface; see the L<Astro::FITS::Header>
 documentation for details.
 
 =head1 AUTHOR
@@ -102,7 +102,7 @@ sub _wfits_table ($$$);
 
 =for ref
 
-Simple piddle FITS reader.
+Simple ndarray FITS reader.
 
 =for example
 
@@ -186,7 +186,7 @@ and get a large boost in speed.
 FITS image headers are stored in the output PDL and can be retrieved
 with L<hdr|PDL::Core/hdr> or L<gethdr|PDL::Core/gethdr>.  The
 L<hdrcpy|PDL::Core/hdrcpy> flag of the PDL is set so that the header
-is copied to derived piddles by default.  (This is inefficient if you
+is copied to derived ndarrays by default.  (This is inefficient if you
 are planning to do lots of small operations on the data; clear
 the flag with "->hcpy(0)" or via the options hash if that's the case.)
 
@@ -299,7 +299,7 @@ in place for adding other compression schemes.
 =head3 BAD VALUE HANDLING
 
 If a FITS file contains the C<BLANK> keyword (and has C<BITPIX E<gt> 0>), 
-the piddle will have its bad flag set, and those elements which equal the
+the ndarray will have its bad flag set, and those elements which equal the
 C<BLANK> value will be set bad.  For C<BITPIX E<lt> 0>, any NaN's are
 converted to bad (if necessary).
 
@@ -620,7 +620,7 @@ sub _rfits_image($$$$) {
   my $opt = shift;  # $opt contains the option hash
   my $pdl = shift;  # $pdl contains a pre-blessed virgin PDL
 
-  # Setup piddle structure
+  # Setup ndarray structure
   
   if(  defined($type_table->{0 + $foo->{"BITPIX"}})  ) {
       $pdl->set_datatype( $type_table->{$foo->{"BITPIX"}} );
@@ -681,30 +681,27 @@ sub treat_bscale($$){
 
     print "treating bscale...\n" if($PDL::debug);
 
-    if ( $PDL::Bad::Status ) {
-      # do we have bad values? - needs to be done before BSCALE/BZERO
-      # (at least for integers)
-      #
-      if ( $$foo{BITPIX} > 0 and exists $$foo{BLANK} ) {
-	# integer, so bad value == BLANK keyword
-	my $blank = $foo->{BLANK};
-	# do we have to do any conversion?
-	if ( $blank == $pdl->badvalue() ) {
-	  $pdl->badflag(1);
-	} else {
-	  # we change all BLANK values to the current bad value
-	  # (would not be needed with a per-piddle bad value)
-	  $pdl->inplace->setvaltobad( $blank );
-	}
-      } elsif ( $foo->{BITPIX} < 0 ) {
-	# bad values are stored as NaN's in FITS
-	# let setnanbad decide if we need to change anything
-	$pdl->inplace->setnantobad();
+    # do we have bad values? - needs to be done before BSCALE/BZERO
+    # (at least for integers)
+    if ( $$foo{BITPIX} > 0 and exists $$foo{BLANK} ) {
+      # integer, so bad value == BLANK keyword
+      my $blank = $foo->{BLANK};
+      # do we have to do any conversion?
+      if ( $blank == $pdl->badvalue() ) {
+        $pdl->badflag(1);
+      } else {
+        # we change all BLANK values to the current bad value
+        # (would not be needed with a per-ndarray bad value)
+        $pdl->inplace->setvaltobad( $blank );
       }
-      print "FITS file may contain bad values.\n"
-	if $pdl->badflag() and $PDL::verbose;
-    } # if: PDL::Bad::Status
-    
+    } elsif ( $foo->{BITPIX} < 0 ) {
+      # bad values are stored as NaN's in FITS
+      # let setnanbad decide if we need to change anything
+      $pdl->inplace->setnantobad();
+    }
+    print "FITS file may contain bad values.\n"
+      if $pdl->badflag() and $PDL::verbose;
+
     my ($bscale, $bzero);
     $bscale = $$foo{"BSCALE"}; $bzero = $$foo{"BZERO"};
     print "BSCALE = $bscale &&  BZERO = $bzero\n" if $PDL::verbose;
@@ -1256,7 +1253,7 @@ sub _rfits_bintable ($$$$) {
 	      }
 
 	      $tmpcol->{data}->hdrcpy(1);
-	      my $td = $tmpcol->{data}->xchg(0,1);
+	      my $td = $tmpcol->{data}->transpose;
 	      $tbl->{$tmpcol->{name}} = $td->reshape($td->dim(0),@tdims);
 	  } else {
 	      print STDERR "rfits: WARNING: invalid TDIM$i field in binary table.  Ignoring.\n";
@@ -1267,7 +1264,7 @@ sub _rfits_bintable ($$$$) {
 	      $tbl->{$tmpcol->{name}} = 
 		  ( ( $tmpcol->{data}->dim(0) == 1 ) 
 		    ? $tmpcol->{data}->slice("(0)") 
-		    : $tmpcol->{data}->xchg(0,1)
+		    : $tmpcol->{data}->transpose
 		  );
 	  }
       }
@@ -1488,7 +1485,7 @@ sub _rfits_unpack_zimage($$$) {
 	if($tbl->{UNCOMPRESSED_DATA}->dim(1) != $tilesize) {
 	    die "rfits: tile size is $tilesize, but uncompressed data rows have size ".$tbl->{UNCOMPRESSED_DATA}->dim(1)."\n";
 	}
-	$tiles->dice_axis(1,$patchup) .= $tbl->{UNCOMPRESSED_DATA}->dice_axis(0,$patchup)->xchg(0,1);
+	$tiles->dice_axis(1,$patchup) .= $tbl->{UNCOMPRESSED_DATA}->dice_axis(0,$patchup)->transpose;
     }
 
     ##########
@@ -1538,7 +1535,7 @@ sub _rfits_unpack_zimage($$$) {
 	    );
     }
 
-    if(exists $hdr->{BSCALE}) {
+    if(exists $hdr->{BSCALE} || exists $hdr->{BLANK}) {
 	$pdl = treat_bscale($pdl, $hdr);
     }
     $pdl->sethdr($hdr);
@@ -1608,6 +1605,8 @@ FITS standard, by adding an option hash to the arguments:
 =over 3
 
 =item compress 
+
+CURRENTLY UNIMPLEMENTED.  Below describes the envisioned usage.
 
 This can be either unity, in which case Rice compression is used,
 or a (case-insensitive) string matching the CFITSIO compression 
@@ -1679,7 +1678,7 @@ as a multi-string column in FITS tables, so any nonscalar values in
 the list are stringified before being written.  For example, if you
 pass in a perl list of 7 PDLs, each PDL will be stringified before
 being written, just as if you printed it to the screen.  This is
-probably not what you want -- you should use L<glue|glue> to connect 
+probably not what you want -- you should use L</glue> to connect 
 the separate PDLs into a single one.  (e.g. C<$x-E<gt>glue(1,$y,$c)-E<gt>mv(1,0)>)
 
 The column names are case-insensitive, but by convention the keys of
@@ -1756,7 +1755,7 @@ ASCII tables are not yet handled but should be.
 
 Binary tables currently only handle one vector (up to 1-D array) 
 per table entry; the standard allows more, and should be fully implemented.
-This means that PDL::Complex piddles currently can not be written to
+This means that PDL::Complex ndarrays currently can not be written to
 disk.
 
 Handling multidim arrays implies that perl multidim lists should also be
@@ -2068,7 +2067,7 @@ sub PDL::wfits {
 	      
 	      if ( $pdl->badflag() ) {
 		  if ( $BITPIX > 0 ) { my $x = &$convert(pdl(0.0));
-				       $h->{BLANK} = $x->badvalue(); }
+				       $h->{BLANK} = $x->badvalue->sclr; }
 		  else               { delete $h->{BLANK}; }
 	      }
 	      
@@ -2181,7 +2180,7 @@ sub PDL::wfits {
 	      #                    (make sure it's for the correct type)
 	      #   otherwise      - make sure the BLANK keyword is removed
 	      if ( $pdl->badflag() ) {
-		  if ( $BITPIX > 0 ) { my $x = &$convert(pdl(0.0)); $hdr{BLANK} = $x->badvalue(); }
+		  if ( $BITPIX > 0 ) { my $x = &$convert(pdl(0.0)); $hdr{BLANK} = $x->badvalue->sclr; }
 		  else               { delete $hdr{BLANK}; }
 	      }
 	      

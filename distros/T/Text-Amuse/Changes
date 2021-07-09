@@ -1,5 +1,29 @@
 Revision history for perl module Text::Amuse
 
+1.76 2021-04-11
+
+ - Add support for Greek script
+
+1.75 2021-03-14
+
+ - Fix crash on muse_format_line on bidi indicator
+
+1.74 2021-03-10
+
+ - Fix manifest.
+
+1.73 2021-03-09
+
+ - Remove redundant <br> from <verse> environment
+
+1.72 2021-02-06
+
+ - Support <sc> (small caps) and <sf> (sans-serif) inline tags. GH#65
+
+1.71 2021-01-23
+
+ - EXPERIMENTAL feature: table specification with widths
+
 1.70 2020-10-14
 
  - EXPERIMENTAL feature: support image rotation via a90|a180|a270

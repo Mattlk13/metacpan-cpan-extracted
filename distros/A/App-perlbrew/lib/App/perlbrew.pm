@@ -2,7 +2,7 @@ package App::perlbrew;
 use strict;
 use warnings;
 use 5.008;
-our $VERSION = "0.89";
+our $VERSION = "0.92";
 use Config;
 
 BEGIN {
@@ -84,25 +84,6 @@ for (@flavors) {
     if (my $implies = $_->{implies}) {
         $flavor{$implies}{implied_by} = $_->{name};
     }
-}
-
-### functions
-
-sub files_are_the_same {
-    ## Check dev and inode num. Not useful on Win32.
-    ## The for loop should always return false on Win32, as a result.
-
-    my @files = @_;
-    my @stats = map {[ stat($_) ]} @files;
-
-    my $stats0 = join " ", @{$stats[0]}[0,1];
-    for (@stats) {
-        return 0 if ((! defined($_->[1])) || $_->[1] == 0);
-        unless ($stats0 eq join(" ", $_->[0], $_->[1])) {
-            return 0;
-        }
-    }
-    return 1
 }
 
 {
@@ -220,22 +201,6 @@ sub files_are_the_same {
     }
 }
 
-sub perl_version_to_integer {
-    my $version = shift;
-    my @v = split(/[\.\-_]/, $version);
-    return undef if @v < 2;
-    if ($v[1] <= 5) {
-        $v[2] ||= 0;
-        $v[3] = 0;
-    }
-    else {
-        $v[3] ||= $v[1] >= 6 ? 9 : 0;
-        $v[3] =~ s/[^0-9]//g;
-    }
-
-    return $v[1]*1000000 + $v[2]*1000 + $v[3];
-}
-
 ### methods
 sub new {
     my($class, @argv) = @_;
@@ -287,16 +252,18 @@ sub new {
 
     my $self = bless \%opt, $class;
 
-	# Treat --root option same way as env variable PERLBREW_ROOT (with higher priority)
-	$ENV{PERLBREW_ROOT} = $self->root ($opt{root})
-		if $opt{root};
+    # Treat --root option same way as env variable PERLBREW_ROOT (with higher priority)
+    if ($opt{root}) {
+        $ENV{PERLBREW_ROOT} = $self->root($opt{root});
+    }
 
-	$self->{builddir} = App::Perlbrew::Path->new ($self->{builddir})
-		if $opt{builddir};
+    if ($opt{builddir}) {
+        $self->{builddir} = App::Perlbrew::Path->new($opt{builddir});
+    }
 
-	# Ensure propagation of $PERLBREW_HOME and $PERLBREW_ROOT
-	$self->root;
-	$self->home;
+    # Ensure propagation of $PERLBREW_HOME and $PERLBREW_ROOT
+    $self->root;
+    $self->home;
 
     return $self;
 }
@@ -324,6 +291,7 @@ sub parse_cmdline {
         'all',
         'shell=s',
         'no-patchperl',
+        'no-decoration',
 
         "builddir=s",
 
@@ -351,19 +319,19 @@ sub parse_cmdline {
 sub root {
     my ($self, $new_root) = @_;
 
-	$new_root ||= $PERLBREW_ROOT
-		|| $ENV{PERLBREW_ROOT}
-		|| App::Perlbrew::Path->new ($ENV{HOME}, "perl5", "perlbrew")->stringify
-		unless $self->{root};
+    $new_root ||= $PERLBREW_ROOT
+        || $ENV{PERLBREW_ROOT}
+        || App::Perlbrew::Path->new ($ENV{HOME}, "perl5", "perlbrew")->stringify
+        unless $self->{root};
 
-	$self->{root} = $PERLBREW_ROOT = $new_root
-		if defined $new_root;
+    $self->{root} = $PERLBREW_ROOT = $new_root
+        if defined $new_root;
 
-	$self->{root} = App::Perlbrew::Path::Root->new ($self->{root})
-		unless ref $self->{root};
+    $self->{root} = App::Perlbrew::Path::Root->new ($self->{root})
+        unless ref $self->{root};
 
-	$self->{root} = App::Perlbrew::Path::Root->new ($self->{root}->stringify)
-		unless $self->{root}->isa ('App::Perlbrew::Path::Root');
+    $self->{root} = App::Perlbrew::Path::Root->new ($self->{root}->stringify)
+        unless $self->{root}->isa ('App::Perlbrew::Path::Root');
 
     return $self->{root};
 }
@@ -371,16 +339,16 @@ sub root {
 sub home {
     my ($self, $new_home) = @_;
 
-	$new_home ||= $PERLBREW_HOME
-		|| $ENV{PERLBREW_HOME}
-		|| App::Perlbrew::Path->new ($ENV{HOME}, ".perlbrew")->stringify
-		unless $self->{home};
+    $new_home ||= $PERLBREW_HOME
+        || $ENV{PERLBREW_HOME}
+        || App::Perlbrew::Path->new ($ENV{HOME}, ".perlbrew")->stringify
+        unless $self->{home};
 
-	$self->{home} = $PERLBREW_HOME = $new_home
-		if defined $new_home;
+    $self->{home} = $PERLBREW_HOME = $new_home
+        if defined $new_home;
 
-	$self->{home} = App::Perlbrew::Path->new ($self->{home})
-		unless ref $self->{home};
+    $self->{home} = App::Perlbrew::Path->new ($self->{home})
+        unless ref $self->{home};
 
     return $self->{home};
 }
@@ -405,11 +373,7 @@ sub current_lib {
 
 sub current_shell_is_bashish {
     my ($self) = @_;
-    if (($self->current_shell eq 'bash') or ($self->current_shell eq 'zsh')) {
-        return 1;
-    } else {
-        return 0;
-    }
+    return ($self->current_shell eq 'bash') || ($self->current_shell eq 'zsh');
 }
 
 sub current_shell {
@@ -462,7 +426,7 @@ sub configure_args {
 sub cpan_mirror {
     my ($self) = @_;
     unless($self->{cpan_mirror}) {
-        $self->{cpan_mirror} = $self->env("PERLBREW_CPAN_MIRROR") || "http://www.cpan.org";
+        $self->{cpan_mirror} = $self->env("PERLBREW_CPAN_MIRROR") || "https://www.cpan.org";
         $self->{cpan_mirror} =~ s{/+$}{};
     }
     return $self->{cpan_mirror};
@@ -569,7 +533,7 @@ sub run_command {
     }
     elsif (!$x) {
         $x = 'help';
-        @args = (0, $self->{help} ? 2 : 0);
+        @args = (0, 0);
     }
     elsif ($x eq 'help') {
         @args = (0, 2) unless @args;
@@ -778,48 +742,63 @@ sub sort_perl_versions {
 
 sub run_command_available {
     my ($self) = @_;
-    my $perls     = $self->available_perls_with_urls(@_);
+
     my @installed = $self->installed_perls(@_);
     my $is_verbose = $self->{verbose};
 
-    # sort the keys of Perl installation (Randal to the rescue!)
-    my @sorted_perls = $self->sort_perl_versions(keys %$perls);
+    my @sections = (
+        [ 'perl', 'available_perl_distributions'],
+        [ 'cperl', 'available_cperl_distributions'],
+    );
 
-    for my $available (@sorted_perls) {
-        my $url = $perls->{$available};
-        my $ctime;
+    for (@sections) {
+        my ($header, $method) = @$_;
 
-        for my $installed (@installed) {
-            my $name = $installed->{name};
-            my $cur  = $installed->{is_current};
-            if ($available eq $installed->{name}) {
-                $ctime = $installed->{ctime};
-                last;
+        print "# $header\n";
+
+        my $perls = $self->$method;
+        # sort the keys of Perl installation (Randal to the rescue!)
+        my @sorted_perls = $self->sort_perl_versions(keys %$perls);
+
+        for my $available (@sorted_perls) {
+            my $url = $perls->{$available};
+            my $ctime;
+
+            for my $installed (@installed) {
+                my $name = $installed->{name};
+                my $cur  = $installed->{is_current};
+                if ($available eq $installed->{name}) {
+                    $ctime = $installed->{ctime};
+                    last;
+                }
             }
-        }
 
-        printf "\n%1s %12s  %s %s",
+            printf "%1s %12s  %s %s\n",
             $ctime ? 'i' : '',
             $available,
             ( $is_verbose
               ? $ctime ? "INSTALLED on $ctime via"  : 'available from '
               : ''),
-            ( $is_verbose ? "<$url>" : '' ) ;
+              ( $is_verbose ? "<$url>" : '' ) ;
+        }
+        print "\n\n";
     }
 
-    print "\n";
-
-    return @sorted_perls;
+    return;
 }
 
 sub available_perls {
     my ($self) = @_;
-    my $perls    = $self->available_perls_with_urls;
-    return $self->sort_perl_versions(keys %$perls);
+    my %dists = (
+        %{ $self->available_perl_distributions },
+        %{ $self->available_cperl_distributions },
+    );
+    return $self->sort_perl_versions(keys %dists);
 }
 
-sub available_perls_with_urls {
-    my ($self, $dist, $opts) = @_;
+# -> Map[ NameVersion =>  URL ]
+sub available_perl_distributions {
+    my ($self) = @_;
     my $perls = {};
     my @perllist;
 
@@ -827,7 +806,7 @@ sub available_perls_with_urls {
                             : "https://www.cpan.org/src/README.html" ;
     my $html = http_get($url, undef, undef);
     unless ($html) {
-        die "\nERROR: Unable to retrieve the list of perls.\n\n";
+        die "\nERROR: Unable to retrieve the list of perls from $url\n\n";
     }
     for (split "\n", $html) {
         my ($current_perl, $current_url);
@@ -870,22 +849,31 @@ sub available_perls_with_urls {
         }
     }
 
+    return $perls;
+}
+
+# -> Map[ NameVersion =>  URL ]
+sub available_cperl_distributions {
+    my ($self) = @_;
+    my %dist;
+
     # cperl releases: https://github.com/perl11/cperl/tags
     my $cperl_remote           = 'https://github.com';
-    my $url_cperl_release_list = $cperl_remote . '/perl11/cperl/tags';
+    my $url_cperl_release_list = $cperl_remote . '/perl11/cperl/releases';
 
-    $html = http_get($url_cperl_release_list);
+    my $html = http_get($url_cperl_release_list);
+
+    unless ($html) {
+        die "\nERROR: Unable to retrieve the list of cperl releases from ${url_cperl_release_list}\n";
+    }
+
     if ($html) {
-        while ($html =~ m{href="(/perl11/cperl/archive/cperl-(5.+?)\.tar\.gz)"}xg) {
-            $perls->{ "cperl-$2" } = $cperl_remote . $1;
-        }
-    } else {
-        if ($self->{verbose}) {
-            warn "\nWARN: Unable to retrieve the list of cperl releases.\n\n";
+        while ($html =~ m{href="(/perl11/cperl/releases/download/cperl-(5.+?)/cperl-.+?\.tar\.gz)"}g) {
+            $dist{ "cperl-$2" } = $cperl_remote . $1;
         }
     }
 
-    return $perls;
+    return \%dist;
 }
 
 # $perllist is an arrayref of arrayrefs.  The inner arrayrefs are of the
@@ -937,7 +925,7 @@ sub perl_release {
     }
 
     # try src/5.0 symlinks, either perl-5.X or perl5.X; favor .tar.bz2 over .tar.gz
-    my $index = http_get("http://www.cpan.org/src/5.0/");
+    my $index = http_get("https://www.cpan.org/src/5.0/");
     if ($index) {
         for my $prefix ("perl-", "perl") {
             for my $suffix (".tar.bz2", ".tar.gz") {
@@ -1009,7 +997,7 @@ sub release_detail_perl_remote {
     my $version = $rd->{version};
 
     # try src/5.0 symlinks, either perl-5.X or perl5.X; favor .tar.bz2 over .tar.gz
-    my $index = http_get("http://www.cpan.org/src/5.0/");
+    my $index = http_get("https://www.cpan.org/src/5.0/");
     if ($index) {
         for my $prefix ("perl-", "perl") {
             for my $suffix (".tar.bz2", ".tar.gz") {
@@ -1054,9 +1042,12 @@ sub release_detail_cperl_local {
         "cperl-5.24.0-RC1" => "https://github.com/perl11/cperl/releases/download/cperl-5.24.0-RC1/cperl-5.24.0-RC1.tar.gz",
         "cperl-5.24.2" => "https://github.com/perl11/cperl/releases/download/cperl-5.24.2/cperl-5.24.2.tar.gz",
         "cperl-5.25.2" => "https://github.com/perl11/cperl/releases/download/cperl-5.24.2/cperl-5.25.2.tar.gz",
-        "cperl-5.26.0" => "https://github.com/perl11/cperl/archive/cperl-5.26.0.tar.gz",
-        "cperl-5.26.0-RC1" => "https://github.com/perl11/cperl/archive/cperl-5.26.0-RC1.tar.gz",
-        "cperl-5.27.0" => "https://github.com/perl11/cperl/archive/cperl-5.27.0.tar.gz",
+        "cperl-5.26.4" => "https://github.com/perl11/cperl/releases/download/cperl-5.26.4/cperl-5.26.4.tar.gz",
+        "cperl-5.26.5" => "https://github.com/perl11/cperl/releases/download/cperl-5.26.5/cperl-5.26.5.tar.gz",
+        "cperl-5.28.2" => "https://github.com/perl11/cperl/releases/download/cperl-5.28.2/cperl-5.28.2.tar.gz",
+        "cperl-5.29.0" => "https://github.com/perl11/cperl/releases/download/cperl-5.29.0/cperl-5.29.0.tar.gz",
+        "cperl-5.29.1" => "https://github.com/perl11/cperl/releases/download/cperl-5.29.1/cperl-5.29.1.tar.gz",
+        "cperl-5.30.0" => "https://github.com/perl11/cperl/releases/download/cperl-5.30.0/cperl-5.30.0.tar.gz",
     );
 
     my $error = 1;
@@ -1072,17 +1063,19 @@ sub release_detail_cperl_remote {
     my ($self, $dist, $rd) = @_;
     $rd ||= {};
 
-    my $expect_href = "/perl11/cperl/archive/${dist}.tar.gz";
-    my $html = http_get('https://github.com/perl11/cperl/releases/tag/' . $dist);
+    my $expect_href = "/perl11/cperl/releases/download/${dist}/${dist}.tar.gz";
     my $error = 1;
+
+    my $html = eval {
+        http_get('https://github.com/perl11/cperl/releases/tag/' . $dist);
+    } || "";
 
     if ($html =~ m{ <a \s+ href="($expect_href)" }xsi) {
         $rd->{tarball_name} = "${dist}.tar.gz";
         $rd->{tarball_url}  = "https://github.com" . $1;
         $error = 0;
-    } else {
-        $error = 1;
     }
+
     return ($error, $rd);
 }
 
@@ -1181,7 +1174,7 @@ sub run_command_init {
         }
         elsif ($shell =~ m/fish/) {
             $code = ". $root_dir/etc/perlbrew.fish";
-            $yourshrc = 'config/fish/config.fish';
+            $yourshrc = '.config/fish/config.fish';
         }
         else {
             $code = "source $root_dir/etc/bashrc";
@@ -1809,7 +1802,7 @@ INSTALL
             my $capture = $self->do_capture("$newperl -V:sitelib");
             my ($sitelib) = $capture =~ m/sitelib='([^']*)';/;
             $sitelib = $destdir . $sitelib if $destdir;
-			$sitelib = App::Perlbrew::Path->new ($sitelib);
+            $sitelib = App::Perlbrew::Path->new($sitelib);
             $sitelib->mkpath;
             my $target = $sitelib->child ("sitecustomize.pl");
             open my $dst, ">", $target
@@ -1823,8 +1816,8 @@ INSTALL
           $self->root->perls ($installation_name)->version_file;
 
         if (-e $version_file) {
-            $version_file->unlink
-              or die "Could not unlink $version_file file: $!\n";
+            $version_file->unlink()
+                or die "Could not unlink $version_file file: $!\n";
         }
 
         print "$installation_name is successfully installed.\n";
@@ -1886,31 +1879,31 @@ sub do_exit_with_error_code {
 }
 
 sub do_system_with_exit_code {
-  my ($self, @cmd) = @_;
-  return system(@cmd);
+    my ($self, @cmd) = @_;
+    return system(@cmd);
 }
 
 sub do_system {
-  my ($self, @cmd) = @_;
-  return ! $self->do_system_with_exit_code(@cmd);
+    my ($self, @cmd) = @_;
+    return ! $self->do_system_with_exit_code(@cmd);
 }
 
 sub do_capture {
-  my ($self, @cmd) = @_;
-  require Capture::Tiny;
-  return Capture::Tiny::capture(sub {
-    $self->do_system(@cmd);
-  });
+    my ($self, @cmd) = @_;
+    require Capture::Tiny;
+    return Capture::Tiny::capture(
+        sub {
+            $self->do_system(@cmd);
+        });
 }
 
 sub format_perl_version {
     my $self    = shift;
     my $version = shift;
     return sprintf "%d.%d.%d",
-      substr($version, 0, 1),
-      substr($version, 2, 3),
-      substr($version, 5) || 0;
-
+        substr($version, 0, 1),
+        substr($version, 2, 3),
+        substr($version, 5) || 0;
 }
 
 sub installed_perls {
@@ -1961,23 +1954,19 @@ sub installed_perls {
 }
 
 sub compose_locallib {
-	my ($self, $perl_name, $lib_name) = @_;
-
-	return join '@', $perl_name, $lib_name;
+    my ($self, $perl_name, $lib_name) = @_;
+    return join '@', $perl_name, $lib_name;
 }
 
 sub decompose_locallib {
-	my ($self, $name) = @_;
-
-	return split '@', $name;
+    my ($self, $name) = @_;
+    return split '@', $name;
 }
 
 sub enforce_localib {
-	my ($self, $name) = @_;
-
+    my ($self, $name) = @_;
     $name =~ s/^/@/ unless $name =~ m/@/;
-
-	return $name;
+    return $name;
 }
 
 sub local_libs {
@@ -2101,18 +2090,27 @@ sub run_command_list {
     my $self       = shift;
     my $is_verbose = $self->{verbose};
 
-    for my $i ($self->installed_perls) {
-        printf "%-2s%-20s %-20s %s\n",
-            $i->{is_current} ? '*' : '',
-            $i->{name},
-            ( $is_verbose ?
-                (index($i->{name}, $i->{version}) < 0) ? "($i->{version})" : ''
-              : '' ),
-            ( $is_verbose ? "(installed on $i->{ctime})" : '' );
+    if ($self->{'no-decoration'}) {
+        for my $i ($self->installed_perls) {
+            print $i->{name} . "\n";
+            for my $lib (@{$i->{libs}}) {
+                print $lib->{name} . "\n";
+            }
+        }
+    } else {
+        for my $i ($self->installed_perls) {
+            printf "%-2s%-20s %-20s %s\n",
+                $i->{is_current} ? '*' : '',
+                $i->{name},
+                ( $is_verbose ?
+                  (index($i->{name}, $i->{version}) < 0) ? "($i->{version})" : ''
+                  : '' ),
+                  ( $is_verbose ? "(installed on $i->{ctime})" : '' );
 
-        for my $lib (@{$i->{libs}}) {
-            print $lib->{is_current} ? "* " : "  ",
-                $lib->{name}, "\n"
+            for my $lib (@{$i->{libs}}) {
+                print $lib->{is_current} ? "* " : "  ",
+                    $lib->{name}, "\n"
+            }
         }
     }
 
@@ -2859,15 +2857,15 @@ sub run_command_clone_modules {
     # create a new application to 'exec' the 'cpanm'
     # with the specified module list
 
-    my $app = $class->new(
+    my @args = (
         qw(--quiet exec --with),
         $dst_perl,
-        'cpanm',
-        @modules_to_install
-        );
+        'cpanm'
+    );
+    push @args, '--notest' if $self->{notest};
+    push @args, @modules_to_install;
 
-    $app->run;
-
+    $class->new(@args)->run;
 }
 
 sub format_info_output
@@ -3092,7 +3090,7 @@ function __perlbrew_set_path
 end
 
 function __perlbrew_set_env
-    set -l code (eval $perlbrew_command env $argv | perl -pe 's/^(export|setenv)/set -xg/; s/=/ /; s/^unset[env]*/set -eug/; s/$/;/; y/:/ /')
+    set -l code (eval $perlbrew_command env $argv | perl -pe 's/^(export|setenv)/set -xg/; s/=/ /; s/^unset(env)* (.*)/if test -n "\$$2"; set -eg $2; end/; s/$/;/; y/:/ /')
 
     if test -z "$code"
         return 0;
@@ -3170,7 +3168,7 @@ function perlbrew
 end
 
 function __source_init
-    perl -pe's/^(export|setenv)/set -xg/; s/=/ /; s/$/;/;' "$PERLBREW_HOME/init" | source
+    perl -pe 's/^(export|setenv)/set -xg/; s/^unset(env)* (.*)/if test -n "\$$2"; set -eg $2; end/; s/=/ /; s/$/;/;' "$PERLBREW_HOME/init" | source
 end
 
 if test -z "$PERLBREW_ROOT"
@@ -3403,7 +3401,7 @@ __END__
 
 App::perlbrew - Manage perl installations in your C<$HOME>
 
-=head2 SYNOPSIS
+=head1 SYNOPSIS
 
     # Installation
     curl -L https://install.perlbrew.pl | bash
@@ -3415,31 +3413,31 @@ App::perlbrew - Manage perl installations in your C<$HOME>
     perlbrew available
 
     # Install some Perls
-    perlbrew install 5.18.2
-    perlbrew install perl-5.8.1
-    perlbrew install perl-5.19.9
+    perlbrew install 5.32.1
+    perlbrew install perl-5.28.3
+    perlbrew install perl-5.33.6
 
     # See what were installed
     perlbrew list
 
     # Swith to an installation and set it as default
-    perlbrew switch perl-5.18.2
+    perlbrew switch perl-5.32.1
 
     # Temporarily use another version only in current shell.
-    perlbrew use perl-5.8.1
+    perlbrew use perl-5.28.3
     perl -v
 
-    # Or turn it off completely. Useful when you messed up too deep.
-    # Or want to go back to the system Perl.
+    # Turn it off and go back to the system perl.
     perlbrew off
 
-    # Use 'switch' command to turn it back on.
-    perlbrew switch perl-5.12.2
+    # Turn it back on with 'switch', or 'use'
+    perlbrew switch perl-5.32.1
+    perlbrew use perl-5.32.1
 
     # Exec something with all perlbrew-ed perls
     perlbrew exec -- perl -E 'say $]'
 
-=head2 DESCRIPTION
+=head1 DESCRIPTION
 
 L<perlbrew> is a program to automate the building and installation of perl in an
 easy way. It provides multiple isolated perl environments, and a mechanism
@@ -3456,7 +3454,7 @@ or by visiting L<perlbrew's official website|https://perlbrew.pl/>. The followin
 features the API of C<App::perlbrew> module, and may not be remotely
 close to what your want to read.
 
-=head2 INSTALLATION
+=head1 INSTALLATION
 
 It is the simplest to use the perlbrew installer, just paste this statement to
 your terminal:
@@ -3472,7 +3470,7 @@ should follow the instruction on screen to modify your shell rc file to put it
 in your PATH.
 
 The installed perlbrew command is a standalone executable that can be run with
-system perl. The minimum system perl version requirement is 5.8.0, which should
+system perl. The minimum required version of system perl is 5.8.0, which should
 be good enough for most of the OSes these days.
 
 A fat-packed version of L<patchperl> is also installed to
@@ -3514,26 +3512,10 @@ The C<self-upgrade> command will not upgrade the perlbrew installed by cpan
 command, but it is also easy to upgrade perlbrew by running C<cpan App::perlbrew>
 again.
 
-=head2 METHODS
-
-=over 4
-
-=item (Str) current_perl
-
-Return the "current perl" object attribute string, or, if absent, the value of
-C<PERLBREW_PERL> environment variable.
-
-=item (Str) current_perl (Str)
-
-Set the C<current_perl> object attribute to the given value.
-
-=back
-
-=head2 PROJECT DEVELOPMENT
+=head1 PROJECT DEVELOPMENT
 
 L<perlbrew project|https://perlbrew.pl/> uses github
-L<https://github.com/gugod/App-perlbrew/issues> and RT
-<https://rt.cpan.org/Dist/Display.html?Queue=App-perlbrew> for issue
+L<https://github.com/gugod/App-perlbrew/issues> for issue
 tracking. Issues sent to these two systems will eventually be reviewed
 and handled.
 
@@ -3546,13 +3528,13 @@ Kang-min Liu  C<< <gugod@gugod.org> >>
 
 =head1 COPYRIGHT
 
-Copyright (c) 2010- Kang-min Liu C<< <gugod@gugod.org> >>.
+Copyright (c) 2021 Kang-min Liu C<< <gugod@gugod.org> >>.
 
-=head3 LICENCE
+=head1 LICENCE
 
 The MIT License
 
-=head2 DISCLAIMER OF WARRANTY
+=head1 DISCLAIMER OF WARRANTY
 
 BECAUSE THIS SOFTWARE IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY
 FOR THE SOFTWARE, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN

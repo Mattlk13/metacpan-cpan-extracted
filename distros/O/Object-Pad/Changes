@@ -1,5 +1,86 @@
 Revision history for Object-Pad
 
+0.43    2021-07-03
+        [CHANGES]
+         * Initial implementation of `ADJUST` blocks, without params
+         * Better docs about ordering of stages of constructor
+         * Initial attempt at (temporary) `:struct(params)` class attribute
+         * Add O:P:MOP::Class and ::Slot support for slot params
+
+        Development time for this release was sponsored by Oetiker+Partner AG
+
+0.42    2021-07-01
+        [CHANGES]
+         * Expose `$slotmeta->has_param` API
+         * Clarify in docs that `:param` happens before `BUILD`
+         * Remove the word "very" from "very experimental" in introduction
+           docs paragraph
+         * Add `$classmeta->slots`
+
+        [BUGFIXES]
+         * Make sure to embed params from roles correctly (RT136869)
+         * Use `XS_INTERNAL()` rather than `static XS()` to (maybe?) keep
+           cygwin happy
+
+        Development time for this release was sponsored by Oetiker+Partner AG
+
+0.41    2021-06-21
+        [CHANGES]
+         * Recognise `:param` on slots, assign automatically from constructor,
+           check for required parameters
+         * Accept `isa` as a synonym for `extends`, and `does` as a synonym
+           for `implements`
+         * No longer allow `method BUILD`
+
+        [BUGFIXES]
+         * Complain about a lack of NAME for `class` (related to RT136798)
+
+        Development time for this release was sponsored by Oetiker+Partner AG
+
+0.40    2021-06-02
+        [CHANGES]
+         * Updated for XS::Parse::Keyword v0.06
+         * Silence the -Wunused-variable warning about PL_savetype_name
+         * Yield PL_sv_yes from `class` statements so as to keep `require`
+           happy (RT136701)
+
+0.39    2021-05-24
+        [CHANGES]
+         * Update parsing logic to use XS::Parse::Keyword
+
+0.38    2021-05-14
+        [CHANGES]
+         * Added Object::Pad::MOP::Class->for_class and ->for_caller
+           constructors
+         * Provide a generated ->DOES method on each class to account for
+           applied roles (RT136462)
+
+        [BUGFIXES]
+         * Make sure that generated accessors are recorded in the metaclass as
+           real methods, ensuring role application includes them (RT136507)
+
+0.37    2021-04-01
+        [BUGFIXES]
+         * Don't get confused by sub signature parameters of the same name as
+           slot variables (RT134456)
+         * Don't crash if extends/implements package names are missing or
+           malformed (RT134827)
+         * Reject requests to make accessors with invalid identifier names
+           (RT134795)
+
+0.36    2021-02-19
+        [CHANGES]
+         * Added $classmeta->compose_role() (RT134261)
+         * Docs updates
+            + Point out that slot variables can also be exposed via :reader etc
+            + Reördering for better reading
+         * Always add accessor method name to "Too (many/few) arguments"
+           messages even on older perls
+
+        [BUGFIXES]
+         * Fix unit tests for change of argcheck message format in perl 5.33.6
+           (RT134074)
+
 0.35    2020-12-28
         [CHANGES]
          * Permit roles to request their methods still be directly invokable,

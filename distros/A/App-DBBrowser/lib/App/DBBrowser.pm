@@ -4,7 +4,7 @@ use warnings;
 use strict;
 use 5.010001;
 
-our $VERSION = '2.256';
+our $VERSION = '2.271';
 
 use File::Basename        qw( basename );
 use File::Spec::Functions qw( catfile catdir );
@@ -16,20 +16,18 @@ use File::Which    qw( which );
 
 use Term::Choose         qw();
 use Term::Choose::Screen qw( clear_screen );
-use Term::TablePrint     qw( print_table );
+use Term::TablePrint     qw();
 
-#use App::DBBrowser::AttachDB;    # required
 use App::DBBrowser::Auxil;
-#use App::DBBrowser::CreateTable; # required
+#use App::DBBrowser::CreateDropAttach; # required
 use App::DBBrowser::DB;
-#use App::DBBrowser::DropTable;   # required
-#use App::DBBrowser::Join;        # required
+#use App::DBBrowser::Join;             # required
 use App::DBBrowser::Opt::Get;
-#use App::DBBrowser::Opt::Set;    # required
-#use App::DBBrowser::Opt::DBSet   # required
-#use App::DBBrowser::Subqueries;  # required
-#use App::DBBrowser::Table;       # required
-#use App::DBBrowser::Union;       # required
+#use App::DBBrowser::Opt::Set;         # required
+#use App::DBBrowser::Opt::DBSet        # required
+#use App::DBBrowser::Subqueries;       # required
+#use App::DBBrowser::Table;            # required
+#use App::DBBrowser::Union;            # required
 
 BEGIN {
     decode_argv(); # not at the end of the BEGIN block if less than perl 5.16
@@ -40,12 +38,11 @@ BEGIN {
 sub new {
     my ( $class ) = @_;
     my $info = {
-        tc_default  => { hide_cursor => 0, undef => '<<', prompt => 'Choose:' },
-        tf_default  => { hide_cursor => 2 },
-        tcu_default => { hide_cursor => 0 },
+        tc_default  => { hide_cursor => 0, clear_screen => 1, page => 2, undef => '<<', prompt => 'Choose:' },
+        tf_default  => { hide_cursor => 2, clear_screen => 1, page => 2 },
+        tcu_default => { hide_cursor => 0, clear_screen => 1, page => 2 },
         lyt_h       => { order => 0, alignment => 2 },
-        lyt_v       => { undef => '  BACK', layout => 3, },
-        lyt_v_clear => { undef => '  BACK', layout => 3, clear_screen => 1 },
+        lyt_v       => { undef => '  BACK', layout => 3 },
         dots        => [ [ '...', 3 ], [ '|', 1 ], [] ],
         quit        => 'QUIT',
         back        => 'BACK',
@@ -56,7 +53,6 @@ sub new {
         _confirm    => '  CONFIRM',
         _reset      => '  RESET',
         ok          => '-OK-',
-        working     => 'Working ... ',
     };
     return bless { i => $info }, $class;
 }
@@ -138,7 +134,7 @@ sub __options {
 sub run {
     my ( $sf ) = @_;
     local $| = 1;
-    local $SIG{INT} = local $SIG{TERM} = local $SIG{HUB} = sub {
+    local $SIG{INT} = local $SIG{TERM} = local $SIG{HUP} = sub {
         if ( defined $sf->{i}{f_copy_and_paste} && -e $sf->{i}{f_copy_and_paste} ) {
             unlink $sf->{i}{f_copy_and_paste};
         }
@@ -167,7 +163,7 @@ sub run {
             # Choose
             my $idx_plugin = $tc->choose(
                 $menu_plugins,
-                { %{$sf->{i}{lyt_v_clear}}, prompt => 'DB Plugin: ', index => 1, default => $old_idx_plugin,
+                { %{$sf->{i}{lyt_v}}, prompt => 'DB Plugin: ', index => 1, default => $old_idx_plugin,
                   undef => $sf->{i}{_quit} }
             );
             if ( defined $idx_plugin ) {
@@ -253,7 +249,7 @@ sub run {
                 # Choose
                 my $idx_db = $tc->choose(
                     $menu_db,
-                    { %{$sf->{i}{lyt_v_clear}}, prompt => $prompt, index => 1, default => $old_idx_db, undef => $back }
+                    { %{$sf->{i}{lyt_v}}, prompt => $prompt, index => 1, default => $old_idx_db, undef => $back }
                 );
                 $db = undef;
                 if ( defined $idx_db ) {
@@ -296,7 +292,7 @@ sub run {
                 user_dbs => $user_dbs,
                 sys_dbs  => $sys_dbs,
             };
-            $sf->{db_attached} = 0;
+            $sf->{i}{db_attached} = 0;
             if ( $driver eq 'SQLite' && -s $sf->{i}{f_attached_db} ) {
                 my $h_ref = $ax->read_json( $sf->{i}{f_attached_db} ) // {};
                 my $attached_db = $h_ref->{$db} // [];
@@ -305,15 +301,8 @@ sub run {
                         my $stmt = sprintf "ATTACH DATABASE %s AS %s", $dbh->quote_identifier( $ref->[0] ), $dbh->quote( $ref->[1] );
                         $dbh->do( $stmt );
                     }
-                    $sf->{db_attached} = 1;
-                    if ( ! exists $sf->{backup_qtn} ) {
-                        $sf->{backup_qtn} = $sf->{o}{G}{qualified_table_name};
-                    }
-                    $sf->{o}{G}{qualified_table_name} = 1;
+                    $sf->{i}{db_attached} = 1;
                 }
-            }
-            if ( exists $sf->{backup_qtn} && ! $sf->{db_attached} ) {
-                $sf->{o}{G}{qualified_table_name} = delete $sf->{backup_qtn};
             }
             $sf->{i}{stmt_history} = [];
             $plui = App::DBBrowser::DB->new( $sf->{i}, $sf->{o} );
@@ -362,7 +351,7 @@ sub run {
                     # Choose
                     my $idx_sch = $tc->choose(
                         $menu_schema,
-                        { %{$sf->{i}{lyt_v_clear}}, prompt => $prompt, index => 1, default => $old_idx_sch, undef => $back }
+                        { %{$sf->{i}{lyt_v}}, prompt => $prompt, index => 1, default => $old_idx_sch, undef => $back }
                     );
                     if ( defined $idx_sch ) {
                         $schema = $menu_schema->[$idx_sch];
@@ -395,7 +384,7 @@ sub run {
                 if ( ! eval {
                     # if a SQLite database has databases attached, set $schema to undef so 'table_info' in 'tables_data'
                     # returns also the tables from the attached databases
-                    $tables_info = $plui->tables_data( $dbh, $sf->{db_attached} ? undef : $schema );
+                    $tables_info = $plui->tables_data( $dbh, $sf->{i}{db_attached} ? undef : $schema );
                     1 }
                 ) {
                     $ax->print_error_message( $@ );
@@ -414,8 +403,8 @@ sub run {
                         push @$user_tables, $table;
                     }
                 }
-                #if ( $sf->{backup_qtn} ) {
-                #    for my $table ( @user_tables ) {
+                #if ( $sf->{i}{db_attached} ) {     # table menu: show the [alias] in front of the table name
+                #    for my $table ( @$user_tables ) {
                 #        my $tmp = delete $tables_info->{$table};
                 #        $table = '[' . $tmp->[1] . ']' . $tmp->[2];
                 #        $tables_info->{$table} = $tmp;
@@ -445,7 +434,7 @@ sub run {
                         # Choose
                         my $idx_tbl = $tc->choose(
                             $menu_table,
-                            { %{$sf->{i}{lyt_v_clear}}, prompt => '', index => 1, default => $old_idx_tbl, undef => $back }
+                            { %{$sf->{i}{lyt_v}}, prompt => '', index => 1, default => $old_idx_tbl, undef => $back }
                         );
                         if ( defined $idx_tbl ) {
                             $table = $menu_table->[$idx_tbl];
@@ -485,7 +474,33 @@ sub run {
                         next TABLE;
                     }
                     if ( $table eq $hidden ) {
-                        $sf->__create_drop_or_attach( $table );
+                        require App::DBBrowser::CreateDropAttach;
+                        my $cda = App::DBBrowser::CreateDropAttach->new( $sf->{i}, $sf->{o}, $sf->{d} );
+                        my $old_idx_cda = $cda->create_drop_or_attach( $table );
+                        if ( defined $old_idx_cda ) {
+                            $sf->{i}{old_idx_cda} = $old_idx_cda;
+                            $sf->{redo_db}     = $sf->{d}{db};
+                            $sf->{redo_schema} = $sf->{d}{schema};
+                            $sf->{redo_table}  = $table;
+                        }
+                        else {
+                            # when leaving CreateDropAttach menu:
+                            delete $sf->{i}{ss} if exists $sf->{i}{ss}; # deletes any existing saved books
+                            #if ( keys %{$sf->{i}{ss}} == 1 ) {
+                            #    my $file_fs = ( keys %{$sf->{i}{ss}} )[0];
+                            #    my $book = $sf->{i}{ss}{$file_fs}{book};
+                            #    if ( defined $book ) {
+                            #        require Devel::Size;
+                            #        if ( Devel::Size::size( $book ) > 1_000_000 ) {
+                            #            delete $sf->{i}{ss};
+                            #        }
+                            #    }
+                            #}
+                            #else {
+                            #    delete $sf->{i}{ss};
+                            #}
+                            delete $sf->{i}{gc} if exists $sf->{i}{gc};  # datasource file: delete menu memory
+                        }
                         if ( $sf->{redo_db} ) {
                             $dbh->disconnect();
                             next DATABASE;
@@ -548,158 +563,14 @@ sub run {
                             $sf->{d}{table} .= ': ' . $1;
                         }
                     }
-                    $sf->__browse_the_table( $qt_table, $qt_columns );
+                    require App::DBBrowser::Table;
+                    my $tbl = App::DBBrowser::Table->new( $sf->{i}, $sf->{o}, $sf->{d} );
+                    $tbl->browse_the_table( $qt_table, $qt_columns );
                 }
             }
         }
     }
     # END of App
-}
-
-
-sub __browse_the_table {
-    my ( $sf, $qt_table, $qt_columns ) = @_;
-    require App::DBBrowser::Table;
-    my $ax = App::DBBrowser::Auxil->new( $sf->{i}, $sf->{o}, $sf->{d} );
-    my $sql = {};
-    $ax->reset_sql( $sql );
-    $sql->{table} = $qt_table;
-    $sql->{cols} = $qt_columns;
-    $sf->{i}{stmt_types} = [ 'Select' ];
-    $ax->print_sql( $sql );
-
-    PRINT_TABLE: while ( 1 ) {
-        my $all_arrayref;
-        if ( ! eval {
-            my $tbl = App::DBBrowser::Table->new( $sf->{i}, $sf->{o}, $sf->{d} );
-            ( $all_arrayref, $sql ) = $tbl->on_table( $sql );
-            1 }
-        ) {
-            $ax->print_error_message( $@ );
-            last PRINT_TABLE;
-        }
-        if ( ! defined $all_arrayref ) {
-            last PRINT_TABLE;
-        }
-        if ( $sf->{o}{G}{show_table_name} ) {
-            $sf->{o}{table}{table_name} = '- ' . $sf->{d}{table};
-        }
-
-        print_table( $all_arrayref, $sf->{o}{table} );
-
-        delete $sf->{o}{table}{max_rows}   if exists $sf->{o}{table}{max_rows};
-        delete $sf->{o}{table}{table_name} if exists $sf->{o}{table}{table_name};
-    }
-}
-
-
-sub __create_drop_or_attach {
-    my ( $sf, $table ) = @_;
-    my $old_idx = exists $sf->{old_idx_hidden} ? delete $sf->{old_idx_hidden} : 1;
-    my $ax = App::DBBrowser::Auxil->new( $sf->{i}, $sf->{o}, $sf->{d} );
-    my $tc = Term::Choose->new( $sf->{i}{tc_default} );
-
-    CREATE_DROP_ATTACH: while ( 1 ) {
-        my $hidden = $sf->{d}{db_string};
-        my ( $create_table,    $drop_table,      $create_view,    $drop_view,      $attach_databases, $detach_databases ) = (
-          '- Create TABLE', '- Drop   TABLE', '- Create VIEV', '- Drop   VIEW', '- Attach DB',     '- Detach DB',
-        );
-        my @entries;
-        push @entries, $create_table if $sf->{o}{enable}{create_table};
-        push @entries, $drop_table   if $sf->{o}{enable}{drop_table};
-        push @entries, $create_view  if $sf->{o}{enable}{create_view};
-        push @entries, $drop_view    if $sf->{o}{enable}{drop_view};
-        if ( $sf->{i}{driver} eq 'SQLite' ) {
-            push @entries, $attach_databases;
-            push @entries, $detach_databases if $sf->{db_attached};
-        }
-        if ( ! @entries ) {
-            return;
-        }
-        my @pre = ( $hidden, undef );
-        my $menu = [ @pre, @entries ];
-        # Choose
-        my $idx = $tc->choose(
-            $menu,
-            { %{$sf->{i}{lyt_v_clear}}, prompt => '', index => 1, default => $old_idx, undef => '  <=' }
-        );
-        if ( ! defined $idx || ! defined $menu->[$idx] ) {
-            return;
-        }
-        if ( $sf->{o}{G}{menu_memory} ) {
-            if ( $old_idx == $idx && ! $ENV{TC_RESET_AUTO_UP} ) {
-                $old_idx = 1;
-                next CREATE_DROP_ATTACH;
-            }
-            $old_idx = $idx;
-        }
-        my $choice = $menu->[$idx];
-        if ( $choice eq $hidden ) {
-            require App::DBBrowser::Opt::Set;
-            my $opt_set = App::DBBrowser::Opt::Set->new( $sf->{i}, $sf->{o} );
-            my $groups = [ { name => 'group_insert', text => '' } ];
-            $opt_set->set_options( $groups );
-            next CREATE_DROP_ATTACH;
-        }
-        elsif ( $choice =~ /^-\ Create/i ) {
-            require App::DBBrowser::CreateTable;
-            my $ct = App::DBBrowser::CreateTable->new( $sf->{i}, $sf->{o}, $sf->{d} );
-            if ( $choice eq $create_table ) {
-                if ( ! eval { $ct->create_table(); 1 } ) {
-                    $ax->print_error_message( $@ );
-                }
-            }
-            elsif ( $choice eq $create_view ) {
-                if ( ! eval { $ct->create_view(); 1 } ) {
-                    $ax->print_error_message( $@ );
-                }
-            }
-            #my $file_fs = $sf->{i}{gc}{file_fs} // $sf->{i}{gc}{previous_file_fs};
-            #my $book = $sf->{i}{S_R}{$file_fs}{book};
-            #if ( defined $sf->{i}{S_R}{$file_fs}{book} && -s $file_fs > 50_000_000 ) {
-            #    delete $sf->{i}{S_R};
-            #}
-        }
-        elsif ( $choice =~ /^-\ Drop/i ) {
-            require App::DBBrowser::DropTable;
-            my $dt = App::DBBrowser::DropTable->new( $sf->{i}, $sf->{o}, $sf->{d} );
-            if ( $choice eq $drop_table ) {
-                if ( ! eval { $dt->drop_table(); 1 } ) {
-                    $ax->print_error_message( $@ );
-                }
-            }
-            elsif ( $choice eq $drop_view ) {
-                if ( ! eval { $dt->drop_view(); 1 } ) {
-                    $ax->print_error_message( $@ );
-                }
-            }
-        }
-        elsif ( $choice =~ /^-\ (?:Attach|Detach)/ ) {
-            require App::DBBrowser::AttachDB;
-            my $att = App::DBBrowser::AttachDB->new( $sf->{i}, $sf->{o}, $sf->{d} );
-            my $changed;
-            if ( $choice eq $attach_databases ) {
-                if ( ! eval { $changed = $att->attach_db(); 1 } ) {
-                    $ax->print_error_message( $@ );
-                    next CREATE_DROP_ATTACH;
-                }
-            }
-            elsif ( $choice eq $detach_databases ) {
-                if ( ! eval { $changed = $att->detach_db(); 1 } ) {
-                    $ax->print_error_message( $@ );
-                    next CREATE_DROP_ATTACH;
-                }
-            }
-            if ( ! $changed ) {
-                next CREATE_DROP_ATTACH;
-            }
-        }
-        $sf->{old_idx_hidden} = $old_idx;
-        $sf->{redo_db}     = $sf->{d}{db};
-        $sf->{redo_schema} = $sf->{d}{schema};
-        $sf->{redo_table}  = $table;
-        return;
-    }
 }
 
 
@@ -711,15 +582,14 @@ sub __derived_table {
     $sf->{i}{stmt_types} = [ 'Select' ];
     my $tmp = { table => '()' };
     $ax->reset_sql( $tmp );
-    $ax->print_sql( $tmp );
+    $ax->print_sql_info( $ax->get_sql_info( $tmp ) );
     my $qt_table = $sq->choose_subquery( $tmp );
     if ( ! defined $qt_table ) {
         return;
     }
-    my $alias = $ax->alias( 'subqueries', $qt_table, 'From_SQ' );
+    my $alias = $ax->alias( $tmp, 'subqueries', $qt_table, 'From_SQ' );
     $qt_table .= " AS " . $ax->quote_col_qualified( [ $alias ] );
     $tmp->{table} = $qt_table;
-    $ax->print_sql( $tmp );
     my $sth = $sf->{d}{dbh}->prepare( "SELECT * FROM " . $qt_table . " LIMIT 0" );
     $sth->execute() if $sf->{i}{driver} ne 'SQLite';
     my $qt_columns = $ax->quote_simple_many( $sth->{NAME} );
@@ -747,7 +617,7 @@ App::DBBrowser - Browse SQLite/MySQL/PostgreSQL databases and their tables inter
 
 =head1 VERSION
 
-Version 2.256
+Version 2.271
 
 =head1 DESCRIPTION
 

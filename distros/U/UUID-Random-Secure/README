@@ -1,0 +1,62 @@
+NAME
+    UUID::Random::Secure - Like UUID::Random, but uses Math::Random::Secure
+    for random numbers
+
+VERSION
+    This document describes version 0.004 of UUID::Random::Secure (from Perl
+    distribution UUID-Random-Secure), released on 2021-01-24.
+
+SYNOPSIS
+    Use like you would UUID::Random:
+
+     use UUID::Random::Secure;
+     say UUID::Random::Secure::generate();
+
+DESCRIPTION
+FUNCTIONS
+  generate
+    Generate a single v4 UUID string in the formatted 32 hexadecimal digits:
+
+     xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+    Note that this module does not produce RFC 4122-compliant v4 (random)
+    UUIDs (no encoding of variant and version information into the UUID).
+    See "generate_rfc" for UUIDs that comply to RFC 4122.
+
+  generate_rfc
+    Generate RFC-compliant a single v4 UUID string in the form of:
+
+     xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx
+
+    where "x" is any hexadecimal digits ([0-9a-f]), "M" is 4, and N is
+    either 8, 9, "a", or "b" (1000, 1001, 1010, or 1011 in binary).
+
+HOMEPAGE
+    Please visit the project's homepage at
+    <https://metacpan.org/release/UUID-Random-Secure>.
+
+SOURCE
+    Source repository is at
+    <https://github.com/perlancar/perl-UUID-Random-Secure>.
+
+BUGS
+    Please report any bugs or feature requests on the bugtracker website
+    <https://github.com/perlancar/perl-UUID-Random-Secure/issues>
+
+    When submitting a bug or request, please include a test-file or a patch
+    to an existing test-file that illustrates the bug or desired feature.
+
+SEE ALSO
+    Other ways to generate cryptographically secure random (v4) UUIDs:
+    Crypt::Misc, UUID::Tiny::Patch::UseMRS. Acme::CPANModules::UUID reviews
+    and benchmarks these modules.
+
+AUTHOR
+    perlancar <perlancar@cpan.org>
+
+COPYRIGHT AND LICENSE
+    This software is copyright (c) 2021 by perlancar@cpan.org.
+
+    This is free software; you can redistribute it and/or modify it under
+    the same terms as the Perl 5 programming language system itself.
+

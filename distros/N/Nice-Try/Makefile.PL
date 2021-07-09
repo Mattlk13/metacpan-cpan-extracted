@@ -21,6 +21,7 @@ my %WriteMakefileArgs = (
     	'List::Util'    => '1.33',
     	'PPI'           => '1.270',
     	'Scalar::Util'	=> '1.50',
+    	'Want'          => '0.29',
     },
     TEST_REQUIRES =>
     {
@@ -28,7 +29,7 @@ my %WriteMakefileArgs = (
         'Test::Pod'     => '1.52',
     },
     LICENSE				=> 'perl_5',
-    MIN_PERL_VERSION	=> 5.16.0,
+    MIN_PERL_VERSION	=> 'v5.16.0',
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'Nice-Try-*' },
     ( eval { ExtUtils::MakeMaker->VERSION(6.46) } ? ( META_MERGE => {
@@ -42,7 +43,8 @@ my %WriteMakefileArgs = (
                 type        => 'git',
             },
             bugtracker => {
-                web         => 'https://rt.cpan.org/NoAuth/Bugs.html?Dist=Nice-Try',
+                ## web         => 'https://rt.cpan.org/NoAuth/Bugs.html?Dist=Nice-Try',
+                web         => 'https://git.deguest.jp/jack/Nice-Try/issues',
             },
         },
     }) : ()),

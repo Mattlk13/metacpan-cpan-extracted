@@ -1,0 +1,34 @@
+---
+abstract: A maintained, working implementation of Perl symlink built in features for
+  Windows.
+author:
+- Francisco Zarabozo <zarabozo@cpan.org>
+build_requires:
+  Cwd: '0'
+  ExtUtils::MakeMaker: '0'
+  File::Basename: '0'
+  File::Spec: '0'
+  Parse::Lnk: '0.06'
+  Test::More: '0'
+configure_requires:
+  ExtUtils::MakeMaker: '7.12'
+  XSLoader: '0'
+dynamic_config: 1
+generated_by: ExtUtils::MakeMaker version 7.44, CPAN::Meta::Converter version 2.150010
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Win32-Symlinks
+no_index:
+  directory:
+  - t
+  - inc
+requires:
+  Cwd: '0'
+  File::Basename: '0'
+  File::Spec: '0'
+  Parse::Lnk: '0.04'
+  perl: '5.016'
+version: '0.10'
+x_serialization_backend: YAML::XS version 0.82

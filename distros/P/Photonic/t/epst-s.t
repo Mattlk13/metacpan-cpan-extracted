@@ -3,7 +3,7 @@
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -32,23 +32,12 @@ use strict;
 use warnings;
 use PDL;
 use PDL::NiceSlice;
-use PDL::Complex;
 use Photonic::Geometry::FromEpsilon;
 use Photonic::LE::S::EpsTensor;
 
-use Machine::Epsilon;
-use List::Util;
-
-use Test::More tests => 5;
-
-#my $pi=4*atan2(1,1);
-
-sub Cagree {
-    my $a=shift;
-    my $b=shift//0;
-    my $prec=shift//1e-7;
-    return (($a-$b)->Cabs2)->sum<=$prec;
-}
+use Test::More tests => 7;
+use lib 't/lib';
+use TestUtils;
 
 my $ea=1+2*i;
 my $eb=3+4*i;
@@ -69,9 +58,26 @@ my $gt=Photonic::Geometry::FromEpsilon->new(epsilon=>$epsilont); #trans
 my $eto=Photonic::LE::S::EpsTensor->new(geometry=>$gt, nh=>10);
 my $etv=$eto->epsTensor;
 my $etx=(1-$f)*$ea+$f*$eb;
-my $etenx=pdl([$etx, 0+0*i],[0+0*i, $elx])->complex;
+my $etenx=pdl([$etx, r2C(0)],[r2C(0), $elx]);
 ok(Cagree($etv, $etenx), "1D trans epsilon");
 is($eto->converged,1, "Converged");
+#Extend 1D superlattice into 4D (why not?)
+my $Bt4=zeroes(11,1,1,1)->xvals<5; #2D flat system
+my $epsilont4=$ea*(1-$Bt4)+$eb*$Bt4;
+my $gt4=Photonic::Geometry::FromEpsilon->new(epsilon=>$epsilont4); #trans
+my $eto4=Photonic::LE::S::EpsTensor->new(geometry=>$gt4, nh=>10);
+my $etv4=$eto4->epsTensor;
+my $etenx4=pdl([
+    [$elx,   r2C(0),  r2C(0), r2C(0)],
+    [r2C(0),  $etx,  r2C(0), r2C(0)],
+    [r2C(0), r2C(0), $etx,   r2C(0)],
+    [r2C(0), r2C(0), r2C(0), $etx  ]
+    ]);
+ok(Cagree($etv4, $etenx4), "4D trans epsilon");
+is($eto4->converged,1, "Converged");
+
+
+
 #Keller
 my $Nk=6;
 my $Bk=zeroes(2*$Nk,2*$Nk);
@@ -87,10 +93,10 @@ my $gkk=Photonic::Geometry::FromEpsilon->new(epsilon=>$epsilonkk); #
 my $ekko=Photonic::LE::S::EpsTensor->new(
     geometry=>$gkk, nh=>1000, reorthogonalize=>1, use_mask=>1);
 my $etvb=$eko->epsTensor;
-my $etvr=zeroes(2,2,2)->complex;
-$etvr->(:,(0),(0)).= $etvb->(:,(1),(1));
-$etvr->(:,(0),(1)).=-$etvb->(:,(1),(0));
-$etvr->(:,(1),(0)).=-$etvb->(:,(0),(1));
-$etvr->(:,(1),(1)).= $etvb->(:,(0),(0));
-my $etvar=($etva->(:,*1,:,:)*$etvr->(:,:,:,*1))->mv(2,1)->sumover;
+my $etvr=zeroes(2,2)->r2C;
+$etvr->((0),(0)).= $etvb->((1),(1));
+$etvr->((0),(1)).=-$etvb->((1),(0));
+$etvr->((1),(0)).=-$etvb->((0),(1));
+$etvr->((1),(1)).= $etvb->((0),(0));
+my $etvar=($etva->(*1)*$etvr->(:,:,*1))->mv(2,1)->sumover;
 ok(Cagree($etvar,$ea*$eb*identity(2), 1e-3), "Keller");

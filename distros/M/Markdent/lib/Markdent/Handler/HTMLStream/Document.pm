@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use namespace::autoclean;
 
-our $VERSION = '0.38';
+our $VERSION = '0.40';
 
 use Markdent::Types;
 
@@ -41,14 +41,14 @@ sub start_document {
     $self->_stream_raw($Doctype);
     $self->_stream_start_tag(
         'html', {
-            $self->_has_language() ? ( lang => $self->language() ) : (),
+            $self->_has_language ? ( lang => $self->language ) : (),
         },
     );
     $self->_stream_start_tag('head');
-    $self->_stream_start_tag( 'meta', { charset => $self->charset() } )
-        if $self->_has_charset();
+    $self->_stream_start_tag( 'meta', { charset => $self->charset } )
+        if $self->_has_charset;
     $self->_stream_start_tag('title');
-    $self->_stream_text( $self->title() );
+    $self->_stream_text( $self->title );
     $self->_stream_end_tag('title');
     $self->_stream_end_tag('head');
     $self->_stream_start_tag('body');
@@ -61,7 +61,7 @@ sub end_document {
     $self->_stream_end_tag('html');
 }
 
-__PACKAGE__->meta()->make_immutable();
+__PACKAGE__->meta->make_immutable;
 
 1;
 
@@ -79,7 +79,7 @@ Markdent::Handler::HTMLStream::Document - Turns Markdent events into a complete 
 
 =head1 VERSION
 
-version 0.38
+version 0.40
 
 =head1 DESCRIPTION
 
@@ -111,8 +111,8 @@ tag.
 
 =item * output => $fh
 
-The file handle or object to which HTML output will be streamed. If you want
-to capture the output in a string, you can open a filehandle to a string:
+The file handle or object to which HTML output will be streamed. If you want to
+capture the output in a string, you can open a filehandle to a string:
 
   my $buffer = q{};
   open my $fh, '>', \$buffer;
@@ -120,8 +120,8 @@ to capture the output in a string, you can open a filehandle to a string:
 If you pass a file handle (or L<IO::Handle> object), then all calls to
 C<print()> will be checked, and an error will be thrown.
 
-You can pass an object of any other class, it must implement its own
-C<print()> method, and error handling is left up to this method.
+You can pass an object of any other class, it must implement its own C<print()>
+method, and error handling is left up to this method.
 
 =back
 
@@ -148,7 +148,7 @@ Dave Rolsky <autarch@urth.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Dave Rolsky.
+This software is copyright (c) 2021 by Dave Rolsky.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

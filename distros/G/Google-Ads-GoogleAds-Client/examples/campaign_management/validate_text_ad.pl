@@ -25,12 +25,12 @@ use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 use Google::Ads::GoogleAds::Client;
 use Google::Ads::GoogleAds::Utils::GoogleAdsHelper;
-use Google::Ads::GoogleAds::V6::Resources::AdGroupAd;
-use Google::Ads::GoogleAds::V6::Resources::Ad;
-use Google::Ads::GoogleAds::V6::Common::ExpandedTextAdInfo;
-use Google::Ads::GoogleAds::V6::Enums::AdGroupAdStatusEnum qw(PAUSED);
-use Google::Ads::GoogleAds::V6::Services::AdGroupAdService::AdGroupAdOperation;
-use Google::Ads::GoogleAds::V6::Utils::ResourceNames;
+use Google::Ads::GoogleAds::V8::Resources::AdGroupAd;
+use Google::Ads::GoogleAds::V8::Resources::Ad;
+use Google::Ads::GoogleAds::V8::Common::ExpandedTextAdInfo;
+use Google::Ads::GoogleAds::V8::Enums::AdGroupAdStatusEnum qw(PAUSED);
+use Google::Ads::GoogleAds::V8::Services::AdGroupAdService::AdGroupAdOperation;
+use Google::Ads::GoogleAds::V8::Utils::ResourceNames;
 
 use Getopt::Long qw(:config auto_help);
 use Pod::Usage;
@@ -51,15 +51,15 @@ sub validate_text_ad {
   my ($api_client, $customer_id, $ad_group_id) = @_;
 
   # Create an ad group ad object.
-  my $ad_group_ad = Google::Ads::GoogleAds::V6::Resources::AdGroupAd->new({
-      adGroup => Google::Ads::GoogleAds::V6::Utils::ResourceNames::ad_group(
+  my $ad_group_ad = Google::Ads::GoogleAds::V8::Resources::AdGroupAd->new({
+      adGroup => Google::Ads::GoogleAds::V8::Utils::ResourceNames::ad_group(
         $customer_id, $ad_group_id
       ),
       # Optional: Set the status.
       status => PAUSED,
-      ad     => Google::Ads::GoogleAds::V6::Resources::Ad->new({
+      ad     => Google::Ads::GoogleAds::V8::Resources::Ad->new({
           expandedTextAd =>
-            Google::Ads::GoogleAds::V6::Common::ExpandedTextAdInfo->new({
+            Google::Ads::GoogleAds::V8::Common::ExpandedTextAdInfo->new({
               description   => "Luxury Cruise to Mars",
               headlinePart1 => "Visit the Red Planet in style.",
               # Add a headline that will trigger a policy violation to demonstrate
@@ -71,7 +71,7 @@ sub validate_text_ad {
 
   # Create an ad group ad operation.
   my $ad_group_ad_operation =
-    Google::Ads::GoogleAds::V6::Services::AdGroupAdService::AdGroupAdOperation
+    Google::Ads::GoogleAds::V8::Services::AdGroupAdService::AdGroupAdOperation
     ->new({create => $ad_group_ad});
 
   # Add the ad group ad, while setting validateOnly to "true".
@@ -89,9 +89,7 @@ sub validate_text_ad {
     # This block will be hit if there is a validation error from the server.
     print "There were validation error(s) while adding expanded text ad.\n";
 
-    # Note: Depending on the ad type, you may get back policy violation errors as
-    # either PolicyFindingError or PolicyViolationError. ExpandedTextAds return
-    # errors as PolicyFindingError, so only this case is illustrated here. See
+    # Note: Policy violation errors are returned as PolicyFindingErrors. See
     # https://developers.google.com/google-ads/api/docs/policy-exemption/overview
     # for additional details.
     my $count = 1;

@@ -28,7 +28,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 #our @EXPORT = qw();
 
-our $VERSION = '1.01';
+our $VERSION = '1.03';
 
 require XSLoader;
 XSLoader::load('POSIX::Run::Capture', $VERSION);

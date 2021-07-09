@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 use strict;
 
-use Cwd;
 use IO::File;
 use File::Path qw(rmtree);
 use File::Spec::Functions qw(catdir catfile rel2abs splitdir);
@@ -24,17 +23,23 @@ require App::Followme::CreateGallery;
 
 my $test_dir = catdir(@path, 'test');
 my $data_dir = catdir(@path, 'tdata');
+my $photo_dir = catdir($test_dir, 'photos');
 
-rmtree($test_dir);
+rmtree($test_dir) if -e $test_dir;
 mkdir $test_dir or die $!;
 chmod 0755, $test_dir;
-
 chdir $test_dir  or die $!;
-$test_dir = cwd();
 
-my $template_name = catfile($test_dir, 'gallery_template.htm');
+my $gallery_dir = catfile($test_dir, 'gallery');
+mkdir($gallery_dir) unless -e $gallery_dir;
+chmod 0755, $gallery_dir;
 
-my %configuration = (
+my $template_name = 'gallery_template.htm';
+my $template_file = catfile($gallery_dir, $template_name);
+
+my %configuration = (top_directory => $test_dir,
+                    base_directory => $gallery_dir,
+                    template_directory => 'gallery',
                     template_file => $template_name,
                     thumb_suffix => '-thumb',
                     web_extension => 'html',
@@ -71,22 +76,16 @@ do {
 </html>
 EOQ
 
-    fio_write_page($template_name, $gallery_template);
-
-    my $gallery_dir = catfile($test_dir, 'gallery');
-    mkdir($gallery_dir);
-    chmod 0755, $gallery_dir;
+    fio_write_page($template_file, $gallery_template); 
 
     chdir($gallery_dir);
-    $gallery_dir = cwd();
-
     my $gal = App::Followme::CreateGallery->new(%configuration);
 
     my @photo_files;
     my @thumb_files;
-    foreach my $count (qw(first second third)) {
-        my $filename = '*-photo.jpg';
-        $filename =~ s/\*/$count/g;
+    foreach my $color (qw(red green blue)) {
+        my $filename = '*.jpg';
+        $filename =~ s/\*/$color/g;
 
         my $input_file = catfile($data_dir, $filename);
         my $output_file = catfile($gallery_dir, $filename);
@@ -100,13 +99,13 @@ EOQ
     }
 
     my $title = $gal->{data}->build('$title', $photo_files[0]);
-    is($$title, 'First Photo', 'First page title'); # test 1
+    is($$title, 'Red', 'Red page title'); # test 1
 
     my $url = $gal->{data}->build('url', $photo_files[1]);
-    is($$url, 'second-photo.jpg', 'Second page url'); # test 2
+    is($$url, 'gallery/green.jpg', 'Green photo url'); # test 2
 
     $url = $gal->{data}->build('url', $thumb_files[2]);
-    is($$url, 'third-photo-thumb.jpg', 'Third page thumb url'); # test 3
+    is($$url, 'gallery/blue-thumb.jpg', 'Blue photo thumb url'); # test 3
 
     $gal->run($gallery_dir);
 

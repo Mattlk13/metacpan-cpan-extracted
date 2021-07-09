@@ -1,0 +1,150 @@
+% layout 'layout.ep';
+% content title => 'Update Profile';
+% content css => begin
+  <style></style>
+% end
+
+%= form_tag { method_attr 'POST', style_attr 'width:27em; margin:auto', id=>'person', name=>'person'}, begin
+
+  <div class='form-group'>
+    %= errors_box $person, class=>'alert alert-danger', style=>'margin: 16px 0 0 0', role=>'alert';
+    % if($person->validated && !$person->has_errors) {
+      %= errors_box 'Successfully Updated', class=>'alert alert-success', style=>'margin: 16px 0 0 0', role=>'alert';
+    % }
+  </div>
+
+  <fieldset>
+    <legend><%= $person->model_name->human %></legend>
+    <div class='form-group'>
+      %= label_tag { for=>'first_name' }, 'First Name'
+      %= input_tag { name=>'first_name', type=>'text', class=>'form-control', value=>$person->first_name }
+    </div>
+    <div class='form-group'>
+      %= label_tag { for=>'last_name' }, 'Last Name'
+      %= input_tag { name=>'last_name', type=>'text', class=>'form-control', value=>$person->last_name }
+    </div>
+    <div class='form-group'>
+      %= label_tag { for=>'username' }, 'User Name'
+      %= input_tag { name=>'username', type=>'text', class=>'form-control', value=>$person->username }
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend><%= $person->human_attribute_name('profile') %></legend>
+    % $person->build_related_if_empty('profile'); # This would be 
+    % if($person->profile->id) {
+      %= input_tag { name=>'profile.id', type=>'hidden', value=>$person->profile->id }
+    % }
+    <div class='form-group'>
+      %= label_tag { for=>'profile.address' }, 'Address'
+      %= input_tag { name=>'profile.address', type=>'text', class=>'form-control', value=>$person->profile->address }
+    </div>
+    <div class='form-group'>
+      %= label_tag { for=>'profile.city' }, 'City'
+      %= input_tag { name=>'profile.city', type=>'text', class=>'form-control', value=>$person->profile->city }
+    </div>
+    <div class='form-row'>
+      <div class='col form-group'>
+        %= label_tag { for=>'profile.state.name' }, 'State'
+        <select class='form-control' name="profile.state_id">
+          <option>
+          % foreach my $state ($person->profile->related_resultset('state')->result_source->resultset->all) {
+          <option <%= $state->id == $person->profile->state_id ? 'selected':'' %> value="<%= $state->id %>" ><%= $state->name %>
+          % }
+        </select>
+      </div>
+      <div class='col form-group'>
+      %= label_tag { for=>'profile.zip' }, 'Zip'
+      %= input_tag { name=>'profile.zip', type=>'text', class=>'form-control', value=>$person->profile->zip }
+      </div>
+    </div>
+    <div class='form-row'>
+      <div class='col form-group'>
+        %= label_tag { for=>'profile.phone_number' }, 'Phone Number'
+        %= input_tag { name=>'profile.phone_number', type=>'text', class=>'form-control', value=>$person->profile->phone_number }
+      </div>
+      <div class='col form-group'>
+        %= label_tag { for=>'profile.birthday' }, 'Birthday'
+        %= input_tag { name=>'profile.birthday', type=>'text', class=>'form-control', value=>$person->profile->read_attribute_for_validation('birthday') }
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend><%= $person->human_attribute_name('roles') %></legend>
+    <div class='form-group'>
+      % my $idx = 0;
+      % my $roles_rs = $person->roles;
+
+      % if(my @person_roles = @{ $person->person_roles->get_cache||[] } ) {
+        % foreach my $pr (@person_roles) {
+          %= $pr->person_id .'||'. $pr->role_id .'||delete: '. $pr->is_marked_for_deletion .'||pruned: '. $pr->is_pruned;
+          <br>
+        % }
+      % }
+
+      % my @role =();
+      % if(@role = @{ $roles_rs->get_cache||[] } ) {
+        % foreach my $r (@role) {
+          %= $r->id .'||delete: '. $r->is_marked_for_deletion .'||pruned: '. $r->is_pruned;
+          <br>
+        % }
+      % }
+
+      % my %existing = map { $_->role_id => $_} grep { !$_->is_marked_for_deletion } $person->person_roles->search({},{cache=>1})->all;
+      % #my %existing = map { $_->id => $_} grep { !$_->is_pruned } @role;
+      % foreach my $role ($person->roles->result_source->resultset->search({},{cache=>1})->all) {
+        <div class='form-check'>
+          % my %checked = $existing{$role->id} ? (checked=>1) : ();
+          %= input_tag { name=>'roles.'.$idx.'.id', type=>'checkbox', class=>'form-check-input', value=>$role->id, %checked }
+          %= label_tag { for=>'roles.'.$idx.'.id', class=>'form-check-label' }, $role->label;
+          % $idx++;
+        </div>
+      % }
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <div class='form-group'>
+    <legend><%= $person->human_attribute_name('credit_cards') %></legend>
+
+    % my $idx = 0;
+    % my $credit_cards_rs = $person->credit_cards;
+    % if(my @ccs = @{ $credit_cards_rs->get_cache||[] } ) {
+      % foreach my $cc (@ccs) {
+        % my $cc_id = $cc->id ? $cc->id : 'noccid';
+        %= $cc->person_id .'||'. $cc_id .'||'. $cc->is_marked_for_deletion .'||'. $cc->is_pruned;
+        <br>
+      % }
+    % }
+
+    % foreach my $credit_card ($credit_cards_rs->search({},{cache=>1})->all) {
+      % if($credit_card->id) {
+        %= input_tag { name=>'credit_cards.'.$idx.'.id', type=>'hidden', value=>$credit_card->id }
+      % }
+      <div class='form-row'>
+        <div class='col form-group'>
+          %= label_tag { for=>'credit_cards.'.$idx.'.card_number' }, 'Card Number'
+          %= input_tag { name=>'credit_cards.'.$idx.'.card_number', type=>'text', class=>'form-control', value=>$credit_card->card_number }
+        </div>
+        <div class='col form-group col-4'>
+          %= label_tag { for=>'credit_cards.'.$idx.'.expiration' }, 'Expiration'
+          %= input_tag { name=>'credit_cards.'.$idx.'.expiration', type=>'text', class=>'form-control', value=>$credit_card->read_attribute_for_validation('expiration') }
+        </div>
+        <div class='col form-group col-2'>
+          % my %delete_credit_cards_checked = ();
+          %= label_tag { for=>'credit_cards.'.$idx.'._delete', class=>'form-check-label' }, 'Delete';
+          <br>
+          %= input_tag { name=>'credit_cards.'.$idx.'._delete', type=>'checkbox', value=>1, $credit_card->is_marked_for_deletion ? (checked=>1):() }
+        </div>
+      </div>
+      % $idx++;
+    % }
+
+    %= button_tag { class=>'btn btn-lg btn-primary btn-block', name=>'add.credit_cards', value=>1 }, 'Add Credit Card'
+  </fieldset>
+
+  <fieldset>
+    %= button_tag { class=>'btn btn-lg btn-primary btn-block' }, 'Update Profile'
+  </fieldset>
+% end

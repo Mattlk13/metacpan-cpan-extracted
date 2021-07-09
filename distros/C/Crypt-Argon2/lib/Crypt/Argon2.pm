@@ -1,5 +1,5 @@
 package Crypt::Argon2;
-$Crypt::Argon2::VERSION = '0.007';
+$Crypt::Argon2::VERSION = '0.011';
 use strict;
 use warnings;
 
@@ -7,9 +7,33 @@ use Exporter 5.57 'import';
 our @EXPORT_OK = qw/
 	argon2id_raw argon2id_pass argon2id_verify
 	argon2i_raw argon2i_pass argon2i_verify
-	argon2d_raw/;
+	argon2d_raw argon2_needs_rehash/;
 use XSLoader;
 XSLoader::load(__PACKAGE__, __PACKAGE__->VERSION || 0);
+
+use MIME::Base64 'decode_base64';
+
+my %multiplier = (
+	k => 1,
+	M => 1024,
+	G => 1024 * 1024,
+);
+
+sub argon2_needs_rehash {
+	my ($encoded, $type, $t_cost, $m_cost, $parallelism, $output_length, $salt_length) = @_;
+	$m_cost =~ s/ \A (\d+) ([kMG]) \z / $1 * $multiplier{$2} * 1024 /xmse;
+	$m_cost /= 1024;
+	my (undef, $name, $version, $argstring, $salt, $hash) = split /\$/, $encoded;
+	return 1 if $name ne $type;
+	return 1 if $version !~ /v=(\d+)/ or $1 != 19;
+	my %args;
+	while ($argstring =~ m/(\w)=(\d+)/gc) {
+		$args{$1} = $2;
+	}
+	return 1 if $args{t} < $t_cost or $args{m} < $m_cost or $args{p} < $parallelism;
+	return 1 if length decode_base64($salt) != $salt_length or length decode_base64($hash) != $output_length;
+	return 0;
+}
 
 1;
 
@@ -27,7 +51,7 @@ Crypt::Argon2 - Perl interface to the Argon2 key derivation functions
 
 =head1 VERSION
 
-version 0.007
+version 0.011
 
 =head1 SYNOPSIS
 
@@ -49,6 +73,8 @@ version 0.007
 =head1 DESCRIPTION
 
 This module implements the Argon2 key derivation function, which is suitable to convert any password into a cryptographic key. This is most often used to for secure storage of passwords but can also be used to derive a encryption key from a password. It offers variable time and memory costs as well as output size.
+
+To find appropriate parameters, the bundled program C<argon2-calibrate> can be used.
 
 =head1 FUNCTIONS
 
@@ -104,33 +130,21 @@ This verifies that the C<$password> matches C<$encoded>. All parameters and the 
 
 This function processes the C<$password> with the given C<$salt> and parameters much like C<argon2i_pass>, but returns the binary tag instead of a formatted string.
 
+=head2 argon2d_pass($password, $salt, $t_cost, $m_factor, $parallelism, $tag_size)
+
+This function processes the C<$password> with the given C<$salt> and parameters much like argon2id_pass, but uses the argon2d variant instead.
+
+=head2 argon2d_verify($encoded, $password
+
+This verifies that the C<$password> matches C<$encoded>. All parameters and the tag value are extracted from C<$encoded>, so no further arguments are necessary.
+
 =head2 argon2d_raw($password, $salt, $t_cost, $m_factor, $parallelism, $tag_size)
 
 This function processes the C<$password> with the given C<$salt> and parameters much like C<argon2i_pass>, but returns a binary tag for argon2d instead of a formatted string for argon2i.
 
-=head1 RECOMMENDED SETTINGS
+=head2 argon2_needs_rehash($encoded, $type, $t_cost, $m_cost, $parallelism, $salt_length, $output_length)
 
-The following procedure to find settings can be followed:
-
-=over 4
-
-=item 1. Select the type C<y>. If you do not know the difference between them, choose Argon2id.
-
-=item 2. Figure out the maximum number of threads C<h> that can be initiated by each call to Argon2. This is the C<parallelism> argument.
-
-=item 3. Figure out the maximum amount of memory  C<m> that each call can a afford.
-
-=item 4. Figure out the maximum amount C<x> of time (in seconds) that each call can a afford.
-
-=item 5. Select the salt length. 16 bytes is suffient for all applications, but can be reduced to 8 bytes in the case of space constraints.
-
-=item 6. Select the tag (output) size. 16 bytes is suffient for most applications, including key derivation.
-
-=item 7. Run the scheme of type C<y>, memory C<m> and C<h> lanes and threads, using different number of passes C<t>. Figure out the maximum C<t> such that the running time does not exceed C<x>. If it exceeds C<x> even for C<t = 1>, reduce C<m> accordingly. If using Argon2i, t must be at least 3.
-
-=item 8. Hash all the passwords with the just determined values C<m>, C<h>, and C<t>.
-
-=back
+This function checks if a password-encoded string needs a rehash. It will return true if the C<$type> (valid values are C<argon2i>, C<argon2id> or C<argon2d>) mismatches or any of the C<$t_cost>, C<$m_cost>, C<$parallelism>, C<$salt_length> or C<$output_length> arguments are higher than in the password-encoded hash.
 
 =head2 ACKNOWLEDGEMENTS
 
@@ -150,6 +164,10 @@ Its RAND_bytes function is OpenSSL's pseudo-randomness source.
 
 A minimalistic abstraction around OS-provided non-blocking (pseudo-)randomness.
 
+=item * C</dev/random> / C</dev/urandom>
+
+A Linux/BSD specific pseudo-file that will allow you to read random bytes.
+
 =back
 
 Implementations of other similar algorithms include:
@@ -162,7 +180,7 @@ An implementation of scrypt, a older scheme that also tries to be memory hard.
 
 =item * L<Crypt::Eksblowfish::Bcrypt|Crypt::Eksblowfish::Bcrypt>
 
-An implementation of bcrypt, a battle-tested algortihm that tries to be CPU but not particularly memory intensive.
+An implementation of bcrypt, a battle-tested algorithm that tries to be CPU but not particularly memory intensive.
 
 =back
 

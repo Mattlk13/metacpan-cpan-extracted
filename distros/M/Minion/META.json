@@ -4,7 +4,7 @@
       "Sebastian Riedel <sri@cpan.org>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "ExtUtils::MakeMaker version 7.58, CPAN::Meta::Converter version 2.150010",
+   "generated_by" : "ExtUtils::MakeMaker version 7.62, CPAN::Meta::Converter version 2.150010",
    "license" : [
       "artistic_2"
    ],
@@ -33,7 +33,8 @@
       },
       "runtime" : {
          "requires" : {
-            "Mojolicious" : "8.50",
+            "Mojolicious" : "9.0",
+            "YAML::XS" : "0.67",
             "perl" : "5.016"
          }
       }
@@ -53,10 +54,10 @@
          "web" : "https://github.com/mojolicious/minion"
       },
       "x_IRC" : {
-         "url" : "irc://irc.freenode.net/#mojo",
-         "web" : "https://webchat.freenode.net/#mojo"
+         "url" : "irc://irc.libera.chat/#mojo",
+         "web" : "https://web.libera.chat/#mojo"
       }
    },
-   "version" : "10.15",
-   "x_serialization_backend" : "JSON::PP version 4.05"
+   "version" : "10.22",
+   "x_serialization_backend" : "JSON::PP version 4.06"
 }

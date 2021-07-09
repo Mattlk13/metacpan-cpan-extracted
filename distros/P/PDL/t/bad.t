@@ -1,70 +1,14 @@
-# -*-perl-*-
-#
-# test bad value handling in PDL
-# - as it's a compile-time option we
-#   skip unless $PDL::Config{WITH_BADVAL}
-#
-
 use strict;
 use Test::More;
+use PDL::LiteF;
+use PDL::Math;
+use PDL::Types qw(types);
+use Test::Warn;
 
 # although approx() caches the tolerance value, we
 # use it in every call just to document things
 #
 use constant ABSTOL => 1.0e-4;
-
-use File::Temp qw( tempfile );
-my $fname;
-{
-   local $^W = 0;
-   (undef, $fname) = tempfile( 'delmeXXXXX', SUFFIX => '.fits', OPEN => 0 );
-}
-
-END {
-    unlink $fname if -e $fname;
-}
-
-use PDL::LiteF;
-$| = 1;
-
-use PDL::Config;
-if ( $PDL::Config{WITH_BADVAL} ) {
-    plan tests => 82;
-} else {
-    # reduced testing
-    plan tests => 10;
-
-    my $x = pdl(1,2,3);
-    is( $x->badflag(), 0 ); # 1
-    
-    my $y = pdl(4,5,6);
-    my $c = $x + $y;
-    is( $c->badflag(), 0 ); # 2
-    is( $c->sum(), 21 );    # 3
-    
-    # can not set the bad flag
-    $x->badflag(1);
-    is( $x->badflag(), 0 );
-
-    # and piddles do not have a bad value
-    ok( ! defined $x->badvalue );
-
-    # can not change a piddle to include bad values
-    ok( all( ($x->setbadif( $x == 2 ) - pdl(1,2,3)) == 0 ) );
-
-    $x = ones(3,2,4);
-    $y = zeroes(2,4);
-    $c = ones(2,4) * 3;
-    is( $x->nbad, 0 );
-    is( $x->ngood, 24 );
-    ok( all( ($x->nbadover  - $y) == 0 ) );
-    ok( all( ($x->ngoodover - $c) == 0 ) );
-
-    exit;
-}
-
-my $usenan = $PDL::Config{BADVAL_USENAN} || 0;
-my $perpdl = $PDL::Config{BADVAL_PER_PDL} || 0;
 
 # check default behaviour (ie no bad data)
 # - probably overkill
@@ -75,7 +19,7 @@ is( $x->badflag(), 0, "no badflag" );
 my $y = pdl(4,5,6);
 my $c = $x + $y;
 is( $c->badflag(), 0, "badflag not set in a copy" );
-is( $c->sum(), 21, "sum() works on non bad-flag piddles" );
+is( $c->sum(), 21, "sum() works on non bad-flag ndarrays" );
 
 # is the flag propagated?
 $x->badflag(1);
@@ -125,7 +69,7 @@ $x = pdl(1,2,3,4,5);
 $x->setbadat(2);
 is( PDL::Core::string($x), "[1 2 BAD 4 5]", "setbadat worked" );
 
-# now check that badvalue() changes the piddle
+# now check that badvalue() changes the ndarray
 # (only for integer types)
 $x = convert($x,ushort);
 my $badval = $x->badvalue;
@@ -194,7 +138,7 @@ is( PDL::Core::string( PDL::zcover($x) ), "[BAD 0]", "  and still okay" );
 # 255 is the default bad value for a byte array
 #
 $x = byte(1,2,255,4,5);
-is( $x->median, 4, "median() works on good piddle" );
+is( $x->median, 4, "median() works on good ndarray" );
 $x->badflag(1);
 is( $x->median, 3, "median() works on bad biddle" );
 
@@ -300,18 +244,10 @@ is( $y->badflag, 1, "assgn propagated badflag");
 $x->badflag(0);
 is( $y->badflag, 1, "assgn is not a deep copy for the badflag");
 
-# check that at and sclr return the correct values
-TODO: {
-   $x = pdl q[BAD];
-   local $TODO = 'check that at and sclr return correct values and the same';
-
-   is( PDL::Core::string($x), 'BAD', 'can convert PDL to string' );
-   is( $x->at, 'BAD', 'at() returns BAD for a bad value' );
-   is( $x->sclr, 'BAD', 'sclr() returns BAD for a bad value' );
-}
-
-# quick look at math.pd
-use PDL::Math;
+$x = pdl q[BAD];
+is( PDL::Core::string($x), 'BAD', 'can convert PDL to string' );
+is( $x->at, 'BAD', 'at() returns BAD for a bad value' );
+isnt( $x->sclr, 'BAD', 'sclr() ignores bad value' );
 
 $x = pdl(0.5,double->badvalue,0);
 $x->badflag(1);
@@ -338,33 +274,6 @@ $x = float( 2, 0, 2, 2 )->setvaltobad(0.0);
 $y = $x->norm;
 $c = $x/sqrt(sum($x*$x));
 ok( all( approx( $y, $c, ABSTOL ) ), "norm()" );
-
-# Image2D
-my $ans = pdl(
- [ 3,  7, 11, 21, 27, 33, 39, 45, 51, 27],
- [ 3,  5, 13, 21, 27, 33, 39, 45, 51, 27],
- [ 3,  9, 15, 21, 27, 33, 39, 45, 51, 27]
-);
-
-$x = xvals zeroes 10,3;
-$x->setbadat(2,1);
-
-$y = pdl [1,2],[2,1];
-
-use PDL::Image2D;
-$c = conv2d($x, $y);
-
-is( int(at(sum($c-$ans))), 0, "conv2d()" ); 
-
-$x = zeroes(5,5);
-$x->badflag(1);
-my $t = $x->slice("1:3,1:3");
-$t .= ones(3,3);
-$x->setbadat(2,2);
-
-$y = sequence(3,3);
-$ans = pdl ( [0,0,0,0,0],[0,0,2,0,0],[0,1,5,2,0],[0,0,4,0,0],[0,0,0,0,0]);
-is( int(at(sum(med2d($x,$y)-$ans))), 0, "med2d()" );
 
 # propagation of badflag using inplace ops (ops.pd)
 
@@ -431,13 +340,17 @@ is( PDL::Core::string($x), "[0 1 0 3 4]", "inplace badmask()" );
 # setvaltobad
 $x = sequence(10) % 4;
 $x->inplace->setvaltobad( 1 );
-like( PDL::Core::string( $x->clump(-1) ), 
+like( PDL::Core::string( $x->clump(-1) ),
     qr{^\[-?0 BAD 2 3 -?0 BAD 2 3 -?0 BAD]$}, "inplace setvaltobad()" );
 
-# check setvaltobad for non-double piddles
+$x->inplace->setbadtonan;
+like( PDL::Core::string( $x->clump(-1) ),
+    qr/^\[-?0 nan 2 3 -?0 nan 2 3 -?0 nan]$/i, "inplace setbadtonan()" );
+
+# check setvaltobad for non-double ndarrays
 my $fa = pdl( float,  1..4) / 3;
 my $da = pdl( double, 1..4) / 3;
-ok( all($fa->setvaltobad(2/3)->isbad == $da->setvaltobad(2/3)->isbad), "setvaltobad for float piddle");
+ok( all($fa->setvaltobad(2/3)->isbad == $da->setvaltobad(2/3)->isbad), "setvaltobad for float ndarray");
 
 # simple test for setnantobad
 # - could have a 1D FITS image containing
@@ -447,75 +360,293 @@ $x->inplace->setnantobad;
 like( PDL::Core::string( $x->clump(-1) ), 
     qr{^\[-?0 BAD 2 3 -?0 BAD 2 3 -?0 BAD]$}, "inplace setnantobad()" );
 
-# test r/wfits
-use PDL::IO::FITS;
-
-$x = sequence(10)->setbadat(0);
-print "Writing to fits: $x  type = (", $x->get_datatype, ")\n";
-$x->wfits($fname);
-$y = rfits($fname);
-print "Read from fits:  $y  type = (", $y->get_datatype, ")\n";
-
-ok( $y->slice('0:0')->isbad, "rfits/wfits propagated bad flag" );
-ok( sum(abs($x-$y)) < 1.0e-5, "  and values" );
-
-# now force to integer
-$x->wfits($fname,16);
-$y = rfits($fname);
-print "BITPIX 16: datatype == ", $y->get_datatype, " badvalue == ", $y->badvalue(), "\n";
-ok( $y->slice('0:0')->isbad, "wfits coerced bad flag with integer datatype" );
-ok( sum(abs(convert($x,short)-$y)) < 1.0e-5, "  and the values" );
-
 # check that we can change the value used to represent
 # missing elements for floating points (earlier tests only did integer types)
-# IF we are not using NaN's
 #
-SKIP: {
-    skip( "Skipped: test only valid when not using NaN's as bad values", 2 )
-      if $usenan;
+is( float->badvalue, float->orig_badvalue, "default bad value for floats matches" );
+is( float->badvalue(23), 23, "changed floating-point bad value" );
+float->badvalue( float->orig_badvalue );
 
-    # perhaps should check that the value can't be changed when NaN's are
-    # being used.
-    #
+$x = sequence(4);
+$x->badvalue(3);
+$x->badflag(1);
+$y = $x->slice('2:3');
+is( $y->badvalue, 3, "can propagate per-ndarray bad value");
+is( $y->sum, 2, "and the propagated value is recognised as bad");
+$x = sequence(4);
+is ($x->badvalue, double->orig_badvalue, "no long-term effects of per-ndarray changes [1]");
 
-    is( float->badvalue, float->orig_badvalue, "default bad value for floats matches" );
-    is( float->badvalue(23), 23, "changed floating-point bad value" );
-    float->badvalue( float->orig_badvalue );
+for my $t (map +([$_, undef], [$_, 'nan']), grep !$_->integer, types()) {
+  my $p = sequence $t->[0], 2;
+  $p->badvalue($t->[1]) if defined $t->[1];
+  $p->setbadat(1);
+  eval {is $p.'', '[0 BAD]', "badvalue works right $t->[0], bv=".explain($->[1])};
+  is $@, '';
 }
 
-SKIP: {
-
-    skip ("Skipped: test only valid when enabling bad values per pdl", 3)
-      unless $perpdl;
-
-    $x = sequence(4);
-    $x->badvalue(3);
-    $x->badflag(1);
-    $y = $x->slice('2:3');
-    is( $y->badvalue, 3, "can propagate per-piddle bad value");
-    is( $y->sum, 2, "and the propagated value is recognised as bad");
-
-    $x = sequence(4);
-    is ($x->badvalue, double->orig_badvalue, "no long-term affects of per-piddle changes [1]");
-
+## Name: "isn't numeric in null operation" warning could be more helpful
+## <http://sourceforge.net/p/pdl/bugs/332/>
+## <https://github.com/PDLPorters/pdl/issues/33>
+# The following code calls the PDL::Ops::eq() function via the operator
+# overload for the eq operator. Because the Perl eq operator is usually used
+# for strings, the default warning of "isn't numeric in null operation" is
+# confusing. Comparing a PDL against a string should give a more useful
+# warning.
+my $numeric_warning = qr/not numeric nor a PDL/;
+my $no_warning = undef;
+sub check_eq_warnings {
+	my ($string, $warning) = @_;
+        $warning ||= qr/^\s*$/;
+        my @w;
+        local $SIG{__WARN__} = sub { push @w, @_ };
+	my $dummy = pdl() eq $string;
+        like "@w", $warning; @w = ();
+	$dummy = $string eq pdl();
+        like "@w", $warning; @w = ();
 }
 
-SKIP: {
-    skip ("Skipped: test not valid if per-piddle bad values are used", 1)
-      if $perpdl;
-
-    $x = double(4);
-    double->badvalue(3);
-    is($x->badvalue, double->badvalue, "no long-term affects of per-piddle changes [2]");
-    double->badvalue(double->orig_badvalue);
-
+subtest "String 'x' is not numeric and should warn" => sub {
+	check_eq_warnings('x', $numeric_warning);
+};
+subtest "String 'nancy' is not numeric and should warn" => sub {
+	check_eq_warnings('nancy', $numeric_warning);
+};
+subtest "String 'inf' is numeric" => sub {
+	check_eq_warnings('inf', $no_warning);
+};
+subtest "String 'nan' is numeric" => sub {
+	check_eq_warnings('nan', $no_warning);
+};
+TODO: {
+	# implementing this might require checking for strings that can be made into PDLs
+	local $TODO = "Using the eq operator with the string 'bad' might be a good feature";
+	subtest "String 'bad' is numeric (in PDL)" => sub {
+		check_eq_warnings('bad', $no_warning);
+	};
 }
 
-# At the moment we do not allow per-piddle bad values
-# and the use of NaN's.
-#TODO: {
-#    local $TODO = "Need to work out whan NaN and per-piddle bad values means";
-#    is (0, 1);
-#}
+## Issue information
+##
+## Name: scalar PDL with badvalue always compares BAD with perl scalars
+##
+## <http://sourceforge.net/p/pdl/bugs/390/>
+## <https://github.com/PDLPorters/pdl/issues/124>
+subtest "Issue example code" => sub {
+	my $x = pdl(1, 2, 3, 0);
+	$x->badflag(1);
+	$x->badvalue(0);
+	# bad value for $x is now set to 0
 
-# end
+	is( "$x", "[1 2 3 BAD]", "PDL with bad-value stringifies correctly" );
+
+	my ($m, $s) = stats($x);
+
+	is( "$m", 2, "Mean of [1 2 3] is 2" );
+	is( "$s", 1, "And std. dev is 1" );
+
+	$s->badflag(1);
+	$s->badvalue(0);
+	my @warnings;
+	local $SIG{__WARN__} = sub { push @warnings, @_ };
+	is( "".($s >  0), "1", "is 1 >  0? -> true" );
+	is( "".($s <  0), "0", "is 1 <  0? -> false");
+	is( "".($s == 0), "0", "is 1 == 0? -> false");
+	ok scalar(@warnings), 'bad gave warnings';
+};
+
+subtest "Badvalue set on 0-dim PDL + comparision operators" => sub {
+	my $val = 2;
+	my $badval_sclr = 5;
+	my $p_val = pdl($val);
+
+	# set the bad flag to 0
+	$p_val->badflag(1);
+	$p_val->badvalue($badval_sclr);
+
+	note "\$p_val = $p_val";
+	is( "$p_val", "$val", "Sanity test" );
+
+	my @values_to_compare = ( $badval_sclr, $badval_sclr + 1, $badval_sclr - 1  );
+	subtest "Comparing a 0-dim PDL w/ a scalar should be the same as comparing a scalar w/ a scalar" => sub {
+		for my $cmpval_sclr (@values_to_compare) {
+			subtest "Bad value for PDL $p_val is $badval_sclr and we are comparing with a scalar of value $cmpval_sclr" => sub {
+				is
+					"".($p_val <  $cmpval_sclr),
+					(0+(  $val <  $cmpval_sclr)),
+					     "$val <  $cmpval_sclr";
+
+				is
+					"".($p_val == $cmpval_sclr),
+					(0+(  $val == $cmpval_sclr)),
+					     "$val == $cmpval_sclr";
+
+				is
+					"".($p_val >  $cmpval_sclr),
+					(0+(  $val >  $cmpval_sclr)),
+					     "$val >  $cmpval_sclr";
+			};
+		}
+	};
+
+	subtest "Comparing a 0-dim PDL w/ bad value with a 0-dim PDL without bad value set should not set BAD" => sub {
+		for my $not_bad_sclr (@values_to_compare) {
+			subtest "Bad value for PDL $p_val is $badval_sclr and we are comparing with a PDL of value $not_bad_sclr, but with no badflag" => sub {
+				my $p_not_bad = pdl($not_bad_sclr);
+				$p_not_bad->badflag(0); # should not have bad flag
+
+				my $lt_p = $p_val <  $p_not_bad;
+				is
+					"".       $lt_p,
+					0+(   $val <  $not_bad_sclr),
+					     "$val <  $not_bad_sclr";
+				ok $lt_p->badflag, "cmp for < does set badflag";
+
+				my $eq_p = $p_val ==  $p_not_bad;
+				is
+					"".      $eq_p,
+					0+(  $val == $not_bad_sclr),
+					    "$val == $not_bad_sclr";
+				ok $eq_p->badflag, "cmp for == does set badflag";
+
+				my $gt_p = $p_val >  $p_not_bad;
+				is
+					"".      $gt_p,
+					0+(  $val >  $not_bad_sclr),
+					    "$val >  $not_bad_sclr";
+				ok $gt_p->badflag, "cmp for > does set badflag";
+			};
+		}
+	};
+};
+
+
+subtest "stats() badvalue behavior" => sub {
+	my $stats_data = [
+		{
+			name => "stats() should not set the badflag for output with only one badvalue",
+			func => \&stats,
+			input => do { pdl [1, 2, 3] },
+			badvalue => 2,
+			string => "[1 BAD 3]",
+			mean => "2",
+			badflag => 0
+		},
+		{
+			name => "stats() should set the badflag for output with all badvalues and mean should be BAD" ,
+			func => \&stats,
+			input => do { pdl [1, 1, 1] },
+			badvalue => 1,
+			string => "[BAD BAD BAD]",
+			mean => "BAD",
+			badflag => 1,
+		},
+		{
+			name => "and statsover() on a row of BAD values",
+			func => \&statsover,
+			input => do { zeroes(3,3)->yvals+1 },
+			badvalue => 1,
+			string => do {
+my $p_str = <<'EOF';
+
+[
+ [BAD BAD BAD]
+ [  2   2   2]
+ [  3   3   3]
+]
+EOF
+			},
+			mean => "[BAD 2 3]",
+			badflag => 1,
+		},
+		{
+			name => "and statsover() on a diagonal of BAD values",
+			func => \&statsover,
+			input => do { my $p = ones(3,3)*2; $p->diagonal(0,1) .= 1; $p },
+			string => do {
+my $p_str = <<'EOF';
+
+[
+ [BAD   2   2]
+ [  2 BAD   2]
+ [  2   2 BAD]
+]
+EOF
+			},
+			badvalue => 1,
+			mean => "[2 2 2]",
+			badflag => 0,
+		}
+	];
+
+	for my $case (@$stats_data) {
+		subtest $case->{name} => sub {
+			my $p = $case->{input};
+			$p->badflag(1);
+			$p->badvalue($case->{badvalue});
+
+			note "\$p = $p";
+			is( "$p", $case->{string}, "stringifies properly");
+
+			my $m = $case->{func}->($p);
+
+			note "\$m = $m";
+			is( "$m", $case->{mean}, "Mean of \$p" );
+			is( $m->badflag, $case->{badflag}, "Mean does @{[ (' not ')x!!( ! $case->{badflag} ) ]} have badflag set");
+		};
+	}
+
+
+};
+
+subtest "Comparison between a vector and scalar" => sub {
+	my $p = pdl [1, 2, 3, 4];
+	$p->badflag(1);
+	$p->badvalue(2);
+
+	note "\$p = $p";
+	is( "$p", "[1 BAD 3 4]", "PDL vector (with bv = 2)");
+
+	is( "" . ( $p > 1 ), '[0 BAD 1 1]', "compare PDL against (scalar = 1)");
+	is( "" . ( $p > 2 ), '[0 BAD 1 1]', "compare PDL against (scalar = 2)" );
+	is( "" . ( $p > 3 ), '[0 BAD 0 1]', "compare PDL against (scalar = 3)");
+	is( "" . ( $p > 4 ), '[0 BAD 0 0]', "compare PDL against (scalar = 4)");
+};
+
+subtest "Throw a warning when badvalue is set to 0 or 1 and a comparison operator is used" => sub {
+	my $warn_msg_re = qr/Badvalue is set to 0 or 1/;
+
+	# We do not need to change the contents of this PDL.
+	# Only the value of badvalue changes.
+	my $p = pdl([0, 1, 2]);
+	$p->badflag(1);
+	subtest "Badvalue set to 0" => sub {
+		$p->badvalue(0);
+		warning_like { $p == 1 } $warn_msg_re, "A warning thrown for badval == 0 and == operator";
+	};
+
+	subtest "Badvalue set to 1" => sub {
+		$p->badvalue(1);
+		warning_like { $p == 1 } $warn_msg_re, "A warning thrown for badval == 1 and == operator";
+	};
+
+	subtest "Badvalue set to 2" => sub {
+		$p->badvalue(2);
+		warning_like { $p == 1 } undef, "No warning thrown for badval == 2 and == operator";
+	};
+
+	subtest "Badvalue set to 0 and other operators" => sub {
+		$p->badvalue(0);
+
+		warning_like { $p > 1 } $warn_msg_re, "A warning thrown for badval == 0 and > operator";
+		warning_like { $p >= 1 } $warn_msg_re, "A warning thrown for badval == 0 and >= operator";
+		warning_like { $p < 1 } $warn_msg_re, "A warning thrown for badval == 0 and < operator";
+		warning_like { $p <= 1 } $warn_msg_re, "A warning thrown for badval == 0 and <= operator";
+
+		warning_like { $p == 1 } $warn_msg_re, "A warning thrown for badval == 0 and == operator";
+		warning_like { $p != 1 } $warn_msg_re, "A warning thrown for badval == 0 and != operator";
+
+		warning_like { $p + 1 } undef, "No warning thrown for badval == 0 and + operator";
+	};
+};
+
+done_testing;

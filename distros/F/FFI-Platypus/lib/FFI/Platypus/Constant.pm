@@ -7,7 +7,7 @@ use constant 1.32 ();
 use FFI::Platypus;
 
 # ABSTRACT: Define constants in C space for Perl
-our $VERSION = '1.34'; # VERSION
+our $VERSION = '1.52'; # VERSION
 
 
 {
@@ -66,7 +66,7 @@ FFI::Platypus::Constant - Define constants in C space for Perl
 
 =head1 VERSION
 
-version 1.34
+version 1.52
 
 =head1 SYNOPSIS
 
@@ -87,11 +87,11 @@ C<lib/Foo.pm>:
  
  use strict;
  use warnings;
- use FFI::Platypus;
- use base qw( Exporter );
+ use FFI::Platypus 1.00;
+ use Exporter qw( import );
  
- my $ffi = FFI::Platypus->new;
- # sets constatns Foo::FOO and ABC::DEF from C
+ my $ffi = FFI::Platypus->new( api => 1 );
+ # sets constants Foo::FOO and ABC::DEF from C
  $ffi->bundle;
  
  1;
@@ -181,7 +181,7 @@ Your Perl code doesn't have to do anything when calling bundle:
  
  use strict;
  use warnings;
- use FFI::Platypus;
+ use FFI::Platypus 1.00;
  
  {
    my $ffi = FFI::Platypus->new( api => 1 );
@@ -216,7 +216,7 @@ Damyan Ivanov
 
 Ilya Pavlov (Ilya33)
 
-Petr Pisar (ppisar)
+Petr Písař (ppisar)
 
 Mohammad S Anwar (MANWAR)
 
@@ -225,6 +225,12 @@ Håkon Hægland (hakonhagland, HAKONH)
 Meredith (merrilymeredith, MHOWARD)
 
 Diab Jerius (DJERIUS)
+
+Eric Brine (IKEGAMI)
+
+szTheory
+
+José Joaquín Atria (JJATRIA)
 
 =head1 COPYRIGHT AND LICENSE
 

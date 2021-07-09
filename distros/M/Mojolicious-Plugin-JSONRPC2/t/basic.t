@@ -21,14 +21,14 @@ $server_slow->register_nb('method', sub {
 
 my $r = app->routes;
 $r->jsonrpc2('/', $server_full);
-$r->jsonrpc2_get('/safe', $server_safe)->over(headers => { app->jsonrpc2_headers });
+$r->jsonrpc2_get('/safe', $server_safe)->requires(headers => { app->jsonrpc2_headers });
 $r->jsonrpc2_get('/only', $server_safe);
 $r->jsonrpc2('/only', $server_full);
 $r->jsonrpc2('/slow', $server_slow);
 $r->get('/',        {text=>'Full API'});
 $r->get('/safe',    {text=>'Safe API'});
-$r->get('/only',    {text=>'Only Safe API'});
-$r->post('/only',   {text=>'Only Full API'});
+$r->get('/only' => [format => ['txt']],    {text=>'Only Safe API'});
+$r->post('/only' => [format => ['txt']],   {text=>'Only Full API'});
 
 my $t = Test::Mojo->new(app);
 

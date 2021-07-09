@@ -2,10 +2,10 @@ package Test2::Harness::UI::Response;
 use strict;
 use warnings;
 
-our $VERSION = '0.000028';
+our $VERSION = '0.000068';
 
 use Carp qw/croak/;
-use Time::HiRes qw/sleep/;
+use Time::HiRes qw/sleep time/;
 use Test2::Harness::Util::JSON qw/encode_json/;
 
 use parent 'Plack::Response';
@@ -98,24 +98,35 @@ sub stream {
         my $cleanup = $params{cleanup};
 
         my $ct = $params{content_type} || $params{'content-type'} || $params{'Content-Type'} or croak "'content_type' is a required attribute";
+        my $cache = $params{cache} // 1;
 
+        my @headers = ('Content-Type' => $ct);
+        push @headers => ('Cache-Control' => 'no-store') unless $cache;
+
+        my $last_write = time;
         $self->{stream} = sub {
             my $responder = shift;
-            my $writer = $responder->([200, ['Content-Type' => $ct]]);
+            my $writer = $responder->([200, \@headers]);
 
             my $end = 0;
             while (!$end) {
                 $end = $done->();
 
-                last unless $env->{'psgix.io'}->connected;
-
                 my $seen = 0;
                 for my $item ($fetch->()) {
                     $writer->write($item);
+                    last unless $env->{'psgix.io'}->connected;
+                    $last_write = time;
                     $seen++;
                 }
 
-                sleep $wait unless $seen;
+                unless ($seen || $end) {
+                    if (time - $last_write > 1) {
+                        $writer->write("\n");
+                        last unless $env->{'psgix.io'}->connected;
+                    }
+                    sleep $wait;
+                }
             }
 
             $cleanup->() if $cleanup;

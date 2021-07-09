@@ -2,6 +2,8 @@
 use strict;
 use warnings;
 no if "$]" >= 5.031009, feature => 'indirect';
+no if "$]" >= 5.033001, feature => 'multidimensional';
+no if "$]" >= 5.033006, feature => 'bareword_filehandles';
 
 use Test2::API 'intercept';
 use Test::More 0.88;
@@ -31,7 +33,7 @@ cmp_deeply(
   $events->[0],
   all(
     isa('Test2::Event::Note'),
-    methods(message => 'running tests in '.$accepter->test_dir.'...'),
+    methods(message => 'running tests in '.$accepter->test_dir.' against draft7...'),
   ),
   'first test event is the note',
 );

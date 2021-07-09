@@ -1,19 +1,16 @@
 package Quantum::Superpositions::Lazy::Computation;
 
-our $VERSION = '1.04';
+our $VERSION = '1.08';
 
-use v5.28;
+use v5.24;
 use warnings;
 use Moo;
-
-use feature qw(signatures);
-no warnings qw(experimental::signatures);
-
 use Quantum::Superpositions::Lazy::Operation::Computational;
 use Quantum::Superpositions::Lazy::ComputedState;
-use Quantum::Superpositions::Lazy::Util qw(is_collapsible);
+use Quantum::Superpositions::Lazy::Util qw(is_collapsible get_iterator);
 use Types::Common::Numeric qw(PositiveNum);
 use Types::Standard qw(ConsumerOf ArrayRef Str);
+use List::Util qw(product);
 
 use namespace::clean;
 
@@ -37,8 +34,10 @@ has "values" => (
 
 sub weight_sum { 1 }
 
-sub collapse ($self)
+sub collapse
 {
+	my ($self) = @_;
+
 	my @members = map {
 		(is_collapsible $_) ? $_->collapse : $_
 	} $self->values->@*;
@@ -46,8 +45,10 @@ sub collapse ($self)
 	return $self->operation->run(@members);
 }
 
-sub is_collapsed ($self)
+sub is_collapsed
 {
+	my ($self) = @_;
+
 	# a single uncollapsed state means that the computation
 	# is not fully collapsed
 	foreach my $member ($self->values->@*) {
@@ -58,8 +59,10 @@ sub is_collapsed ($self)
 	return 1;
 }
 
-sub reset ($self)
+sub reset
 {
+	my ($self) = @_;
+
 	foreach my $member ($self->values->@*) {
 		if (is_collapsible $member) {
 			$member->reset;
@@ -67,39 +70,41 @@ sub reset ($self)
 	}
 }
 
-sub _cartesian_product ($self, $values1, $values2, $sourced)
+sub _cartesian_product
 {
+	my ($self, $input_states, $sourced) = @_;
+
 	my %states;
-	for my $val1 ($values1->@*) {
-		for my $val2 ($values2->@*) {
-			my $result = $self->operation->run($val1->[1], $val2->[1]);
-			my $probability = $val1->[0] * $val2->[0];
+	my $iterator = get_iterator $input_states->@*;
 
-			if (exists $states{$result}) {
-				$states{$result}[0] += $probability;
-			}
-			else {
-				$states{$result} = [
-					$probability,
-					$result,
-				];
-			}
+	while (my @params = $iterator->()) {
+		my @source = map { $_->[1] } @params;
+		my $result = $self->operation->run(@source);
+		my $probability = product map { $_->[0] } @params;
 
-			if ($sourced) {
-				my $source = [@{$val1->[2] // [$val1->[1]]}, $val2->[1]];
-				push $states{$result}[2]->@*, $source;
-			}
+		if (exists $states{$result}) {
+			$states{$result}[0] += $probability;
+		}
+		else {
+			$states{$result} = [
+				$probability,
+				$result,
+			];
+		}
+
+		if ($sourced) {
+			push $states{$result}[2]->@*, \@source;
 		}
 	}
 
 	return [values %states];
 }
 
-sub _build_complete_states ($self)
+sub _build_complete_states
 {
-	my $states;
-	my $sourced = $Quantum::Superpositions::Lazy::global_sourced_calculations;
+	my ($self) = @_;
 
+	my @input_states;
 	for my $value ($self->values->@*) {
 		my $local_states;
 
@@ -115,13 +120,11 @@ sub _build_complete_states ($self)
 			$local_states = [[1, $value]];
 		}
 
-		if (defined $states) {
-			$states = $self->_cartesian_product($states, $local_states, $sourced);
-		}
-		else {
-			$states = $local_states;
-		}
+		push @input_states, $local_states;
 	}
+
+	my $sourced = $Quantum::Superpositions::Lazy::global_sourced_calculations;
+	my $states = $self->_cartesian_product(\@input_states, $sourced);
 
 	if ($sourced) {
 		return [

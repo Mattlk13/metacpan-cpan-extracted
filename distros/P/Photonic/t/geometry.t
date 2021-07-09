@@ -3,7 +3,7 @@
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -32,18 +32,14 @@ use strict;
 use warnings;
 use PDL;
 use PDL::NiceSlice;
-use PDL::Complex;
 use Photonic::Geometry::FromB;
 use Photonic::Geometry::FromImage2D;
 use Photonic::Geometry::FromEpsilon;
-use Test::More tests => 39;
+use Photonic::Utils qw(lu_solve);
+use lib 't/lib';
+use TestUtils;
+use Test::More;
 my $pi=4*atan2(1,1);
-
-sub agree {
-    my $a=shift;
-    my $b=shift//0;
-    return (($a-$b)*($a-$b))->sum<=1e-7;
-}
 
 my $B=zeroes(11,11)->rvals<=5;
 my $g=Photonic::Geometry::FromB->new(B=>$B);
@@ -54,8 +50,7 @@ ok($g->L->ndims==1, "L is a vector");
 ok(($g->L->dims)[0]==2, "L is a 2D vector");
 ok(($g->L->dims)[0]==2, "L is a 2D vector");
 ok(agree(pdl($g->L),pdl(11,11)), "correct L values");
-ok(agree(($g->units)->[0], pdl(1,0)) && agree(($g->units)->[1], pdl(0,1)),
-   "units");
+ok(agree($g->units, identity(2)), "units");
 ok($g->npoints==11*11, "npoints");
 ok(agree($g->scale,pdl(1,1)), "Default scale");
 ok(agree($gl->scale, pdl(1/11,1/11)), "Scale");
@@ -84,15 +79,16 @@ ok(agree($g->GNorm->(:,(5),(5)), $g->pmGNorm->(:,(0),(5),(5)))
     && agree($g->mGNorm->(:,(5),(5)), $g->pmGNorm->(:,(1),(5),(5))),
     "spinor normalized G at center");
 ok($g->f==$B->sum/(11*11), "filling fraction");
-ok(agree($g->unitPairs->[0], pdl(1,0))
-   && agree($g->unitPairs->[1], pdl(1,1)/sqrt(2))
-   && agree($g->unitPairs->[2], pdl(0,1)), "unitpairs");
-ok(agree($g->cUnitPairs->[0]->re, pdl(1,0)/sqrt(2))
-   && agree($g->cUnitPairs->[0]->im, pdl(0,1)/sqrt(2)),
-   "cunitpairs");
+ok(agree($g->unitPairs, pdl([1,0], pdl(1,1)/sqrt(2), [0,1])), "unitpairs");
+my $got = $g->cUnitPairs;
+my $expected = czip(identity(2)->dog)/sqrt(2);
+ok(Cagree($got, $expected), "cunitpairs")
+  or diag "got:$got\nexpected:$expected";
 ok(agree($g->unitDyads, pdl([1,0,0],[.5,1,.5],[0,0,1])), "unitDyads");
-ok(agree(lu_backsub(@{$g->unitDyadsLU}, $g->unitDyads->transpose),
-	 identity(3)), "unitDyadsLU");
+
+$got = lu_solve($g->unitDyadsLU, $g->unitDyads->transpose->r2C);
+ok(Cagree($got, identity(3)), "unitDyadsLU");
+
 ok(agree($g->Vec2LC_G(zeroes(11,11)->ndcoords->r2C)->re,
 	 (zeroes(11,11)->ndcoords*$g->GNorm)->sumover),
    "Vec2LC");
@@ -103,6 +99,7 @@ SKIP: {
 	unless rpiccan("PNG");
     my $gw=Photonic::Geometry::FromImage2D->new(path=>'data/white.png');
     ok(defined $gw, "Create geometry from Image");
+    ok(all($gw->B==ones(11, 11)), "lazy-build B");
     ok($gw->npoints==11*11, "npoints");
     ok($gw->f==1, "filling fraction of white");
     my $gb=Photonic::Geometry::FromImage2D->new(path=>'data/black.png');
@@ -111,8 +108,10 @@ SKIP: {
 	path=>'data/black.png', inverted=>1);
     ok($gbi->f==1, "filling fraction of inverted black");
 }
-my $eps=zeroes(11,11)+0*i;
+my $eps=r2C(zeroes(11,11));
 my $ge=Photonic::Geometry::FromEpsilon->new(epsilon=>$eps);
 ok(defined $ge, "Create geometry from epsilon");
 is($ge->ndims, 2, "Number of dimensions");
 ok(agree(pdl($ge->dims),pdl(11,11)), "Size of each dimension");
+
+done_testing;

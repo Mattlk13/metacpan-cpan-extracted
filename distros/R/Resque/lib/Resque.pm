@@ -1,6 +1,6 @@
 package Resque;
 # ABSTRACT: Redis-backed library for creating background jobs, placing them on multiple queues, and processing them later.
-$Resque::VERSION = '0.37';
+$Resque::VERSION = '0.42';
 use Moose;
 use Scalar::Util 'blessed';
 use Moose::Util::TypeConstraints;
@@ -24,6 +24,15 @@ coerce 'Sugar::Redis' => from 'Str' => via {
         every     => 250,
         encoding  => undef
     )
+};
+
+coerce 'Sugar::Redis' => from 'HashRef' => via {
+    _redis_class->new((
+        reconnect => 60,
+        every     => 250,
+        encoding  => undef,
+        %$_,
+    ));
 };
 
 has redis => (
@@ -67,9 +76,34 @@ sub pop {
     });
 }
 
+sub blpop {
+    my ( $self, $queues, $timeout ) = @_;
+    my ( $key, $payload ) = $self->redis->blpop(( map { $self->key( queue => $_ ) } @$queues ), $timeout || 0 );
+    return unless $payload;
+
+    # clean prefix added by key().
+    my $prefix  = $self->key('queue');
+    my ($queue) = $key =~ /^$prefix:(.+)$/;
+
+    $self->new_job({
+        payload => $payload,
+        queue   => $queue
+    });
+}
+
 sub size {
     my ( $self, $queue ) = @_;
     $self->redis->llen( $self->key( queue => $queue ) );
+}
+
+sub size_map {
+    my ( $self, $queues ) = @_;
+    my $res = {};
+    for my $q (@$queues) {
+        $self->redis->llen( $self->key( queue => $q ), sub{ $res->{$q} = $_[0] } )
+    }
+    $self->redis->wait_all_responses;
+    $res;
 }
 
 sub peek {
@@ -181,7 +215,7 @@ Resque - Redis-backed library for creating background jobs, placing them on mult
 
 =head1 VERSION
 
-version 0.37
+version 0.42
 
 =head1 SYNOPSIS
 
@@ -246,7 +280,7 @@ A lot more about Resque can be read on the original blog post: L<http://github.c
 
 =head2 redis
 
-Redis instance for this Resque instance. Accepts a string, L<Redis>, L<Redis::Fast> or any other object that behaves like those.
+Redis instance for this Resque instance. Accepts a string, hash reference, L<Redis>, L<Redis::Fast> or any other object that behaves like those.
 
 When a string is passed in, it will be used as the server argument of a new client object. When L<Redis::Fast> is available this
 will be used, when not the pure perl L<Redis> client will be used instead.
@@ -292,12 +326,30 @@ Returns a Resque::Job object.
 
     my $resque_job = $r->pop( 'queue_name' );
 
+=head2 blpop
+
+Pops a job off an arrayref of queues prioritizing by order. Queue names should be string.
+It will block until a job is poped or the optional timeout in seconds.
+
+Returns a Resque::Job object.
+
+    my $resque_job = $r->blpop( [qw/ queue1 queue2 queue3/], 60 );
+
 =head2 size
 
 Returns the size of a queue.
 Queue name should be a string.
 
     my $size = $r->size();
+
+=head2 size_map
+
+Returns a hashref with the size of an arrayref of queues.
+Queue names should be strings.
+
+    my $sizes = $r->size_map([qw/ queue1 queue2 queue3 /]);
+
+This method is very fast as it will pipeline all operations.
 
 =head2 peek
 
@@ -431,7 +483,7 @@ More tests on worker fork and signal handling.
 
 =item *
 
-L<Gearman>
+L<Gearman::Client>
 
 =item *
 
@@ -449,7 +501,7 @@ Diego Kuperman <diego@freekeylabs.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2015 by Diego Kuperman.
+This software is copyright (c) 2021 by Diego Kuperman.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

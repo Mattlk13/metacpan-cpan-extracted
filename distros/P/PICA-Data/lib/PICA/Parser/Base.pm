@@ -1,7 +1,7 @@
 package PICA::Parser::Base;
 use v5.14.1;
 
-our $VERSION = '1.14';
+our $VERSION = '1.28';
 
 use Carp qw(croak);
 use Scalar::Util qw(reftype);
@@ -12,9 +12,9 @@ sub _new {
     my (%options) = @_ % 2 ? (fh => @_) : @_;
 
     bless {
-        bless  => !!$options{bless},
-        strict => !!$options{strict},
-        fh     => defined $options{fh} ? $options{fh} : \*STDIN
+        strict   => !!$options{strict},
+        fh       => defined $options{fh} ? $options{fh} : \*STDIN,
+        annotate => $options{annotate}
     }, $class;
 }
 
@@ -51,13 +51,20 @@ sub new {
 sub next {
     my ($self) = @_;
 
-    # get last subfield from 003@ as id
     while (my $record = $self->_next_record) {
         next unless @$record;
-        my ($id) = map {$_->[-1]} grep {($_->[0] // '') =~ '003@'} @$record;
-        $record = {_id => $id, record => $record};
-        bless $record, 'PICA::Data' if $self->{bless};
-        return $record;
+
+        # get last 003@ $0 as _id
+        my $id;
+        if (my ($field) = grep {($_->[0] // '') =~ '003@'} @$record) {
+            for (my $i = 2; $i < @$field; $i += 2) {
+                if ($field->[$i] eq '0') {
+                    $id = $field->[$i + 1];
+                    last;
+                }
+            }
+        }
+        return bless {record => $record, _id => $id}, 'PICA::Data';
     }
 
     return;
@@ -80,7 +87,7 @@ PICA::Parser::Base - abstract base class of PICA parsers
     }
 
     use PICA::Parser::Plus;
-    my $parser = PICA::Parser::Plus->new( $filename, bless => 1 );
+    my $parser = PICA::Parser::Plus->new( $filename );
     ... # records will be instances of PICA::Data
 
     use PICA::Parser::XML;
@@ -112,14 +119,15 @@ Use one of the following subclasses instead:
 
 =over
 
-=item blessed
-
-Return records as instances of L<PICA::Data> (disabled by default).
-
 =item strict
 
 By default faulty fields in records are skipped with warnings. You can make
 them fatal by setting the I<strict> parameter to 1.
+
+=item annotate
+
+By default some parsers also support annotated PICA. Set to true to enforce
+field annotations or to false to forbid them.
 
 =back
 
@@ -132,8 +140,8 @@ reference to a Unicode string. L<PICA::Parser::XML> also detects plain XML strin
 
 =head2 next
 
-Reads the next PICA+ record. Returns a (optionally blessed) hash with keys
-C<_id> and C<record>, as defined in L<PICA::Data>.
+Reads the next PICA+ record. Returns a L<PICA::Data> object (that is a blessed
+hash with keys C<record> and optional C<_id>).
 
 =head1 SEE ALSO
 

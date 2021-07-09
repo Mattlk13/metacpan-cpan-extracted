@@ -1,5 +1,5 @@
 package Photonic::Types;
-$Photonic::Types::VERSION = '0.014';
+$Photonic::Types::VERSION = '0.017';
 
 =encoding UTF-8
 
@@ -8,7 +8,7 @@ $Photonic::Types::VERSION = '0.014';
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -35,8 +35,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
 
 
 use Moose::Util::TypeConstraints;
-#use PDL::Lite;
-#use PDL::NiceSlice;
+use Photonic::Utils qw(any_complex);
 
 subtype 'Photonic::Types::OddInt' =>
     as 'Int',
@@ -67,25 +66,10 @@ subtype 'Photonic::Types::AllHSave' =>
   where { $_->keepStates == 1 },
     message { "Can't calculate fields if you don't keepStates" };
 
-subtype 'Photonic::Types::LE::NR2::AllHSave' =>
-  as 'Photonic::LE::NR2::AllH',
-  where { $_->keepStates == 1 },
-    message { "Can't calculate fields if you don't keepStates" };
-
-subtype 'Photonic::Types::LE::S::AllHSave' =>
-  as 'Photonic::LE::S::AllH',
-  where { $_->keepStates == 1 },
-    message { "Can't calculate fields if you don't keepStates" };
-
-subtype 'Photonic::Types::WE::R2::AllHSave' =>
-  as 'Photonic::WE::R2::AllH',
-  where { $_->keepStates == 1 },
-    message { "Can't calculate fields if you don't keepStates" };
-
-subtype 'Photonic::Types::WE::S::AllHSave' =>
-  as 'Photonic::WE::S::AllH',
-  where { $_->keepStates == 1 },
-    message { "Can't calculate fields if you don't keepStates" };
+subtype 'Photonic::Types::PDLComplex' =>
+  as 'PDL',
+  where { any_complex($_) },
+  ;
 
 no Moose::Util::TypeConstraints;
 

@@ -1,5 +1,5 @@
 package Lab::Moose::Sweep::Step::Power;
-$Lab::Moose::Sweep::Step::Power::VERSION = '3.740';
+$Lab::Moose::Sweep::Step::Power::VERSION = '3.762';
 #ABSTRACT: Power sweep.
 
 use v5.20;
@@ -42,7 +42,7 @@ Lab::Moose::Sweep::Step::Power - Power sweep.
 
 =head1 VERSION
 
-version 3.740
+version 3.762
 
 =head1 Description
 
@@ -52,7 +52,7 @@ Step sweep with following properties:
 
 =item *
 
- Uses instruments C<set_power> method to change the power.
+Uses instruments C<set_power> method to change the power.
 
 =item *
 
@@ -66,6 +66,7 @@ This software is copyright (c) 2021 by the Lab::Measurement team; in detail:
 
   Copyright 2018       Andreas K. Huettel
             2020       Andreas K. Huettel
+            2021       Fabian Weinelt
 
 
 This is free software; you can redistribute it and/or modify it under

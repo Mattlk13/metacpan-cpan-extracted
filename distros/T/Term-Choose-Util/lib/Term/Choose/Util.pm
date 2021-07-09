@@ -4,7 +4,7 @@ use warnings;
 use strict;
 use 5.008003;
 
-our $VERSION = '0.122';
+our $VERSION = '0.125';
 use Exporter 'import';
 our @EXPORT_OK = qw( choose_a_directory choose_a_file choose_directories choose_a_number choose_a_subset settings_menu
                      insert_sep get_term_size get_term_width get_term_height unicode_sprintf );
@@ -99,9 +99,12 @@ sub _valid_options {
         small_first         => '[ 0 1 ]',
         alignment           => '[ 0 1 2 ]',
         color               => '[ 0 1 2 ]',
+        page                => '[ 0 1 2 ]',       # undocumented
         layout              => '[ 0 1 2 3 ]',
+        keep                => '[ 1-9 ][ 0-9 ]*', # undocumented
+        default_number      => '[ 0-9 ]+',
         mark                => 'Array_Int',
-        solo                => 'Array_Int',     # experimental
+        solo                => 'Array_Int',       # experimental
         tabs_info           => 'Array_Int',
         tabs_prompt         => 'Array_Int',
         busy_string         => 'Str',
@@ -110,6 +113,7 @@ sub _valid_options {
         add_dirs            => 'Str',
         back                => 'Str',
         filter              => 'Str',
+        footer              => 'Str',             # undocumented
         show_files          => 'Str',
         confirm             => 'Str',
         parent_dir          => 'Str',
@@ -141,12 +145,15 @@ sub _defaults {
         clear_screen   => 0,
         color          => 0,
         decoded        => 1,
+        #default_number => undef,
         enchanted      => 1,
         hide_cursor    => 1,
         index          => 0,
         #info          => undef,
         #init_dir      => undef,
         #filter        => undef,
+        #footer        => undef,
+        #keep          => undef,
         keep_chosen    => 0,
         layout         => 1,
         #tabs_info     => undef,
@@ -159,6 +166,7 @@ sub _defaults {
         #mark          => undef,
         mouse          => 0,
         order          => 1,
+        #page          => undef,
         prefix         => '',
         #prompt        => undef,
         reset          => 'reset',
@@ -176,7 +184,7 @@ sub _defaults {
 
 sub _routine_options {
     my ( $caller ) = @_;
-    my @every = ( qw( info prompt clear_screen mouse hide_cursor confirm back color tabs_info tabs_prompt cs_label ) );
+    my @every = ( qw( info prompt clear_screen mouse hide_cursor confirm back color tabs_info tabs_prompt cs_label page footer keep ) ); # sort
     my $options;
     if ( $caller eq 'choose_directories' ) {
         $options = [ @every, qw( init_dir layout order alignment enchanted show_hidden parent_dir decoded add_dirs ) ];
@@ -188,7 +196,7 @@ sub _routine_options {
         $options = [ @every, qw( init_dir layout order alignment enchanted show_hidden parent_dir decoded show_files filter ) ];
     }
     elsif ( $caller eq 'choose_a_number' ) {
-        $options = [ @every, qw( small_first reset thousands_separator ) ];
+        $options = [ @every, qw( small_first reset thousands_separator default_number ) ];
     }
     elsif ( $caller eq 'choose_a_subset' ) {
         $options = [ @every, qw( layout order alignment enchanted keep_chosen index prefix all_by_default cs_begin cs_end cs_separator mark busy_string solo ) ];
@@ -213,9 +221,11 @@ sub __prepare_path {
         my $prompt = 'Could not find the directory "';
         $prompt .= decode 'locale_fs', $init_dir_fs;
         $prompt .= '". Falling back to the home directory.';
+        # Choose
         choose(
             [ 'Press ENTER to continue' ],
-            { prompt => $prompt, hide_cursor => $self->{hide_cursor}, mouse => $self->{mouse} }
+            { prompt => $prompt, hide_cursor => $self->{hide_cursor}, mouse => $self->{mouse}, page => $self->{page},
+              footer => $self->{footer}, keep => $self->{keep} }
         );
         $init_dir_fs = File::HomeDir->my_home();
     }
@@ -223,7 +233,7 @@ sub __prepare_path {
         $init_dir_fs = File::HomeDir->my_home();
     }
     if ( ! -d $init_dir_fs ) {
-        die "Could not find the home directory.";
+        croak "Could not find the home directory.";
     }
     return $init_dir_fs;
 }
@@ -233,13 +243,15 @@ sub __available_dirs {
     my ( $self, $dir_fs ) = @_;
     my $dh;
     if ( ! eval {
-        opendir( $dh, $dir_fs ) or die $!;
+        opendir( $dh, $dir_fs ) or croak $!;
         1 }
     ) {
         print "$@";
+        # Choose
         choose(
             [ 'Press Enter:' ],
-            { prompt => '', hide_cursor => $self->{hide_cursor}, mouse => $self->{mouse} }
+            { prompt => '', hide_cursor => $self->{hide_cursor}, mouse => $self->{mouse}, page => $self->{page},
+              footer => $self->{footer}, keep => $self->{keep} }
         );
         $dir_fs = dirname $dir_fs;
         next;
@@ -319,10 +331,8 @@ sub choose_directories {
             }
             my $idxs = $self->choose_a_subset(
                 [ sort map { decode 'locale_fs', $_ } @$avail_dirs_fs ],
-                {   info => $info, prompt => $prompt, back => '<<', confirm => 'OK',
-                    cs_begin => '+ ', cs_label => undef,
-                    index => 1
-                }
+                { info => $info, prompt => $prompt, back => '<<', confirm => 'OK', cs_begin => '+ ', cs_label => undef,
+                  page => $self->{page}, footer => $self->{footer}, keep => $self->{keep}, index => 1 }
             );
             for my $o ( @used_options ) {
                 $self->{$o} = $bu_opt->{$o};
@@ -398,13 +408,15 @@ sub __choose_a_path {
     while ( 1 ) {
         my ( $dh, @dirs );
         if ( ! eval {
-            opendir( $dh, $dir_fs ) or die $!;
+            opendir( $dh, $dir_fs ) or croak $!;
             1 }
         ) {
             print "$@";
+            # Choose
             choose(
                 [ 'Press Enter:' ],
-                { prompt => '', hide_cursor => $self->{hide_cursor}, mouse => $self->{mouse} }
+                { prompt => '', hide_cursor => $self->{hide_cursor}, mouse => $self->{mouse}, page => $self->{page},
+                  footer => $self->{footer}, keep => $self->{keep} }
             );
             $dir_fs = dirname $dir_fs;
             next;
@@ -441,7 +453,7 @@ sub __choose_a_path {
               layout => $self->{layout}, order => $self->{order}, mouse => $self->{mouse},
               clear_screen => $self->{clear_screen}, hide_cursor => $self->{hide_cursor},
               color => $self->{color}, tabs_info => $self->{tabs_info}, tabs_prompt => $self->{tabs_prompt},
-              undef => $self->{back} }
+              page => $self->{page}, footer => $self->{footer}, keep => $self->{keep}, undef => $self->{back} }
         );
         if ( ! defined $choice ) {
             return;
@@ -488,16 +500,18 @@ sub __a_file {
                 @files_fs = map { basename $_} grep { -e $_ } glob( catfile( $dir_fs, $self->{filter} ) );
             }
             else {
-                opendir( my $dh, $dir_fs ) or die $!;
+                opendir( my $dh, $dir_fs ) or croak $!;
                 @files_fs = readdir $dh;
                 closedir $dh;
             }
         1 }
         ) {
             print "$@";
+            # Choose
             choose(
                 [ 'Press Enter:' ],
-                { prompt => '', hide_cursor => $self->{hide_cursor}, mouse => $self->{mouse} }
+                { prompt => '', hide_cursor => $self->{hide_cursor}, mouse => $self->{mouse}, page => $self->{page},
+                  footer => $self->{footer}, keep => $self->{keep} }
             );
             return;
         }
@@ -525,10 +539,12 @@ sub __a_file {
             else {
                 $prompt = 'No files.';
             }
+            # Choose
             choose(
                 [ ' < ' ],
                 { info => $self->{info}, prompt => "$lines\n$prompt", hide_cursor => $self->{hide_cursor},
-                  mouse => $self->{mouse}, color => $self->{color} }
+                  mouse => $self->{mouse}, color => $self->{color}, page => $self->{page}, footer => $self->{footer},
+                  keep => $self->{keep} }
             );
             return;
         }
@@ -539,11 +555,11 @@ sub __a_file {
         # Choose
         $chosen_file = choose(
             [ @pre, sort( @files ) ],
-            { info => $self->{info}, prompt => $lines, alignment => $self->{alignment},
-              layout => $self->{layout}, order => $self->{order}, mouse => $self->{mouse},
-              clear_screen => $self->{clear_screen}, hide_cursor => $self->{hide_cursor},
-              color => $self->{color}, tabs_info => $self->{tabs_info}, tabs_prompt => $self->{tabs_prompt},
-              undef => $self->{back} }
+            { info => $self->{info}, prompt => $lines, alignment => $self->{alignment}, layout => $self->{layout},
+              order => $self->{order}, mouse => $self->{mouse}, clear_screen => $self->{clear_screen},
+              hide_cursor => $self->{hide_cursor}, color => $self->{color}, tabs_info => $self->{tabs_info},
+              tabs_prompt => $self->{tabs_prompt}, page => $self->{page}, footer => $self->{footer},
+              keep => $self->{keep}, undef => $self->{back} }
         );
         if ( ! length $chosen_file ) {
             if ( length $prev_dir_fs ) {
@@ -608,6 +624,15 @@ sub choose_a_number {
     }
     my %numbers;
     my $result;
+    if ( defined $self->{default_number} && length $self->{default_number} <= $digits ) {
+        my $count_zeros = 0;
+        for my $d ( reverse split '', $self->{default_number} ) {
+            $numbers{$count_zeros} = $d * 10 ** $count_zeros;
+            $count_zeros++;
+        }
+        $result = sum( @numbers{keys %numbers} );
+        $result = insert_sep( $result, $self->{thousands_separator} );
+    }
 
     NUMBER: while ( 1 ) {
         my $cs_row;
@@ -633,7 +658,8 @@ sub choose_a_number {
             $self->{small_first} ? [ @pre, reverse @ranges ] : [ @pre, @ranges ],
             { info => $self->{info}, prompt => $lines, layout => 3, alignment => 1, mouse => $self->{mouse},
               clear_screen => $self->{clear_screen}, hide_cursor => $self->{hide_cursor}, color => $self->{color},
-              tabs_info => $self->{tabs_info}, tabs_prompt => $self->{tabs_prompt}, undef => $back_tmp }
+              tabs_info => $self->{tabs_info}, tabs_prompt => $self->{tabs_prompt}, page => $self->{page},
+              footer => $self->{footer}, keep => $self->{keep}, undef => $back_tmp }
         );
         if ( ! defined $range ) {
             if ( defined $result ) {
@@ -647,21 +673,13 @@ sub choose_a_number {
             }
         }
         if ( $range eq $confirm_tmp ) {
-            if ( $self->{thousands_separator} ne '' && defined $result ) {
-                $result =~ s/\Q$self->{thousands_separator}\E//g;
-            }
+            $result = _remove_thousands_separators( $result, $self->{thousands_separator} );
             $self->__restore_defaults();
             return $result;
         }
         my $zeros = ( split /\s*-\s*/, $range )[0];
         $zeros =~ s/^\s*\d//;
-        my $zeros_no_sep;
-        if ( $self->{thousands_separator} eq '' ) {
-            $zeros_no_sep = $zeros;
-        }
-        else {
-            ( $zeros_no_sep = $zeros ) =~ s/\Q$self->{thousands_separator}\E//g;
-        }
+        my $zeros_no_sep = _remove_thousands_separators( $zeros, $self->{thousands_separator} );
         my $count_zeros = length $zeros_no_sep;
         my @choices = $count_zeros ? map( $_ . $zeros, 1 .. 9 ) : ( 0 .. 9 );
         # Choose
@@ -670,19 +688,28 @@ sub choose_a_number {
             { info => $self->{info}, prompt => $lines, layout => 1, alignment => 2, order => 0,
               mouse => $self->{mouse}, clear_screen => $self->{clear_screen}, hide_cursor => $self->{hide_cursor},
               color => $self->{color}, tabs_info => $self->{tabs_info}, tabs_prompt => $self->{tabs_prompt},
-              undef => '<<' }
+              page => $self->{page}, footer => $self->{footer}, keep => $self->{keep}, undef => '<<' }
         );
         next if ! defined $number;
         if ( $number eq $self->{reset} ) {
             delete $numbers{$count_zeros};
         }
         else {
-            $number =~ s/\Q$self->{thousands_separator}\E//g if $self->{thousands_separator} ne '';
-            $numbers{$count_zeros} = $number;
+            $numbers{$count_zeros} = _remove_thousands_separators( $number, $self->{thousands_separator} );
         }
         $result = sum( @numbers{keys %numbers} );
         $result = insert_sep( $result, $self->{thousands_separator} );
     }
+}
+
+
+sub _remove_thousands_separators {
+    my ( $str, $sep ) = @_;
+    # https://stackoverflow.com/questions/13119241/substitution-with-empty-string-unexpected-result
+    if ( defined $str && $sep ne '' ) {
+        $str =~ s/\Q$sep\E//g;
+    }
+    return $str;
 }
 
 
@@ -737,13 +764,14 @@ sub choose_a_subset {
         my $lines = join "\n", @tmp;
         # Choose
         my @idx = choose(
-            [ @pre, map { $self->{prefix} . ( defined $_ ? $_ : '' ) } @$curr_avail ],
+            [ @pre, length( $self->{prefix} ) ? map { $self->{prefix} . ( defined $_ ? $_ : '' ) } @$curr_avail : @$curr_avail ],
             { info => $self->{info}, prompt => $lines, layout => $self->{layout}, index => 1,
               alignment => $self->{alignment}, order => $self->{order}, mouse => $self->{mouse},
               meta_items => $meta_items, mark => $mark, include_highlighted => 2,
               clear_screen => $self->{clear_screen}, hide_cursor => $self->{hide_cursor},
               color => $self->{color}, tabs_info => $self->{tabs_info}, tabs_prompt => $self->{tabs_prompt},
-              undef => $self->{back}, busy_string => $self->{busy_string} }
+              page => $self->{page}, footer => $self->{footer}, keep => $self->{keep}, undef => $self->{back},
+              busy_string => $self->{busy_string} }
         );
         $self->{mark} = $mark = undef;
         if ( ! defined $idx[0] || $idx[0] == 0 ) {
@@ -853,7 +881,7 @@ sub settings_menu {
             { info => $self->{info}, prompt => $lines, index => 1, default => $default, layout => 3, alignment => 0,
               mouse => $self->{mouse}, clear_screen => $self->{clear_screen}, hide_cursor => $self->{hide_cursor},
               color => $self->{color}, tabs_info => $self->{tabs_info}, tabs_prompt => $self->{tabs_prompt},
-              undef => $self->{back} }
+              page => $self->{page}, footer => $self->{footer}, keep => $self->{keep}, undef => $self->{back} }
         );
         if ( ! $idx ) {
             $self->__restore_defaults();
@@ -907,6 +935,7 @@ sub insert_sep {
     return           if ! defined $number;
     return $number   if ! length $number;
     $separator = ',' if ! defined $separator;
+    return $number   if $separator eq '';
     return $number   if $number =~ /\Q$separator\E/;
     $number =~ s/(^[-+]?\d+?(?=(?>(?:\d{3})+)(?!\d))|\G\d{3}(?=\d))/$1$separator/g;
     # http://perldoc.perl.org/perlfaq5.html#How-can-I-output-my-numbers-with-commas-added?
@@ -990,7 +1019,7 @@ Term::Choose::Util - TUI-related functions for selecting directories, files, num
 
 =head1 VERSION
 
-Version 0.122
+Version 0.125
 
 =cut
 
@@ -1280,9 +1309,19 @@ Options:
 
 =item
 
+default_number
+
+Set a default number (unsigned integer in the range of the available numbers).
+
+Default: undef
+
+=item
+
 small_first
 
 Put the small number ranges on top.
+
+Default: off
 
 =item
 

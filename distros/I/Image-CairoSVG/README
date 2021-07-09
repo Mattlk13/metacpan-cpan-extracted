@@ -12,7 +12,7 @@
                                            
 
 
-This is the README for Image::CairoSVG version 0.11.
+This is the README for Image::CairoSVG version 0.22.
 
 Image::CairoSVG is a "module" for the Perl computer programming language, a
 library of computer code to install on a computer.  This document contains
@@ -30,10 +30,11 @@ four sections:
 
 1. ABOUT
 
-Image::CairoSVG - render SVG into a Cairo surface
+Image::CairoSVG - Render SVG into a Cairo surface
 
-This module renders some kinds of SVG ("Scalable Vector Graphics")
-instructions into a Cairo surface.
+This module renders SVG ("Scalable Vector Graphics") instructions into
+a Cairo surface. The user can then choose what to do with the surface,
+for example write it out to a PNG file.
 
 -----------------------------------------------------------------------------
 
@@ -65,11 +66,11 @@ If you have the App::cpanminus installer, you may prefer
 
     cpanm Image::CairoSVG
 
-To install the module from the source file, Image-CairoSVG-0.11.tar.gz,
+To install the module from the source file, Image-CairoSVG-0.22.tar.gz,
 follow this sequence of commands:
 
-    tar xfz Image-CairoSVG-0.11.tar.gz
-    cd Image-CairoSVG-0.11
+    tar xfz Image-CairoSVG-0.22.tar.gz
+    cd Image-CairoSVG-0.22
     perl Makefile.PL
     make
     make install
@@ -94,6 +95,6 @@ repository on github at
 
 -----------------------------------------------------------------------------
 
-This README was written on Mon Jul  8 07:27:51 2019.
+This README was written on Mon May 31 09:14:38 2021.
 
 -----------------------------------------------------------------------------

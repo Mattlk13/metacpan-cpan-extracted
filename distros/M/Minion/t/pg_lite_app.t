@@ -7,6 +7,7 @@ use Test::More;
 plan skip_all => 'set TEST_ONLINE to enable this test' unless $ENV{TEST_ONLINE};
 
 use Mojo::IOLoop;
+use Mojo::Promise;
 use Mojolicious::Lite;
 use Test::Mojo;
 
@@ -47,13 +48,13 @@ my $t = Test::Mojo->new;
 
 subtest 'Perform jobs automatically' => sub {
   $t->get_ok('/add' => form => {first => 1, second => 2})->status_is(200);
-  $t->app->minion->perform_jobs({queues => ['test']});
+  $t->app->minion->perform_jobs_in_foreground({queues => ['test']});
   $t->get_ok('/result' => form => {id    => $t->tx->res->text})->status_is(200)->content_is('3');
   $t->get_ok('/add'    => form => {first => 2, second => 3})->status_is(200);
   my $first = $t->tx->res->text;
   $t->get_ok('/add' => form => {first => 4, second => 5})->status_is(200);
   my $second = $t->tx->res->text;
-  Mojo::IOLoop->delay(sub { $t->app->minion->perform_jobs({queues => ['test']}) })->wait;
+  Mojo::Promise->new->resolve->then(sub { $t->app->minion->perform_jobs({queues => ['test']}) })->wait;
   $t->get_ok('/result' => form => {id => $first})->status_is(200)->content_is('5');
   $t->get_ok('/result' => form => {id => $second})->status_is(200)->content_is('9');
 };

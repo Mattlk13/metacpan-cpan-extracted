@@ -1,5 +1,24 @@
 Revision history for Perl extension App-ansicolumn
 
+1.08 2021-06-25T04:08:26Z
+
+    - Implement -l, --table-columns-limit option.
+    - Add option usage in SYNOPSIS.
+
+1.07 2021-03-19T14:36:49Z
+
+    - Make --output-width as an alias for --width option.
+    - Accept Reverse Polish Notation in --height and --width options.
+
+1.06 2021-03-18T12:13:22Z
+
+    - Add --tabstyle option.
+    - Accept negative value for --height option.
+
+1.05 2021-01-29T02:23:48Z
+
+    - Accept empty line with -t option.
+
 1.04 2020-12-29T02:13:32Z
 
     - Add --pagebreak option and form feed character handling.

@@ -1,11 +1,11 @@
-[![Build Status](https://travis-ci.com/kaz-utashiro/Getopt-EX.svg?branch=master)](https://travis-ci.com/kaz-utashiro/Getopt-EX) [![MetaCPAN Release](https://badge.fury.io/pl/Getopt-EX.svg)](https://metacpan.org/release/Getopt-EX)
+[![Actions Status](https://github.com/kaz-utashiro/Getopt-EX/workflows/test/badge.svg)](https://github.com/kaz-utashiro/Getopt-EX/actions) [![MetaCPAN Release](https://badge.fury.io/pl/Getopt-EX.svg)](https://metacpan.org/release/Getopt-EX)
 # NAME
 
 Getopt::EX - Getopt Extender
 
 # VERSION
 
-Version v1.21.1
+Version v1.23.3
 
 # DESCRIPTION
 
@@ -53,7 +53,8 @@ gives option _-n_ always when the script executed.  See
 If the rc file includes a section start with `__PERL__`, it is
 evaluated as a perl program.  User can define any kind of functions
 there, which can be invoked from command line option if the script is
-aware of them.
+aware of them.  At this time, module object is assigned to variable
+`$MODULE`, and you can access module API through it.
 
 Also, special command option preceded by **-M** is taken and
 corresponding perl module is loaded.  For example,
@@ -232,7 +233,7 @@ The following copyright notice applies to all the files provided in
 this distribution, including binary files, unless explicitly noted
 otherwise.
 
-Copyright 2015-2020 Kazumasa Utashiro
+Copyright 2015-2021 Kazumasa Utashiro
 
 # LICENSE
 

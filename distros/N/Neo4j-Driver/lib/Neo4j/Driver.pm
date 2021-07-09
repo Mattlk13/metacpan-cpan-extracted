@@ -4,8 +4,8 @@ use warnings;
 use utf8;
 
 package Neo4j::Driver;
-# ABSTRACT: Perl Neo4j driver for Bolt and HTTP
-$Neo4j::Driver::VERSION = '0.20';
+# ABSTRACT: Neo4j community graph database driver for Bolt and HTTP
+$Neo4j::Driver::VERSION = '0.25';
 
 use Carp qw(croak);
 
@@ -29,6 +29,7 @@ my %OPTIONS = (
 	ca_file => 'tls_ca',
 	cypher_filter => 'cypher_filter',
 	cypher_types => 'cypher_types',
+	jolt => 'jolt',
 	net_module => 'net_module',
 	timeout => 'http_timeout',
 	tls => 'tls',
@@ -127,6 +128,8 @@ sub _parse_options {
 	croak "Odd number of elements in $context options hash" if @options & 1;
 	my %options = @options;
 	
+	warnings::warnif deprecated => "Config option cypher_types is deprecated" if $options{cypher_types};
+	
 	my @unsupported = ();
 	foreach my $key (keys %options) {
 		push @unsupported, $key unless grep m/^$key$/, @$supported;
@@ -163,11 +166,11 @@ __END__
 
 =head1 NAME
 
-Neo4j::Driver - Perl Neo4j driver for Bolt and HTTP
+Neo4j::Driver - Neo4j community graph database driver for Bolt and HTTP
 
 =head1 VERSION
 
-version 0.20
+version 0.25
 
 =head1 SYNOPSIS
 
@@ -201,12 +204,40 @@ existing L<REST::Neo4p> module does. Nor does it offer any L<DBI>
 integration. However, it avoids the legacy C<cypher> endpoint,
 assuring compatibility with Neo4j versions 2.3, 3.x and 4.x.
 
-The HTTP and Bolt protocols are supported for connecting to Neo4j.
-Bolt requires installing the XS module L<Neo4j::Bolt>. Using Bolt
-is much faster than HTTP, but at time of this writing the
-L<libneo4j-client|https://neo4j-client.net/#libneo4j-client> backend
-library that L<Neo4j::Bolt> uses to connect to the database server
-only supports Neo4j version 3.x.
+Two different network protocols exist for connecting to Neo4j.
+By default, Neo4j servers offer both, but this can be changed
+in F<neo4j.conf> for each server; see
+L<"Configure connectors" in the Neo4j Operations Manual|https://neo4j.com/docs/operations-manual/current/configuration/connectors/>.
+
+=over
+
+=item Bolt
+
+Bolt is a Neo4j proprietary, binary protocol, available with
+S<Neo4j 3.0> and newer. Bolt communication may be encrypted or
+unencrypted. Because Bolt is faster than HTTP, it is generally
+the recommended protocol. However, support for it may be
+lagging after major updates to Neo4j.
+
+This driver supports Bolt, but doesn't bundle the necessary XS
+packages. You will need to install L<Neo4j::Bolt> separately
+to enable Bolt.
+
+=item HTTP / HTTPS
+
+Support for HTTP is built into this driver, so it is always
+available. HTTP is still fast enough for many use cases and
+works even in a "Pure Perl" environment. It may also be
+quicker than Bolt to add support for future changes in Neo4j.
+
+The driver also supports encrypted communication using HTTPS,
+but doesn't bundle the necessary packages. You will need to
+install L<LWP::Protocol::https> separately to enable HTTPS.
+
+=back
+
+The protocol is automatically chosen based on the URI scheme.
+See L</"new"> for details.
 
 B<As of version 0.13, the interface of this software may be
 considered stable.>
@@ -267,7 +298,8 @@ including server URIs, credentials and other configuration.
 
 The URI passed to this method determines the type of driver created. 
 The C<http>, C<https>, and C<bolt> URI schemes are supported.
-Use of C<bolt> URIs requires L<Neo4j::Bolt> to be installed.
+Use of C<bolt> URIs requires L<Neo4j::Bolt> to be installed; use
+of C<https> URIs requires L<LWP::Protocol::https> to be installed.
 
 If a part of the URI or even the entire URI is missing, suitable
 default values will be substituted. In particular, the host name
@@ -305,15 +337,46 @@ These are subject to unannounced modification or removal in future
 versions. Expect your code to break if you depend upon these
 features.
 
-=head2 Bolt version 3 and 4
+=head2 Disable or enforce Jolt
 
-There is now experimental support for Bolt protocol versions newer
-S<than 1> using L<Neo4j::Bolt> S<version 0.40> or newer. This allows
-connecting to S<Neo4j 4> using Bolt.
+ $d->config(jolt => undef);  # prefer Jolt (the default)
+ $d->config(jolt => 0);      # accept only JSON
+ $d->config(jolt => 1);      # accept only Jolt
 
-This feature is currently undergoing testing. Until it becomes
-stable, please continue to use HTTP with S<Neo4j 4> in production
-environments.
+The L<Jolt|https://neo4j.com/docs/http-api/4.3/actions/result-format/#_jolt>
+response format (JSON Bolt) is preferred for HTTP connections
+because the older JSON response format has several known issues
+and is much slower than Jolt.
+
+The Jolt format can be enforced or disabled as shown above.
+If you use the scalars C<'sparse'>, C<'strict'> or C<'ndjson'>
+instead of just C<1>, the driver will request that particular
+Jolt mode from the server. However, there is generally no
+advantage to enforcing Jolt or to manually selecting one
+of these modes. This feature is for testing purposes only.
+
+=head2 Custom networking modules
+
+ use Local::MyNetworkAgent;
+ $driver->config(net_module => 'Local::MyNetworkAgent');
+
+The module to be used for network communication may be specified
+using the C<net_module> config option. The specified module must
+implement the API described in L<Neo4j::Driver::Net/"EXTENSIONS">.
+Your code must C<use> or C<require> the module it specifies here.
+
+By default, the driver will try to auto-detect a suitable module.
+This will currently always result in the driver's built-in modules
+being used. Alternatively, you may specify the empty string to ask
+for the built-in modules explicitly, which will disable
+auto-detection.
+
+ $driver->config(net_module => undef);  # auto-detect (the default)
+ $driver->config(net_module => '');     # use the built-in modules
+
+This config option is experimental because the API for custom
+networking modules is still evolving. See L<Neo4j::Driver::Net>
+for details.
 
 =head2 Parameter syntax conversion
 
@@ -323,46 +386,6 @@ When this option is set, the driver automatically uses a regular
 expression to convert the old Cypher parameter syntax C<{param}>
 supported by Neo4j S<versions 2 and 3> to the new syntax C<$param>
 supported by Neo4j S<versions 3 and 4>.
-
-=head2 Type system customisation
-
- $driver->config(cypher_types => {
-   node => 'Local::Node',
-   relationship => 'Local::Relationship',
-   path => 'Local::Path',
-   point => 'Local::Point',
-   temporal => 'Local::Temporal',
-   init => sub { my $object = shift; ... },
- });
-
-The package names used for C<bless>ing objects in query results can be
-modified. This allows clients to add their own methods to such objects.
-
-Clients must make sure their custom type packages are subtypes of the
-base type packages that this module provides (S<e. g.> using C<@ISA>):
-
-=over
-
-=item * L<Neo4j::Driver::Type::Node>
-
-=item * L<Neo4j::Driver::Type::Relationship>
-
-=item * L<Neo4j::Driver::Type::Path>
-
-=item * L<Neo4j::Driver::Type::Point>
-
-=item * L<Neo4j::Driver::Type::Temporal>
-
-=back
-
-Clients may only use the documented API to access the data in the base
-type. As an exception, clients may store private data by calling the
-C<_private()> method, which returns a hashref. Within that hashref,
-clients may make free use of any hash keys that begin with two
-underscores (C<__>). All other hash keys are reserved for use by
-Neo4j::Driver. Reading or modifying their values is unsupported
-and discouraged because it makes your code prone to fail when any
-internals change in the implementation of Neo4j::Driver.
 
 =head1 CONFIGURATION OPTIONS
 

@@ -26,7 +26,7 @@ use vars qw($Pwd $Uid $Srv $Db);
 ($Uid, $Pwd, $Srv, $Db) = _test::get_info();
 
 #DBI->trace(3);
-my $dbh = DBI->connect("dbi:Sybase:server=$Srv;database=$Db", $Uid, $Pwd, {PrintError=>1});
+my $dbh = DBI->connect("dbi:Sybase:$Srv;database=$Db", $Uid, $Pwd, {PrintError=>1});
 #exit;
 ok(defined($dbh), 'Connect');
 
@@ -53,7 +53,7 @@ get_all_results($sth);
 
 #$dbh->do("use tempdb");
 $dbh->do("set arithabort off");
-$dbh->do("if object_id('dbitest') != NULL drop proc dbitest");
+$dbh->do("if object_id('dbitest') is not NULL drop proc dbitest");
 $rc = $dbh->do(qq{
 create proc dbitest \@one varchar(20), \@two int, \@three numeric(5,2), \@four smalldatetime, \@five float output
 as
@@ -107,10 +107,17 @@ get_all_results($sth);
 $rc = $sth->execute("raise", 1, 3.2234, "jan 3 2001", 5.4);
 ok(defined($rc), "execute fail mode 2");
 get_all_results($sth);
-$rc = $sth->execute(undef, 0, 3.2234, "jan 3 2001", 5.4);
 #DBI->trace(0);
-ok(defined($rc), "execute fail mode 3");
-get_all_results($sth);
+# This one fails with FreeTDS (even with a Sybase back-end)
+my $oc_version = $dbh->{syb_oc_version};
+$rc = $sth->execute(undef, 0, 3.2234, "jan 3 2001", 5.4);
+SKIP: {
+  skip 'Test fails with FreeTDS', 1 if !defined($oc_version) || $oc_version =~ /freetds/;
+    
+  ok(defined($rc), "execute fail mode 3");
+  get_all_results($sth);
+}
+
 
 $dbh->{syb_flush_finish} = 1;
 $rc = $sth->execute(undef, 0, 3.2234, "jan 3 2001", 5.4);
@@ -128,7 +135,7 @@ get_all_results($sth);
 
 $dbh->do("drop proc dbitest");
 
-$dbh->do("if object_id('dbitest') != NULL drop proc dbitest");
+$dbh->do("if object_id('dbitest') is not NULL drop proc dbitest");
 $rc = $dbh->do(qq{
 create proc dbitest \@one varchar(20), \@two int, \@three numeric(5,2), \@four smalldatetime --, \@five float = null output
 as

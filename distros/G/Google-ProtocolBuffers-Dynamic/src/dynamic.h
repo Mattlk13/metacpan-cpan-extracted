@@ -4,7 +4,8 @@
 #include "perl_unpollute.h"
 
 #include <google/protobuf/compiler/importer.h>
-#include <upb/bindings/googlepb/bridge.h>
+
+#include "upb/bridge.h"
 
 #include "descriptorloader.h"
 #include "sourcetree.h"
@@ -39,6 +40,7 @@ struct MappingOptions {
     bool check_required_fields;
     bool explicit_defaults;
     bool encode_defaults;
+    bool encode_defaults_proto3;
     bool check_enum_values;
     bool generic_extension_methods;
     bool implicit_maps;

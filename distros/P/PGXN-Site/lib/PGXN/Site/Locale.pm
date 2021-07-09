@@ -6,7 +6,7 @@ use parent 'Locale::Maketext';
 use I18N::LangTags::Detect;
 use File::Spec;
 use Carp;
-our $VERSION = v0.10.3;
+our $VERSION = v0.22.0;
 
 # Allow unknown phrases to just pass-through.
 our %Lexicon = (
@@ -45,6 +45,7 @@ our %Lexicon = (
     Identity => 'Identity',
     Extensions => 'Extensions',
     Tags => 'Tags',
+    'Release Tags' => 'Release Tags',
     Distributions => 'Distributions',
     'PGXN Search' => 'PGXN Search',
     pgxn_summary_paragraph => 'PGXN, the PostgreSQL Extension network, is a central distribution system for open-source PostgreSQL extension libraries.',
@@ -112,11 +113,25 @@ our %Lexicon = (
     'PGXN Meta Spec' => 'PGXN Meta Spec',
     'Bad Request' => 'Bad Request',
     'Bad request: Missing or invalid "[_1]" query parameter.' => 'Bad request: Missing or invalid “[_1]” query parameter.',
-    '<- Select a letter' => '⬅ Select a letter',
-    'Pick a letter at left' => 'Pick a letter at left',
+    'Search Users' => 'Search Users',
+    'Or select a letter' => 'Or select a letter',
+    'Nicknames starting with "[_1]"' => 'User nicknames starting with “[_1]”',
+    'None found' => 'None found',
+    'Search all indexed extensions, distributions, users, and tags on the PostgreSQL Extension Network.' => 'Search all indexed extensions, distributions, users, and tags on the PostgreSQL Extension Network.',
     'No user nicknames found starting with "[_1]"' => 'No user nicknames found starting with “[_1]”',
-
-    donors_intro => 'All the great folks who funded the inital development of PGXN will be listed in perpetuity here on the “Donors” page of PGXN.org. All donors are invited to the PGXN Launch Party at <a href="http://www.pgcon.org/2011/">PGCon</a> in May, 2011.',
+    'Contact and extension release information for PGXN user "[_1]"' => 'Contact and extension release information for PGXN user “[_1]”',
+    'Search for tags on PostgreSQL extension releases on PGXN' => 'Search for tags on PostgreSQL extension releases on PGXN',
+    'Search for PostgreSQL Extension Network users' => 'Search for PostgreSQL Extension Network users',
+    'A list of PGXN extensions tagged "[_1]"' => 'A list of PGXN extensions tagged “[_1]”',
+    'PGXN [_1] search results for "[_2]"' => 'PGXN [_1] search results for “[_2]”',
+    'Submit feedback to PGXN or join the mail list' => 'Submit feedback to PGXN or join the mail list',
+    'Background on PGXN' => 'All about PGXN, what it’s for, what it contains, who made it, and why',
+    'donor description' => 'Many thanks to these fine organizations and people who contributed support to make the develpoment of PGXN possible',
+    'identity description' => 'All about the PGXN identity: who created it, its license, and downloadable assets',
+    'faq description' => 'Frequently asked questions about the PostgreSQL Extension Network',
+    'mirroring description' => 'Step-by-step instructions for mirroring PGXN on your own server',
+    'Recent PostgreSQL extension releases on PGXN' => 'Recent PostgreSQL extension releases on PGXN',
+    donors_intro => 'All the great folks who funded the inital development of PGXN will be listed in perpetuity here on the “Donors” page of PGXN.org. All donors are invited to the PGXN Launch Party at <a href="https://www.pgcon.org/2011/">PGCon</a> in May, 2011.',
 );
 
 sub accept {
@@ -210,7 +225,7 @@ method.
 Returns a PGXN::Site::Locale handle appropriate for the specified
 argument, which must take the form of the HTTP_ACCEPT_LANGUAGE string
 typically created in web server environments and specified in L<RFC
-3282|http://tools.ietf.org/html/rfc3282>. The parsing of this header is
+3282|https://tools.ietf.org/html/rfc3282>. The parsing of this header is
 handled by L<I18N::LangTags::Detect>.
 
 =head2 Instance Methods
@@ -269,14 +284,14 @@ will be F<PGXN/Site/Locale/fr/foo/bar.html>.
 
 =head1 Author
 
-David E. Wheeler <david.wheeler@pgexperts.com>
+David E. Wheeler <david@justatheory.com>
 
 =head1 Copyright and License
 
-Copyright (c) 2010-2013 David E. Wheeler.
+Copyright (c) 2010-2021 David E. Wheeler.
 
 This module is free software; you can redistribute it and/or modify it under
-the L<PostgreSQL License|http://www.opensource.org/licenses/postgresql>.
+the L<PostgreSQL License|https://www.opensource.org/licenses/postgresql>.
 
 Permission to use, copy, modify, and distribute this software and its
 documentation for any purpose, without fee, and without a written agreement is

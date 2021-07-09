@@ -8,11 +8,11 @@ use Error::Pure qw(err);
 use Getopt::Std;
 use Lingua::Translit;
 
-our $VERSION = 0.06;
+our $VERSION = 0.09;
 
 # Constructor.
 sub new {
-	my ($class, @params) = @_;
+	my $class = shift;
 
 	# Create object.
 	my $self = bless {}, $class;
@@ -29,7 +29,7 @@ sub run {
 	$self->{'_opts'} = {
 		'h' => 0,
 		'r' => 0,
-		't' => 'ISO/R 9',
+		't' => 'ISO 9',
 	};
 	if (! getopts('hrt:', $self->{'_opts'}) || @ARGV < 1
 		|| $self->{'_opts'}->{'h'}) {
@@ -39,7 +39,7 @@ sub run {
 		print STDERR "\t-h\t\tPrint help.\n";
 		print STDERR "\t-r\t\tReverse transliteration.\n";
 		print STDERR "\t-t table\tTransliteration table (default ".
-			"value is 'ISO/R 9').\n";
+			"value is 'ISO 9').\n";
 		print STDERR "\t--version\tPrint version.\n";
 		return 1;
 	}
@@ -65,6 +65,7 @@ sub run {
 			'Error', $EVAL_ERROR;
 	}
 	print "$ret\n";
+
 	return 0;
 }
 
@@ -132,7 +133,7 @@ Returns 1 for error, 0 for success.
  # 
  #         -h              Print help.
  #         -r              Reverse transliteration.
- #         -t table        Transliteration table (default value is 'ISO/R 9').
+ #         -t table        Transliteration table (default value is 'ISO 9').
  #         --version       Print version.
 
 =head1 EXAMPLE2
@@ -147,7 +148,21 @@ Returns 1 for error, 0 for success.
  exit App::Translit::String->new->run;
 
  # Output:
- # Rossijskaja Federacija
+ # Rossijskaâ Federaciâ
+
+=head1 EXAMPLE3
+
+ use strict;
+ use warnings;
+
+ use App::Translit::String;
+
+ # Run.
+ @ARGV = ('-r', 'Rossijskaâ Federaciâ');
+ exit App::Translit::String->new->run;
+
+ # Output:
+ # Российская Федерация
 
 =head1 DEPENDENCIES
 
@@ -168,12 +183,12 @@ L<http://skim.cz>
 
 =head1 LICENSE AND COPYRIGHT
 
-© 2015-2020 Michal Josef Špaček
+© 2015-2021 Michal Josef Špaček
 
 BSD 2-Clause License
 
 =head1 VERSION
 
-0.06
+0.09
 
 =cut

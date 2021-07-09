@@ -230,7 +230,8 @@ prima_gtk_init(void)
 
 		if ( !f) continue;
 		bzero(f, sizeof(Font));
-		strncpy( f->name, pango_font_description_get_family(t->font_desc), 256);
+		strncpy( f->name, pango_font_description_get_family(t->font_desc), 255);
+		f->name[255]=0;
 		/* does gnome ignore X resolution? */
 		f-> size = pango_font_description_get_size(t->font_desc) / PANGO_SCALE * (96.0 / guts. resolution. y) + .5;
 		weight = pango_font_description_get_weight(t->font_desc);
@@ -270,7 +271,7 @@ prima_gtk_done(void)
 static void
 set_transient_for(void)
 {
-	Handle toplevel = prima_find_toplevel_window(nilHandle);
+	Handle toplevel = prima_find_toplevel_window(NULL_HANDLE);
 	if ( toplevel ) {
 		GdkWindow * g = NULL;
 
@@ -309,6 +310,8 @@ do_events(gpointer data)
 	return gtk_dialog != NULL;
 }
 
+static int ignore_errors(Display *d, XErrorEvent *ev) { return 0; }
+
 static char *
 gtk_openfile( Bool open)
 {
@@ -317,6 +320,10 @@ gtk_openfile( Bool open)
 	int stage = 0;
 
 	if ( gtk_dialog) return NULL; /* we're not reentrant */
+
+	XFlush(DISP);
+	XCHECKPOINT;
+	XSetErrorHandler(ignore_errors);
 
 	gtk_dialog = gtk_file_chooser_dialog_new (
 		gtk_dialog_title_ptr ?
@@ -469,6 +476,10 @@ gtk_openfile( Bool open)
 	gtk_dialog = NULL;
 
 	while ( gtk_events_pending()) gtk_main_iteration();
+
+	XSync(DISP, false);
+	XCHECKPOINT;
+	XSetErrorHandler(guts.main_error_handler);
 
 	return result;
 }
@@ -636,7 +647,7 @@ prima_gtk_application_get_bitmap( Handle self, Handle image, int x, int y, int x
 	}
 
 	/* load */
-	codecs = apc_img_load( image, filename, NULL, NULL, NULL);
+	codecs = apc_img_load( image, filename, false, NULL, NULL, NULL);
 	unlink( filename );
 	if ( !codecs ) {
 		Mdebug("error loading png back\n");

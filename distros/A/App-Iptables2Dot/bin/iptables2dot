@@ -3,7 +3,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use version; our $VERSION = qv('v0.2.4');
+use version; our $VERSION = qv('v0.3.1');
 
 use App::Iptables2Dot;
 use Getopt::Long;
@@ -21,6 +21,7 @@ my @optdefs = qw(
     omittargets=s
     showrules!
     showunusednodes!
+    use-numbered-nodes!
 );
 
 GetOptions(\%opt, @optdefs)
@@ -82,7 +83,16 @@ parser from L<App::Iptables2Dot>.
 If the program dies with the message
 I<unknown argument in rule: --unknown-opt arg>, you could run it like this:
 
+ iptables2dot --add-optdef unknown-opt iptables-save-output
+
+If the unknown option takes itself an argument, you should run it like this:
+
  iptables2dot --add-optdef unknown-opt=s iptables-save-output
+
+The suffix C<=s> tells the rule parser
+that C<unknown-opts> takes a string as argument.
+See L<Getopt::Long> for further possibilities
+regarding the arguments of this option.
 
 This may allow you to finish your analysis of iptables-save-output-file
 without having to modify the module source in I<lib/App/Iptables2Dot.pm>.
@@ -113,6 +123,14 @@ The tables in I<< tablelist >> are separated by comma.
 
 Possible tables are C<< nat >>, C<< raw >>, C<< mangle >> and C<< filter >>.
 Defaults to table C<< filter >>.
+
+=item B<< --use-numbered-nodes >>
+
+With a true value the nodes in the dot file will be named I<node0> .. I<noden>
+and provided with a label showing their name from C<iptables-save> output.
+
+This option can help if the filter rules contain chains with a dash (C<->)
+in their name, which is not allowed as input for C<< dot >>.
 
 =back
 

@@ -1,0 +1,73 @@
+=pod
+
+=head1 NAME
+
+Form::Tiny::Manual::Internals - details on form implementation
+
+=head1 DESCRIPTION
+
+This guide gets in depth into Form::Tiny metaobject model. This knowledge should not be required to make full use of the module, but is required to extend it or contribute to it.
+
+=head2 How does the module work?
+
+Behind the scenes, the module stores objects of L<Form::Tiny::Meta> for each package that was turned into a form by a proper Form::Tiny call. Meta object is an object that stores all information about the form layout, but no information about form input or validation state. Each class of L<Form::Tiny::Form> contains the C<form_meta> method, which returns this meta object for the given package.
+
+Form building is done just by calling methods on the meta object. Each helper of the DSL is just a single call to a metaobject method, for example, the following calls are equivalent:
+
+	form_field 'field-name' => %args;
+	__PACKAGE__->form_meta->add_field('field-name' => %args);
+
+The actual form object only stores data that is relevant to form state, not to form layout. Thanks to this model, the layout needs not to be rebuilt each time a new form object is constructed, which speeds up construction.
+
+Additional behavior like filtering is implemented by composing new roles to the meta object and declaring new hooks in C<setup> method. Refer to the code of L<Form::Tiny::Meta::Filtered> to see how meta roles may define additional behavior.
+
+=head3 Why use meta object model at all?
+
+The I<1.00> series of the module did not implement a meta object, and in turn implementing DSL keywords ended up being a hack, abusing Perl's ability to replace symbols in the package with strict mode turned off. New implementation allowed to get rid of all that dark magic, replacing it with something readable and reliable.
+
+=head2 Using the module without the syntactic sugar
+
+It is entirely possible, although a bit tedious, to use the module without importing L<Form::Tiny> package. The following example declares a form with a single field taken from the example above.
+
+	package MyForm;
+
+	# Moo for easy role mixing and a constructor
+	use Moo;
+
+	# gives us create_form_meta function
+	use Form::Tiny::Utils qw(:meta_handlers);
+
+	# we need this role mixed in
+	with qw(Form::Tiny::Form);
+
+	# meta roles go into the qw()
+	create_form_meta(__PACKAGE__, qw());
+
+	# add a requried field
+	__PACKAGE__->form_meta->add_field('field-name' => (
+		required => 1,
+	));
+
+	1;
+
+The code above should result in a form that has the same capabilities as the one below:
+
+	package MyForm;
+
+	use Form::Tiny;
+
+	form_field 'field-name' => (
+		required => 1,
+	);
+
+	1;
+
+=head1 SEE ALSO
+
+=over
+
+=item * L<Form::Tiny::Manual>
+
+=item * L<Form::Tiny::Manual::Compatibility>
+
+=back

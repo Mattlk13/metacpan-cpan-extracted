@@ -13,7 +13,7 @@ use HTTP::Date;
 use HTTP::Status qw{ :constants };
 use Test::More 0.96;	# For subtest
 
-our $VERSION = '0.143';
+our $VERSION = '0.146';
 
 # Set the following to zero if Space Track (or any other SSL host)
 # starts using a certificate that can not be verified.
@@ -201,15 +201,20 @@ sub not_defined {
 		url	=> 'http://www.rod.sladen.org.uk/iridium.htm',
 	    },
 	    'spaceflight.nasa.gov'	=> {
-		url	=> 'http://spaceflight.nasa.gov',
+		# url	=> 'http://spaceflight.nasa.gov',
+		url	=> 'https://spaceflight.nasa.gov/realdata/elements/index.html'
 	    },
 	    'www.amsat.org'	=> {
-		url	=> 'http://www.amsat.org/',
+		url	=> 'https://www.amsat.org/',
 	    },
 	    'www.space-track.org'	=> {
 		url	=> 'https://www.space-track.org/',
 		check	=> \&__spacetrack_skip,
 	    }
+	);
+
+	%skip_site = (
+	    'spaceflight.nasa.gov'	=> 'Site retired',
 	);
 
 	if ( defined $ENV{ASTRO_SPACETRACK_SKIP_SITE} ) {
@@ -261,6 +266,7 @@ sub not_defined {
 	}
 
 	$ua ||= LWP::UserAgent->new(
+	    agent	=> 'curl/7.77.0',
 	    ssl_opts	=> { verify_hostname => VERIFY_HOSTNAME },
 	);
 	my $rslt = $ua->get( $url );
@@ -319,6 +325,7 @@ sub __spacetrack_identity {
 	defined $id->{username} && defined $id->{password} &&
 	    "$id->{username}/$id->{password}";
     };
+    return;
 }
 
 {
@@ -595,7 +602,9 @@ the exception text.
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
-L<http://rt.cpan.org>, or in electronic mail to the author.
+L<https://rt.cpan.org/Public/Dist/Display.html?Name=Astro-SpaceTrack>,
+L<https://github.com/trwyant/perl-Astro-SpaceTrack/issues/>, or in
+electronic mail to the author.
 
 =head1 AUTHOR
 

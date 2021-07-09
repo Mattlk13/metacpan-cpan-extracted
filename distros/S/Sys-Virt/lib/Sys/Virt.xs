@@ -353,6 +353,8 @@ _domain_event_lifecycle_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -388,6 +390,8 @@ _domain_event_generic_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return 0;
 }
@@ -427,6 +431,8 @@ _domain_event_rtcchange_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -464,6 +470,8 @@ _domain_event_watchdog_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return 0;
 }
@@ -506,6 +514,8 @@ _domain_event_io_error_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return 0;
 }
@@ -551,6 +561,8 @@ _domain_event_disk_change_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -591,6 +603,8 @@ _domain_event_tray_change_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -628,6 +642,8 @@ _domain_event_pmwakeup_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return 0;
 }
@@ -667,6 +683,8 @@ _domain_event_pmsuspend_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -704,6 +722,8 @@ _domain_event_pmsuspend_disk_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return 0;
 }
@@ -748,6 +768,8 @@ _domain_event_io_error_reason_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return 0;
 }
@@ -818,6 +840,8 @@ _domain_event_graphics_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -860,6 +884,8 @@ _domain_event_block_job_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -898,6 +924,8 @@ _domain_event_balloonchange_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -935,6 +963,8 @@ _domain_event_device_generic_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return 0;
 }
@@ -979,6 +1009,8 @@ _domain_event_tunable_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -1019,6 +1051,8 @@ _domain_event_agent_lifecycle_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -1056,6 +1090,8 @@ _domain_event_migration_iteration_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return 0;
 }
@@ -1100,6 +1136,8 @@ _domain_event_job_completed_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -1139,6 +1177,8 @@ _domain_event_metadata_change_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return 0;
 }
@@ -1184,6 +1224,8 @@ _domain_event_block_threshold_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -1226,6 +1268,8 @@ _domain_event_memory_failure_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -1266,6 +1310,8 @@ _network_event_lifecycle_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -1302,6 +1348,8 @@ _network_event_generic_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -1337,6 +1385,8 @@ _storage_pool_event_generic_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return 0;
 }
@@ -1378,6 +1428,8 @@ _storage_pool_event_lifecycle_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -1413,6 +1465,8 @@ _node_device_event_generic_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return 0;
 }
@@ -1454,6 +1508,8 @@ _node_device_event_lifecycle_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -1494,6 +1550,8 @@ _secret_event_lifecycle_callback(virConnectPtr con,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return 0;
 }
 
@@ -1529,6 +1587,8 @@ _secret_event_generic_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return 0;
 }
@@ -1601,6 +1661,8 @@ _close_callback(virConnectPtr con,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 }
 
 
@@ -1884,6 +1946,8 @@ _event_handle_helper(int watch,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(cb);
 }
 
 
@@ -1907,6 +1971,8 @@ _event_timeout_helper(int timer,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(cb);
 }
 
 
@@ -1945,6 +2011,8 @@ _stream_event_callback(virStreamPtr st,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 }
 
 
@@ -2002,9 +2070,11 @@ _stream_send_all_source(virStreamPtr st,
         memcpy(data, newdata, nbytes);
     }
 
+
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
     SvREFCNT_dec(datasv);
 
     return ret;
@@ -2058,6 +2128,8 @@ _stream_sparse_send_all_hole_handler(virStreamPtr st,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
+
     return ret;
 }
 
@@ -2100,6 +2172,8 @@ _stream_sparse_send_all_skip_handler(virStreamPtr st,
     PUTBACK;
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return ret;
 }
@@ -2147,6 +2221,7 @@ _stream_recv_all_sink(virStreamPtr st,
     FREETMPS;
     LEAVE;
 
+    SvREFCNT_dec(*self);
     SvREFCNT_dec(datasv);
 
     return ret;
@@ -2190,6 +2265,8 @@ _stream_sparse_recv_hole_handler(virStreamPtr st,
 
     FREETMPS;
     LEAVE;
+
+    SvREFCNT_dec(*self);
 
     return ret;
 }
@@ -6820,6 +6897,34 @@ authorized_ssh_keys_set(dom, user, keysSV, flags = 0)
       Safefree(keys);
       
 void
+get_messages(dom, flags = 0)
+      virDomainPtr dom;
+      unsigned int flags;
+  PREINIT:
+      int ret;
+      char **msgs = NULL;
+      unsigned int i;
+  PPCODE:
+      if ((ret = virDomainGetMessages(dom, &msgs, flags)) < 0)
+          _croak_error();
+
+      EXTEND(SP, ret);
+      for (i = 0 ; i < ret ; i++) {
+          PUSHs(sv_2mortal(newSVpv(msgs[i], 0)));
+          free(msgs[i]);
+      }
+      free(msgs);
+
+void
+start_dirty_rate_calc(dom, secs, flags = 0)
+      virDomainPtr dom;
+      int secs;
+      unsigned int flags;
+  PPCODE:
+      if ((virDomainStartDirtyRateCalc(dom, secs, flags) < 0))
+          _croak_error();
+
+void
 destroy(dom_rv, flags=0)
       SV *dom_rv;
       unsigned int flags;
@@ -7824,6 +7929,18 @@ _create_xml(con, xml, flags=0)
 
 
 virNodeDevicePtr
+_define_xml(con, xml, flags=0)
+      virConnectPtr con;
+      const char *xml;
+      unsigned int flags;
+    CODE:
+      if (!(RETVAL = virNodeDeviceDefineXML(con, xml, flags)))
+          _croak_error();
+  OUTPUT:
+      RETVAL
+
+
+virNodeDevicePtr
 _lookup_by_name(con, name)
       virConnectPtr con;
       const char *name;
@@ -7920,6 +8037,24 @@ reset(dev)
       virNodeDevicePtr dev;
     PPCODE:
       if (virNodeDeviceReset(dev) < 0)
+          _croak_error();
+
+
+void
+create(dev, flags=0)
+      virNodeDevicePtr dev;
+      unsigned int flags;
+    PPCODE:
+      if (virNodeDeviceCreate(dev, flags) < 0)
+          _croak_error();
+
+
+void
+undefine(dev, flags=0)
+      virNodeDevicePtr dev;
+      unsigned int flags;
+    PPCODE:
+      if (virNodeDeviceUndefine(dev, flags) < 0)
           _croak_error();
 
 
@@ -9443,6 +9578,7 @@ BOOT:
       REGISTER_CONSTANT(VIR_DOMAIN_STATS_PERF, STATS_PERF);
       REGISTER_CONSTANT(VIR_DOMAIN_STATS_IOTHREAD, STATS_IOTHREAD);
       REGISTER_CONSTANT(VIR_DOMAIN_STATS_MEMORY, STATS_MEMORY);
+      REGISTER_CONSTANT(VIR_DOMAIN_STATS_DIRTYRATE, STATS_DIRTYRATE);
 
       REGISTER_CONSTANT(VIR_CONNECT_GET_ALL_DOMAINS_STATS_ACTIVE, GET_ALL_STATS_ACTIVE);
       REGISTER_CONSTANT(VIR_CONNECT_GET_ALL_DOMAINS_STATS_INACTIVE, GET_ALL_STATS_INACTIVE);
@@ -9736,6 +9872,7 @@ BOOT:
       REGISTER_CONSTANT(VIR_DOMAIN_NUMATUNE_MEM_STRICT, NUMATUNE_MEM_STRICT);
       REGISTER_CONSTANT(VIR_DOMAIN_NUMATUNE_MEM_PREFERRED, NUMATUNE_MEM_PREFERRED);
       REGISTER_CONSTANT(VIR_DOMAIN_NUMATUNE_MEM_INTERLEAVE, NUMATUNE_MEM_INTERLEAVE);
+      REGISTER_CONSTANT(VIR_DOMAIN_NUMATUNE_MEM_RESTRICTIVE, NUMATUNE_MEM_RESTRICTIVE);
 
       REGISTER_CONSTANT_STR(VIR_PERF_PARAM_CMT, PERF_PARAM_CMT);
       REGISTER_CONSTANT_STR(VIR_PERF_PARAM_MBML, PERF_PARAM_MBML);
@@ -9929,6 +10066,7 @@ BOOT:
       REGISTER_CONSTANT(VIR_DOMAIN_CORE_DUMP_FORMAT_KDUMP_LZO, CORE_DUMP_FORMAT_KDUMP_LZO);
       REGISTER_CONSTANT(VIR_DOMAIN_CORE_DUMP_FORMAT_KDUMP_SNAPPY, CORE_DUMP_FORMAT_KDUMP_SNAPPY);
       REGISTER_CONSTANT(VIR_DOMAIN_CORE_DUMP_FORMAT_KDUMP_ZLIB, CORE_DUMP_FORMAT_KDUMP_ZLIB);
+      REGISTER_CONSTANT(VIR_DOMAIN_CORE_DUMP_FORMAT_WIN_DMP, CORE_DUMP_FORMAT_WIN_DMP);
 
       REGISTER_CONSTANT(VIR_DOMAIN_TIME_SYNC, TIME_SYNC);
 
@@ -10006,6 +10144,7 @@ BOOT:
       REGISTER_CONSTANT(VIR_DOMAIN_GUEST_INFO_TIMEZONE, GUEST_INFO_TIMEZONE);
       REGISTER_CONSTANT(VIR_DOMAIN_GUEST_INFO_HOSTNAME, GUEST_INFO_HOSTNAME);
       REGISTER_CONSTANT(VIR_DOMAIN_GUEST_INFO_FILESYSTEM, GUEST_INFO_FILESYSTEM);
+      REGISTER_CONSTANT(VIR_DOMAIN_GUEST_INFO_DISKS, GUEST_INFO_DISKS);
 
       REGISTER_CONSTANT(VIR_DOMAIN_AGENT_RESPONSE_TIMEOUT_BLOCK, AGENT_RESPONSE_TIMEOUT_BLOCK);
       REGISTER_CONSTANT(VIR_DOMAIN_AGENT_RESPONSE_TIMEOUT_NOWAIT, AGENT_RESPONSE_TIMEOUT_NOWAIT);
@@ -10032,6 +10171,12 @@ BOOT:
       REGISTER_CONSTANT(VIR_DOMAIN_AUTHORIZED_SSH_KEYS_SET_APPEND, AUTHORIZED_SSH_KEYS_SET_APPEND);
       REGISTER_CONSTANT(VIR_DOMAIN_AUTHORIZED_SSH_KEYS_SET_REMOVE, AUTHORIZED_SSH_KEYS_SET_REMOVE);
 
+      REGISTER_CONSTANT(VIR_DOMAIN_MESSAGE_DEPRECATION, MESSAGE_DEPRECATION);
+      REGISTER_CONSTANT(VIR_DOMAIN_MESSAGE_TAINTING, MESSAGE_TAINTING);
+
+      REGISTER_CONSTANT(VIR_DOMAIN_DIRTYRATE_UNSTARTED, DIRTYRATE_UNSTARTED);
+      REGISTER_CONSTANT(VIR_DOMAIN_DIRTYRATE_MEASURING, DIRTYRATE_MEASURING);
+      REGISTER_CONSTANT(VIR_DOMAIN_DIRTYRATE_MEASURED, DIRTYRATE_MEASURED);
 
       stash = gv_stashpv( "Sys::Virt::DomainSnapshot", TRUE );
       REGISTER_CONSTANT(VIR_DOMAIN_SNAPSHOT_DELETE_CHILDREN, DELETE_CHILDREN);
@@ -10225,12 +10370,19 @@ BOOT:
       REGISTER_CONSTANT(VIR_CONNECT_LIST_NODE_DEVICES_CAP_CCW_DEV, LIST_CAP_CCW_DEV);
       REGISTER_CONSTANT(VIR_CONNECT_LIST_NODE_DEVICES_CAP_CSS_DEV, LIST_CAP_CSS_DEV);
       REGISTER_CONSTANT(VIR_CONNECT_LIST_NODE_DEVICES_CAP_VDPA, LIST_CAP_VDPA);
+      REGISTER_CONSTANT(VIR_CONNECT_LIST_NODE_DEVICES_CAP_AP_CARD, LIST_CAP_AP_CARD);
+      REGISTER_CONSTANT(VIR_CONNECT_LIST_NODE_DEVICES_CAP_AP_MATRIX, LIST_CAP_AP_MATRIX);
+      REGISTER_CONSTANT(VIR_CONNECT_LIST_NODE_DEVICES_CAP_AP_QUEUE, LIST_CAP_AP_QUEUE);
+      REGISTER_CONSTANT(VIR_CONNECT_LIST_NODE_DEVICES_ACTIVE, LIST_ACTIVE);
+      REGISTER_CONSTANT(VIR_CONNECT_LIST_NODE_DEVICES_INACTIVE, LIST_INACTIVE);
 
       REGISTER_CONSTANT(VIR_NODE_DEVICE_EVENT_ID_LIFECYCLE, EVENT_ID_LIFECYCLE);
       REGISTER_CONSTANT(VIR_NODE_DEVICE_EVENT_ID_UPDATE, EVENT_ID_UPDATE);
 
       REGISTER_CONSTANT(VIR_NODE_DEVICE_EVENT_CREATED, EVENT_CREATED);
       REGISTER_CONSTANT(VIR_NODE_DEVICE_EVENT_DELETED, EVENT_DELETED);
+      REGISTER_CONSTANT(VIR_NODE_DEVICE_EVENT_DEFINED, EVENT_DEFINED);
+      REGISTER_CONSTANT(VIR_NODE_DEVICE_EVENT_UNDEFINED, EVENT_UNDEFINED);
 
 
       stash = gv_stashpv( "Sys::Virt::StorageVol", TRUE );
@@ -10382,6 +10534,7 @@ BOOT:
       REGISTER_CONSTANT(VIR_FROM_DOMAIN_CHECKPOINT, FROM_DOMAIN_CHECKPOINT);
       REGISTER_CONSTANT(VIR_FROM_TPM, FROM_TPM);
       REGISTER_CONSTANT(VIR_FROM_BPF, FROM_BPF);
+      REGISTER_CONSTANT(VIR_FROM_CH, FROM_CH);
 
 
       REGISTER_CONSTANT(VIR_ERR_OK, ERR_OK);
@@ -10494,4 +10647,5 @@ BOOT:
       REGISTER_CONSTANT(VIR_ERR_NETWORK_PORT_EXIST, ERR_NETWORK_PORT_EXIST);
       REGISTER_CONSTANT(VIR_ERR_NO_HOSTNAME, ERR_NO_HOSTNAME);
       REGISTER_CONSTANT(VIR_ERR_CHECKPOINT_INCONSISTENT, ERR_CHECKPOINT_INCONSISTENT);
+      REGISTER_CONSTANT(VIR_ERR_MULTIPLE_DOMAINS, ERR_MULTIPLE_DOMAINS);
     }

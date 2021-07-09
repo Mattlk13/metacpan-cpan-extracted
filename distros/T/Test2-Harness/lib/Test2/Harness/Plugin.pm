@@ -2,10 +2,11 @@ package Test2::Harness::Plugin;
 use strict;
 use warnings;
 
-our $VERSION = '1.000042';
+our $VERSION = '1.000062';
 
 # Document, but do not implement
 #sub changed_files {}
+#sub changed_diff {}
 
 sub munge_search {}
 
@@ -140,6 +141,49 @@ This is an opportunity for your plugin to modify the data for any test file
 that will be run. The first argument is an arrayref of
 L<Test2::Harness::TestFile> objects.
 
+=item $hashref = $plugin->duration_data()
+
+If defined, this can return a hashref of duration data. This should return
+undef if no duration data is provided. The first plugin listed that provides
+duration data wins, no other plugins will be checked once duration data is
+obtained.
+
+Example duration data:
+
+    {
+        't/foo.t' => 'medium',
+        't/bar.t' => 'short',
+        't/baz.t' => 'long',
+    }
+
+=item $hashref_or_arrayref = $plugin->coverage_data(\@changed)
+
+=item $hashref_or_arrayref = $plugin->coverage_data()
+
+If defined, this can return a hashref of all coverage data, or an arrayref of
+tests that cover the tests listed in @changed. This should return undef if no
+coverage data is available. The first plugin to provide coverage data wins, no
+other plugins will be checked once coverage data has been obtained.
+
+Examples:
+
+    [
+        'foo.t',
+        'bar.t',
+        'baz.t',
+    ]
+
+    {
+        'lib/Foo.pm' => [
+            't/foo.t',
+            't/integration.t',
+        ],
+        'lib/Bar.pm' => [
+            't/bar.t',
+            't/integration.t',
+        ],
+    }
+
 =item $plugin->inject_run_data(meta => $meta, fields => $fields, run => $run)
 
 This is a callback that lets your plugin add meta-data or custom fields to the
@@ -180,6 +224,49 @@ each C<run> command against the persistent runner.
 Get a list of files that have changed. Plugins are free to define what
 "changed" means. This may be used by the finder to determine what tests to run
 based on coverage data collected in previous runs.
+
+Note that data from all changed_files() calls from all plugins will be merged.
+
+=item ($type, $value) = $plugin->changed_diff($settings)
+
+Generate a diff that can be used to calculate changed files/subs for which to
+run tests. Unlike changed_files(), only 1 diff will be used, first plugin
+listed that returns one wins. This is not run at all if a diff is provided via
+--changed-diff.
+
+Diffs must be in the same format as this git command:
+
+    git diff -U1000000 -W --minimal BASE_BRANCH_OR_COMMIT
+
+Some other diff formats may work by chance, but they are not dirfectly
+supported. In the future other diff formats may be directly supported, but not
+yet.
+
+The following return sets are allowed:
+
+=over 4
+
+=item file => string
+
+Path to a diff file
+
+=item diff => string
+
+In memory diff as a single string
+
+=item lines => \@lines
+
+Diff where each line is a seperate string in an arrayref.
+
+=item line_sub => sub { ... }
+
+Sub that returns one line per call and undef when there are no more lines
+
+=item handle => $FH
+
+A filehandle to the diff
+
+=back
 
 =item $exit = $plugin->shellcall($settings, $name, $cmd)
 

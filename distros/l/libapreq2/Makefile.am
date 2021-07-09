@@ -44,7 +44,10 @@ release: distclean docs_clean reconfig distdir
 	@cd $(distdir); @PERL@ -M$(EUM) -e "$(EUM)::mkmanifest"
 	@PERL@ -ple '$$_="$(distdir)/$$_"' $(distdir)/MANIFEST | $(TAR) -czf $(distdir).tar.gz -T -
 	rm -rf $(distdir)
-	@echo "Made $(distdir).tar.gz"
+	@md5sum $(distdir).tar.gz > $(distdir).tar.gz.md5
+	@sha256sum $(distdir).tar.gz > $(distdir).tar.gz.sha256
+	@sha512sum $(distdir).tar.gz > $(distdir).tar.gz.sha512
+	@echo "Made $(distdir).tar.gz and hashes"
 
 release_test:
 	-rm -rf $(distdir)
@@ -144,7 +147,7 @@ perl_install:
 	cd glue/perl; $(MAKE) install
 
 perl_test:
-	cd glue/perl; $(MAKE) test
+	cd glue/perl; ../../libtool --mode=execute -dlopen ../../library/libapreq2.la $(MAKE) test
 
 perl_glue:
 	cd glue/perl; @PERL@ ../../build/xsbuilder.pl run

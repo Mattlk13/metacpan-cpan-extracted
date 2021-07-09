@@ -2,7 +2,7 @@ package App::Yath::Options::Finder;
 use strict;
 use warnings;
 
-our $VERSION = '1.000042';
+our $VERSION = '1.000062';
 
 use Test2::Harness::Util qw/mod2file/;
 
@@ -49,7 +49,7 @@ option_group {prefix => 'finder', category => "Finder Options", builds => 'Test2
     );
 
     option changed_only => (
-        description => "Only search for tests for changed files (Requires --coverage-from, also requires a list of changes either from the --changed option, or a plugin that implements changed_files())",
+        description => "Only search for tests for changed files (Requires --coverage-from, also requires a list of changes either from the --changed option, or a plugin that implements changed_files() or changed_diff())",
         applicable => \&changes_applicable,
     );
 
@@ -60,10 +60,38 @@ option_group {prefix => 'finder', category => "Finder Options", builds => 'Test2
         applicable => \&changes_applicable,
     );
 
+    option changes_filter_file => (
+        type => 'm',
+        description => 'Specify one or more files to check for changes. Changes to other files will be ignored',
+        long_examples => [' path/to/file'],
+        applicable => \&changes_applicable,
+    );
+
+    option changes_filter_pattern => (
+        type => 'm',
+        description => 'Specify a pattern for change checking. When only running tests for changed files this will limit which files are checked for changes. Only files that match this pattern will be checked. Your pattern will be inserted unmodified into a `$file =~ m/$pattern/` check.',
+        long_examples => [" '(apple|pear|orange)'"],
+        applicable => \&changes_applicable,
+    );
+
+    option changes_diff => (
+        type => 's',
+        description => "Path to a diff file that should be used to find changed files for use with --changed-only. This must be in the same format as `git diff -W --minimal -U1000000`",
+        long_examples => [' path/to/diff.diff'],
+        applicable => \&changes_applicable,
+    );
+
     option changes_plugin => (
         type => 's',
         description => "What plugin should be used to detect changed files.",
         long_examples => [' Git', ' +App::Yath::Plugin::Git'],
+        applicable => \&changes_applicable,
+    );
+
+    option coverage_manager => (
+        type => 's',
+        description => "Coverage 'from' manager to use when coverage data does not provide one",
+        long_examples => [ ' My::Coverage::Manager'],
         applicable => \&changes_applicable,
     );
 
@@ -77,10 +105,6 @@ option_group {prefix => 'finder', category => "Finder Options", builds => 'Test2
         type => 's',
         description => "Where to fetch coverage data. Can be a path to a .jsonl(.bz|.gz)? log file. Can be a path or url to a json file containing a hash where source files are key, and value is a list of tests to run.",
         long_examples => [' path/to/log.jsonl', ' http://example.com/coverage', ' path/to/coverage.json']
-    );
-
-    option coverage_url_use_post => (
-        description => 'If coverage_from is a url, use the http POST method with a list of changed files. This allows the server to tell us what tests to run instead of downloading all the coverage data and determining what tests to run from that.',
     );
 
     option durations => (
@@ -161,12 +185,6 @@ sub _post_process {
         unless @{$settings->finder->extensions};
 
     s/^\.//g for @{$settings->finder->extensions};
-
-    unless ($options->command_class && $options->command_class->isa('App::Yath::Command::projects')) {
-        die "--changed-only, --changed, and --changes-plugin require --coverage_from or --maybe-coverage-from.\n"
-            if $settings->finder->changed_only
-            && !($settings->finder->coverage_from || $settings->finder->maybe_coverage_from);
-    }
 }
 
 sub normalize_class {
@@ -272,7 +290,32 @@ Can be specified multiple times
 
 =item --no-changed-only
 
-Only search for tests for changed files (Requires --coverage-from, also requires a list of changes either from the --changed option, or a plugin that implements changed_files())
+Only search for tests for changed files (Requires --coverage-from, also requires a list of changes either from the --changed option, or a plugin that implements changed_files() or changed_diff())
+
+
+=item --changes-diff path/to/diff.diff
+
+=item --no-changes-diff
+
+Path to a diff file that should be used to find changed files for use with --changed-only. This must be in the same format as `git diff -W --minimal -U1000000`
+
+
+=item --changes-filter-file path/to/file
+
+=item --no-changes-filter-file
+
+Specify one or more files to check for changes. Changes to other files will be ignored
+
+Can be specified multiple times
+
+
+=item --changes-filter-pattern '(apple|pear|orange)'
+
+=item --no-changes-filter-pattern
+
+Specify a pattern for change checking. When only running tests for changed files this will limit which files are checked for changes. Only files that match this pattern will be checked. Your pattern will be inserted unmodified into a `$file =~ m/$pattern/` check.
+
+Can be specified multiple times
 
 
 =item --changes-plugin Git
@@ -295,11 +338,11 @@ What plugin should be used to detect changed files.
 Where to fetch coverage data. Can be a path to a .jsonl(.bz|.gz)? log file. Can be a path or url to a json file containing a hash where source files are key, and value is a list of tests to run.
 
 
-=item --coverage-url-use-post
+=item --coverage-manager My::Coverage::Manager
 
-=item --no-coverage-url-use-post
+=item --no-coverage-manager
 
-If coverage_from is a url, use the http POST method with a list of changed files. This allows the server to tell us what tests to run instead of downloading all the coverage data and determining what tests to run from that.
+Coverage 'from' manager to use when coverage data does not provide one
 
 
 =item --default-at-search ARG

@@ -2,10 +2,9 @@ package Test2::Harness::UI::Controller::Durations;
 use strict;
 use warnings;
 
-our $VERSION = '0.000028';
+our $VERSION = '0.000068';
 
 use Data::GUID;
-use List::Util qw/max/;
 use Test2::Harness::UI::Response qw/resp error/;
 use Test2::Harness::Util::JSON qw/encode_json encode_pretty_json/;
 
@@ -28,43 +27,18 @@ sub handle {
     my $project_name = $route->{project} or die error(404 => 'No project');
     my $short        = $route->{short} || 15;
     my $medium       = $route->{medium} || 30;
+    my $median       = $route->{median} || 0;
 
     my $schema  = $self->{+CONFIG}->schema;
     my $project = $schema->resultset('Project')->find({name => $project_name});
 
-    my $data;
+    my $data = {};
     if ($project) {
-        my $dbh = $self->{+CONFIG}->connect;
-
-        my $sth = $dbh->prepare(<<"        EOT");
-            SELECT jobs.file, AVG(jobs.duration)
-              FROM jobs
-              JOIN runs USING(run_id)
-             WHERE runs.project_id = ?
-               AND jobs.duration IS NOT NULL
-               AND jobs.file IS NOT NULL
-            GROUP BY file
-        EOT
-
-        $sth->execute($project->project_id) or die $sth->errstr;
-        my $rows = $sth->fetchall_arrayref;
-
-        $data = {};
-        for my $row (@$rows) {
-            my ($file, $time) = @$row;
-            if ($time < $short) {
-                $data->{$file} = 'SHORT';
-            }
-            elsif ($time < $medium) {
-                $data->{$file} = 'MEDIUM';
-            }
-            else {
-                $data->{$file} = 'LONG';
-            }
-        }
-    }
-    else {
-        $data = {};
+        $data = $project->durations(
+            short  => $short,
+            medium => $medium,
+            median => $median,
+        );
     }
 
     my $ct ||= lc($req->headers->{'content-type'} || $req->parameters->{'Content-Type'} || $req->parameters->{'content-type'} || 'text/html; charset=utf-8');

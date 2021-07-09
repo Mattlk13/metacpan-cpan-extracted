@@ -38,7 +38,8 @@
             "Array::IntSpan" : "0",
             "Encode" : "0",
             "Fcntl" : "0",
-            "Getopt::Long::Descriptive" : "0",
+            "Getopt::Long" : "2.24",
+            "IO::Interactive" : "0",
             "List::SomeUtils" : "0",
             "Log::Any" : "0",
             "Log::Any::Adapter::Screen" : "0",
@@ -47,6 +48,7 @@
             "Path::Iterator::Rule" : "0",
             "Path::Tiny" : "0.062",
             "Pod::Constants" : "0",
+            "Pod::Usage" : "0",
             "Regexp::Pattern" : "v0.2.12",
             "Regexp::Pattern::License" : "v3.4.0",
             "Sort::Key::Multi" : "1.25",
@@ -57,13 +59,13 @@
             "experimental" : "0",
             "namespace::clean" : "0",
             "perl" : "5.014000",
-            "re::engine::RE2" : "0",
-            "strictures" : "0"
+            "re::engine::RE2" : "0"
          }
       },
       "test" : {
          "recommends" : {
             "File::BaseDir" : "0",
+            "Regexp::Pattern::License" : "v3.6.0",
             "Software::LicenseUtils" : "0.103014",
             "YAML::XS" : "0"
          },
@@ -72,15 +74,14 @@
             "Encode::Locale" : "0",
             "File::Basename" : "0",
             "Test2::V0" : "0.000060",
-            "Test::Command::Simple" : "0",
-            "strictures" : "0"
+            "Test::Command::Simple" : "0"
          }
       }
    },
    "provides" : {
       "App::Licensecheck" : {
          "file" : "lib/App/Licensecheck.pm",
-         "version" : "v3.1.1"
+         "version" : "v3.2.3"
       }
    },
    "release_status" : "stable",
@@ -98,7 +99,7 @@
       },
       "x_identifier" : "http://purl.org/NET/cpan-uri/dist/App-Licensecheck/project"
    },
-   "version" : "v3.1.1",
+   "version" : "v3.2.3",
    "x_contributors" : [
       "Paul Wise <pabs@debian.org>"
    ],
@@ -111,5 +112,5 @@
          "file" : "bin/licensecheck"
       }
    },
-   "x_serialization_backend" : "JSON::PP version 4.02"
+   "x_serialization_backend" : "JSON::PP version 4.04"
 }

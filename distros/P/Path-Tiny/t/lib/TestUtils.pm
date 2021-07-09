@@ -6,6 +6,7 @@ package TestUtils;
 
 use Carp;
 use Cwd qw/getcwd/;
+use Config;
 use File::Temp 0.19 ();
 
 use Exporter;
@@ -14,11 +15,29 @@ our @EXPORT = qw(
   exception
   pushd
   tempd
+  has_symlinks
 );
 
 # If we have Test::FailWarnings, use it
 BEGIN {
     eval { require Test::FailWarnings; 1 } and do { Test::FailWarnings->import };
+}
+
+sub has_symlinks {
+    return $Config{d_symlink}
+      unless $^O eq 'msys' || $^O eq 'MSWin32';
+
+    if ($^O eq 'msys') {
+        # msys needs both `d_symlink` and a special environment variable
+        return unless $Config{d_symlink};
+        return $ENV{MSYS} =~ /winsymlinks:nativestrict/;
+    } elsif ($^O eq 'MSWin32') {
+        # Perl 5.33.5 adds symlink support for MSWin32 but needs elevated
+        # privileges so verify if we can use it for testing.
+        my $wd=tempd();
+        open my $fh, ">", "foo";
+        return eval { symlink "foo", "bar" };
+    }
 }
 
 sub exception(&) {

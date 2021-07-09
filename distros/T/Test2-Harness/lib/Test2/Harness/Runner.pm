@@ -2,7 +2,7 @@ package Test2::Harness::Runner;
 use strict;
 use warnings;
 
-our $VERSION = '1.000042';
+our $VERSION = '1.000062';
 
 use File::Spec();
 
@@ -12,8 +12,9 @@ use POSIX qw/:sys_wait_h/;
 use Long::Jump qw/setjump longjump/;
 use Time::HiRes qw/sleep time/;
 
-use Test2::Harness::Util qw/clean_path file2mod mod2file open_file parse_exit write_file_atomic process_includes chmod_tmp/;
+use Test2::Harness::Util qw/clean_path file2mod mod2file open_file parse_exit write_file_atomic process_includes chmod_tmp write_file/;
 use Test2::Harness::Util::Queue();
+use Test2::Harness::Util::JSON(qw/encode_json/);
 
 use Test2::Harness::Runner::Constants;
 
@@ -44,11 +45,13 @@ use Test2::Harness::Util::HashBase(
         <resources
 
         <nytprof
+
+        <reload
     },
     # From Construction
     qw{
         <dir <settings <fork_job_callback <fork_spawn_callback <respawn_runner_callback <monitor_preloads
-        <jobs_todo
+        <jobs_todo <dump_depmap
     },
     # Other
     qw {
@@ -83,7 +86,7 @@ sub init {
 
     $self->{+HANDLERS}->{HUP} = sub {
         my $sig = shift;
-        print STDERR "$$ $0 ($self->{+STAGE}) Runner caught SIG$sig, reloading...\n";
+        print "$$ $0 ($self->{+STAGE}) Runner caught SIG$sig, reloading...\n";
         $self->{+SIGNAL} = $sig;
     };
 
@@ -109,6 +112,8 @@ sub preloader {
         dir      => $self->{+DIR},
         preloads => $self->preloads,
         monitor  => $self->{+MONITOR_PRELOADS},
+        dump_depmap => $self->{+DUMP_DEPMAP},
+        reload   => $self->{+RELOAD},
 
         below_threshold => ($self->{+PRELOAD_THRESHOLD} && $self->{+JOBS_TODO} && $self->{+PRELOAD_THRESHOLD} > $self->{+JOBS_TODO}) ? 1 : 0,
     );
@@ -265,7 +270,17 @@ sub process {
 sub run_tests {
     my $self = shift;
 
-    my ($stage, @procs) = $self->preloader->preload();
+    my $preloader = $self->preloader;
+    my ($stage, @procs) = $preloader->preload();
+
+    if ($self->dump_depmap) {
+        if (my $dtrace = $preloader->dtrace) {
+            if (my $depmap = $dtrace->dep_map) {
+                my $file = "depmap-$stage.json";
+                write_file($file, encode_json($depmap));
+            }
+        }
+    }
 
     $self->watch($_) for @procs;
 
@@ -476,8 +491,11 @@ sub set_proc_exit {
         }
 
         if(my $bail = $exit ? $proc->bailed_out : 0) {
-            print "$$ $0 BAIL-OUT detected: $bail\nAborting the test run...\n";
-            $self->state->halt_run($task->{run_id});
+            print "$$ $0 BAIL-OUT detected: $bail\n";
+            if ($self->settings->runner->abort_on_bail) {
+                print "$$ $0 Aborting the test run...\n";
+                $self->state->halt_run($task->{run_id});
+            }
         }
     }
     elsif ($proc->isa('Test2::Harness::Runner::Preloader::Stage')) {

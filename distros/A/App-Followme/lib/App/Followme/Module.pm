@@ -6,16 +6,16 @@ use warnings;
 use integer;
 use lib '../..';
 
-use Cwd;
 use IO::File;
 use File::Spec::Functions qw(abs2rel catfile file_name_is_absolute
-                             no_upwards rel2abs splitdir updir);
+                             no_upwards splitdir updir);
 use App::Followme::FIO;
+use App::Followme::NestedText;
 use App::Followme::Web;
 
 use base qw(App::Followme::ConfiguredObject);
 
-our $VERSION = "1.95";
+our $VERSION = "2.02";
 
 #----------------------------------------------------------------------
 # Read the default parameter values
@@ -37,7 +37,9 @@ sub parameters {
 # Main method of all module subclasses (stub)
 
 sub run {
-    my ($self, $folder) = @_;
+    my ($self, $folder, $base_folder, $top_folder) = @_;
+    $base_folder ||= $folder;
+    $top_folder ||= $base_folder;
 
     my $pkg = ref $self;
     die "Run method not implemented by $pkg\n";
@@ -109,53 +111,16 @@ sub get_template_name {
 
 sub read_configuration {
     my ($self, $filename, %configuration) = @_;
-
-    $configuration{''}{run_before} = [];
-    $configuration{''}{run_after} = [];
-
-    my $fd = IO::File->new($filename, 'r');
-    my $class = '';
-
-    if ($fd) {
-        while (my $line = <$fd>) {
-            # Ignore comments and blank lines
-            next if $line =~ /^\s*\#/ || $line !~ /\S/;
-
-            if ($line =~ /=/) {
-                # Split line into name and value, remove leading and
-                # trailing whitespace
-
-                my ($name, $value) = split (/\s*=\s*/, $line, 2);
-                $value =~ s/\s+$//;
-
-                # Insert the name and value into the hash
-
-                if ($name eq 'run_before') {
-                    die "Cannot set run_before inside of $class\n" if $class;
-                    push(@{$configuration{''}->{run_before}}, $value);
-
-                } elsif ($name eq 'run_after') {
-                    die "Cannot set run_after inside of $class\n" if $class;
-                    push(@{$configuration{''}->{run_after}}, $value);
-
-                } else {
-                    $configuration{$class}->{$name} = $value;
-                }
-
-
-            } elsif ($line =~ /^\s*\[([\w:]+)\]\s*$/) {
-                $class = $1;
-                $configuration{$class} = {};
-
-            } else {
-                die "Bad line in config file: " . substr($line, 30) . "\n";
-            }
-        }
-
-        close($fd);
+	
+    foreach my $name (qw(run_before run_after)) {
+        $configuration{$name} ||= [];
     }
 
-    return %configuration;
+	my %new_configuration = nt_parse_almost_yaml_file($filename);
+    my $final_configuration = nt_merge_items(\%configuration, 
+                                             \%new_configuration);
+
+    return %$final_configuration;
 }
 
 #----------------------------------------------------------------------
@@ -192,7 +157,6 @@ sub render_file {
     return $renderer->($self->{data}, $file);
 }
 
-
 #----------------------------------------------------------------------
 # Convert filename to index file if it is a directory
 
@@ -217,7 +181,7 @@ App::Followme::Module - Base class for modules invoked from configuration
 
     use Cwd;
     use App::Followme::Module;
-    my $obj = App::Followme::Module->new($configuration);
+    my $obj = App::Followme::Module->new();
     my $directory = getcwd();
     $obj->run($directory);
 

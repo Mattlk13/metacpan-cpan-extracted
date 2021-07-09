@@ -28,7 +28,7 @@ use Google::Ads::GoogleAds::Client;
 use Google::Ads::GoogleAds::Utils::GoogleAdsHelper;
 use Google::Ads::GoogleAds::Utils::SearchStreamHandler;
 use
-  Google::Ads::GoogleAds::V6::Services::GoogleAdsService::SearchGoogleAdsStreamRequest;
+  Google::Ads::GoogleAds::V8::Services::GoogleAdsService::SearchGoogleAdsStreamRequest;
 
 use Getopt::Long qw(:config auto_help);
 use Pod::Usage;
@@ -45,7 +45,7 @@ use Cwd qw(abs_path);
 my $customer_id   = "INSERT_CUSTOMER_ID_HERE";
 my $language_name = "eng";
 # A list of country codes can be referenced here:
-# https://developers.google.com/adwords/api/docs/appendix/geotargeting.
+# https://developers.google.com/google-ads/api/reference/data/geotargets.
 my $carrier_country_code = "US";
 
 sub search_for_language_and_carrier_constants {
@@ -74,7 +74,7 @@ sub search_for_language_constants {
   # Create a search Google Ads stream request that will retrieve the language
   # constants.
   my $search_stream_request =
-    Google::Ads::GoogleAds::V6::Services::GoogleAdsService::SearchGoogleAdsStreamRequest
+    Google::Ads::GoogleAds::V8::Services::GoogleAdsService::SearchGoogleAdsStreamRequest
     ->new({
       customerId => $customer_id,
       query      => $search_query
@@ -113,7 +113,7 @@ sub search_for_carrier_constants {
   # Create a search Google Ads stream request that will retrieve the carrier
   # constants.
   my $search_stream_request =
-    Google::Ads::GoogleAds::V6::Services::GoogleAdsService::SearchGoogleAdsStreamRequest
+    Google::Ads::GoogleAds::V8::Services::GoogleAdsService::SearchGoogleAdsStreamRequest
     ->new({
       customerId => $customer_id,
       query      => $search_query

@@ -474,12 +474,12 @@ When making a simple 2D plot, if exactly 1 dimension is missing,
 PDL::Graphics::Gnuplot will use C<sequence(N)> as the domain. This is
 why code like C<plot(pdl(1,5,3,4,4) )> works. Only one PDL is given
 here, but the plot type ("lines" by default) requires 2 elements per
-tuple. We are thus exactly 1 piddle short; C<sequence(5)> is used as
+tuple. We are thus exactly 1 ndarray short; C<sequence(5)> is used as
 the missing domain PDL.  This is thus equivalent to
 C<plot(sequence(5), pdl(1,5,3,4,4) )>.
 
 If plotting in 3d or displaying an image, an implicit domain will be
-used if we are exactly 2 piddles short. In this case,
+used if we are exactly 2 ndarrays short. In this case,
 PDL::Graphics::Gnuplot will use a 2D grid as a domain. Example:
 
  my $xy = zeros(21,21)->ndcoords - pdl(10,10);
@@ -487,8 +487,8 @@ PDL::Graphics::Gnuplot will use a 2D grid as a domain. Example:
         with => 'points', inner($xy, $xy));
  gplot( with => 'image',  sin(rvals(51,51)) );
 
-Here the only given piddle has dimensions (21,21). This is a 3D plot, so we are
-exactly 2 piddles short. Thus, PDL::Graphics::Gnuplot generates an implicit
+Here the only given ndarray has dimensions (21,21). This is a 3D plot, so we are
+exactly 2 ndarrays short. Thus, PDL::Graphics::Gnuplot generates an implicit
 domain, corresponding to a 21-by-21 grid.
 
 C<PDL::Graphics::Gnuplot> requires explicit separators between tuples
@@ -1760,7 +1760,7 @@ details.
 
 =head2 2D plotting
 
-If we're plotting a piddle $y of y-values to be plotted sequentially (implicit
+If we're plotting an ndarray $y of y-values to be plotted sequentially (implicit
 domain), all you need is
 
   gplot($y);
@@ -1834,7 +1834,7 @@ Gnuplot >= 4.4):
 
   splot(square => 1, $x, $y, $z);
 
-If $xy is a 2D piddle, we can plot it as a height map on an implicit domain
+If $xy is a 2D ndarray, we can plot it as a height map on an implicit domain
 
   splot($xy);
 
@@ -1961,8 +1961,8 @@ a 3-tuple: X, Y, and R.
    );
 
 This is a 3d plot with variable size and color. There are 5 values in
-the tuple.  The first 2 piddles have dimensions (N,2); all the other
-piddles have a single dimension. The "cdim=>1" specifies that each column
+the tuple.  The first 2 ndarrays have dimensions (N,2); all the other
+ndarrays have a single dimension. The "cdim=>1" specifies that each column
 of data should be one-dimensional. Thus the PDL threading generates 2
 distinct curves, with varying values for x,y and identical values for
 everything else.  To label the curves differently, 2 different sets of
@@ -2009,8 +2009,8 @@ if($Alien::Gnuplot::VERSION < 1.031) {
     die "PDL::Graphics::Gnuplot requires Alien::Gnuplot version 1.031 or higher\n (v$Alien::Gnuplot::VERSION found). You can pull the latest from CPAN.\n";
 }
 
-our $gnuplot_dep_v = 4.6; # Versions below this are deprecated.
-our $gnuplot_req_v = 4.4; # Versions below this are not supported.
+our $gnuplot_dep_v = 4.006; # Versions below this are deprecated.
+our $gnuplot_req_v = 4.004; # Versions below this are not supported.
 
 # Compile time config flags...
 our $check_syntax = 0;
@@ -2019,10 +2019,11 @@ our $echo_eating = 0;                             # Older versions of gnuplot on
 our $debug_echo = 0;                              # If set, mock up Losedows half-duplex pipes
 
 
-our $VERSION = '2.013';
+our $VERSION = '2.017';
 $VERSION = eval $VERSION;
 
-our $gp_version = undef;   # eventually gets the extracted gnuplot(1) version number.
+our $gp_version = undef;    # eventually gets the extracted gnuplot(1) version number.
+our $gp_numversion = undef; # which is here converted to a float
 
 my $did_warn_non_numeric_patchlevel; # whether we already warned about this
 
@@ -4726,6 +4727,37 @@ no PDL::NiceSlice;
 
 }
 
+=pod
+
+=head2 pause_until_close
+
+=for usage
+
+  $w->pause_until_close;
+
+=for ref
+
+Wait until the active interactive plot window is closed (e.g., by clicking the
+close button, hitting the close key-binding which defaults to C<q>).
+
+C<pause_until_close> blocks execution until the close event.
+
+=cut
+
+sub pause_until_close {
+    my $this = shift;
+
+    barf "pause_until_close: $this->{terminal} terminal doesn't support mousing\n"
+        unless($this->{mouse});
+
+    _printGnuplotPipe($this, 'main', <<'EOC');
+pause mouse close
+EOC
+    _checkpoint($this, "main", {notimeout=>1});
+
+    return;
+}
+
 ######################################################################
 ######################################################################
 ######################################################################
@@ -5502,7 +5534,7 @@ $cOpt = [$cOptionsTable, $cOptionsAbbrevs, "curve option"];
 #               * the main plot object (for access to plot options)
 #               * the plot chunk (for access to curve options),
 #               * all the data passed in for that curve.
-#              It should return the new data piddle list, and modify the chunk 'with' list and curve options in place.
+#              It should return the new data ndarray list, and modify the chunk 'with' list and curve options in place.
 #              While it has access to plot options, it probably shouldn't modify them.
 
 our $plotStyleProps ={
@@ -6217,7 +6249,7 @@ our $_OptionEmitters = {
 	#### This is because some "withs" (e.g. "lines") must have dt specifiers for the correct behavior,
 	#### but other "withs" (e.g. "labels") barf if dt is specified.
     'dt' => sub { my($k,$v,$h, $w) = @_;
-		  return "" unless($gp_version >= 5.0);
+		  return "" unless($gp_numversion >= 5.0);
 		  return "" if(($v//"") eq 'INVALID');
 		  unless($v) {
 		      if($w->{options}->{terminal} =~ m/dashed/) {
@@ -7489,11 +7521,13 @@ EOM
 ##############################
 # Parse version number.  If the version or pl changed, try reloading Alien::Gnuplot
 # to get them in sync.
-	if( $s =~ m/Version (\d+\.\d+) (patchlevel (\w+))?/i ) {
+	if( $s =~ m/Version ((\d+)\.(\d+)(\.(\d+))?) (patchlevel (\w+))?/i ) {
 	    $gp_version = $1;
-	    $gp_pl = $3;
+            $gp_numversion = $2 + 0.001*$3 + 0.000001*($5||0);
+	    $gp_pl = $7;
 	    $this->{gp_version} = $1;
-	    $this->{gp_pl} = $3;
+            $this->{gp_numversion} = $gp_numversion;
+	    $this->{gp_pl} = $7;
 	} else {
 
 	    # Something went wrong with i/o.  See if the process still exists.
@@ -7519,6 +7553,7 @@ WARNING: I couldn\'t parse a version number from gnuplot\'s output.  I\'m
 EOM
 ;
 	    $this->{early_gnuplot} = 1;
+	    $PDL::Graphics::Gnuplot::raw_output = $s;
 	    return $this;
 	}
 
@@ -7546,12 +7581,12 @@ EOM
 	    }
             
             # On windows, gnuplot versions 4.6.5 and older echo back commands.
-            if ( $gp_version <= '4.6' && $gp_pl <= 5 ) {
+            if ( $gp_numversion <= '4.006' && $gp_pl <= 5 ) {
                 $echo_eating = 1;
             }
 	}
 
-	if( $gp_version < $gnuplot_dep_v  and  !$PDL::Graphics::Gnuplot::deprecated_this_session ) {
+	if( $gp_numversion < $gnuplot_dep_v  and  !$PDL::Graphics::Gnuplot::deprecated_this_session ) {
             $PDL::Graphics::Gnuplot::deprecated_this_session = 1;
 	    unless($ENV{GNUPLOT_DEPRECATED}){
 	    carp <<"EOM";
@@ -7949,7 +7984,9 @@ EOM
 	# Find, report, and strip warnings. This is complicated by the fact
 	# that some warnings come with a line specifier and others don't.
 
-	WARN: while( $fromerr =~ m/^(\s*(line \d+\:\s*)?[wW]arning\:.*)$/m ) {
+      WARN: while( $fromerr =~ m/^(\s*(line \d+\:\s*)?[wW]arning\:.*)$/m or
+		   $fromerr =~ m/^Populating font family aliases took/m     # CED - Quicktime on MacOS Catalina throws a warning marked as an error.  Stupid.
+	    ) {
 	  if($2){
 	      # it's a warning with a line specifier. Break off two more lines before it.
 	      last WARN unless($fromerr =~ s/^((gnu|multi)plot\>.*\n\s*\^\s*\n\s*(line \d+\:\s*)?[wW]arning\:.*(\n|$))//m);
@@ -7969,7 +8006,9 @@ EOM
 	    $fromerr =~ s/^\s*Terminal type set to \'[^\']*\'.*Options are \'[^\']*\'//s;
 	} else {
 	    # Hack to avoid spurious the pdfcairo errors in MacOS 10.5 - strip out obsolete-function errors.
-	    while( $fromerr =~ s/^.*obsolete\s*function.*system\s*performance.\s*//s ) {
+	    while( $fromerr =~ s/^.*obsolete\s*function.*system\s*performance.\s*//s or
+		   $fromerr =~ s/^.*Populating font family aliases took.*cost\.//s
+		) {
 		# do nothing
 	    }
 	}

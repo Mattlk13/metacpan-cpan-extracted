@@ -1,7 +1,9 @@
 #!perl
 
-our $DATE = '2020-10-30'; # DATE
-our $VERSION = '0.627'; # VERSION
+our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
+our $DATE = '2021-01-31'; # DATE
+our $DIST = 'Git-Bunch'; # DIST
+our $VERSION = '0.629'; # VERSION
 
 use 5.010001;
 use strict;
@@ -12,10 +14,11 @@ use Perinci::CmdLine::Any;
 Perinci::CmdLine::Any->new(
     url => '/Git/Bunch/',
     subcommands => {
+        check  => { url => '/Git/Bunch/check_bunch' },
+        commit => { url => '/Git/Bunch/commit_bunch' },
+        exec   => { url => '/Git/Bunch/exec_bunch' },
         ls     => { url => '/Git/Bunch/list_bunch_contents' },
-        check  => { url => '/Git/Bunch/check_bunch'  },
-        sync   => { url => '/Git/Bunch/sync_bunch'   },
-        exec   => { url => '/Git/Bunch/exec_bunch'   },
+        sync   => { url => '/Git/Bunch/sync_bunch' },
     },
     log => 1,
 )->run;
@@ -36,7 +39,7 @@ gitbunch - Manage gitbunch directory (directory which contain git repos)
 
 =head1 VERSION
 
-This document describes version 0.627 of gitbunch (from Perl distribution Git-Bunch), released on 2020-10-30.
+This document describes version 0.629 of gitbunch (from Perl distribution Git-Bunch), released on 2021-01-31.
 
 =head1 SYNOPSIS
 
@@ -53,34 +56,9 @@ and do an rsync for everything else):
 
 =head1 DESCRIPTION
 
-A I<gitbunch> or I<bunch> directory is just a term I coined to refer to a
-directory which contains, well, a bunch of git repositories. It can also contain
-other stuffs like files and non-git repositories (but they must be dot-dirs).
-Example:
-
- repos/            -> a gitbunch dir
-   proj1/          -> a git repo
-   proj2/          -> ditto
-   perl-Git-Bunch/ -> ditto
-   ...
-   .videos/        -> a non-git dir
-   README.txt      -> file
-
-If you organize your data as a bunch, you can easily check the status of your
-repositories and synchronize your data between two locations, e.g. your
-computer's harddisk and an external/USB harddisk.
-
-A little bit of history: after I<git> got popular, in 2008 I started using it for
-software projects, replacing Subversion and Bazaar. Soon, I moved everything*)
-to git repositories: notes & writings, Emacs .org agenda files, configuration,
-even temporary downloads/browser-saved HTML files. I put the repositories inside
-I<$HOME/repos> and add symlinks to various places for conveniences. Thus, the
-I<$HOME/repos> became the first bunch directory.
-
-*) everything except large media files (e.g. recorded videos) which I put in
-dot-dirs inside the bunch.
-
-See also L<rsybak>, which I wrote to backup everything else.
+A (git)bunch is a directory that contains a bunch of git repositories (as well
+as dot non-git directories and regular files). This B<gitbunch> utility can help
+you perform actions on some/all of the repositories in the bunch.
 
 =head1 SUBCOMMANDS
 
@@ -92,6 +70,20 @@ Will perform a 'git status' for each git repositories inside the bunch and
 report which repositories are clean/unclean.
 
 Will die if can't chdir into bunch or git repository.
+
+
+=head2 B<commit>
+
+Commit all uncommitted repos in the bunch.
+
+For each git repository in the bunch, will first check whether the repo is
+"uncommitted" state, which means either has the status of "Needs commit" or "Has
+untracked files". The default mode is dry-run/simulation. If the C<--no-dry-run>
+flag is not specified, will just show the status of these repos for you. If the
+C<--no-dry-run> (can be as short as C<--no-d> or C<-N>) flag is specified, will
+'git add'+'git commit' all these repos with the same commit message for each,
+specified in C<--message> (or just "Committed using 'gitbunch commit'" as the
+default message).
 
 
 =head2 B<exec>
@@ -284,6 +276,12 @@ interested in recent repos (which is most of the time unless you are doing a
 full check/sync).
 
 
+=item B<--recent>
+
+Shortcut for --min-repo-access-time="2 weeks ago".
+
+See C<--min-repo-access-time>.
+
 =item B<--repo>=I<s>
 
 Only process a single repo.
@@ -292,11 +290,128 @@ Only process a single repo.
 
 Directory to check.
 
+=item B<-r>
+
+Shortcut for --min-repo-access-time="2 weeks ago".
+
+See C<--min-repo-access-time>.
+
+=back
+
+=head2 Options for subcommand commit
+
+=over
+
+=item B<--command-opts-json>=I<s>
+
+Options to pass to IPC::System::Options's system() (JSON-encoded).
+
+See C<--command-opts>.
+
+=item B<--command-opts>=I<s>
+
+Options to pass to IPC::System::Options's system().
+
+=item B<--exclude-files>
+
+Exclude files from processing.
+
+This only applies to `sync_bunch` operations. Operations like `check_bunch` and
+`exec_bunch` already ignore these and only operate on git repos.
+
+
+=item B<--exclude-non-git-dirs>
+
+Exclude non-git dirs from processing.
+
+This only applies to and `sync_bunch` operations. Operations like `check_bunch`
+and `exec_bunch` already ignore these and only operate on git repos.
+
+
+=item B<--exclude-repos-json>=I<s>
+
+Exclude some repos from processing (JSON-encoded).
+
+See C<--exclude-repos>.
+
+=item B<--exclude-repos-pat>=I<s>
+
+Specify regex pattern of repos to exclude.
+
+=item B<--exclude-repos>=I<s@>
+
+Exclude some repos from processing.
+
+Can be specified multiple times.
+
+=item B<--include-repos-json>=I<s>
+
+Specific git repos to sync, if not specified all repos in the bunch will be processed (JSON-encoded).
+
+See C<--include-repos>.
+
+=item B<--include-repos-pat>=I<s>
+
+Specify regex pattern of repos to include.
+
+=item B<--include-repos>=I<s@>
+
+Specific git repos to sync, if not specified all repos in the bunch will be processed.
+
+Can be specified multiple times.
+
+=item B<--message>=I<s>, B<-m>
+
+Commit message.
+
+Default value:
+
+ "Committed using 'gitbunch commit'"
+
+=item B<--min-repo-access-time>=I<s>
+
+Limit to repos that are accessed (mtime, committed, status-ed, pushed) recently.
+
+This can significantly reduce the time to process the bunch if you are only
+interested in recent repos (which is most of the time unless you are doing a
+full check/sync).
+
+
+=item B<--recent>
+
+Shortcut for --min-repo-access-time="2 weeks ago".
+
+See C<--min-repo-access-time>.
+
+=item B<--repo>=I<s>
+
+Only process a single repo.
+
+=item B<--source>=I<s>*
+
+Directory to check.
+
+=item B<-r>
+
+Shortcut for --min-repo-access-time="2 weeks ago".
+
+See C<--min-repo-access-time>.
+
 =back
 
 =head2 Options for subcommand exec
 
 =over
+
+=item B<--command-opts-json>=I<s>
+
+Options to pass to IPC::System::Options's system() (JSON-encoded).
+
+See C<--command-opts>.
+
+=item B<--command-opts>=I<s>
+
+Options to pass to IPC::System::Options's system().
 
 =item B<--command>=I<s>*
 
@@ -359,6 +474,12 @@ interested in recent repos (which is most of the time unless you are doing a
 full check/sync).
 
 
+=item B<--recent>
+
+Shortcut for --min-repo-access-time="2 weeks ago".
+
+See C<--min-repo-access-time>.
+
 =item B<--repo>=I<s>
 
 Only process a single repo.
@@ -366,6 +487,12 @@ Only process a single repo.
 =item B<--source>=I<s>*
 
 Directory to check.
+
+=item B<-r>
+
+Shortcut for --min-repo-access-time="2 weeks ago".
+
+See C<--min-repo-access-time>.
 
 =back
 
@@ -434,6 +561,12 @@ interested in recent repos (which is most of the time unless you are doing a
 full check/sync).
 
 
+=item B<--recent>
+
+Shortcut for --min-repo-access-time="2 weeks ago".
+
+See C<--min-repo-access-time>.
+
 =item B<--repo>=I<s>
 
 Only process a single repo.
@@ -449,6 +582,12 @@ Valid values:
 =item B<--source>=I<s>*
 
 Directory to check.
+
+=item B<-r>
+
+Shortcut for --min-repo-access-time="2 weeks ago".
+
+See C<--min-repo-access-time>.
 
 =back
 
@@ -559,6 +698,12 @@ interested in recent repos (which is most of the time unless you are doing a
 full check/sync).
 
 
+=item B<--recent>
+
+Shortcut for --min-repo-access-time="2 weeks ago".
+
+See C<--min-repo-access-time>.
+
 =item B<--repo>=I<s>
 
 Only process a single repo.
@@ -600,6 +745,12 @@ Directory to check.
 =item B<--target>=I<s>*
 
 Destination bunch.
+
+=item B<-r>
+
+Shortcut for --min-repo-access-time="2 weeks ago".
+
+See C<--min-repo-access-time>.
 
 =back
 
@@ -690,9 +841,24 @@ List of available configuration parameters:
  repo (see --repo)
  source (see --source)
 
+=head2 Configuration for subcommand commit
+
+ command_opts (see --command-opts)
+ exclude_files (see --exclude-files)
+ exclude_non_git_dirs (see --exclude-non-git-dirs)
+ exclude_repos (see --exclude-repos)
+ exclude_repos_pat (see --exclude-repos-pat)
+ include_repos (see --include-repos)
+ include_repos_pat (see --include-repos-pat)
+ message (see --message)
+ min_repo_access_time (see --min-repo-access-time)
+ repo (see --repo)
+ source (see --source)
+
 =head2 Configuration for subcommand exec
 
  command (see --command)
+ command_opts (see --command-opts)
  exclude_files (see --exclude-files)
  exclude_non_git_dirs (see --exclude-non-git-dirs)
  exclude_repos (see --exclude-repos)
@@ -761,7 +927,7 @@ Source repository is at L<https://github.com/perlancar/perl-Git-Bunch>.
 
 =head1 BUGS
 
-Please report any bugs or feature requests on the bugtracker website L<https://rt.cpan.org/Public/Dist/Display.html?Name=Git-Bunch>
+Please report any bugs or feature requests on the bugtracker website L<https://github.com/perlancar/perl-Git-Bunch/issues>
 
 When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
@@ -782,13 +948,17 @@ uncommitted changes; 2) synchronize (pull/push) to other locations. I put all my
 data in one big gitbunch directory; I find it simpler. gitbunch works for me and
 I use it daily.
 
+
+Other tools on CPAN to make it easier to manage multiple git repositories:
+L<got> from L<App::GitGot>, L<group-git> from L<Group::Git>.
+
 =head1 AUTHOR
 
 perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

@@ -7,7 +7,7 @@
  * See http://metacpan.org/release/Devel-NYTProf/
  *
  * Contributors:
- * Tim Bunce, http://www.tim.bunce.name and http://blog.timbunce.org
+ * Tim Bunce, http://blog.timbunce.org
  * Nicholas Clark,
  * Adam Kaplan, akaplan at nytimes.com
  * Steve Peters, steve at fisharerojo.org
@@ -240,7 +240,7 @@ static char PROF_output_file[MAXPATHLEN+1] = "nytprof.out";
 static unsigned int profile_opts = NYTP_OPTf_OPTIMIZE | NYTP_OPTf_SAVESRC;
 static int profile_start = NYTP_START_BEGIN;      /* when to start profiling */
 
-static char *nytp_panic_overflow_msg_fmt = "panic: buffer overflow of %s on '%s' (see TROUBLESHOOTING section of the NYTProf documentation)";
+static char const *nytp_panic_overflow_msg_fmt = "panic: buffer overflow of %s on '%s' (see TROUBLESHOOTING section of the NYTProf documentation)";
 
 struct NYTP_options_t {
     const char *option_name;
@@ -1210,20 +1210,6 @@ get_file_id(pTHX_ char* file_name, STRLEN file_name_len, int created_via)
 }
 
 
-/**
- * Return a unique persistent id number for a string.
- *
- * XXX Currently not used, so may trigger compiler warnings, but is intended to be
- * used to assign ids to strings like subroutine names like we do for file ids.
- */
-static unsigned int
-get_str_id(pTHX_ char* str, STRLEN len)
-{
-    str_hash_entry *found;
-    hash_op(&strhash, str, len, (Hash_entry**)&found, 1);
-    return found->he.id;
-}
-
 static UV
 uv_from_av(pTHX_ AV *av, int idx, UV default_uv)
 {
@@ -1366,7 +1352,12 @@ start_cop_of_context(pTHX_ PERL_CONTEXT *cx)
     /* find next cop from OP */
     o = start_op;
     while ( o && (type = (o->op_type) ? o->op_type : (int)o->op_targ) ) {
-        if (type == OP_NEXTSTATE || type == OP_SETSTATE || type == OP_DBSTATE) {
+        if (type == OP_NEXTSTATE ||
+#if PERL_VERSION < 11
+            type == OP_SETSTATE ||
+#endif
+            type == OP_DBSTATE)
+        {
             if (trace_level >= trace)
                 logwarn("\tstart_cop_of_context %s is %s line %d of %s\n",
                     cx_block_type(cx), OP_NAME(o), (int)CopLINE((COP*)o),
@@ -1748,7 +1739,7 @@ DB_leave(pTHX_ OP *op, OP *prev_op)
 static void
 set_option(pTHX_ const char* option, const char* value)
 {
-    if (!value || !*value)
+    if (!option || !*option)
         croak("%s: invalid option", "NYTProf set_option");
     if (!value || !*value)
         croak("%s: '%s' has no value", "NYTProf set_option", option);
@@ -1852,7 +1843,7 @@ open_output_file(pTHX_ char *filename)
         if ((profile_opts & NYTP_OPTf_ADDPID) || out)
             sprintf(&filename_buf[strlen(filename_buf)], ".%d", getpid());
         if ( profile_opts & NYTP_OPTf_ADDTIMESTAMP )
-            sprintf(&filename_buf[strlen(filename_buf)], ".%.0"NVff"", gettimeofday_nv());
+            sprintf(&filename_buf[strlen(filename_buf)], ".%.0" NVff, gettimeofday_nv());
         filename = filename_buf;
         /* caller is expected to have purged/closed old out if appropriate */
     }
@@ -1871,7 +1862,7 @@ open_output_file(pTHX_ char *filename)
             filename, fopen_errno, strerror(fopen_errno), hint);
     }
     if (trace_level >= 1)
-        logwarn("~ opened %s at %.6"NVff"\n", filename, gettimeofday_nv());
+        logwarn("~ opened %s at %.6" NVff "\n", filename, gettimeofday_nv());
 
     output_header(aTHX);
 }
@@ -1901,7 +1892,7 @@ close_output_file(pTHX) {
     out = NULL;
 
     if (trace_level >= 1)
-        logwarn("~ closed file at %.6"NVff"\n", timeofday);
+        logwarn("~ closed file at %.6" NVff "\n", timeofday);
 }
 
 
@@ -1915,7 +1906,7 @@ reinit_if_forked(pTHX)
 
     /* we're now the child process */
     if (trace_level >= 1)
-        logwarn("~ new pid %d (was %d) forkdepth %"IVdf"\n", getpid(), last_pid, profile_forkdepth);
+        logwarn("~ new pid %d (was %d) forkdepth %" IVdf "\n", getpid(), last_pid, profile_forkdepth);
 
     /* reset state */
     last_pid = getpid();
@@ -2240,7 +2231,7 @@ incr_sub_inclusive_time(pTHX_ subr_entry_t *subr_entry)
     }
 
     if (trace_level >= 5) {
-        logwarn("%2u <-     %s %"NVgf" excl = %"NVgf"t incl - %"NVgf"t (%"NVgf"-%"NVgf"), oh %"NVff"-%"NVff"=%"NVff"t, d%d @%d:%d #%lu %p\n",
+        logwarn("%2u <-     %s %" NVgf " excl = %" NVgf "t incl - %" NVgf "t (%" NVgf "-%" NVgf "), oh %" NVff "-%" NVff "=%" NVff "t, d%d @%d:%d #%lu %p\n",
             (unsigned int)subr_entry->subr_prof_depth, called_subname_pv,
             excl_subr_ticks, incl_subr_ticks,
             called_sub_ticks,
@@ -2416,7 +2407,7 @@ subr_entry_setup(pTHX_ COP *prev_cop, subr_entry_t *clone_subr_entry, OPCODE op_
 
     if (subr_entry_ix <= prev_subr_entry_ix) {
         /* one cause of this is running NYTProf with threads */
-        logwarn("NYTProf panic: stack is confused, giving up! (Try running with subs=0) ix=%"IVdf" prev_ix=%"IVdf"\n", (IV)subr_entry_ix, (IV)prev_subr_entry_ix);
+        logwarn("NYTProf panic: stack is confused, giving up! (Try running with subs=0) ix=%" IVdf " prev_ix=%" IVdf "\n", (IV)subr_entry_ix, (IV)prev_subr_entry_ix);
         /* limit the damage */
         disable_profile(aTHX);
         return prev_subr_entry_ix;
@@ -2906,7 +2897,7 @@ pp_subcall_profiler(pTHX_ int is_slowop)
         subr_entry->already_counted++;
 
     if (trace_level >= 4) {
-        logwarn("%2u ->%4s %s::%s from %s::%s @%u:%u (d%d, oh %"NVff"t, sub %"NVff"s) #%lu\n",
+        logwarn("%2u ->%4s %s::%s from %s::%s @%u:%u (d%d, oh %" NVff "t, sub %" NVff "s) #%lu\n",
             (unsigned int)subr_entry->subr_prof_depth,
             (subr_entry->called_is_xs) ? subr_entry->called_is_xs : "sub",
             subr_entry->called_subpkg_pv,
@@ -3042,7 +3033,7 @@ disable_profile(pTHX)
         is_profiling = 0;
     }
     if (trace_level)
-        logwarn("~ disable_profile (previously %s, pid %d, trace %"IVdf")\n",
+        logwarn("~ disable_profile (previously %s, pid %d, trace %" IVdf ")\n",
             prev_is_profiling ? "enabled" : "disabled", getpid(), trace_level);
     return prev_is_profiling;
 }
@@ -3062,7 +3053,7 @@ finish_profile(pTHX)
 #endif
 
     if (trace_level >= 1)
-        logwarn("~ finish_profile (overhead %"NVgf"t, is_profiling %d)\n",
+        logwarn("~ finish_profile (overhead %" NVgf "t, is_profiling %d)\n",
             cumulative_overhead_ticks, is_profiling);
 
     /* write data for final statement, unless DB_leave has already */
@@ -3142,7 +3133,7 @@ _init_profiler_clock(pTHX)
         if(!QueryPerformanceCounter(&tmp)) {
             fnname = "QueryPerformanceCounter";
             win32_failed:
-            croak("%s failed with Win32 error %u, no clocks available", fnname, GetLastError());
+            croak("%s failed with Win32 error %lu, no clocks available", fnname, GetLastError());
         }
     }
 }
@@ -3690,7 +3681,7 @@ write_sub_callers(pTHX)
             if (sc[NYTP_SCi_INCL_RTIME] < 0.0 || sc[NYTP_SCi_EXCL_RTIME] < 0.0) {
                 ++negative_time_calls;
                 if (trace_level) {
-                    logwarn("%s call has negative time: incl %"NVff"s, excl %"NVff"s:\n",
+                    logwarn("%s call has negative time: incl %" NVff "s, excl %" NVff "s:\n",
                         called_subname, sc[NYTP_SCi_INCL_RTIME], sc[NYTP_SCi_EXCL_RTIME]);
                     trace = 1;
                 }
@@ -3701,7 +3692,7 @@ write_sub_callers(pTHX)
                     logwarn("%s is xsub\n", called_subname);
                 }
                 else {
-                    logwarn("%s called by %.*s at %u:%u: count %ld (i%"NVff"s e%"NVff"s, d%d ri%"NVff"s)\n",
+                    logwarn("%s called by %.*s at %u:%u: count %ld (i%" NVff "s e%" NVff "s, d%d ri%" NVff "s)\n",
                         called_subname, (int)caller_subname_len, caller_subname, fid, line,
                         (long)sc[NYTP_SCi_CALL_COUNT], sc[NYTP_SCi_INCL_RTIME], sc[NYTP_SCi_EXCL_RTIME],
                         (int)sc[NYTP_SCi_REC_DEPTH], sc[NYTP_SCi_RECI_RTIME]);
@@ -3924,7 +3915,7 @@ typedef struct loader_state_base {
     unsigned long input_chunk_seqn;
 } Loader_state_base;
 
-typedef void (*loader_callback)(Loader_state_base *cb_data, const nytp_tax_index tag, ...);
+typedef void (*loader_callback)(Loader_state_base *cb_data, const int tag, ...);
 
 typedef struct loader_state_callback {
     Loader_state_base base_state;
@@ -3966,7 +3957,7 @@ typedef struct loader_state_profiler {
 } Loader_state_profiler;
 
 static void
-load_discount_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
+load_discount_callback(Loader_state_base *cb_data, const int tag, ...)
 {
     Loader_state_profiler *state = (Loader_state_profiler *)cb_data;
     PERL_UNUSED_ARG(tag);
@@ -3982,7 +3973,7 @@ load_discount_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...
 }
 
 static void
-load_time_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
+load_time_callback(Loader_state_base *cb_data, const int tag, ...)
 {
     Loader_state_profiler *state = (Loader_state_profiler *)cb_data;
     dTHXa(state->interp);
@@ -4057,7 +4048,7 @@ load_time_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
 }
 
 static void
-load_new_fid_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
+load_new_fid_callback(Loader_state_base *cb_data, const int tag, ...)
 {
     Loader_state_profiler *state = (Loader_state_profiler *)cb_data;
     dTHXa(state->interp);
@@ -4153,7 +4144,7 @@ load_new_fid_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
 }
 
 static void
-load_src_line_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
+load_src_line_callback(Loader_state_base *cb_data, const int tag, ...)
 {
     Loader_state_profiler *state = (Loader_state_profiler *)cb_data;
     dTHXa(state->interp);
@@ -4188,7 +4179,7 @@ load_src_line_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...
 }
 
 static void
-load_sub_info_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
+load_sub_info_callback(Loader_state_base *cb_data, const int tag, ...)
 {
     Loader_state_profiler *state = (Loader_state_profiler *)cb_data;
     dTHXa(state->interp);
@@ -4253,7 +4244,7 @@ load_sub_info_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...
 }
 
 static void
-load_sub_callers_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
+load_sub_callers_callback(Loader_state_base *cb_data, const int tag, ...)
 {
     Loader_state_profiler *state = (Loader_state_profiler *)cb_data;
     dTHXa(state->interp);
@@ -4290,7 +4281,7 @@ load_sub_callers_callback(Loader_state_base *cb_data, const nytp_tax_index tag, 
     normalize_eval_seqn(aTHX_ called_subname_sv);
 
     if (trace_level >= 6)
-        logwarn("Sub %s called by %s %u:%u: count %d, incl %"NVff", excl %"NVff"\n",
+        logwarn("Sub %s called by %s %u:%u: count %d, incl %" NVff ", excl %" NVff "\n",
                 SvPV_nolen(called_subname_sv), SvPV_nolen(caller_subname_sv),
                 fid, line, count, incl_time, excl_time);
 
@@ -4388,7 +4379,7 @@ load_sub_callers_callback(Loader_state_base *cb_data, const nytp_tax_index tag, 
 }
 
 static void
-load_pid_start_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
+load_pid_start_callback(Loader_state_base *cb_data, const int tag, ...)
 {
     Loader_state_profiler *state = (Loader_state_profiler *)cb_data;
     dTHXa(state->interp);
@@ -4412,7 +4403,7 @@ load_pid_start_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ..
     len = sprintf(text, "%d", pid);
     (void)hv_store(state->live_pids_hv, text, len, newSVuv(ppid), 0);
     if (trace_level)
-        logwarn("Start of profile data for pid %s (ppid %d, %"IVdf" pids live) at %"NVff"\n",
+        logwarn("Start of profile data for pid %s (ppid %d, %" IVdf " pids live) at %" NVff "\n",
                 text, ppid, (IV)HvKEYS(state->live_pids_hv), start_time);
 
     store_attrib_sv(aTHX_ state->attr_hv, STR_WITH_LEN("profiler_start_time"),
@@ -4420,7 +4411,7 @@ load_pid_start_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ..
 }
 
 static void
-load_pid_end_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
+load_pid_end_callback(Loader_state_base *cb_data, const int tag, ...)
 {
     Loader_state_profiler *state = (Loader_state_profiler *)cb_data;
     dTHXa(state->interp);
@@ -4444,7 +4435,7 @@ load_pid_end_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
         logwarn("Inconsistent pids in profile data (pid %d not introduced)\n",
                 pid);
     if (trace_level)
-        logwarn("End of profile data for pid %s (%"IVdf" remaining) at %"NVff"\n", text,
+        logwarn("End of profile data for pid %s (%" IVdf " remaining) at %" NVff "\n", text,
                 (IV)HvKEYS(state->live_pids_hv), state->profiler_end_time);
 
     store_attrib_sv(aTHX_ state->attr_hv, STR_WITH_LEN("profiler_end_time"),
@@ -4456,7 +4447,7 @@ load_pid_end_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
 }
 
 static void
-load_attribute_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
+load_attribute_callback(Loader_state_base *cb_data, const int tag, ...)
 {
     Loader_state_profiler *state = (Loader_state_profiler *)cb_data;
     dTHXa(state->interp);
@@ -4487,7 +4478,7 @@ load_attribute_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ..
 }
 
 static void
-load_option_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
+load_option_callback(Loader_state_base *cb_data, const int tag, ...)
 {
     Loader_state_profiler *state = (Loader_state_profiler *)cb_data;
     dTHXa(state->interp);
@@ -4548,7 +4539,7 @@ static struct perl_callback_info_t callback_info[nytp_tag_max] =
 };
 
 static void
-load_perl_callback(Loader_state_base *cb_data, const nytp_tax_index tag, ...)
+load_perl_callback(Loader_state_base *cb_data, const int tag, ...)
 {
     Loader_state_callback *state = (Loader_state_callback *)cb_data;
     dTHXa(state->interp);
@@ -5015,7 +5006,7 @@ load_profile_to_hv(pTHX_ NYTP_file in)
 
 
     if (HvKEYS(state.live_pids_hv)) {
-        logwarn("Profile data incomplete, no terminator for %"IVdf" pids %s\n",
+        logwarn("Profile data incomplete, no terminator for %" IVdf " pids %s\n",
             (IV)HvKEYS(state.live_pids_hv),
             "(refer to TROUBLESHOOTING in the NYTProf documentation)");
         store_attrib_sv(aTHX_ state.attr_hv, STR_WITH_LEN("complete"),
@@ -5057,7 +5048,7 @@ load_profile_to_hv(pTHX_ NYTP_file in)
             && state.profiler_duration != 0.0
 #endif
             ) {
-            logwarn("The sum of the statement timings is %.1"NVff"%% of the total time profiling."
+            logwarn("The sum of the statement timings is %.1" NVff "%% of the total time profiling."
                  " (Values slightly over 100%% can be due simply to cumulative timing errors,"
                  " whereas larger values can indicate a problem with the clock used.)\n",
                 state.total_stmts_duration / state.profiler_duration * 100);
@@ -5065,7 +5056,7 @@ load_profile_to_hv(pTHX_ NYTP_file in)
         }
 
         if (show_summary_stats)
-            logwarn("Summary: statements profiled %lu (=%lu-%lu), sum of time %"NVff"s, profile spanned %"NVff"s\n",
+            logwarn("Summary: statements profiled %lu (=%lu-%lu), sum of time %" NVff "s, profile spanned %" NVff "s\n",
                 (unsigned long)(state.total_stmts_measured - state.total_stmts_discounted),
                 (unsigned long)state.total_stmts_measured, (unsigned long)state.total_stmts_discounted,
                 state.total_stmts_duration,

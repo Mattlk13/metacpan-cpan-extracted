@@ -1,15 +1,51 @@
-[![Build Status](https://travis-ci.com/kaz-utashiro/App-ansicolumn.svg?branch=master)](https://travis-ci.com/kaz-utashiro/App-ansicolumn)
+[![Actions Status](https://github.com/kaz-utashiro/App-ansicolumn/workflows/test/badge.svg)](https://github.com/kaz-utashiro/App-ansicolumn/actions) [![MetaCPAN Release](https://badge.fury.io/pl/App-ansicolumn.svg)](https://metacpan.org/release/App-ansicolumn)
 # NAME
 
 ansicolumn - ANSI terminal sequence aware column command
 
 # VERSION
 
-Version 1.04
+Version 1.08
 
 # SYNOPSIS
 
 ansicolumn \[options\] \[file ...\]
+
+    -c#                  output width
+    -s#                  separator string
+    -t                   table style output
+    -l#                  maximum number of table columns
+    -x                   exchange rows and columns
+    -o#                  output separator
+    -R#                  right adjust table columns
+
+    -P[#]                page mode, with optional page length
+    -D                   document mode
+    -C#                  number of panes
+    -S#                  pane width
+    -F                   full-width
+
+    --height=#           page height
+    --column-unit=#      column unit (default 8)
+    --linestyle=#        folding style (none|truncate|wrap|wordwrap)
+    --boundary=#         line-end boundary
+    --linebreak=#        line-break mode (none|all|runin|runout)
+    --runin=#            run-in width
+    --runout=#           run-out width
+    --[no-]pagebreak     allow page break
+    --border=#           print border
+    --border-style=#     border style
+    --[no-]ignore-space  ignore space in table output
+    --[no-]insert-space  insert empty line
+    --[no-]paragraph     same as --insert-space
+    --[no-]white-space   allow page top white spaces
+    --[no-]isolation     page-end line isolation
+    --fillup=#           fill-up unit (pane|page|none)
+    --tabstop=#          tab-stop character
+    --tabhead=#          tab-head character
+    --tabspace=#         tab-space width
+    --tabstyle=#         tab style
+    --ambiguous=#        ambiguous character width (narrow|wide)
 
 # DESCRIPTION
 
@@ -24,7 +60,7 @@ The column utility formats its input into multiple columns.  Rows are
 filled before columns.  Input is taken from _file_ operands, or, by
 default, from the standard input.
 
-- **-c**#, **--output-width**=#
+- **-c**#, **--width**=#, **--output-width**=#
 
     Output is formatted for a display columns wide.
 
@@ -39,6 +75,12 @@ default, from the standard input.
     table.  Columns are delimited with whitespace, by default, or
     with the characters supplied using the -s option.  Useful for
     pretty-printing displays.
+
+- **-l**_#_, **--table-columns-limit** _number_
+
+    Specify maximal number of the input columns. The last column will
+    contain all remaining line data if the limit is smaller than the
+    number of the columns in the input data.
 
 - **-x**, **--fillrows**
 
@@ -97,6 +139,15 @@ default, from the standard input.
 
     Use full width of the terminal.  Each panes are expanded to fill
     terminal width, unless **--pane-width** is specified.
+
+- **--height**=#
+
+    Set page height and page mode on.
+
+- **--column-unit**=#
+
+    Each columns are placed at the unit of 8 by default.  This option
+    changes the number of the unit.
 
 - **--linestyle**=_none_|_truncate_|_wrap_|_wordwrap_, **--ls**=_..._
 
@@ -167,10 +218,6 @@ default, from the standard input.
         },
         );
 
-- **--height**=#
-
-    Set page height and page mode on.
-
 - **--**\[**no-**\]**ignore-space**, **--**\[**no-**\]**is**
 
     When used **-t** option, leading spaces are ignored by default.  Use
@@ -203,15 +250,41 @@ default, from the standard input.
 
     Set tab width.
 
-- **--column-unit**=#
+- **--tabhead**=#
+- **--tabspace**=#
 
-    Each columns are placed at unit of 8 by default.  This option changes
-    the number of unit.
+    Set head and following space characters.  Both are space by default.
+    If the option value is longer than single characger, it is evaluated
+    as unicode name.
+
+- **--tabstyle**=#
+
+    Set the style how tab is expanded.  Select from `dot`, `symbol` or
+    `shade`.  Styles are defined in [Text::ANSI::Fold](https://metacpan.org/pod/Text::ANSI::Fold) library.
 
 - **--ambiguous**=_width\_spec_
 
     Specifies how to treat Unicode ambiguous width characters.  Take a
     value of 'narrow' or 'wide.  Default is 'narrow'.
+
+# CALCULATION
+
+As for **--height**, **--width** and **--pane-width** options, besides
+giving numeric digits, you can calculate the number using terminal
+size.  If the expression contains non-digit character, it is evaluated
+as a Reverse Polish Notation with the terminal size pushed on the
+stack.
+
+    OPTION              VALUE
+    =================   =========================
+    --height 1-         height - 1
+    --height 2/         height / 2
+    --height 1-2/       (height - 1) / 2
+    --height dup2%-2/   (height - height % 2) / 2
+
+Space and comma characters are ignored in the expression.  So `1-2/`
+and `1 - 2 /` and `1,-,2,/` are all same.  See \`perldoc Math::RPN\`
+for the expression detail.
 
 # STARTUP
 
@@ -259,7 +332,7 @@ Kazumasa Utashiro
 
 # LICENSE
 
-Copyright 2020 Kazumasa Utashiro.
+Copyright 2020- Kazumasa Utashiro.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

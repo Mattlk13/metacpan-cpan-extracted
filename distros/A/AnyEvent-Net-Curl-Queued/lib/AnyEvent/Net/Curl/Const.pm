@@ -10,7 +10,7 @@ use Carp qw(carp);
 use Net::Curl::Easy;
 use Scalar::Util qw(looks_like_number);
 
-our $VERSION = '0.047'; # VERSION
+our $VERSION = '0.049'; # VERSION
 
 
 my (%const_info, %const_opt);
@@ -65,12 +65,12 @@ AnyEvent::Net::Curl::Const - Access Net::Curl::* constants by name
 
 =head1 VERSION
 
-version 0.047
+version 0.049
 
 =head1 SYNOPSIS
 
+    my $easy = shift;
     $easy->setopt(AnyEvent::Net::Curl::Const::opt('verbose'), 1);
-    ...;
     $easy->getinfo(AnyEvent::Net::Curl::Const::info('size_download'));
 
 =head1 WARNING: GONE MOO!
@@ -148,8 +148,6 @@ Retrieve numeric value for C<$constant_name> in C<CURLINFO> namespace.
 
 Retrieve numeric value for C<$constant_name> in I<CURLOPT> namespace.
 
-=for test_synopsis my ($easy);
-
 =head1 SEE ALSO
 
 =over 4
@@ -174,7 +172,7 @@ Stanislaw Pusep <stas@sysd.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2014 by Stanislaw Pusep.
+This software is copyright (c) 2021 by Stanislaw Pusep.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

@@ -38,7 +38,11 @@ qx.Class.define("callbackery.ui.plugin.Action", {
                 case 'dataSaved':
                 case 'showMessage':
                     if (data.title && data.message){
-                        callbackery.ui.MsgBox.getInstance().info(this.xtr(data.title),this.xtr(data.message));
+                        callbackery.ui.MsgBox.getInstance().info(
+                            this.xtr(data.title),
+                            this.xtr(data.message),
+                            data.html, data.icons, data.size
+                        );
                     }
                     break;
                 case 'print':
@@ -46,9 +50,11 @@ qx.Class.define("callbackery.ui.plugin.Action", {
                     break;
                 case 'reloadStatus':
                 case 'reload':
+                case 'cancel':
+                case 'wait':
                     break;
                 default:
-                    console.error('Unknown action', data.action);
+                    console.error('Unknown action:', data.action);
                     break;
             }
         },this);
@@ -148,7 +154,10 @@ qx.Class.define("callbackery.ui.plugin.Action", {
                             }, btCfg.interval * 1000, this);
                         }, this);
                         this.addListener('disappear',function(){
-                            timer.stop(timerId);
+                            if (timerId) {
+                                timer.stop(timerId);
+                                timerId = null;
+                            }
                         }, this);
                         break;
                     case 'autoSubmit':
@@ -157,15 +166,18 @@ qx.Class.define("callbackery.ui.plugin.Action", {
                         this.addListener('appear',function(){
                             var key = btCfg.key;
                             var that = this;
-                            var formData = getFormData();
                             autoTimerId = autoTimer.start(function(){
+                                var formData = getFormData();
                                 callbackery.data.Server.getInstance().callAsyncSmartBusy(function(ret){
                                     that.fireDataEvent('actionResponse',ret || {});
                                 },'processPluginData',cfg.name,{ "key": key, "formData": formData });
                             }, btCfg.interval * 1000, this);
                         }, this);
                         this.addListener('disappear',function(){
-                            autoTimer.stop(autoTimerId);
+                            if (autoTimerId) {
+                                autoTimer.stop(autoTimerId);
+                                autoTimerId = null;
+                            }
                         }, this);
                         break;
                     case 'upload':
@@ -177,6 +189,7 @@ qx.Class.define("callbackery.ui.plugin.Action", {
                     default:
                         this.debug('Invalid execute action:' + btCfg.action);
                 }
+
                 var action = function(){
                     var that = this;
                     if (! button.isEnabled()) {
@@ -226,7 +239,6 @@ qx.Class.define("callbackery.ui.plugin.Action", {
                                 return;
                             }
                             var key = btCfg.key;
-                            var that = this;
                             callbackery.data.Server.getInstance().callAsyncSmart(function(cookie){
                                 var iframe = new qx.ui.embed.Iframe().set({
                                     width: 100,
@@ -235,7 +247,7 @@ qx.Class.define("callbackery.ui.plugin.Action", {
                                 iframe.addListener('load',function(e){
                                     var response = {
                                         exception: {
-                                            message: that.tr("No Data"),
+                                            message: String(that.tr("No Data")),
                                             code: 9999
                                         }
                                     };
@@ -287,7 +299,7 @@ qx.Class.define("callbackery.ui.plugin.Action", {
                             }
                             var popup = new callbackery.ui.Popup(btCfg,getFormData);
 
-                            var appRoot = this.getApplicationRoot();
+                            var appRoot = that.getApplicationRoot();
                     
                             popup.addListenerOnce('close',function(){
                                 // wait for stuff to happen before we rush into
@@ -296,21 +308,21 @@ qx.Class.define("callbackery.ui.plugin.Action", {
                                     appRoot.remove(popup);
                                     popup.dispose();
                                     this.fireEvent('popupClosed');
-                                },this,100);
+                                },that,100);
                                 if (!(btCfg.options && btCfg.options.noReload)){
                                     this.fireDataEvent('actionResponse',{action: ( btCfg.options && btCfg.options.reloadStatusOnClose ) ? 'reloadStatus' : 'reload'});
                                 }
-                            },this);
+                            },that);
                             popup.open();
                             break;
                         case 'logout':
-                            this.fireDataEvent('actionResponse',{action: 'logout'});
+                            that.fireDataEvent('actionResponse',{action: 'logout'});
                             break;
 
                         default:
                             this.debug('Invalid execute action:' + btCfg.action);
                     }
-                }; // var action = function()
+                }; // var action = function() { ... };
 
                 if (btCfg.defaultAction){
                     this._defaultAction = action;

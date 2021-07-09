@@ -12,21 +12,25 @@ use Config;
 use File::Basename qw(&basename &dirname);
 
 require './Dev.pm'; PDL::Core::Dev->import;
-use vars qw( %PDL_DATATYPES );
+PDL::Core::Dev::loadmod_Types();
 
 # version 2 is for versions after PDL 2.1.1
 # version 4 has pdl_hard_copy included in the Core structure.
 # version 6 is introduced after 2.4.2, due to the experimental
-#   per-piddle bad values code (the BADVAL_PER_PDL option)
+#   per-ndarray bad values code (the BADVAL_PER_PDL option)
 # version 7 introduced for some changes to function prototypes
 #   for pthreading (i.e. multi-threading) capabilities
-# version 8 for beginning support for >2GiB piddles
+# version 8 for beginning support for >2GiB ndarrays
 # version 9 for STRLEN/Size_t/Off_t for mmap delete magic
 # version 10 for 64bit index support (PDL index datatype)
 # version 11 for core cleanup (proto-PDL-3)
 # version 12 for PDL_Anyval union data type (full 64bit support)
+# version 13 for complex data types (native complex support)
+# version 14: NaN support for native complex, per-PDL badval on
+# version 15: threadid, ndims become PDL_Indx
+# FOR NEXT VERSION DELETE .tmp AND RENAME pdl_barf/pdl_warn/pdlnew WITHOUT pdl_?
 use vars qw( $pdl_core_version );
-$pdl_core_version = 12;
+$pdl_core_version = 15;
 
 # List explicitly here the variables you want Configure to
 # generate.  Metaconfig only looks for shell variables, so you
@@ -69,7 +73,14 @@ print OUT <<'!NO!SUBS!';
 #undef CONTEXT
 #endif
 
+#ifdef PDL_IN_CORE
+#define PDL_CORE_(func) pdl_##func
+#else
+#define PDL_CORE_(func) PDL->func
+#endif
+
 #include "pdl.h"
+#include "pdlperl.h"
 #include "pdlthread.h"
 /* the next one causes trouble in c++ compiles - exclude for now */
 #ifndef __cplusplus
@@ -79,13 +90,6 @@ print OUT <<'!NO!SUBS!';
 !NO!SUBS!
 
 print OUT "#define PDL_CORE_VERSION $pdl_core_version\n";
-
-print OUT <<'!NO!SUBS!' if ($^O =~ /MSWin/);
- 
-#define finite _finite
-#include <float.h>
-
-!NO!SUBS!
 
 print OUT <<'!NO!SUBS!';
 
@@ -118,42 +122,58 @@ static const union {unsigned char c[8]; double d;}
  *  This is needed because segfaults happen when perl's croak is called
  *  during one of the spawned pthreads for PDL processing.
  */
-#define barf PDL->pdl_barf
+#define barf PDL_CORE_(pdl_barf)
 #undef warn
-#define warn PDL->pdl_warn
+#define warn PDL_CORE_(pdl_warn)
 
+#define PDL_XS_SCALAR(type, ctype, val) \
+  SV *b_SV = NULL; \
+  pdl  *b; \
+  int nreturn = 1; \
+  int ndims = 0; \
+  PDL_Indx *pdims; \
+  pdims = (PDL_Indx *) pdl_smalloc( ndims * sizeof(*pdims) ); \
+  b = pdl_create(PDL_PERM); \
+  pdl_setdims(b, pdims, ndims); \
+  b->datatype = type; \
+  pdl_allocdata(b); \
+  ((ctype *)b->data)[0] = val; \
+  b_SV = sv_newmortal(); \
+  pdl_SetSV_PDL(b_SV, b); \
+  if (nreturn > 0) EXTEND(SP, nreturn); \
+  ST(0) = b_SV; \
+  XSRETURN(nreturn);
 
 typedef int Logical;
 
 /*************** Function prototypes *********************/
 
-
 /* pdlcore.c */
 
-int     pdl_howbig (int datatype);           /* Size of data type (bytes) */
-pdl*    SvPDLV ( SV* sv );                   /* Map SV* to pdl struct */
-void	SetSV_PDL( SV *sv, pdl *it );	     /* Outputting a pdl from.. */
+size_t  pdl_howbig (int datatype);           /* Size of data type (bytes) */
+pdl*    pdl_SvPDLV ( SV* sv );               /* Map SV* to pdl struct */
+void	pdl_SetSV_PDL( SV *sv, pdl *it );     /* Outputting a pdl from.. */
 SV*     pdl_copy( pdl* a, char* option );     /* call copy method */
-PDL_Indx *    pdl_packdims ( SV* sv, int*ndims ); /* Pack dims[] into SV aref */
-void    pdl_unpackdims ( SV* sv, PDL_Indx *dims,  /* Unpack */
-                         int ndims );
-void*   pdl_malloc ( STRLEN nbytes );           /* malloc memory - auto free()*/
+PDL_Indx *    pdl_packdims ( SV *sv, PDL_Indx *ndims ); /* Pack dims[] into SV aref */
+void    pdl_unpackdims ( SV *sv, PDL_Indx *dims,  /* Unpack */
+                         PDL_Indx ndims );
+void*   pdl_smalloc ( STRLEN nbytes );           /* malloc memory - auto free()*/
 
 void pdl_makescratchhash(pdl *ret, PDL_Anyval data);
 PDL_Indx pdl_safe_indterm(PDL_Indx dsz, PDL_Indx at, char *file, int lineno);
-void pdl_barf(const char* pat,...); /* General croaking utility */
-void pdl_warn(const char* pat,...); /* General warn utility */
+/* doubled for binary-compat with redundantly-named Core member */
+void pdl_pdl_barf(const char* pat,...); /* General croaking utility */
+void pdl_pdl_warn(const char* pat,...); /* General warn utility */
 PDL_Indx av_ndcheck(AV* av, AV* dims, int level, int *datalevel);
 pdl* pdl_from_array(AV* av, AV* dims, int type, pdl* p);
 
 !NO!SUBS!
 
-for my $in ( PDL::Types::typesrtkeys() ) {
-
-  (my $type = $PDL_DATATYPES{$in}) =~ s/^PDL_//;
+for my $t ( PDL::Types::types() ) {
+  my ($in, $shorttype, $type) = map $t->$_, qw(sym shortctype ctype);
   print OUT <<"!WITH!SUBS!";
-PDL_Indx pdl_setav_$type(PDL_$type* pdata, AV* av,
-	PDL_Indx* pdims, PDL_Long ndims, int level, PDL_$type undefval, pdl *p);
+PDL_Indx pdl_setav_$shorttype($type* pdata, AV* av,
+	PDL_Indx* pdims, PDL_Long ndims, int level, $type undefval, pdl *p);
 !WITH!SUBS!
 }
 
@@ -178,32 +198,29 @@ void pdl_destroytransform(pdl_trans *trans,int ensure);
 
 pdl *pdl_hard_copy(pdl *src);
 
-#define pdl_new() pdl_create(PDL_PERM)
-#define pdl_tmp() pdl_create(PDL_TMP)
-pdl* pdl_external_new();
-pdl* pdl_external_tmp();
+pdl* pdl_pdlnew();
+pdl* pdl_tmp();
 pdl* pdl_create(int type);
 void pdl_destroy(pdl *it);
-void pdl_setdims(pdl* it, PDL_Indx* dims, int ndims);
-void pdl_reallocdims ( pdl *it,int ndims );  /* reallocate dims and incs */
-void pdl_reallocthreadids ( pdl *it,int ndims );  /* reallocate threadids */
+void pdl_setdims(pdl* it, PDL_Indx* dims, PDL_Indx ndims);
+void pdl_reallocdims(pdl *it, PDL_Indx ndims); /* reallocate dims and incs */
+void pdl_reallocthreadids(pdl *it, PDL_Indx ndims); /* reallocate threadids */
 void pdl_resize_defaultincs ( pdl *it );     /* Make incs out of dims */
-void pdl_unpackarray ( HV* hash, char *key, PDL_Indx *dims, int ndims );
-void pdl_print(pdl *it);
+void pdl_unpackarray(HV* hash, char *key, PDL_Indx *dims, PDL_Indx ndims);
 void pdl_dump(pdl *it);
 void pdl_allocdata(pdl *it);
 
 PDL_Indx *pdl_get_threadoffsp(pdl_thread *thread); /* For pthreading */
 void pdl_thread_copy(pdl_thread *from,pdl_thread *to);
 void pdl_clearthreadstruct(pdl_thread *it);
-void pdl_initthreadstruct(int nobl,pdl **pdls,PDL_Indx *realdims,PDL_Indx *creating,int npdls,
+void pdl_initthreadstruct(int nobl,pdl **pdls,PDL_Indx *realdims,PDL_Indx *creating, PDL_Indx npdls,
 	pdl_errorinfo *info,pdl_thread *thread,char *flags, int noPthreadFlag );
 int pdl_startthreadloop(pdl_thread *thread,void (*func)(pdl_trans *),pdl_trans *);
-int pdl_iterthreadloop(pdl_thread *thread,int which);
+int pdl_iterthreadloop(pdl_thread *thread, PDL_Indx which);
 void pdl_freethreadloop(pdl_thread *thread);
-void pdl_thread_create_parameter(pdl_thread *thread,int j,PDL_Indx *dims,
+void pdl_thread_create_parameter(pdl_thread *thread,PDL_Indx j,PDL_Indx *dims,
 				 int temp);
-void pdl_croak_param(pdl_errorinfo *info,int paramIndex, char *pat, ...);
+void pdl_croak_param(pdl_errorinfo *info, int paramIndex, char *pat, ...);
 
 void pdl_setdims_careful(pdl *pdl);
 void pdl_put_offs(pdl *pdl,PDL_Indx offs, PDL_Anyval val);
@@ -221,8 +238,8 @@ void pdl_separatefromparent(pdl *it);
 void pdl_trans_changesoon(pdl_trans *trans,int what);
 void pdl_trans_changed(pdl_trans *trans,int what);
 
-void pdl_set_trans_childtrans(pdl *it, pdl_trans *trans,int nth);
-void pdl_set_trans_parenttrans(pdl *it, pdl_trans *trans,int nth);
+void pdl_set_trans_childtrans(pdl *it, pdl_trans *trans, PDL_Indx nth);
+void pdl_set_trans_parenttrans(pdl *it, pdl_trans *trans, PDL_Indx nth);
 
 /* pdlhash.c */
 
@@ -247,33 +264,29 @@ void** pdl_twod( pdl* x );                    /* Return 2D pointer to data array
 
 /* pdlsections.c */
 
-PDL_Indx  pdl_get_offset(PDL_Indx* pos, PDL_Indx* dims, PDL_Indx *incs, PDL_Indx offset, int ndims);      /* Offset of pixel x,y,z... */
+PDL_Indx  pdl_get_offset(PDL_Indx* pos, PDL_Indx* dims, PDL_Indx *incs, PDL_Indx offset, PDL_Indx ndims);      /* Offset of pixel x,y,z... */
 PDL_Indx  pdl_validate_section( PDL_Indx* sec, PDL_Indx* dims,           /* Check section */
-                           int ndims );
+                           PDL_Indx ndims );
 void pdl_row_plusplus ( PDL_Indx* pos, PDL_Indx* dims,              /* Move down one row */
-                        int ndims );
-void pdl_subsection( char *y, char*x, int datatype,      /* Take subsection */
-                 PDL_Indx* sec, PDL_Indx* dims, PDL_Indx *incs, PDL_Indx offset, int* ndims);
-void pdl_insertin( char*y, PDL_Indx* ydims, int nydims,        /* Insert pdl in pdl */
-                   char*x, PDL_Indx* xdims, int nxdims,
-                   int datatype, PDL_Indx* pos);
+                        PDL_Indx ndims );
+PDL_Anyval pdl_at0( pdl* x );
 PDL_Anyval pdl_at( void* x, int datatype, PDL_Indx* pos, PDL_Indx* dims, /* Value at x,y,z,... */
-             PDL_Indx *incs, PDL_Indx offset, int ndims);
+             PDL_Indx *incs, PDL_Indx offset, PDL_Indx ndims);
 void  pdl_set( void* x, int datatype, PDL_Indx* pos, PDL_Indx* dims, /* Set value at x,y,z... */
-                PDL_Indx *incs, PDL_Indx offs, int ndims, PDL_Anyval value);
+                PDL_Indx *incs, PDL_Indx offs, PDL_Indx ndims, PDL_Anyval value);
 void pdl_axisvals( pdl* a, int axis );               /* Fill with axis values */
 
 /* Structure to hold pointers core PDL routines so as to be used by many modules */
+
+#if defined(PDL_clean_namespace) || defined(PDL_OLD_API)
+#error PDL_clean_namespace and PDL_OLD_API defines have been removed. Use PDL->pdlnew() instead of PDL->new().
+#endif
 
 struct Core {
     I32    Version;
     pdl*   (*SvPDLV)      ( SV*  );
     void   (*SetSV_PDL)   ( SV *sv, pdl *it );
-#if defined(PDL_clean_namespace) || defined(PDL_OLD_API)
-    pdl*   (*new)      ( );     /* make it work with gimp-perl */
-#else
-    pdl*   (*pdlnew)      ( );  /* renamed because of C++ clash */
-#endif
+    pdl*   (*pdlnew)      ( );
     pdl*   (*tmp)         ( );
     pdl*   (*create)      (int type);
     void   (*destroy)     (pdl *it);
@@ -283,26 +296,27 @@ struct Core {
     void   (*converttype) ( pdl**, int, Logical );
     void** (*twod)        ( pdl* );
     void*  (*smalloc)      ( STRLEN );
-    int    (*howbig)      ( int );
-    PDL_Indx*   (*packdims)    ( SV* sv, int *ndims ); /* Pack dims[] into SV aref */
-    void   (*setdims)     ( pdl* it, PDL_Indx* dims, int ndims );
+    size_t (*howbig)      ( int );
+    PDL_Indx*   (*packdims)    ( SV* sv, PDL_Indx *ndims ); /* Pack dims[] into SV aref */
+    void   (*setdims)     ( pdl* it, PDL_Indx* dims, PDL_Indx ndims );
     void   (*unpackdims)  ( SV* sv, PDL_Indx *dims,    /* Unpack */
-                            int ndims );
+                            PDL_Indx ndims );
     void   (*grow)        ( pdl* a, PDL_Indx newsize); /* Change pdl 'Data' size */
+    PDL_Anyval (*at0)     ( pdl* x );
     void (*flushcache)( pdl *thepdl );	     /* flush cache */
-    void (*reallocdims) ( pdl *it,int ndims );  /* reallocate dims and incs */
-    void (*reallocthreadids) ( pdl *it,int ndims );
+    void (*reallocdims) ( pdl *it,PDL_Indx ndims );  /* reallocate dims and incs */
+    void (*reallocthreadids) ( pdl *it,PDL_Indx ndims );
     void (*resize_defaultincs) ( pdl *it );     /* Make incs out of dims */
 
 void (*thread_copy)(pdl_thread *from,pdl_thread *to);
 void (*clearthreadstruct)(pdl_thread *it);
-void (*initthreadstruct)(int nobl,pdl **pdls,PDL_Indx *realdims,PDL_Indx *creating,int npdls,
+void (*initthreadstruct)(int nobl,pdl **pdls,PDL_Indx *realdims,PDL_Indx *creating,PDL_Indx npdls,
 	pdl_errorinfo *info,pdl_thread *thread,char *flags, int noPthreadFlag );
 int (*startthreadloop)(pdl_thread *thread,void (*func)(pdl_trans *),pdl_trans *);
 PDL_Indx *(*get_threadoffsp)(pdl_thread *thread); /* For pthreading */
-int (*iterthreadloop)(pdl_thread *thread,int which);
+int (*iterthreadloop)(pdl_thread *thread, PDL_Indx which);
 void (*freethreadloop)(pdl_thread *thread);
-void (*thread_create_parameter)(pdl_thread *thread,int j,PDL_Indx *dims,
+void (*thread_create_parameter)(pdl_thread *thread,PDL_Indx j,PDL_Indx *dims,
 				int temp);
 void (*add_deletedata_magic) (pdl *it,void (*func)(pdl *, Size_t param), Size_t param); /* Automagic destructor */
                              /* This needs to be fixed to work correctly for File::Map implementation */
@@ -312,8 +326,8 @@ void (*setdims_careful)(pdl *pdl);
 void (*put_offs)(pdl *pdl,PDL_Indx offs, PDL_Anyval val);
 PDL_Anyval (*get_offs)(pdl *pdl,PDL_Indx offs);
 PDL_Anyval (*get)(pdl *pdl,PDL_Indx *inds);
-void (*set_trans_childtrans)(pdl *it, pdl_trans *trans,int nth);
-void (*set_trans_parenttrans)(pdl *it, pdl_trans *trans,int nth);
+void (*set_trans_childtrans)(pdl *it, pdl_trans *trans,PDL_Indx nth);
+void (*set_trans_parenttrans)(pdl *it, pdl_trans *trans,PDL_Indx nth);
 pdl *(*make_now)(pdl *it);
 
 pdl *(*get_convertedpdl)(pdl *pdl,int type);
@@ -342,21 +356,19 @@ PDL_Indx (*safe_indterm)(PDL_Indx dsz, PDL_Indx at, char *file, int lineno);
 
 float NaN_float;
 double NaN_double;
+complex float NaN_cfloat;
+complex double NaN_cdouble;
 
 !NO!SUBS!
 
 # set up the qsort routines
 
-    # fortunately it looks like Types.pm.PL is processed before this
-    # file
-    require "./Types.pm";  # ie PDL::Types
-
-for (PDL::Types::typesrtkeys()) {
-   my $ctype = $PDL::Types::typehash{$_}{ctype};
-   my $ppsym = $PDL::Types::typehash{$_}{ppsym};
-
-   print OUT "void (*qsort_${ppsym}) (${ctype} *xx, PDL_Indx a, PDL_Indx b );\n";
-   print OUT "void (*qsort_ind_${ppsym}) (${ctype} *xx, PDL_Indx *ix, PDL_Indx a, PDL_Indx b );\n";
+for my $t(PDL::Types::types()) {
+   my ($ctype, $ppsym) = map $t->$_, qw(ctype ppsym);
+   print OUT <<EOF;
+void (*qsort_$ppsym) ($ctype *xx, PDL_Indx a, PDL_Indx b );
+void (*qsort_ind_$ppsym) ($ctype *xx, PDL_Indx *ix, PDL_Indx a, PDL_Indx b );
+EOF
 }
 
 # storage space for bad values
@@ -373,8 +385,6 @@ print OUT <<'!NO!SUBS!';
 };
 
 typedef struct Core Core;
-
-Core *pdl__Core_get_Core(); /* INTERNAL TO CORE! DON'T CALL FROM OUTSIDE */
 
 /* __PDLCORE_H */
 #endif

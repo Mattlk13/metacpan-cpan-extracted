@@ -1,16 +1,15 @@
 #  You may distribute under the terms of either the GNU General Public License
 #  or the Artistic License (the same terms as Perl itself)
 #
-#  (C) Paul Evans, 2010-2017 -- leonerd@leonerd.org.uk
+#  (C) Paul Evans, 2010-2021 -- leonerd@leonerd.org.uk
 
-package Parser::MGC;
+package Parser::MGC 0.19;
 
-use strict;
+use v5.14;
 use warnings;
 
-our $VERSION = '0.16';
-
 use Carp;
+use Feature::Compat::Try;
 
 use File::Slurp::Tiny qw( read_file );
 use Scalar::Util qw( blessed );
@@ -21,28 +20,28 @@ C<Parser::MGC> - build simple recursive-descent parsers
 
 =head1 SYNOPSIS
 
- package My::Grammar::Parser
- use base qw( Parser::MGC );
+   package My::Grammar::Parser;
+   use base qw( Parser::MGC );
 
- sub parse
- {
-    my $self = shift;
+   sub parse
+   {
+      my $self = shift;
 
-    $self->sequence_of( sub {
-       $self->any_of(
-          sub { $self->token_int },
-          sub { $self->token_string },
-          sub { \$self->token_ident },
-          sub { $self->scope_of( "(", \&parse, ")" ) }
-       );
-    } );
- }
+      $self->sequence_of( sub {
+         $self->any_of(
+            sub { $self->token_int },
+            sub { $self->token_string },
+            sub { \$self->token_ident },
+            sub { $self->scope_of( "(", \&parse, ")" ) }
+         );
+      } );
+   }
 
- my $parser = My::Grammar::Parser->new;
+   my $parser = My::Grammar::Parser->new;
 
- my $tree = $parser->from_file( $ARGV[0] );
+   my $tree = $parser->from_file( $ARGV[0] );
 
- ...
+   ...
 
 =head1 DESCRIPTION
 
@@ -191,6 +190,13 @@ sub new
       $self->{patterns}{int} = qr/0o[0-7]+|$self->{patterns}{int}/;
    }
 
+   if( defined $self->{patterns}{comment} ) {
+      $self->{patterns}{_skip} = qr/$self->{patterns}{ws}|$self->{patterns}{comment}/;
+   }
+   else {
+      $self->{patterns}{_skip} = $self->{patterns}{ws};
+   }
+
    return $self;
 }
 
@@ -240,7 +246,7 @@ The following options are recognised:
 If set, applies the given binmode to the filehandle before reading. Typically
 this can be used to set the encoding of the file.
 
- $parser->from_file( $file, binmode => ":encoding(UTF-8)" )
+   $parser->from_file( $file, binmode => ":encoding(UTF-8)" )
 
 =back
 
@@ -250,6 +256,8 @@ sub from_file
 {
    my $self = shift;
    my ( $file, %opts ) = @_;
+
+   defined $file or croak "Expected a filename to ->from_file";
 
    $self->{filename} = $file;
 
@@ -269,13 +277,13 @@ called in scalar context to generate portions of string to parse, being passed
 the C<$parser> object. The function should return C<undef> when it has no more
 string to return.
 
- $reader->( $parser )
+   $reader->( $parser )
 
 Note that because it is not generally possible to detect exactly when more
 input may be required due to failed regexp parsing, the reader function is
 only invoked during searching for skippable whitespace. This makes it suitable
 for reading lines of a file in the common case where lines are considered as
-skippable whitespace, or for reading lines of input interractively from a
+skippable whitespace, or for reading lines of input interactively from a
 user. It cannot be used in all cases (for example, reading fixed-size buffers
 from a file) because two successive invocations may split a single token
 across the buffer boundaries, and cause parse failures.
@@ -324,7 +332,7 @@ sub pos
 I<Since version 0.16.>
 
 Returns the next C<$len> characters directly from the input, prior to any
-whitespace or comment skipping. This does I<not> take account of any pending
+whitespace or comment skipping. This does I<not> take account of any
 end-of-scope marker that may be pending. It is intended for use by parsers of
 partially-binary protocols, or other situations in which it would be incorrect
 for the end-of-scope marker to take effect at this time.
@@ -469,6 +477,16 @@ The following methods may be used to build a grammatical structure out of the
 defined basic token-parsing methods. Each takes at least one code reference,
 which will be passed the actual C<$parser> object as its first argument.
 
+Anywhere that a code reference is expected also permits a plain string giving
+the name of a method to invoke. This is sufficient in many simple cases, such
+as
+
+   $self->any_of(
+      'token_int',
+      'token_string',
+      ...
+   );
+
 =cut
 
 =head2 maybe
@@ -489,18 +507,18 @@ caller, rather than returning C<undef>.
 
 This may be considered to be similar to the C<?> regexp qualifier.
 
- sub parse_declaration
- {
-    my $self = shift;
+   sub parse_declaration
+   {
+      my $self = shift;
 
-    [ $self->parse_type,
-      $self->token_ident,
-      $self->maybe( sub {
-         $self->expect( "=" );
-         $self->parse_expression
-      } ),
-    ];
- }
+      [ $self->parse_type,
+        $self->token_ident,
+        $self->maybe( sub {
+           $self->expect( "=" );
+           $self->parse_expression
+        } ),
+      ];
+   }
 
 =cut
 
@@ -514,14 +532,15 @@ sub maybe
    my $committed = 0;
    local $self->{committer} = sub { $committed++ };
 
-   my $ret;
-   eval { $ret = $self->$code; 1 } and return $ret;
-   my $e = $@;
+   try {
+      return $self->$code;
+   }
+   catch ( $e ) {
+      pos($self->{str}) = $pos;
 
-   pos($self->{str}) = $pos;
-
-   die $e if $committed or not _isa_failure( $e );
-   return undef;
+      die $e if $committed or not _isa_failure( $e );
+      return undef;
+   }
 }
 
 =head2 scope_of
@@ -537,26 +556,26 @@ While the code is being executed, the C<$stop> pattern will be used by the
 token parsing methods as an end-of-scope marker; causing them to raise a
 failure if called at the end of a scope.
 
- sub parse_block
- {
-    my $self = shift;
+   sub parse_block
+   {
+      my $self = shift;
 
-    $self->scope_of( "{", sub { $self->parse_statements }, "}" );
- }
+      $self->scope_of( "{", 'parse_statements', "}" );
+   }
 
 If the C<$start> pattern is undefined, it is presumed the caller has already
 checked for this. This is useful when the stop pattern needs to be calculated
 based on the start pattern.
 
- sub parse_bracketed
- {
-    my $self = shift;
+   sub parse_bracketed
+   {
+      my $self = shift;
 
-    my $delim = $self->expect( qr/[\(\[\<\{]/ );
-    $delim =~ tr/([<{/)]>}/;
+      my $delim = $self->expect( qr/[\(\[\<\{]/ );
+      $delim =~ tr/([<{/)]>}/;
 
-    $self->scope_of( undef, sub { $self->parse_body }, $delim );
- }
+      $self->scope_of( undef, 'parse_body', $delim );
+   }
 
 This method does not have any optional parts to it; any failures are
 immediately propagated to the caller.
@@ -617,17 +636,19 @@ Expects to find a list of instances of something parsed by C<$code>,
 separated by the C<$sep> pattern. Returns an ARRAY ref containing a list of
 the return values from the C<$code>. A single trailing delimiter is allowed,
 and does not affect the return value. C<$code> may either be a CODE reference
-or a method name given as a string.
+or a method name given as a string. It is called in list context, and whatever
+values it returns are appended to the eventual result - similar to perl's
+C<map>.
 
 This method does not consider it an error if the returned list is empty; that
 is, that the scope ended before any item instances were parsed from it.
 
- sub parse_numbers
- {
-    my $self = shift;
+   sub parse_numbers
+   {
+      my $self = shift;
 
-    $self->list_of( ",", sub { $self->token_int } );
- }
+      $self->list_of( ",", 'token_int' );
+   }
 
 If the code fails (either by invoking C<fail> itself, or by propagating a
 failure from another method it invoked) before it has invoked C<commit> on a
@@ -656,13 +677,16 @@ sub list_of
       $committed = 0;
       my $pos = pos $self->{str};
 
-      eval { push @ret, $self->$code; 1 } and next;
-      my $e = $@;
+      try {
+         push @ret, $self->$code;
+         next;
+      }
+      catch ( $e ) {
+         pos($self->{str}) = $pos;
+         die $e if $committed or not _isa_failure( $e );
 
-      pos($self->{str}) = $pos;
-      die $e if $committed or not _isa_failure( $e );
-
-      last;
+         last;
+      }
    }
    continue {
       if( defined $sep ) {
@@ -684,12 +708,12 @@ by skipped whitespace.
 
 This may be considered to be similar to the C<+> or C<*> regexp qualifiers.
 
- sub parse_statements
- {
-    my $self = shift;
+   sub parse_statements
+   {
+      my $self = shift;
 
-    $self->sequence_of( sub { $self->parse_statement } );
- }
+      $self->sequence_of( 'parse_statement' );
+   }
 
 The interaction of failures in the code and the C<commit> method is identical
 to that of C<list_of>.
@@ -719,16 +743,16 @@ string.
 This may be considered to be similar to the C<|> regexp operator for forming
 alternations of possible parse trees.
 
- sub parse_statement
- {
-    my $self = shift;
+   sub parse_statement
+   {
+      my $self = shift;
 
-    $self->any_of(
-       sub { $self->parse_declaration; $self->expect(";") },
-       sub { $self->parse_expression; $self->expect(";") },
-       sub { $self->parse_block },
-    );
- }
+      $self->any_of(
+         sub { $self->parse_declaration; $self->expect(";") },
+         sub { $self->parse_expression; $self->expect(";") },
+         sub { $self->parse_block },
+      );
+   }
 
 If the code for a given choice fails (either by invoking C<fail> itself, or by
 propagating a failure from another method it invoked) before it has invoked
@@ -737,7 +761,23 @@ be attempted.
 
 If it calls C<commit> then any subsequent failure for that choice will cause
 the entire C<any_of> to fail, propagating that to the caller and no further
-choices will be attmepted.
+choices will be attempted.
+
+If none of the choices match then a simple failure message is printed:
+
+   Found nothing parseable
+
+As this is unlikely to be helpful to users, a better message can be provided
+by the final choice instead. Don't forget to C<commit> before printing the
+failure message, or it won't count.
+
+   $self->any_of(
+      'token_int',
+      'token_string',
+      ...,
+
+      sub { $self->commit; $self->fail( "Expected an int or string" ) }
+   );
 
 =cut
 
@@ -752,13 +792,14 @@ sub any_of
       my $committed = 0;
       local $self->{committer} = sub { $committed++ };
 
-      my $ret;
-      eval { $ret = $self->$code; 1 } and return $ret;
-      my $e = $@;
+      try {
+         return $self->$code;
+      }
+      catch ( $e ) {
+         pos( $self->{str} ) = $pos;
 
-      pos( $self->{str} ) = $pos;
-
-      die $e if $committed or not _isa_failure( $e );
+         die $e if $committed or not _isa_failure( $e );
+      }
    }
 
    $self->fail( "Found nothing parseable" );
@@ -822,12 +863,10 @@ sub skip_ws
 {
    my $self = shift;
 
-   my $ws = $self->{patterns}{ws};
-   my $c  = $self->{patterns}{comment};
+   my $pattern = $self->{patterns}{_skip};
 
    {
-      1 while $self->{str} =~ m/\G$ws/gc or
-              ( $c and $self->{str} =~ m/\G$c/gc );
+      1 while $self->{str} =~ m/\G$pattern/gc;
 
       return if pos( $self->{str} ) < length $self->{str};
 
@@ -930,15 +969,15 @@ This method does not consume the part of input that matches, only the text
 before it. It is not considered a failure if the substring before this match
 is empty. If a non-empty match is required, use the C<fail> method:
 
- sub token_nonempty_part
- {
-    my $self = shift;
+   sub token_nonempty_part
+   {
+      my $self = shift;
 
-    my $str = $parser->substring_before( "," );
-    length $str or $self->fail( "Expected a string fragment before ," );
+      my $str = $parser->substring_before( "," );
+      length $str or $self->fail( "Expected a string fragment before ," );
 
-    return $str;
- }
+      return $str;
+   }
 
 Note that unlike most of the other token parsing methods, this method does not
 consume either leading or trailing whitespace around the substring. It is
@@ -986,18 +1025,18 @@ to match.
 If provided, the C<$convert> function will be passed the parser and the
 matching substring; the value it returns is returned from C<generic_token>.
 
- $convert->( $parser, $substr )
+   $convert->( $parser, $substr )
 
 If not provided, the substring will be returned as it stands.
 
 This method is mostly provided for subclasses to define their own token types.
 For example:
 
- sub token_hex
- {
-    my $self = shift;
-    $self->generic_token( hex => qr/[0-9A-F]{2}h/, sub { hex $_[1] } );
- }
+   sub token_hex
+   {
+      my $self = shift;
+      $self->generic_token( hex => qr/[0-9A-F]{2}h/, sub { hex $_[1] } );
+   }
 
 =cut
 
@@ -1107,15 +1146,15 @@ using C<"> or C<'> quote marks.
 The content of the quoted string can contain character escapes similar to
 those accepted by C or Perl. Specifically, the following forms are recognised:
 
- \a               Bell ("alert")
- \b               Backspace
- \e               Escape
- \f               Form feed
- \n               Newline
- \r               Return
- \t               Horizontal Tab
- \0, \012         Octal character
- \x34, \x{5678}   Hexadecimal character
+   \a               Bell ("alert")
+   \b               Backspace
+   \e               Escape
+   \f               Form feed
+   \n               Newline
+   \r               Return
+   \t               Horizontal Tab
+   \0, \012         Octal character
+   \x34, \x{5678}   Hexadecimal character
 
 C's C<\v> for vertical tab is not supported as it is rarely used in practice
 and it collides with Perl's C<\v> regexp escape. Perl's C<\c> for forming other
@@ -1263,22 +1302,22 @@ accumulate a result in instead. For example, consider the following parser
 method, designed to parse a set of C<name: "value"> assignments, such as might
 be found in a configuration file, or YAML/JSON-style mapping value.
 
- sub parse_dict
- {
-    my $self = shift;
- 
-    my %ret;
-    $self->list_of( ",", sub {
-       my $key = $self->token_ident;
-       exists $ret{$key} and $self->fail( "Already have a mapping for '$key'" );
- 
-       $self->expect( ":" );
- 
-       $ret{$key} = $self->parse_value;
-    } );
- 
-    return \%ret
- }
+   sub parse_dict
+   {
+      my $self = shift;
+
+      my %ret;
+      $self->list_of( ",", sub {
+         my $key = $self->token_ident;
+         exists $ret{$key} and $self->fail( "Already have a mapping for '$key'" );
+
+         $self->expect( ":" );
+
+         $ret{$key} = $self->parse_value;
+      } );
+
+      return \%ret
+   }
 
 Instead of using the return value from C<list_of>, this method accumulates
 values in the C<%ret> hash, eventually returning a reference to it as its
@@ -1299,7 +1338,7 @@ instead a C<parse_string_generic> using a loop over C<substring_before>.
 Easy ability for subclasses to define more token types as methods. Perhaps
 provide a class method such as
 
- __PACKAGE__->has_token( hex => qr/[0-9A-F]+/i, sub { hex $_[1] } );
+   __PACKAGE__->has_token( hex => qr/[0-9A-F]+/i, sub { hex $_[1] } );
 
 =item *
 

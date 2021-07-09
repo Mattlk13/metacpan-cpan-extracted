@@ -1,6 +1,6 @@
-package Dist::Zilla::Plugin::Author::Plicease::Init2 2.59 {
+package Dist::Zilla::Plugin::Author::Plicease::Init2 2.66 {
 
-  use 5.014;
+  use 5.020;
   use Moose;
   use Dist::Zilla::File::InMemory;
   use Dist::Zilla::File::FromCode;
@@ -9,6 +9,7 @@ package Dist::Zilla::Plugin::Author::Plicease::Init2 2.59 {
   use Dist::Zilla::MintingProfile::Author::Plicease;
   use JSON::PP qw( encode_json );
   use Encode qw( encode_utf8 );
+  use experimental qw( postderef );
 
   # ABSTRACT: Dist::Zilla initialization tasks for Plicease
 
@@ -73,7 +74,7 @@ package Dist::Zilla::Plugin::Author::Plicease::Init2 2.59 {
       my $self = shift;
       my @workflow;
 
-      foreach my $workflow (qw( windows macos ))
+      foreach my $workflow (qw( static linux windows macos cygwin msys2-mingw ))
       {
         push @workflow, $workflow if $self->chrome->prompt_yn("workflow $workflow?");
       }
@@ -110,7 +111,7 @@ package Dist::Zilla::Plugin::Author::Plicease::Init2 2.59 {
       {
         if($self->type_dzil)
         {
-          return '5.014';
+          return '5.020';
         }
         else
         {
@@ -159,7 +160,6 @@ package Dist::Zilla::Plugin::Author::Plicease::Init2 2.59 {
 
     $self->gather_file_simple  ('.gitattributes');
     $self->gather_file_template('.gitignore');
-    $self->gather_file_simple  ('.travis.yml');
     $self->gather_file_simple  ('alienfile') if $self->type_alien;
     $self->gather_file_simple  ('author.yml');
     $self->gather_file_simple  ('Changes');
@@ -167,7 +167,7 @@ package Dist::Zilla::Plugin::Author::Plicease::Init2 2.59 {
     $self->gather_file_template('t/main_class.t' => 't/' . lc($self->zilla->name =~ s/-/_/gr) . ".t" );
     $self->gather_file_simple  ('xt/author/critic.t');
 
-    foreach my $workflow (@{ $self->workflow })
+    foreach my $workflow ($self->workflow->@*)
     {
       $self->gather_file_simple(".github/workflows/$workflow.yml");
     }
@@ -261,7 +261,7 @@ package Dist::Zilla::Plugin::Author::Plicease::Init2 2.59 {
     lazy    => 1,
     default => sub {
       my($self) = @_;
-      $self->chrome->prompt_str("github user/org", { default => 'plicease' });
+      $self->chrome->prompt_str("github user/org", { default => 'uperl' });
     },
   );
 
@@ -385,7 +385,7 @@ Dist::Zilla::Plugin::Author::Plicease::Init2 - Dist::Zilla initialization tasks 
 
 =head1 VERSION
 
-version 2.59
+version 2.66
 
 =head1 DESCRIPTION
 
@@ -397,7 +397,7 @@ Graham Ollis <plicease@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012,2013,2014,2015,2016,2017,2018,2019,2020 by Graham Ollis.
+This software is copyright (c) 2012,2013,2014,2015,2016,2017,2018,2019,2020,2021 by Graham Ollis.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
@@ -436,44 +436,6 @@ pod_coverage:
   # format is "Class#method" or "Class",regex allowed
   # for either Class or method.
   private: []
-
-
-__[ dist/.travis.yml ]__
-language: minimal
-dist: xenial
-services:
-  - docker
-before_install:
-  - curl https://raw.githubusercontent.com/plicease/cip/main/bin/travis-bootstrap | bash
-  - cip before-install
-install:
-  - cip diag
-  - cip install
-script:
-  - cip script
-jobs:
-  include:
-    - env: CIP_TAG=static
-    - env: CIP_TAG=5.33
-    - env: CIP_TAG=5.32
-    - env: CIP_TAG=5.30
-    - env: CIP_TAG=5.28
-    - env: CIP_TAG=5.26
-    - env: CIP_TAG=5.24
-    - env: CIP_TAG=5.22
-    - env: CIP_TAG=5.20
-    - env: CIP_TAG=5.18
-    - env: CIP_TAG=5.16
-    - env: CIP_TAG=5.14
-    - env: CIP_TAG=5.12
-    - env: CIP_TAG=5.10
-    - env: CIP_TAG=5.8
-branches:
-  only:
-    - main
-cache:
-  directories:
-    - "$HOME/.cip"
 
 
 __[ dist/perlcriticrc ]__
@@ -578,7 +540,6 @@ version          = 0.01
 
 [@Author::Plicease]
 :version       = {{$version}}
-travis_status  = 1
 release_tests  = {{$release_tests}}
 installer      = Author::Plicease::MakeMaker
 github_user    = {{$github_user}}
@@ -650,7 +611,8 @@ use base qw( Alien::Base );
 __[ template/Dzil.pm ]__
 use strict;
 use warnings;
-use {{ $perl_version }}
+use {{ $perl_version }};
+use experimental qw( postderef );
 
 package {{ $name =~ s/-/::/gr }} {
 
@@ -691,6 +653,118 @@ package {{ $name =~ s/-/::/gr }} {
 
 1;
 
+__[ dist/.github/workflows/static.yml ]__
+name: static
+
+on:
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+  pull_request:
+
+jobs:
+  perl:
+
+    runs-on: ubuntu-latest
+
+    env:
+      CIP_TAG: static
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Bootstrap CIP
+        run: |
+          curl -L https://raw.githubusercontent.com/uperl/cip/main/bin/github-bootstrap | bash
+
+      - name: Build + Test
+        run: |
+          cip script
+
+
+__[ dist/.github/workflows/linux.yml ]__
+name: linux
+
+on:
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+  pull_request:
+
+jobs:
+  perl:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        cip_tag:
+          - "5.35"
+          - "5.34"
+          - "5.32"
+          - "5.30"
+          - "5.28"
+          - "5.26"
+          - "5.24"
+          - "5.22"
+          - "5.20"
+          - "5.18"
+          - "5.16"
+          - "5.14"
+          - "5.12"
+          - "5.10"
+          - "5.8"
+
+    env:
+      CIP_TAG: ${{ matrix.cip_tag }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Bootstrap CIP
+        run: |
+          curl -L https://raw.githubusercontent.com/uperl/cip/main/bin/github-bootstrap | bash
+
+      - name: Cache-Key
+        id: cache-key
+        run: |
+          echo -n '::set-output name=key::'
+          cip cache-key
+
+      - name: Cache CPAN modules
+        uses: actions/cache@v2
+        with:
+          path: ~/.cip
+          key: ${{ runner.os }}-build-${{ steps.cache-key.outputs.key }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ steps.cache-key.outputs.key }}
+
+      - name: Start-Container
+        run: |
+          cip start
+
+      - name: Diagnostics
+        run: |
+          cip diag
+
+      - name: Install-Dependencies
+        run: |
+          cip install
+
+      - name: Build + Test
+        run: |
+          cip script
+
+      - name: CPAN log
+        if: ${{ failure() }}
+        run: |
+          cip exec bash -c 'cat $HOME/.cpanm/latest-build/build.log'
+
 
 __[ dist/.github/workflows/windows.yml ]__
 name: windows
@@ -714,6 +788,9 @@ jobs:
 
     runs-on: windows-latest
 
+    strategy:
+      fail-fast: false
+
     steps:
       - name: Set git to use LF
         run: |
@@ -722,10 +799,17 @@ jobs:
 
       - uses: actions/checkout@v2
 
+      - name: Set up Perl
+        run: |
+          choco install strawberryperl
+          echo "C:\cx\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "C:\strawberry\c\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "C:\strawberry\perl\site\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "C:\strawberry\perl\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Prepare for cache
         run: |
           perl -V > perlversion.txt
-          ls -l perlversion.txt
 
       - name: Cache CPAN modules
         uses: actions/cache@v1
@@ -737,22 +821,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-build-${{ hashFiles('perlversion.txt') }}
 
-      - name: Set up Perl
-        run: |
-          choco install strawberryperl
-          echo "C:\cx\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "C:\strawberry\c\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "C:\strawberry\perl\site\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "C:\strawberry\perl\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: perl -V
         run: perl -V
+
       - name: Install Static Dependencies
         run: |
           cpanm -n Dist::Zilla
           dzil authordeps --missing | cpanm -n
           dzil listdeps --missing   | cpanm -n
+
       - name: Install Dynamic Dependencies
         run: dzil run --no-build 'cpanm --installdeps .'
+
       - name: Run Tests
         run: dzil test -v
 
@@ -778,6 +858,9 @@ jobs:
   perl:
 
     runs-on: macOS-latest
+
+    strategy:
+      fail-fast: false
 
     steps:
       - uses: actions/checkout@v2
@@ -809,7 +892,191 @@ jobs:
           cpanm -n Dist::Zilla
           dzil authordeps --missing | cpanm -n
           dzil listdeps --missing   | cpanm -n
+
       - name: Install Dynamic Dependencies
         run: dzil run --no-build 'cpanm --installdeps .'
+
       - name: Run Tests
         run: dzil test -v
+
+      - name: CPAN log
+        if: ${{ failure() }}
+        run: |
+          cat ~/.cpanm/latest-build/build.log
+
+
+__[ dist/.github/workflows/cygwin.yml ]__
+name: cygwin
+
+on:
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+  pull_request:
+
+env:
+  PERL5LIB: /cygdrive/c/cx/lib/perl5
+  PERL_LOCAL_LIB_ROOT: /cygdrive/cx
+  PERL_MB_OPT: --install_base /cygdrive/c/cx
+  PERL_MM_OPT: INSTALL_BASE=/cygdrive/c/cx
+  ALIEN_BUILD_PLUGIN_PKGCONFIG_COMMANDLINE_TEST: 1 # Test Alien::Build::Plugin::PkgConfig::CommandLine
+  CYGWIN_NOWINPATH: 1
+
+jobs:
+  perl:
+
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+
+    defaults:
+      run:
+        shell: C:\tools\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
+
+    steps:
+      - name: Set git to use LF
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+        shell: powershell
+
+      - uses: actions/checkout@v2
+
+      - name: Set up Cygwin
+        uses: egor-tensin/setup-cygwin@v3
+        with:
+          platform: x64
+          packages: make perl gcc-core gcc-g++ pkg-config libcrypt-devel libssl-devel git
+
+      - name: perl -V
+        run: |
+          perl -V
+          gcc --version
+
+      - name: Prepare for cache
+        run: |
+          perl -V > perlversion.txt
+          gcc --version >> perlversion.txt
+          ls perlversion.txt
+
+      - name: Cache CPAN modules
+        uses: actions/cache@v1
+        with:
+          path: c:\cx
+          key: ${{ runner.os }}-build-cygwin-${{ hashFiles('perlversion.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-build-cygwin-${{ hashFiles('perlversion.txt') }}
+
+      - name: Install Static Dependencies
+        run: |
+          export PATH="/cygdrive/c/cx/bin:$PATH"
+          cd $( cygpath -u $GITHUB_WORKSPACE )
+          yes | cpan App::cpanminus || true
+          cpanm -n Dist::Zilla
+          perl -S dzil authordeps --missing | perl -S cpanm -n
+          perl -S dzil listdeps --missing   | perl -S cpanm -n
+
+      - name: Install Dynamic Dependencies
+        run: |
+          export PATH="/cygdrive/c/cx/bin:$PATH"
+          cd $( cygpath -u $GITHUB_WORKSPACE )
+          perl -S dzil run --no-build 'perl -S cpanm --installdeps .'
+
+      - name: Run Tests
+        run: |
+          export PATH="/cygdrive/c/cx/bin:$PATH"
+          cd $( cygpath -u $GITHUB_WORKSPACE )
+          perl -S dzil test -v
+
+      - name: CPAN log
+        if: ${{ failure() }}
+        run: |
+          cat ~/.cpanm/latest-build/build.log
+
+
+
+__[ dist/.github/workflows/msys2-mingw.yml ]__
+name: msys2-mingw
+
+on:
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+  pull_request:
+
+env:
+  PERL5LIB: /c/cx/lib/perl5:/c/cx/lib/perl5/MSWin32-x64-multi-thread
+  PERL_LOCAL_LIB_ROOT: c:/cx
+  PERL_MB_OPT: --install_base C:/cx
+  PERL_MM_OPT: INSTALL_BASE=C:/cx
+  ALIEN_BUILD_PLUGIN_PKGCONFIG_COMMANDLINE_TEST: 1 # Test Alien::Build::Plugin::PkgConfig::CommandLine
+
+jobs:
+  perl:
+
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Set git to use LF
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+        shell: powershell
+
+      - uses: actions/checkout@v2
+
+      - name: Set up Perl
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            base-devel
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-perl
+
+      - name: perl -V
+        run: |
+          perl -V
+
+      - name: Prepare for cache
+        run: |
+          perl -V > perlversion.txt
+          ls perlversion.txt
+
+      - name: Cache CPAN modules
+        uses: actions/cache@v1
+        with:
+          path: c:\cx
+          key: ${{ runner.os }}-build-msys2-${{ hashFiles('perlversion.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-build-msys2-${{ hashFiles('perlversion.txt') }}
+
+      - name: Install Static Dependencies
+        run: |
+          export PATH="/c/cx/bin:$PATH"
+          yes | cpan App::cpanminus || true
+          cpanm -n Dist::Zilla
+          perl -S dzil authordeps --missing | perl -S cpanm -n
+          perl -S dzil listdeps --missing   | perl -S cpanm -n
+
+      - name: Install Dynamic Dependencies
+        run: |
+          export PATH="/c/cx/bin:$PATH"
+          perl -S dzil run --no-build 'perl -S cpanm --installdeps .'
+
+      - name: Run Tests
+        run: |
+          export PATH="/c/cx/bin:$PATH"
+          perl -S dzil test -v

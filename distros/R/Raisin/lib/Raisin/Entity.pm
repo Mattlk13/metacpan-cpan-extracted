@@ -6,7 +6,7 @@ use strict;
 use warnings;
 
 package Raisin::Entity;
-$Raisin::Entity::VERSION = '0.90';
+$Raisin::Entity::VERSION = '0.93';
 use parent 'Exporter';
 
 use Carp;
@@ -145,7 +145,7 @@ sub _make_exposition {
     my @columns = do {
         if (blessed($data)) {
             if ($data->isa('DBIx::Class::ResultSet')) {
-                keys %{ $data->first->columns_info };
+                keys %{ $data->result_class->columns_info };
             }
             elsif ($data->isa('DBIx::Class::Core')) {
                 keys %{ $data->columns_info };
@@ -188,7 +188,7 @@ Raisin::Entity - A simple facade to use with your API
 
 =head1 VERSION
 
-version 0.90
+version 0.93
 
 =head1 SYNOPSIS
 
@@ -299,7 +299,7 @@ plugin enabled.
 
 =head1 AUTHOR
 
-Artur Khabibullin <rtkh@cpan.org>
+Artur Khabibullin
 
 =head1 COPYRIGHT AND LICENSE
 

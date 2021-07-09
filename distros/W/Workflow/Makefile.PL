@@ -9,12 +9,8 @@ use ExtUtils::MakeMaker;
 my %WriteMakefileArgs = (
   "ABSTRACT" => "Simple, flexible system to implement workflows",
   "AUTHOR" => "Chris Winters <chris\@cwinters.com>",
-  "BUILD_REQUIRES" => {
-    "Module::Build" => "0.30"
-  },
   "CONFIGURE_REQUIRES" => {
-    "ExtUtils::MakeMaker" => 0,
-    "Module::Build" => "0.30"
+    "ExtUtils::MakeMaker" => 0
   },
   "DISTNAME" => "Workflow",
   "LICENSE" => "perl",
@@ -24,7 +20,6 @@ my %WriteMakefileArgs = (
     "Carp" => 0,
     "Class::Accessor" => "0.18",
     "Class::Factory" => "1.00",
-    "Class::Observable" => "1.04",
     "DBI" => 0,
     "Data::Dumper" => 0,
     "Data::UUID" => 0,
@@ -32,7 +27,6 @@ my %WriteMakefileArgs = (
     "DateTime::Format::Strptime" => "1.00",
     "Exception::Class" => "1.10",
     "File::Slurp" => 0,
-    "Log::Dispatch" => "2.00",
     "Log::Log4perl" => "0.34",
     "Safe" => 0,
     "XML::Simple" => "2.00"
@@ -50,7 +44,7 @@ my %WriteMakefileArgs = (
     "Test::Pod" => "1.41",
     "Test::Pod::Coverage" => "1.08"
   },
-  "VERSION" => "1.49",
+  "VERSION" => "1.54",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -61,7 +55,6 @@ my %FallbackPrereqs = (
   "Carp" => 0,
   "Class::Accessor" => "0.18",
   "Class::Factory" => "1.00",
-  "Class::Observable" => "1.04",
   "DBD::Mock" => "0.10",
   "DBI" => 0,
   "Data::Dumper" => 0,
@@ -74,9 +67,7 @@ my %FallbackPrereqs = (
   "IO::Handle" => 0,
   "IPC::Open3" => 0,
   "List::MoreUtils" => 0,
-  "Log::Dispatch" => "2.00",
   "Log::Log4perl" => "0.34",
-  "Module::Build" => "0.30",
   "Pod::Coverage::TrustPod" => 0,
   "Safe" => 0,
   "Test::Exception" => 0,

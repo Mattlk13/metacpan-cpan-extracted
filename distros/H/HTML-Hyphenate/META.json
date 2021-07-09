@@ -21,20 +21,24 @@
       },
       "configure" : {
          "requires" : {
-            "Module::Build" : "0.42"
+            "Module::Build" : "0"
          }
       },
       "runtime" : {
          "requires" : {
             "Getopt::Long" : "0",
+            "I18N::LangTags" : "0",
             "Mojolicious" : "6",
             "Moose" : "0",
             "Pod::Usage" : "0",
             "Readonly" : "1.03",
             "Set::Scalar" : "0",
             "TeX::Hyphen" : "0",
-            "TeX::Hyphen::Pattern" : "v1.1.5",
-            "perl" : "v5.16.0"
+            "TeX::Hyphen::Pattern" : "v1.1.8",
+            "perl" : "v5.16.0",
+            "strict" : "0",
+            "utf8" : "0",
+            "warnings" : "0"
          }
       },
       "test" : {
@@ -50,11 +54,18 @@
    "provides" : {
       "HTML::Hyphenate" : {
          "file" : "lib/HTML/Hyphenate.pm",
-         "version" : "v1.1.7"
+         "version" : "v1.1.10"
+      },
+      "HTML::Hyphenate::DOM" : {
+         "file" : "lib/HTML/Hyphenate/DOM.pm",
+         "version" : "v1.1.10"
       }
    },
    "release_status" : "stable",
    "resources" : {
+      "bugtracker" : {
+         "web" : "https://bitbucket.org/rolandvanipenburg/html-hyphenate/issues"
+      },
       "license" : [
          "http://dev.perl.org/licenses/"
       ],
@@ -62,6 +73,6 @@
          "url" : "https://bitbucket.org/rolandvanipenburg/html-hyphenate"
       }
    },
-   "version" : "v1.1.7",
+   "version" : "v1.1.10",
    "x_serialization_backend" : "JSON::PP version 4.05"
 }

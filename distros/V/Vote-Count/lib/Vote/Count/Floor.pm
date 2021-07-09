@@ -1,22 +1,22 @@
 use strict;
 use warnings;
-use 5.022;
+use 5.024;
 use feature qw /postderef signatures/;
 
 package Vote::Count::Floor;
 use namespace::autoclean;
 use Moose::Role;
-# use Data::Dumper; 
+# use Data::Dumper;
 
 no warnings 'experimental';
 
-our $VERSION='1.09';
+our $VERSION='2.00';
 
 =head1 NAME
 
 Vote::Count::Floor
 
-=head1 VERSION 1.09
+=head1 VERSION 2.00
 
 =cut
 
@@ -36,20 +36,22 @@ sub _FloorRnd ( $I, $num ) {
     return int($num);
   }
   elsif ( $I->FloorRounding eq 'up' ) {
-    return int( $num ) if ( $num == int( $num ) );
+    return int($num) if ( $num == int($num) );
     return int( $num + 1 );
-  }  
+  }
   elsif ( $I->FloorRounding eq 'round' ) {
     return int( $num + 0.5 );
   }
   elsif ( $I->FloorRounding eq 'nextint' ) {
     return int( $num + 1 );
-  }  
-  else { die 'unknown FloorRounding method requested: ' . $I->FloorRounding };
+  }
+  else { die 'unknown FloorRounding method requested: ' . $I->FloorRounding }
 }
 
 sub _FloorMin ( $I, $floorpct ) {
   my $pct = $floorpct >= 1 ? $floorpct / 100 : $floorpct;
+# warn "floorpct = $floorpct $pct cast = ${\ $I->VotesCast() }";
+# warn "FloorMin = ${\ $I->_FloorRnd( $I->VotesCast() * $pct )}";
   return $I->_FloorRnd( $I->VotesCast() * $pct );
 }
 
@@ -63,29 +65,39 @@ sub _DoFloor ( $I, $ranked, $cutoff ) {
       $I->logv("Removing: $s: $ranked->{$s}, minimum is $cutoff.");
     }
   }
-  $I->logt(
-    "Floor Rule Eliminated: ",
-    join( ', ', @remove ),
-    "Remaining: ", join( ', ', @active ),
-  );
+  if (@remove) {
+    $I->logt(
+      "Floor Rule Eliminated: ",
+      join( ', ', @remove ),
+      "Remaining: ", join( ', ', @active ),
+    );
+  }
+  else {
+    $I->logt('None Eliminated');
+  }
   return { map { $_ => 1 } @active };
 }
 
 # Approval Floor is Approval votes vs total
 # votes cast -- not total of approval votes.
-# so floor is the same as for topcount floor.
 sub ApprovalFloor ( $self, $floorpct = 5, $rangecutoff = 0 ) {
   my $votescast = $self->VotesCast();
   $self->logt( "Applying Floor Rule of $floorpct\% "
       . "Approval Count. vs Ballots Cast of $votescast." );
-  return $self->_DoFloor( $self->Approval( undef, $rangecutoff )->RawCount(),
-    $self->_FloorMin($floorpct) );
+  my $raw =
+    $self->BallotSetType() eq 'rcv'
+    ? do { $self->Approval(); $self->LastApprovalBallots() }
+    : $self->Approval( undef, $rangecutoff )->RawCount();
+  return $self->_DoFloor( $raw, $self->_FloorMin($floorpct) );
 }
 
 sub TopCountFloor ( $self, $floorpct = 2 ) {
   $self->logt("Applying Floor Rule of $floorpct\% First Choice Votes.");
-  return $self->_DoFloor( $self->TopCount()->RawCount(),
-    $self->_FloorMin($floorpct) );
+  my $raw =
+    $self->BallotSetType() eq 'rcv'
+    ? do { $self->TopCount(); $self->LastTopCountUnWeighted() }
+    : $self->TopCount();
+  return $self->_DoFloor( $raw, $self->_FloorMin($floorpct) );
 }
 
 sub TCA ( $self, $floor = .5 ) {
@@ -109,23 +121,26 @@ sub TCA ( $self, $floor = .5 ) {
 }
 
 sub ApplyFloor ( $self, $rule, @args ) {
-  my $newset = {}; 
-  if ( $rule eq 'ApprovalFloor') {
-    $newset = $self->ApprovalFloor( @args );
-  } elsif ( $rule eq 'TopCountFloor') {
-    $newset = $self->TopCountFloor( @args );
-  } elsif ( $rule eq 'TCA') {
-    $newset = $self->TCA( @args );
-  } else { 
+  my $newset = {};
+  if ( $rule eq 'ApprovalFloor' ) {
+    $newset = $self->ApprovalFloor(@args);
+  }
+  elsif ( $rule eq 'TopCountFloor' ) {
+    $newset = $self->TopCountFloor(@args);
+  }
+  elsif ( $rule eq 'TCA' ) {
+    $newset = $self->TCA(@args);
+  }
+  else {
     die "Bad rule provided to ApplyFloor, $rule";
   }
-  $self->SetActive( $newset);
+  $self->SetActive($newset);
   return $newset;
 }
 
 =head1 Floor Rules
 
-In real elections it is common to have choices with very little support, the right to write-in and the obligation to count write-ins can produce a large number of these choices, with iterative dropping like IRV it can take many rounds to work through them. A Floor Rule sets a criteria to remove the weakly supported choices early in a single operation. 
+In real elections it is common to have choices with very little support, with write-ins there can be a large number of these choices, with iterative dropping like IRV it can take many rounds to work through them. A Floor Rule sets a criteria to remove the weakly supported choices early in a single operation.
 
 =head1 SYNOPSIS
 
@@ -136,7 +151,7 @@ In real elections it is common to have choices with very little support, the rig
 
 =head1 Rounding
 
-The default rounding is up. If a calculated cutoff is 11.2, the cutoff will become greater than or equal to 12. Set FloorRounding to 'down' to change this to round down for 11.9 to become 11. Set FloorRounding to 'round' to change this to round .5 or greater up. If the comparison needs to be Greater than, a special rounding rule of 'nextint' will use the next higher integer.
+The default rounding is up. If a calculated cutoff is 11.2, the cutoff will become greater than or equal to 12. Set FloorRounding to 'down' to change this to round down for 11.9 to become 11. Set FloorRounding to 'round' to change this to round .5 or greater up. If the comparison needs to be Greater than, a FloorRounding of 'nextint' will use the next higher integer.
 
   # When creating the Election.
   my $Election = Vote::Count->new( FloorRounding => 'round', ... );
@@ -173,11 +188,11 @@ For Range Ballots using ApprovalFloor there is an additional optional value for 
 Aggressive but (effectively) safe for Condorcet Methods. It requires the Approval for a choice be at least half of the leading Top Count Vote.
 
 This rule takes an optional argument to change the floor from .5.
-  
+
   # uses default of 1/2
-  my $active = $Election->TCA(); 
+  my $active = $Election->TCA();
   # requires approval equal leader
-  my $active = $Election->TCA( 1 ); 
+  my $active = $Election->TCA( 1 );
 
 =head3 TCA Rule Validation and Implication
 
@@ -205,10 +220,15 @@ John Karr (BRAINBUZ) brainbuz@cpan.org
 
 CONTRIBUTORS
 
-Copyright 2019 by John Karr (BRAINBUZ) brainbuz@cpan.org.
+Copyright 2019-2021 by John Karr (BRAINBUZ) brainbuz@cpan.org.
 
 LICENSE
 
 This module is released under the GNU Public License Version 3. See license file for details. For more information on this license visit L<http://fsf.org>.
 
+SUPPORT
+
+This software is provided as is, per the terms of the GNU Public License. Professional support and customisation services are available from the author.
+
 =cut
+

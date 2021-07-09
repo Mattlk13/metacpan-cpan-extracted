@@ -250,10 +250,10 @@ sub new {
 
   return $self unless my $app = shift;
 
-  my @args = @_ ? {config => {config_override => 1, %{shift()}}} : ();
-  return $self->app(Mojo::Server->new->build_app($app, @args)) unless ref $app;
-  $app = Mojo::Server->new->load_app($app)                     unless $app->isa('Mojolicious');
-  return $self->app(@args ? $app->config($args[0]{config}) : $app);
+  my @cfg = @_ ? {config => {config_override => 1, %{shift()}}} : ();
+  return $self->app(Mojo::Server->new->build_app($app, @cfg)) unless ref $app;
+  return $self->app(
+    $app->isa('Mojolicious') ? @cfg ? $app->config($cfg[0]{config}) : $app : Mojo::Server->new->load_app($app, @cfg));
 }
 
 sub options_ok { shift->_build_ok(OPTIONS => @_) }
@@ -825,6 +825,9 @@ Opposite of L</"json_has">.
 
 Check the value extracted from JSON response using the given JSON Pointer with L<Mojo::JSON::Pointer>, which defaults
 to the root value if it is omitted.
+
+  # Use an empty JSON Pointer to test the whole JSON response with a test description
+  $t->json_is('' => {foo => [1, 2, 3]}, 'right object');
 
 =head2 json_like
 

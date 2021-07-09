@@ -21,12 +21,12 @@ Rinci::Undo - (DEPRECATED) Protocol for undo operations in functions
 
 =head1 VERSION
 
-This document describes version 1.1.95 of Rinci::Undo (from Perl distribution Rinci), released on 2020-10-01.
+This document describes version 1.1.98 of Rinci::Undo (from Perl distribution Rinci), released on 2021-01-22.
 
 =head1 STATUS
 
-This protocol (riundo for short) is now deprecated in favor of
-L<Rinci::Transaction> (ritx for short) for several reasons:
+This protocol (I<riundo> for short) is now deprecated in favor of
+L<Rinci::Transaction> (I<ritx> for short) for several reasons:
 
 =over 4
 
@@ -41,9 +41,10 @@ perform its action.
 =item * ritx does not limit using the same function for undo
 
 In riundo, we must call the same function (passing the previously obtained undo
-data from the that function) to undo the information. This is sometimes slightly
-cumbersome. The undo action might be provided by other functions, but we still
-have to go through the same function first.
+data from the that function) to perform the undo. This is sometimes slightly
+cumbersome. The undo action might be better provided by other functions
+(example: a C<delete_user()> function to undo the C<create_user()>), but we
+still have to go through the same function first.
 
 =item * ritx can also implement undo/redo
 
@@ -241,7 +242,7 @@ Source repository is at L<https://github.com/perlancar/perl-Rinci>.
 
 =head1 BUGS
 
-Please report any bugs or feature requests on the bugtracker website L<https://rt.cpan.org/Public/Dist/Display.html?Name=Rinci>
+Please report any bugs or feature requests on the bugtracker website L<https://github.com/perlancar/perl-Rinci/issues>
 
 When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
@@ -257,7 +258,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

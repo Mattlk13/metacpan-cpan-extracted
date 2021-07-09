@@ -1,5 +1,34 @@
 Revision history for Dist-Zilla-PluginBundle-Author-Plicease
 
+2.66      2021-06-23 16:26:36 -0600
+  - Put static testing in separate workflow for CI
+
+2.65      2021-06-15 07:16:52 -0600
+  - Bump required Test2::V0 default
+  - Fixup generated cygwin CI
+
+2.64      2021-06-01 05:31:07 -0600
+  - Bump CI in generated dist to use Perl 5.34/5.35
+
+2.63      2021-05-07 11:31:18 -0600
+  - Allow release on MSWin32 if win32 is set
+    [@Author::Plicease] + [Author::Plicease::SpecialPrereqs] (gh#17)
+  - remove travis_* and appveyor_* keys
+  - Drop support for Perls prior to 5.20.
+
+2.62      2021-03-19 05:38:03 -0600
+  - Additional CI defaults for freshly minted dists for cygwin
+    and msys2.
+
+2.61      2021-03-13 12:51:30 -0700
+  - Follow recirects on cip, new location for cip repository
+
+2.60      2021-03-13 07:49:33 -0700
+  - Require Perl 5.24
+  - Move to uperl GitHub org
+  - Do not include .travis.yml in new repositories anymore
+  - New github actions linux template uses cip to replace travis-ci
+
 2.59      2020-12-10 16:17:30 -0700
   - Update template for github actions to use new add-path incantation
   - Try to autodetect the default branch

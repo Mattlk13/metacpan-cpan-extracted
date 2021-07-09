@@ -1,0 +1,205 @@
+#!/usr/bin/perl
+use 5.014 ; use strict ; use warnings ;  # the functions requires 5.10 for "state", 5.14 for srand. 
+use Getopt::Std ; getopts '.12$:=jp:q:u:L:R:S', \my%o ;  
+use Scalar::Util qw/looks_like_number/ ; # 5.7.3から
+use Term::ANSIColor qw/:constants color/ ;  $Term::ANSIColor::AUTORESET = 1 ;
+use Time::HiRes qw/sleep usleep gettimeofday tv_interval/ ; # 5.7.3から
+use List::Util qw[ max first ] ; 
+use Encode ;
+
+#$SIG{INT} = sub { & info ; exit 130 } ;
+my $strime0 = [ gettimeofday ] ;
+my $optu0 = defined $o{u} && $o{u} eq 0 ; 
+my $optq0 = defined $o{q} && $o{q} eq 0 ;
+my $optR0 = defined $o{R} && $o{R} eq 0 ; 
+my $oL2 = defined $o{L} && $o{L} eq 2 ; # $optL2 は長すぎるので、ちょっと特例的に短くしてみた
+my $oL4 = defined $o{L} && $o{L} eq 4 ; 
+
+$o{'$'} //= 'end' ;  # 文字の終端を表す記号
+$o{p} //= '' ;  # 文字を切り分けるパターン。正規表現
+binmode STDOUT, 'utf8' unless $optu0 ;
+
+sub main () ; 
+* main = $oL2 || $oL4 ? * bylen : $o{S} ? * blanks : * normal ; # <-- mainの定義はここである。
+& main ; 
+exit 0 ;
+
+# どんな種類の空白かを数えるモード:
+sub blanks ( ) { 
+  my $header = <> if $o{'='} ; 
+  my %freq ; # 同じ行が来たかどうかの判定に使う。数が集計される。
+  my %counts ;
+
+  while ( <> ) { 
+    chomp ; 
+    s/\r$// unless $optR0 ;
+    next if $o{1} && $freq{$_} ++ ; 
+    $_ = decode_utf8 $_ unless $optu0 ; 
+    my @blanks = m/[[:blank:]]/g ; # <-- -  perldoc  perlrecharclass　perlunicode を参照するのが良いかも Unicode文字プロパティ
+    #print "XX" if @blanks ;
+    $counts { $_ } ++ for @blanks ; 
+  }
+
+  for ( sort keys %counts ) { 
+    print  sprintf "U+%X %s:\t%d\n", ord ($_) , $_ , $counts { $_ } ; 
+  }
+}
+
+# 長さ毎に数えるモード:
+sub bylen ( ) { 
+  my $header = <> if $o{'='} ; 
+  my %freq ; # 同じ行が来たかどうかの判定に使う。数が集計される。
+  my %M ; # 文字列長さごとの文字列最小値と文字列最大値を格納する。
+  my %Lfrq ; # 文字列長ごとの頻度
+  while ( <> ) {
+    chomp ;
+    s/\r$// unless $optR0 ;    
+    $_ = decode_utf8 $_ unless $optu0 ;
+    $freq{$_}++ ;#next if $freq{$_} ++ && $o{1} ; # && の前後の順序に注意
+    my $len = length $_ ; 
+    $Lfrq{$len} ++ ;
+    $M{$len}[0] = $_ if ! defined $M{$len}[0] || $M{$len}[0] gt $_ ; 
+    $M{$len}[1] = $_ if ! defined $M{$len}[1] || $M{$len}[1] lt $_ ;     
+    next unless $oL4 ; 
+    $M{$len}[2] = $_ if ! defined $M{$len}[2] ; 
+    $M{$len}[3] = $_ ;
+
+  }
+  use utf8 ;
+  my @oth = $o{j} ? qw[ 文字列長 頻度 辞書順先頭 辞書順末尾 出現順先頭 出現順末尾 ] : qw[ length freq minstr maxstr first_str last_str ] ; 
+  no utf8 ; 
+  #print join ( "\t", map {UNDERLINE $_} qw[length freq minstr maxstr] , $oL4 ? qw[first_str last_str ]:() ) , "\n" ;
+  print join ( "\t", map {UNDERLINE $_} @oth[0..3] , $oL4 ? @oth[4..5] : () ) , "\n" ;
+  for ( sort { $a <=> $b } keys %M ) {  # 数値 (文字列の長さを表す)でソート 
+    my @str = @{ $M{$_} } ;
+    my @prt = $optq0 ? @str : map { defined $_ ? qq['$_'] : undef } @str ;
+    $prt[1] = DARK '<-- same' if $str[1] eq $str[0] ; 
+    #$str[2] = '' ; #if defined $str[2] and $str[2] eq $str[0] || $str[2] eq $str[1]; 
+    $prt[3] = DARK '<-- same' if $oL4 and defined $str[3] and $str[3] eq $str[2] ; #|| $str[3] eq $str[1]; 
+
+    for my $p ($oL4? 0..3 : 0..1 )  { 
+      $prt[$p] = $prt[$p] . DARK "(" . $freq{ $str[$p] } . ")" if $freq{ $str[$p] } != $Lfrq{$_} ;
+    }
+    print join ( "\t" , $_ , $Lfrq{$_}, @prt ) , "\n" ;
+  }
+}
+
+
+## 普通のモードと(-.の場合に)さらにに詳しく分析する機能
+
+sub uniq (@) {my %h;map { $h{$_}++ == 0 ? $_ : () } @_ } # List::MoreUtils から
+sub majority (@) {my%h;$h{$_}++for@_;my$m=max values%h;first{$h{$_}==$m}keys%h} # リストから最も成分の多いものをさらにひとつだけ選ぶ.
+sub majority2 (@) {my%h;$h{$_}++for@_;my$m=max values%h;$m++if$m==1;first{$h{$_}==$m}keys%h} # リストから最も成分の多いものをさらにひとつだけ選ぶ.
+sub normal ( ) { 
+
+  my %S1 ; # $S1{$char}[$pos] のように使う。 出現回数の集計表
+  my %S2 ; # $S2{ "$char-$pos" } = "行番号+行番号+...行番号+" 
+  my %S2r ; # S2のキーとバリューをリバースするようなことをする。
+  my %S1n ; # $S1{$c}[$p] = v の時に、push @{ $S1n{ v } } , "$c-$p" を逐次行い、$S1n{ v } から 全$S2{$c-$p}の値が等しいか調べる <-- - 分かり安くしろ
+  my %S1cp ; # S1cp{"$c-$p"] = TRUE ならばそこにピリオドを付ける
+  my %CP ; # @{ $CP{$c-$p} } で "行番号+行番号+...行番号+"  を参照できるようにする。
+  my %P1 ; # その頻度なら必ずピリオドを付ける。[1]
+  my %P2 ; # $P2{$c-$p}が真ならピリオドを付ける[2]
+  my $maxlen = 0 ; # 文字列の最大長
+  my $header = <> if $o{'='} ; 
+  my %freq ; # 同じ行が来たかどうかの判定に使う。数が集計される。
+
+  while ( <> ) { 
+    chomp ;
+    s/\r$// unless $optR0 ;    
+    $_ = decode_utf8 $_ unless $optu0 ;
+    $freq{$_} ++ ;
+    my @c = split /$o{p}/o , $_ , 0 ; # <-- - 区切る
+    $S1{ qq['$c[$_]'] }[ $_ ] ++ for 0 .. $#c ; # <-- クォーテーションを付加するようにした。    
+    $S1{ $o{'$'} } [ @c ] ++ ; # 文字列終端記号の足し合わせ
+    $maxlen = @c if $maxlen < @c ; # 最大長の保管
+    next unless $o{'.'} ;
+    $S2{ qq['$c[$_]'-$_] } .= "$.+" for 0 .. $#c ; # <-- クォーテーションを付加するようにした。    
+    $S2{ $o{'$'} . '-' . scalar @c } .= "$.+"  ; # 文字列終端記号の足し合わせ
+  }
+  ## -. が指定された場合の複雑な処理: 
+  if ( $o{'.'} ) { 
+    push @{ $S2r{ $S2{$_} } } , $_ for keys %S2 ; 
+    for my $c( keys %S1 ){ 
+      my @t = @{$S1{$c}} ; 
+      for( 0 .. $#t ){ 
+        next unless  defined $S1{$c}[$_] ; 
+        push @{ $S1n { $S1{$c}[$_] }}, $S2{"$c-$_"} ;
+        push @{ $S1cp{ $S1{$c}[$_] }}, "$c-$_"      ;
+        push @{ $CP  { "$c-$_" } } , $S2 { "$c-$_" }  ;
+      } 
+    } 
+    #for(keys%S1n){ say STDERR YELLOW "$_ : @{$S1n{$_}}"  if  1 <  @{$S1n{$_}} } # and 1 == uniq @{$S1n{$_}} }
+    #for(keys%S1n){ say STDERR CYAN "$_ : @{$S1cp{$_}}"  if  1 <  @{$S1n{$_}} } # and 1 == uniq @{$S1n{$_}} }
+    for(keys%S1n){ $P1{$_} = ! 0 if 1<@{$S1n{$_}} && 1==uniq@{$S1n{$_}}}
+    for(keys%S1n){ my $t=majority2 @{$S1n{$_}}  ; $P2{$t} = !0 if defined $t }  
+  }
+
+  # 出力
+  print join ("\t" , map {UNDERLINE GREEN $_} '' , 1 .. $maxlen + 1 ) , "\n" ;
+  for ( sort {$a eq $o{'$'} ? 1 : ( length ($a) <=> length($b) || $a cmp $b ) } keys %S1 ){ # <-- ソート順には注意したい
+    my @tmp = map { $_ // 0 } @{ $S1{$_} } [ 0 .. $maxlen ] ; 
+    #@tmp = map{ $P1{$_} ? "$_." : $_ } @tmp ;
+    do { my $c=$_ ; @tmp = map{ $P2{ $S2{ "$c-$_" } //''} && $tmp[$_] ? "$tmp[$_]." : $tmp[$_] } 0 .. $#tmp  } ; 
+    s/(^\')|(\'$)//g if $optq0 ; # シングルクォーテーションによる囲みを外す
+    print join ( "\t" , YELLOW ($_) , @tmp ) , "\n" ; 
+  }
+}
+
+
+## ヘルプの扱い
+sub VERSION_MESSAGE {}
+sub HELP_MESSAGE {
+    use FindBin qw[ $Script ] ; 
+    $ARGV[1] //= '' ;
+    open my $FH , '<' , $0 ;
+    while(<$FH>){
+        s/\$0/$Script/g ;
+        print $_ if s/^=head1// .. s/^=cut// and $ARGV[1] =~ /^o(p(t(i(o(ns?)?)?)?)?)?$/i ? m/^\s+\-/ : 1;
+    }
+    close $FH ;
+    $o{v} = 0 ;
+    exit 0 ;
+}
+=encoding utf8 
+
+=begin JapaneseManual 
+
+=head1
+
+  digitdist 
+    改行区切りの値に対して，先頭から$n$桁目にどんな文字が現れたかを集計する。
+    (出力表は縦は出現した文字で、$n$が増えると右方向の、クロス集計表が出力される。)
+    -L が指定されると、文字列長ごとの、文字列の最小値と最大値が出力される。
+
+  オプション: 
+   -=     : 先頭行を読み飛ばす
+   -1     : データで全く同じ行が2回以上来たら、読み飛ばす。(-L2と-L4と-.の指定時は適用されない。)
+   -j     : 出力表の表頭を英語から日本語にする。
+   -u 0   : バイナリで処理する(通常は UTF-8で処理をする)
+   -p str : 正規表現によるパターンの指定。 '^(....)(...)(.)$' 等を指定する。
+   -q 0   : 出力で文字をシングルクォーテーションで囲まない。# 廃止 --> (-L2と-L4指定時に適用。)   
+   -$ str : 文字列の終端を表す出力用の記号をENDから変更する。
+
+   -.     : 出力表の値で "同じ数." と表示された値は、同じ入力の(改行文字で区切られた)文字列に由来することを表す。
+   -L2    ; 文字列長毎に、文字列の最小値と最大値を取り出す。両者が一致する場合は、後者を空文字列にする。
+   -L4    ; 文字列長毎に、文字列の最小値と最大値の他に、最初に現れたもの、最後に現れたものも表示する。
+   -R 0   ; Windows形式の改行文字が来ても通常s/\r$//しているが、その動作を解除する。
+   -S     ; 空白文字を分類して数える。(長音文字も対応したい。少画数の文字も集計したい。) 
+
+   --help  : このオンラインヘルプを表示する。
+   --version : バージョン情報を表示する。  
+
+  使い方の例 : 
+    1. 何も分からない文字列集合について、具体的な値の様子を確かめる最初の1歩である。
+    2. ルールを発見する。極めて少数の例から、データの値の破損やテスト値を見つける。
+    3. 特異な値について、更に深く調べる対象とする。
+
+  開発上のメモ : 
+    * 出力する各行のソート順は指定できるようにした方が便利そう。
+    * -Lの場合に、-g N の指定により、最小値N個、最大値N個を取り出せるようにしても良いかも。
+    * -Lの場合に出力する出現文字列について、出現頻度も出力出来る様にしたい。
+
+=end JapaneseManual
+
+=cut

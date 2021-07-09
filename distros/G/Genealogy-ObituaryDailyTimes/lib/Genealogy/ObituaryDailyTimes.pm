@@ -14,11 +14,11 @@ Genealogy::ObituaryDailyTimes - Compare a Gedcom against the Obituary Daily Time
 
 =head1 VERSION
 
-Version 0.04
+Version 0.06
 
 =cut
 
-our $VERSION = '0.04';
+our $VERSION = '0.06';
 
 =head1 SYNOPSIS
 
@@ -46,40 +46,42 @@ sub new {
 	my $directory = $param{'directory'} || Module::Info->new_from_loaded(__PACKAGE__)->file();
 	$directory =~ s/\.pm$//;
 
-	Genealogy::ObituaryDailyTimes::DB::init(directory => File::Spec->catfile($directory, 'database'));
-
+	Genealogy::ObituaryDailyTimes::DB::init(directory => File::Spec->catfile($directory, 'database'), %param);
 	return bless { }, $class;
 }
 
 =head2 search
 
-   my $obits = Genealogy::ObituaryDailyTimes->new();
+    my $obits = Genealogy::ObituaryDailyTimes->new();
 
-   my @smiths = $obits->search(last => 'Smith');
+    # Returns an array of hashrefs
+    my @smiths = $obits->search(last => 'Smith');	# You must at least define the last name to search for
 
-   print $smiths[0]->{'first'}, "\n";
+    print $smiths[0]->{'first'}, "\n";
 
 =cut
 
 sub search {
 	my $self = shift;
 
-	my %param;
-	if(ref($_[0]) eq 'HASH') {
-		%param = %{$_[0]};
-	} elsif(@_ % 2 == 0) {
-		%param = @_;
+	my %params = (ref($_[0]) eq 'HASH') ? %{$_[0]} : @_;
+
+	if(!defined($params{'last'})) {
+		Carp::carp("Value for 'last' is mandatory");
+		return;
 	}
 
-	return if(scalar keys %param == 0);
+	$self->{'obituaries'} ||= Genealogy::ObituaryDailyTimes::DB::obituaries->new(no_entry => 1);
 
-	$self->{'obituaries'} //= Genealogy::ObituaryDailyTimes::DB::obituaries->new(no_entry => 1) or Carp::croak "Can't open the obituaries database";
+	if(!defined($self->{'obituaries'})) {
+		Carp::croak("Can't open the obituaries database");
+	}
 
 	if(wantarray) {
-		my @obituaries = @{$self->{'obituaries'}->selectall_hashref(\%param)};
+		my @obituaries = @{$self->{'obituaries'}->selectall_hashref(\%params)};
 		return @obituaries;
 	}
-	return $self->{'obituaries'}->fetchrow_hashref(\%param);
+	return $self->{'obituaries'}->fetchrow_hashref(\%params);
 }
 
 =head1 AUTHOR
@@ -130,7 +132,7 @@ L<http://deps.cpantesters.org/?module=Genealogy::ObituaryDailyTimes>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2020 Nigel Horne.
+Copyright 2020-2021 Nigel Horne.
 
 This program is released under the following licence: GPL2
 

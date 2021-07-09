@@ -7,12 +7,18 @@ package Lemonldap::NG::Portal::UserDB::Slave;
 
 use strict;
 use Mouse;
-use Lemonldap::NG::Portal::Lib::Slave;
-use Lemonldap::NG::Portal::Main::Constants qw(PE_FORBIDDENIP PE_OK);
 
-our $VERSION = '2.0.0';
+use Lemonldap::NG::Portal::Main::Constants qw(
+  PE_OK
+  PE_FORBIDDENIP
+);
 
-extends 'Lemonldap::NG::Common::Module';
+our $VERSION = '2.0.10';
+
+extends qw(
+  Lemonldap::NG::Common::Module
+  Lemonldap::NG::Portal::Lib::Slave
+);
 
 # INITIALIZATION
 
@@ -21,6 +27,10 @@ sub init { 1 }
 # RUNNING METHODS
 
 sub getUser {
+    PE_OK;
+}
+
+sub findUser {
     PE_OK;
 }
 

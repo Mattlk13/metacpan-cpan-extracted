@@ -6,8 +6,9 @@ use warnings;
 use Class::Utils qw(set_params);
 use Error::Pure qw(err);
 use List::MoreUtils qw(none);
+use Scalar::Util qw(openhandle);
 
-our $VERSION = 0.03;
+our $VERSION = 0.05;
 
 # Constructor.
 sub new {
@@ -72,7 +73,7 @@ sub put {
 		# Split to type and main CSS structure.
 		my ($type, @css_struct) = @{$css_structure_ar};
 
-		# Attributes.
+		# At-rule.
 		if ($type eq 'a') {
 			$self->_check_arguments(\@css_struct, 1, 2);
 			$self->_put_at_rules(@css_struct);
@@ -191,7 +192,7 @@ sub _check_params {
 
 	# Check to output handler.
 	if (defined $self->{'output_handler'}
-		&& ref $self->{'output_handler'} ne 'GLOB') {
+		&& ! defined openhandle($self->{'output_handler'})) {
 
 		err 'Output handler is bad file handler.';
 	}
@@ -215,7 +216,7 @@ sub _check_params {
 
 # At-rules.
 sub _put_at_rules {
-	my ($self, $at_rule, $file) = @_;
+	my ($self, $at_rule, $value) = @_;
 	push @{$self->{'flush_code'}}, 'At-rule';
 	return;
 }
@@ -286,17 +287,19 @@ CSS::Struct::Output - Base class for CSS::Struct::Output::*.
  use CSS::Struct::Output;
 
  my $css = CSS::Struct::Output->new(%parameters);
+ my $ret_or_undef = $css->flush($reset_flag);
  $css->put(@data);
- $css->flush($reset_flag);
  $css->reset;
 
 =head1 METHODS
 
-=over 8
+=head2 C<new>
 
-=item C<new(%parameters)>
+ my $css = CSS::Struct::Output->new(%parameters);
 
- Constructor.
+Constructor.
+
+Returns instance of object.
 
 =over 8
 
@@ -336,22 +339,32 @@ CSS::Struct::Output - Base class for CSS::Struct::Output::*.
 
 =back
 
-=item C<flush($reset_flag)>
+=head2 C<flush>
 
- Flush CSS structure in object.
- If defined 'output_handler' flush to its.
- Or return code.
- If enabled $reset_flag, then resets internal variables via reset method.
+ my $ret_or_undef = $css->flush($reset_flag);
 
-=item C<put(@data)>
+Flush CSS structure in object.
+If defined 'output_handler' flush to its.
+Or return CSS.
+If enabled $reset_flag, then resets internal variables via reset method.
 
- Put CSS structure in format specified in L<CSS::Struct>.
+Returns CSS string or undef.
 
-=item C<reset()>
+=head2 C<put>
 
- Resets internal variables.
+ $css->put(@data);
 
-=back
+Put CSS structure in format specified in L<CSS::Struct>.
+
+Returns undef.
+
+=head2 C<reset>
+
+ $css->reset;
+
+Resets internal variables.
+
+Returns undef.
 
 =head1 ERRORS
 
@@ -373,7 +386,8 @@ CSS::Struct::Output - Base class for CSS::Struct::Output::*.
 
 L<Class::Utils>,
 L<Error::Pure>,
-L<List::MoreUtils>.
+L<List::MoreUtils>,
+L<Scalar::Util>.
 
 =head1 SEE ALSO
 
@@ -401,12 +415,12 @@ L<http://skim.cz>
 
 =head1 LICENSE AND COPYRIGHT
 
-© 2007-2020 Michal Josef Špaček
+© 2007-2021 Michal Josef Špaček
 
 BSD 2-Clause License
 
 =head1 VERSION
 
-0.03
+0.05
 
 =cut

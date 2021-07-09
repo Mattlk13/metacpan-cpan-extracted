@@ -48,6 +48,7 @@ $modules{$_} = $_ for qw(
   Path::Tiny
   PkgConfig
   PkgConfig::LibPkgConf
+  Plack
   Readonly
   Sort::Versions
   Test2::API
@@ -55,6 +56,7 @@ $modules{$_} = $_ for qw(
   Text::ParseWords
   URI
   YAML
+  parent
 );
 
 $post_diag = sub {

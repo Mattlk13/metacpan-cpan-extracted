@@ -3,7 +3,7 @@ use Test::More;
 use Mojolicious::Lite;
 
 eval { plugin OpenAPI => {url => 'data://main/invalid.json'} };
-like $@, qr{Invalid.*Missing}si, 'missing spec elements';
+like $@, qr{/info: Missing property}si, 'missing spec elements';
 
 eval { plugin OpenAPI => {url => 'data://main/swagger2/issues/89.json'} };
 like $@, qr{/definitions/\$ref}si, 'ref in the wrong place';
@@ -11,13 +11,16 @@ like $@, qr{/definitions/\$ref}si, 'ref in the wrong place';
 eval { plugin OpenAPI => {allow_invalid_ref => 1, url => 'data://main/swagger2/issues/89.json'} };
 ok !$@, 'allow_invalid_ref=1' or diag $@;
 
+eval { plugin OpenAPI => {skip_validating_specification => 1, url => 'data://main/invalid.json'} };
+ok !$@, 'skip_validating_specification=1' or diag $@;
+
 done_testing;
 
 __DATA__
 @@ invalid.json
 {
   "swagger" : "2.0",
-  "info" : { "version": "0.8", "title" : "Test auto response" }
+  "paths" : {}
 }
 @@ swagger2/issues/89.json
 {

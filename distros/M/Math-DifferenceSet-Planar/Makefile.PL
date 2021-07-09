@@ -26,6 +26,7 @@ my %versions = map {
     Math::DifferenceSet::Planar::Data
     Math::DifferenceSet::Planar::Schema
     Math::DifferenceSet::Planar::Schema::Result::DifferenceSet
+    Math::DifferenceSet::Planar::Schema::Result::DifferenceSetSpace
 );
 
 WriteMakefile(
@@ -49,10 +50,12 @@ WriteMakefile(
         dynamic_config  => 0,
         resources       => {
             bugtracker      => {
-                web => "https://rt.cpan.org/Public/Dist/Display.html?Name=$DN",
+                web => "https://github.com/mhasch/perl-$DN/issues",
             },
             homepage        => 'https://vera.in-ulm.de/planar-diffsets/',
-            license         => ['https://dev.perl.org/licenses/'],
+            license         => [
+                'https://www.perlfoundation.org/artistic-license-20.html',
+            ],
             repository      => {
                 url  => "git://github.com/mhasch/perl-$DN.git",
                 web  => "https://github.com/mhasch/perl-$DN",

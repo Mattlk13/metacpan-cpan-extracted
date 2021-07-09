@@ -1,5 +1,55 @@
 Revision history for Perl application 'greple'.
 
+8.4601 2021-07-05T13:41:05Z
+
+    - Make --Mselect module work more precisely.
+
+8.46 2021-07-02T03:22:51Z
+
+    - Interpret "\n" in format string.
+    - Allow --begin function to die to skip the file.
+    - Introduce -Mselect module.
+    - Make -m option to take more than two params.
+
+8.45 2021-06-11T14:10:38Z
+
+    - Replace --persist/--conceal option by --error/--warn.
+    - Introduce -x option as an alias for --le.
+    - Update --git option interface in -Mdig module.
+
+8.4401 2021-06-05T16:18:38Z
+
+    - Fix --persist STDOUT mode bug.
+    - Update dig.pm
+    - Add persist data in -ds stat information.
+
+8.44 2021-06-04T09:56:35Z
+
+    - Add PROGRESS color for -dfn option.
+    - Add --alert option and function for processing large file.
+    - Update dig.pm and add --git option.
+    - Fix bug around read-error message handling.
+
+8.4301 2021-04-24T02:37:35Z
+
+    [ -dfn related update ]
+    - Use STDERR->printflush for status update.
+    - Use VT100 ESC 7/8 save/restore cursor sequence.
+
+8.43 2021-04-04T02:28:49Z
+
+    - Update Regions.pm to include generic &filter_regions.
+
+8.4201 2021-03-25T09:25:54Z
+
+    - Require Getopt::EX 1.22.1 for -Mline module to work.
+    - Add test codes for -Mline module.
+    - Use GREPLE_NORC environment to dislable loading ~/.greplerc.
+
+8.42 2021-01-26T03:21:18Z
+
+    - Introduce --exit option.
+
 8.4101 2021-01-12T07:01:14Z
 
     - Fixed bug of -ABC sometimes not to work with --block option.

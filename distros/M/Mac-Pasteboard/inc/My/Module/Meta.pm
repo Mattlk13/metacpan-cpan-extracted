@@ -9,6 +9,9 @@ use Carp;
 use Config;
 use POSIX qw{ uname };
 
+# This occurs in both inc/My/Module/Meta.pm and inc/My/Module/Test.pm
+use constant CAN_USE_UNICODE	=> "$]" >= 5.008004;
+
 sub new {
     my ( $class ) = @_;
     ref $class and $class = ref $class;
@@ -19,20 +22,61 @@ sub new {
     return $self;
 }
 
+sub abstract {
+    return 'Manipulate Mac OS X pasteboards';
+}
+
+sub add_to_cleanup {
+    return [
+	qw{ pbl cover_db *.gcov *.gcda *.gcno xt/author/optionals },
+	map { "lib/Mac/$_" }
+	    qw{ Pasteboard.xs constant-c.inc constant-h.inc
+	    constant-xs.inc pbl.c pbl.h ppport.h },
+
+    ];
+}
+
+sub author {
+    return 'Tom Wyant (wyant at cpan dot org)';
+}
+
 sub build_requires {
     my ( undef, @extra ) = @_;		# Invocant not used
     return +{
+	'ExtUtils::CBuilder'	=> 0,
+	( CAN_USE_UNICODE ?
+	    ( 'I18N::Langinfo'	=> 0 ) :
+	    () ),
 	'Test::More'	=> 0.96,	# Because of subtest().
 	@extra,
     };
 }
 
 sub ccflags {
+    my ( undef, $opt ) = @_;
+
+    $opt
+	or confess( 'Bug - \%opt argument required' );
+
     my @ccflags;
+
+    CAN_USE_UNICODE
+	and push @ccflags, '-DPERL_CAN_USE_UNICODE';
 
     my ( $darwin_version ) = split qr{ [.] }smx, ( uname() )[2];
     $darwin_version >= 8
 	and push @ccflags, '-DTIGER';
+
+    # Darwin 15 = macOS 10.11 = El Capitan
+    if ( $opt->{t} ) {
+	$opt->{u}
+	    and die "Please do not assert both -t and -u. It is too confusing.\n";
+    } elsif ( $opt->{u} || $darwin_version >= 15 ) {
+	push @ccflags, '-DUTF_8_PLAIN_TEXT';
+    }
+
+    $opt->{p}
+	and push @ccflags, qw{ -DUSE_PBL_BACKEND };
 
     system "$Config{cc} -fsyntax-only inc/trytypes.c 2>/dev/null";
     $?
@@ -46,51 +90,111 @@ sub ccflags {
     return @ccflags;
 }
 
+sub configure_requires {
+    return +{
+	'Config'		=> 0,
+	'Getopt::Std'		=> 0,
+	'Scalar::Util'		=> 0,
+	'lib'		=> 0,
+	'strict'	=> 0,
+	'warnings'	=> 0,
+    };
+}
+
+sub dist_name {
+    return 'Mac-Pasteboard';
+}
+
 sub distribution {
     my ( $self ) = @_;
     return $self->{distribution};
 }
 
+
+sub license {
+    return 'perl';
+}
+
 sub meta_merge {
+    my ( undef, @extra ) = @_;
     return {
 	'meta-spec'	=> {
 	    version	=> 2,
 	},
 	dynamic_config	=> 1,
-	no_index	=> {
-	    directory	=> [ qw{ inc t xt } ],
-	},
 	resources	=> {
 	    bugtracker	=> {
-                web	=> 'https://github.com/trwyant/perl-Mac-Pasteboard/issues',
-                mailto  => 'wyant@cpan.org',
-            },
+		web	=> 'https://rt.cpan.org/Public/Dist/Display.html?Name=Mac-Pasteboard',
+		# web	=> 'https://github.com/trwyant/perl-Mac-Pasteboard/issues',
+		mailto  => 'wyant@cpan.org',
+	    },
 	    license	=> 'http://dev.perl.org/licenses/',
 	    repository	=> {
 		type	=> 'git',
 		url	=> 'git://github.com/trwyant/perl-Mac-Pasteboard.git',
 		web	=> 'https://github.com/trwyant/perl-Mac-Pasteboard',
 	    },
-	}
+	},
+	@extra,
     };
+}
+
+
+sub module_name {
+    return 'Mac::Pasteboard';
+}
+
+sub no_index {
+    return +{
+      directory => [
+                     'inc',
+                     't',
+                     'xt',
+                   ],
+    };
+}
+
+sub provides {
+    -d 'lib'
+	or return;
+    local $@ = undef;
+    my $provides = eval {
+	require Module::Metadata;
+	Module::Metadata->provides( version => 2, dir => 'lib' );
+    } or return;
+    return ( provides => $provides );
 }
 
 sub requires {
     my ( undef, @extra ) = @_;		# Invocant not used
 ##  if ( ! $self->distribution() ) {
 ##  }
+    "$]" >= 5.008
+	and push @extra, Encode => 0;
     return {
 	'Carp'		=> 0,
-	'Encode'	=> 0,
+	'Exporter'	=> 0,
 	'Scalar::Util'	=> 1.01,
-	'strict'	=> 0,
-	'warnings'	=> 0,
+	'XSLoader'	=> 0,
+	constant	=> 0,
+	strict		=> 0,
+	warnings	=> 0,
 	@extra,
     };
 }
 
 sub requires_perl {
     return 5.006002;
+}
+
+sub script_files {
+    return [
+	'script/pbtool',
+    ];
+}
+
+sub version_from {
+    return 'lib/Mac/Pasteboard.pm';
 }
 
 sub want_pbtool {
@@ -179,6 +283,19 @@ This class supports the following public methods:
 
 This method instantiates the class.
 
+=head2 abstract
+
+This method returns the distribution's abstract.
+
+=head2 add_to_cleanup
+
+This method returns a reference to an array of files to be added to the
+cleanup.
+
+=head2 author
+
+This method returns the name of the distribution author
+
 =head2 build_requires
 
  use YAML;
@@ -197,6 +314,20 @@ C<< {META_MERGE}->{build_requires} >> or C<BUILD_REQUIRES> key.
 This method computes and returns the flags to be passed to the C
 compiler.
 
+=head2 configure_requires
+
+ use YAML;
+ print Dump( $meta->configure_requires() );
+
+This method returns a reference to a hash describing the modules
+required to configure the package, suitable for use in a F<Build.PL>
+C<configure_requires> key, or a F<Makefile.PL>
+C<< {META_MERGE}->{configure_requires} >> or C<CONFIGURE_REQUIRES> key.
+
+=head2 dist_name
+
+This method returns the distribution name.
+
 =head2 distribution
 
  if ( $meta->distribution() ) {
@@ -208,6 +339,10 @@ compiler.
 This method returns the value of the environment variable
 C<MAKING_MODULE_DISTRIBUTION> at the time the object was instantiated.
 
+=head2 license
+
+This method returns the distribution's license.
+
 =head2 meta_merge
 
  use YAML;
@@ -215,8 +350,30 @@ C<MAKING_MODULE_DISTRIBUTION> at the time the object was instantiated.
 
 This method returns a reference to a hash describing the meta-data which
 has to be provided by making use of the builder's C<meta_merge>
-functionality. This includes the C<bugtracker>, C<dynamic_config>,
-C<no_index> and C<resources> data.
+functionality. This includes the C<dynamic_config> and C<resources>
+data.
+
+Any arguments will be appended to the generated array.
+
+=head2 module_name
+
+This method returns the name of the module the distribution is based
+on.
+
+=head2 no_index
+
+This method returns the names of things which are not to be indexed
+by CPAN.
+
+=head2 provides
+
+ use YAML;
+ print Dump( [ $meta->provides() ] );
+
+This method attempts to load L<Module::Metadata|Module::Metadata>. If
+this succeeds, it returns a C<provides> entry suitable for inclusion in
+L<meta_merge()|/meta_merge> data (i.e. C<'provides'> followed by a hash
+reference). If it can not load the required module, it returns nothing.
 
 =head2 requires
 
@@ -236,6 +393,16 @@ may be added.
  print 'This package requires Perl ', $meta->requires_perl(), "\n";
 
 This method returns the version of Perl required by the package.
+
+=head2 script_files
+
+This method returns a reference to an array containing the names of
+script files provided by this distribution. This array may be empty.
+
+=head2 version_from
+
+This method returns the name of the distribution file from which the
+distribution's version is to be derived.
 
 =head1 ATTRIBUTES
 

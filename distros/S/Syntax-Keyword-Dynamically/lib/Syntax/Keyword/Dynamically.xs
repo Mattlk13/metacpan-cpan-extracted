@@ -9,12 +9,10 @@
 
 #include "AsyncAwait.h"
 
+#include "XSParseKeyword.h"
+
 #ifdef HAVE_DMD_HELPER
 #  include "DMD_helper.h"
-#endif
-
-#ifndef wrap_keyword_plugin
-#  include "wrap_keyword_plugin.c.inc"
 #endif
 
 #define HAVE_PERL_VERSION(R, V, S) \
@@ -380,14 +378,6 @@ static OP *pp_startdyn(pTHX)
   return cUNOP->op_next;
 }
 
-#define newSTARTDYNOP(flags, expr)  MY_newSTARTDYNOP(aTHX_ flags, expr)
-static OP *MY_newSTARTDYNOP(pTHX_ I32 flags, OP *expr)
-{
-  OP *ret = newUNOP_CUSTOM(flags, expr);
-  cUNOPx(ret)->op_ppaddr = &pp_startdyn;
-  return ret;
-}
-
 /* HELEMDYN is a variant of core's HELEM op which arranges for the existing
  * value (or absence of) the key in the hash to be restored again on scope
  * exit. It copes with missing keys by deleting them again to "restore".
@@ -453,14 +443,10 @@ static OP *pp_helemdyn(pTHX)
   RETURN;
 }
 
-static int dynamically_keyword(pTHX_ OP **op)
+static int build_dynamically(pTHX_ OP **out, XSParseKeywordPiece arg0, void *hookdata)
 {
-  OP *aop = NULL;
+  OP *aop = arg0.op;
   OP *lvalop = NULL, *rvalop = NULL;
-
-  lex_read_space(0);
-
-  aop = parse_termexpr(0);
 
   /* While most scalar assignments become OP_SASSIGN, some cases of assignment
    * from a binary operator into a pad lexical instead set OPpTARGET_MY and use
@@ -473,10 +459,10 @@ static int dynamically_keyword(pTHX_ OP **op)
      * and set the same targ on it, then perform that just before the
      * otherwise-unmodified op
      */
-    OP *dynop = newSTARTDYNOP(0, newOP(OP_NULL, 0));
+    OP *dynop = newUNOP_CUSTOM(&pp_startdyn, 0, newOP(OP_NULL, 0));
     dynop->op_targ = aop->op_targ;
 
-    *op = op_prepend_elem(OP_LINESEQ,
+    *out = op_prepend_elem(OP_LINESEQ,
       dynop, aop);
 
     return KEYWORD_PLUGIN_EXPR;
@@ -501,15 +487,15 @@ static int dynamically_keyword(pTHX_ OP **op)
      * have to change the op_type too */
     lvalop->op_type = OP_CUSTOM;
     lvalop->op_ppaddr = &pp_helemdyn;
-    *op = aop;
+    *out = aop;
   }
   else {
     /* dynamimcally LEXPR = EXPR */
 
     /* Rather than splicing in STARTDYN op, we'll just make a new optree */
-    *op = newBINOP(aop->op_type, aop->op_flags,
+    *out = newBINOP(aop->op_type, aop->op_flags,
       rvalop,
-      newSTARTDYNOP(aop->op_flags & OPf_STACKED, lvalop));
+      newUNOP_CUSTOM(&pp_startdyn, aop->op_flags & OPf_STACKED, lvalop));
 
     /* op_free will destroy the entire optree so replace the child ops first */
     cBINOPx(aop)->op_first = NULL;
@@ -520,22 +506,22 @@ static int dynamically_keyword(pTHX_ OP **op)
   return KEYWORD_PLUGIN_EXPR;
 }
 
-static int (*next_keyword_plugin)(pTHX_ char *, STRLEN, OP **);
+static const struct XSParseKeywordHooks hooks_dynamically = {
+  .permit_hintkey = "Syntax::Keyword::Dynamically/dynamically",
+  .piece1 = XS_PARSE_KEYWORD_TERMEXPR,
+  .build1 = &build_dynamically,
+};
 
-static int my_keyword_plugin(pTHX_ char *kw, STRLEN kwlen, OP **op)
+static void enable_async_mode(pTHX_ void *_unused)
 {
-  HV *hints;
-  if(PL_parser && PL_parser->error_count)
-    return (*next_keyword_plugin)(aTHX_ kw, kwlen, op);
+  if(is_async)
+    return;
 
-  if(!(hints = GvHV(PL_hintgv)))
-    return (*next_keyword_plugin)(aTHX_ kw, kwlen, op);
+  is_async = TRUE;
+  dynamicstack = newAV();
+  av_extend(dynamicstack, 50);
 
-  if(kwlen == 11 && strEQ(kw, "dynamically") &&
-      hv_fetchs(hints, "Syntax::Keyword::Dynamically/dynamically", 0))
-    return dynamically_keyword(aTHX_ op);
-
-  return (*next_keyword_plugin)(aTHX_ kw, kwlen, op);
+  future_asyncawait_wrap_suspendhook(&S_suspendhook, &nexthook);
 }
 
 MODULE = Syntax::Keyword::Dynamically    PACKAGE = Syntax::Keyword::Dynamically
@@ -543,14 +529,7 @@ MODULE = Syntax::Keyword::Dynamically    PACKAGE = Syntax::Keyword::Dynamically
 void
 _enable_async_mode()
   CODE:
-    if(is_async)
-      XSRETURN(0);
-
-    is_async = TRUE;
-    dynamicstack = newAV();
-    av_extend(dynamicstack, 50);
-
-    future_asyncawait_wrap_suspendhook(&S_suspendhook, &nexthook);
+    enable_async_mode(aTHX_ NULL);
 
 BOOT:
   XopENTRY_set(&xop_startdyn, xop_name, "startdyn");
@@ -559,8 +538,12 @@ BOOT:
   XopENTRY_set(&xop_startdyn, xop_class, OA_UNOP);
   Perl_custom_op_register(aTHX_ &pp_startdyn, &xop_startdyn);
 
-  wrap_keyword_plugin(&my_keyword_plugin, &next_keyword_plugin);
+  boot_xs_parse_keyword(0);
+
+  register_xs_parse_keyword("dynamically", &hooks_dynamically, NULL);
 #ifdef HAVE_DMD_HELPER
   DMD_SET_PACKAGE_HELPER("Syntax::Keyword::Dynamically::_DynamicVar", &dmd_help_dynamicvar);
   DMD_SET_PACKAGE_HELPER("Syntax::Keyword::Dynamically::_SuspendedDynamicVar", &dmd_help_suspendeddynamicvar);
 #endif
+
+  future_asyncawait_on_activate(&enable_async_mode, NULL);

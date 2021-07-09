@@ -5,7 +5,7 @@ use warnings;
 
 use parent qw(Ryu::Node);
 
-our $VERSION = '2.004'; # VERSION
+our $VERSION = '3.002'; # VERSION
 our $AUTHORITY = 'cpan:TEAM'; # AUTHORITY
 
 =head1 NAME
@@ -67,19 +67,17 @@ sub emit {
 
 sub source {
     my ($self) = @_;
-    $self->{source} //= (
-        $self->{new_source} //= sub { Ryu::Source->new }
-    )->()
+    $self->{source} //= do {
+        my $src = ($self->{new_source} //= sub { Ryu::Source->new })->();
+        Scalar::Util::weaken($src->{parent} = $self);
+        $src;
+    };
 }
 
-sub new_future {
-    my $self = shift;
-    (
-        $self->{new_future} //= sub {
-            Future->new->set_label(shift)
-        }
-    )->(@_)
-}
+sub completed { shift->source->completed }
+sub _completed { shift->source->completed }
+
+sub notify_child_completion { }
 
 1;
 
@@ -91,5 +89,5 @@ Tom Molesworth <TEAM@cpan.org>
 
 =head1 LICENSE
 
-Copyright Tom Molesworth 2011-2020. Licensed under the same terms as Perl itself.
+Copyright Tom Molesworth 2011-2021. Licensed under the same terms as Perl itself.
 

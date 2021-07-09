@@ -78,6 +78,21 @@ subtest 'formatted logging' => sub {
     };
 };
 
+{
+    package BBB;
+    use overload '""' => sub { 'custom-stringification' };
+}
+
+subtest "custom obj logging (no overload)" => sub {
+    my $ctx = Context->new;
+
+    XLog::log(XLog::WARNING, bless {} => 'AAA');
+    $ctx->check(msg => qr/AAA/);
+
+    XLog::log(XLog::WARNING, bless {} => 'BBB');
+    $ctx->check(msg => qr/custom-stringification/);
+};
+
 subtest 'callback logging' => sub {
     my $ctx = Context->new;
     
@@ -86,6 +101,39 @@ subtest 'callback logging' => sub {
     
     XLog::error(sub { 123 });
     $ctx->check(msg => "123");
+
+    XLog::error(sub { bless {} => 'AAA' });
+    $ctx->check(msg => qr/AAA/);
+
+    XLog::error(sub { bless {} => 'BBB' });
+    $ctx->check(msg => qr/custom-stringification/);
+};
+
+subtest 'from eval block' => sub {
+    my $ctx = Context->new;
+
+    eval {
+        XLog::log(XLog::WARNING, sub { "abcdef" });
+    };
+    ok "passed";
+};
+
+subtest 'disable warnings' => sub {
+    use warnings FATAL => 'all';
+    my $ctx = Context->new;
+    my $ok = eval { XLog::warning("msg:%s", undef); 1 };
+    ok !$ok;
+    is $ctx->cnt, 0;
+    
+    XLog::disable_format_warnings();
+    XLog::warning("msg:%s", undef);
+    $ctx->check(msg => "msg:");
+    
+    XLog::enable_format_warnings();
+    $ok = eval { XLog::warning("msg:%s", undef); 1 };
+    ok !$ok;
+    is $ctx->cnt, 0;
+    
 };
 
 done_testing();

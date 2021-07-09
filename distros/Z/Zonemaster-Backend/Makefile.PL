@@ -22,6 +22,7 @@ requires
   'Log::Any'                    => 0,
   'Log::Any::Adapter::Dispatch' => 0,
   'Log::Dispatch'               => 0,
+  'LWP::UserAgent'              => 0,
   'Moose'                       => 2.04,
   'Parallel::ForkManager'       => 1.12,
   'Plack::Builder'              => 0,
@@ -29,12 +30,13 @@ requires
   'Router::Simple::Declare'     => 0,
   'Starman'                     => 0,
   'String::ShellQuote'          => 0,
-  'Try::Tiny'                   => 0.24,
-  'Zonemaster::Engine'          => 4.0,
-  'Zonemaster::LDNS'            => 2.001,
+  'Try::Tiny'                   => 0.12,
+  'Zonemaster::Engine'          => 4.002,
+  'Zonemaster::LDNS'            => 2.002,
   ;
 
 test_requires 'DBD::SQLite';
+test_requires 'Test::NoWarnings';
 
 recommends 'DBD::mysql';
 recommends 'DBD::Pg';
@@ -44,6 +46,8 @@ install_share;
 
 install_script 'zonemaster_backend_rpcapi.psgi';
 install_script 'zonemaster_backend_testagent';
+install_script 'zmtest';
+install_script 'zmb';
 
 no_index directory => 'CodeSnippets';
 no_index directory => 'Doc';

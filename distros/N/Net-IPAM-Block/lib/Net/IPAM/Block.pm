@@ -1,6 +1,6 @@
 package Net::IPAM::Block;
 
-our $VERSION = '2.03';
+our $VERSION = '5.01';
 
 use 5.10.0;
 use strict;
@@ -14,15 +14,11 @@ use Net::IPAM::Util           ();
 use Net::IPAM::Block::Private ();
 
 use Exporter 'import';
-our @EXPORT_OK = qw(aggregate);
+our @EXPORT_OK = qw(sort_block merge aggregate);
 
 =head1 NAME
 
-Net::IPAM::Block - A library for reading, formatting, sorting and converting IP-blocks.
-
-=cut
-
-our $MaxCIDRSplit = 1 << 20;
+Net::IPAM::Block - A library for reading, formatting, sorting, ... and much more for IP-blocks.
 
 =head1 SYNOPSIS
 
@@ -48,7 +44,6 @@ The parsed block is represented as an object with:
 
  base
  last
- mask    # if block is a CIDR, otherwise undef
 
 This representation is fast sortable without conversions to/from the different IP versions.
 
@@ -142,12 +137,13 @@ Stringification is overloaded with L</"to_string">
 
 sub to_string {
   my $self = shift;
-  if ( defined $self->{mask} ) {
-    return $self->{base}->to_string . '/' . Net::IPAM::Block::Private::_leading_ones( $self->{mask}->bytes );
+
+  if ( $self->is_cidr ) {
+    return $self->{base}->to_string . '/'
+      . Net::IPAM::Block::Private::_common_prefix( $self->{base}->bytes, $self->{last}->bytes );
   }
-  else {
-    return $self->{base}->to_string . '-' . $self->{last}->to_string;
-  }
+
+  return $self->{base}->to_string . '-' . $self->{last}->to_string;
 }
 
 =head2 is_cidr
@@ -162,8 +158,7 @@ Returns true if the block is a CIDR.
 =cut
 
 sub is_cidr {
-  return 1 if defined $_[0]->{mask};
-  return;
+  return Net::IPAM::Block::Private::_is_cidr( $_[0] );
 }
 
 =head2 cidrsplit
@@ -182,22 +177,22 @@ Returns undef if cidr mask is at maximum or if block is no CIDR.
 sub cidrsplit {
   my $self = shift;
 
-  # return undef if mask is not defined (block is no CIDR)
-  return unless defined $self->{mask};
+  # return if block is no CIDR)
+  return unless $self->is_cidr;
 
   my $bits = 32;
   $bits = 128 if $self->version == 6;
 
-  # get the ones in mask: 11111111_11111111_1110000_0000 => 19
-  my $ones = Net::IPAM::Block::Private::_leading_ones( $self->{mask}->bytes );
+  # get the number of '1' in mask: 11111111_11111111_1110000_0000 => 19
+  my $n = Net::IPAM::Block::Private::_common_prefix( $self->{base}->bytes, $self->{last}->bytes );
 
-  # can't split, ones == maxbits (32 or 128)
-  return if $ones == $bits;
+  # can't split, n == maxbits (32 or 128)
+  return if $n == $bits;
 
   # make next mask, e.g. /19 -> /20
   # 11111111_11111111_1110000_0000
   # 11111111_11111111_1111000_0000
-  my $next_mask_n = Net::IPAM::Block::Private::_make_mask_n( $ones + 1, $bits );
+  my $next_mask_n = Net::IPAM::Block::Private::_make_mask_n( $n + 1, $bits );
 
   # get original base_n from block
   my $base_n = $self->{base}->bytes;
@@ -213,8 +208,6 @@ sub cidrsplit {
   # make new cidr blocks
   my $cidr1 = bless( {}, ref $self );
   my $cidr2 = bless( {}, ref $self );
-
-  $cidr1->{mask} = $cidr2->{mask} = Net::IPAM::IP->new_from_bytes($next_mask_n);
 
   $cidr1->{base} = Net::IPAM::IP->new_from_bytes($base1_n);
   $cidr1->{last} = Net::IPAM::IP->new_from_bytes($last1_n);
@@ -243,68 +236,11 @@ If the range is a CIDR, just returns the CIDR:
 =cut 
 
 sub to_cidrs {
-  my $self = shift;
 
-  # return $self if mask is defined (block is a true CIDR)
-  if ( defined $self->{mask} ) {
-    return wantarray ? ($self) : [$self];
-  }
+  # rec-descent call, start with empty buf []
+  my $cidrs = Net::IPAM::Block::Private::_to_cidrs_rec( $_[0], [] );
 
-  my @result;
-
-  my $bits = 32;
-  $bits = 128 if $self->version == 6;
-
-  # start values
-  # from here on work with byte strings (foo_n) in network-byte-order
-  my $cursor_n = $self->{base}->bytes;
-  my $end_n    = $self->{last}->bytes;
-
-  #  stop condition, last == end, see below
-  while () {
-
-    # try
-    # make outer-mask and with this mask make new start and last
-    my $bitlen = Net::IPAM::Block::Private::_bitlen( $cursor_n, $end_n, $bits );
-
-    my $mask_n  = Net::IPAM::Block::Private::_make_mask_n( $bits - $bitlen, $bits );
-    my $start_n = Net::IPAM::Block::Private::_make_base_n( $cursor_n, $mask_n );
-    my $last_n  = Net::IPAM::Block::Private::_make_last_n( $cursor_n, $mask_n );
-
-    #  find matching bitlen/mask at $cursor position
-    while ( $bitlen > 0 ) {
-
-      #  bitlen is ok, if start is still EQUAL to cursor AND last is still <= end
-      if ( ( $start_n cmp $cursor_n ) == 0 && ( $last_n cmp $end_n ) <= 0 ) {
-        last;
-      }
-
-      # nope, no success, reduce bitlen and try again
-      $bitlen--;
-
-      $mask_n  = Net::IPAM::Block::Private::_make_mask_n( $bits - $bitlen, $bits );
-      $start_n = Net::IPAM::Block::Private::_make_base_n( $cursor_n, $mask_n );
-      $last_n  = Net::IPAM::Block::Private::_make_last_n( $cursor_n, $mask_n );
-    }
-
-    # make new cidr block
-    my $cidr = bless( {}, ref $self );
-    $cidr->{base} = Net::IPAM::IP->new_from_bytes($start_n);
-    $cidr->{last} = Net::IPAM::IP->new_from_bytes($last_n);
-    $cidr->{mask} = Net::IPAM::IP->new_from_bytes($mask_n);
-
-    push @result, $cidr;
-
-    # ready? last == end
-    if ( ( $last_n cmp $end_n ) == 0 ) {
-      last;
-    }
-
-    #  move the $cursor one behind last
-    $cursor_n = Net::IPAM::Util::incr_n($last_n) // die 'OVERFLOW: logic error,';
-  }
-
-  return wantarray ? @result : [@result];
+  return wantarray ? @$cidrs : $cidrs;
 }
 
 =head2 base
@@ -366,9 +302,13 @@ Example:
 
 =cut
 
-# just return the mask slot
+# calc the mask as IP, returns undef if not a CIDR
 sub mask {
-  return $_[0]->{mask};
+  my $self = shift;
+  return unless $self->is_cidr;
+
+  my $mask_n = Net::IPAM::Block::Private::_get_mask_n( $self->{base}, $self->{last} );
+  return Net::IPAM::IP->new_from_bytes($mask_n);
 }
 
 =head2 hostmask
@@ -390,8 +330,11 @@ The hostmask is only defined for real CIDR blocks.
 =cut
 
 sub hostmask {
-  my $mask = $_[0]->{mask} // return;
-  return Net::IPAM::IP->new_from_bytes( ~( $mask->bytes ) );
+  my $self = shift;
+  return unless $self->is_cidr;
+
+  my $mask_n = Net::IPAM::Block::Private::_get_mask_n( $self->{base}, $self->{last} );
+  return Net::IPAM::IP->new_from_bytes( ~$mask_n );
 }
 
 =head2 bitlen
@@ -408,7 +351,6 @@ obvious for CIDR blocks:
   $b = Net::IPAM::Block->new('::/0');
   say $b->bitlen;     # 128 - 0 = 128 bit
 
-  
 not so obvious for ranges:
 
   $b = Net::IPAM::Block->new('2001:db8::affe-2001:db8::cafe');
@@ -418,10 +360,11 @@ not so obvious for ranges:
 
 sub bitlen {
   my $self = shift;
+
   my $bits = 32;
   $bits = 128 if $self->version == 6;
 
-  return Net::IPAM::Block::Private::_bitlen( $self->{base}->bytes, $self->{last}->bytes, $bits );
+  return $bits - Net::IPAM::Block::Private::_common_prefix( $self->{base}->bytes, $self->{last}->bytes );
 }
 
 =head2 iter
@@ -491,15 +434,8 @@ cmp() returns -1, 0, +1:
 =cut
 
 sub cmp {
-  return -1 if $_[0]->{base}->cmp( $_[1]->{base} ) < 0;
-  return 1  if $_[0]->{base}->cmp( $_[1]->{base} ) > 0;
-
-  # base is equal, test for superset/subset
-  return -1 if $_[0]->{last}->cmp( $_[1]->{last} ) > 0;
-  return 1  if $_[0]->{last}->cmp( $_[1]->{last} ) < 0;
-
-  # base and last are also equal
-  return 0;
+  return ( $_[0]->{base}->cmp( $_[1]->{base} ) )
+    || ( $_[1]->{last}->cmp( $_[0]->{last} ) );
 }
 
 =head2 is_disjunct_with
@@ -588,12 +524,14 @@ The argument may also be a Net::IPAM::IP address object.
 
 # polymorphic: arg may be block or ip
 sub contains {
-  if ( ref $_[1] ) {
-    return Net::IPAM::Block::Private::_contains_ip(@_)
-      if $_[1]->isa('Net::IPAM::IP');
-    return Net::IPAM::Block::Private::_contains_block(@_)
-      if $_[1]->isa('Net::IPAM::Block');
+  if ( ref $_[1] && $_[1]->isa('Net::IPAM::IP') ) {
+    return Net::IPAM::Block::Private::_contains_ip(@_);
   }
+
+  if ( ref $_[1] && $_[1]->isa('Net::IPAM::Block') ) {
+    return Net::IPAM::Block::Private::_contains_block(@_);
+  }
+
   Carp::croak 'wrong argument,';
 }
 
@@ -616,233 +554,162 @@ Returns all blocks in outer block, minus the inner blocks.
 =cut
 
 sub diff {
-  my $outer = shift;
+  my $self  = shift;
+  my $outer = Net::IPAM::Block::Private::_clone($self);
 
-  # sieve inner blocks
-  my @sieved;
-  foreach my $inner (@_) {
-
-    # skip disjunct blocks
-    next if $outer->is_disjunct_with($inner);
-
-    # nothing left, outer is equal to any inner
-    return wantarray ? () : [] if $inner->cmp($outer) == 0;
-
-    # nothing left, outer is contained in any inner
-    return wantarray ? () : [] if $inner->contains($outer);
-
-    push @sieved, $inner;
+  # no inner blocks, just return outer block
+  unless (@_) {
+    return wantarray ? ($outer) : [$outer];
   }
 
-  # sort remaining inner blocks
-  @sieved = sort { $a->cmp($b) } @sieved;
+  my @result;
 
-  # sieve subsets from sorted blocks
-  @sieved = Net::IPAM::Block::Private::_sieve(@sieved);
+  # blocks must be sorted for this algo
+LOOP: foreach my $b ( sort_block(@_) ) {
 
-  # collect diff blocks
-  my @diff;
+  SWITCH: {
+      # no-op
+      next LOOP if $outer->is_disjunct_with($b);
 
-  # inner diffs
-  my $cursor = $outer->base;
-  foreach my $inner (@sieved) {
-
-    if ( $cursor->cmp( $inner->base ) < 0 ) {
-      my $base_ip = $cursor;
-      my $last_ip = $inner->base->decr;
-
-      # make new block
-      my $block = bless( {}, ref $outer );
-      $block->{base} = $base_ip;
-      $block->{last} = $last_ip;
-      $block->{mask} = Net::IPAM::Block::Private::_get_mask_ip( $base_ip, $last_ip );
-
-      push @diff, $block;
-
-      $cursor = $inner->last->incr;
-      next;
-    }
-
-    $cursor = $inner->last->incr;
-    next;
-  }
-
-  # last diff
-  if ( $cursor->cmp( $outer->last ) <= 0 ) {
-    my $base_ip = $cursor;
-    my $last_ip = $outer->last;
-
-    # make new block
-    my $block = bless( {}, ref $outer );
-    $block->{base} = $base_ip;
-    $block->{last} = $last_ip;
-    $block->{mask} = Net::IPAM::Block::Private::_get_mask_ip( $base_ip, $last_ip );
-
-    push @diff, $block;
-  }
-
-  return wantarray ? @diff : [@diff];
-}
-
-=head2 find_free_cidrs
-
-  DEPRECATED: find_free_cidrs() is deprecated in favor of diff(), maybe followed by to_cidrs()
-
-  @free = $outer->find_free_cidrs(@inner)
-
-Returns all free cidrs within given block, minus the inner blocks.
-
-  my $outer = Net::IPAM::Block->new("192.168.2.0/24");
-  my @inner = (
-  	Net::IPAM::Block->new("192.168.2.0/26"),
-  	Net::IPAM::Block->new("192.168.2.240-192.168.2.249"),
-  );
-
-  my @free = $outer->find_free_cidrs(@inner);
-
-  # outer: 192.168.2.0/24 - inner: [192.168.2.0/26 192.168.2.240-192.168.2.249]
-  # free: [192.168.2.64/26 192.168.2.128/26 192.168.2.192/27 192.168.2.224/28 192.168.2.250/31 192.168.2.252/30]
-
-=cut
-
-sub find_free_cidrs {
-  Carp::carp('DEPRECATED: find_free_cidrs() is deprecated in favor of diff(), maybe followed by to_cidrs()');
-
-  my ( $outer, @inner ) = @_;
-
-  my @purged;
-
-  # purge inner blocks
-  foreach my $inner (@inner) {
-
-    # no free cidrs
-    if ( $inner->cmp($outer) == 0 or $inner->contains($outer) ) {
-      return wantarray ? () : [];
-    }
-    next if $outer->is_disjunct_with($inner);
-
-    push @purged, $inner;
-  }
-
-  # sort inner blocks
-  my @sorted = sort { $a->cmp($b) } @purged;
-
-  # purge equals and containments in inner blcoks
-  undef @purged;
-  my $i = 0;
-  while ( $i <= $#sorted ) {
-    push @purged, $sorted[$i];
-    my $j = $i + 1;
-    while ( $j <= $#sorted ) {
-
-      # purge equal
-      if ( $sorted[$i]->cmp( $sorted[$j] ) == 0 ) {
-        $j++;
-        next;
+      # masks rest
+      if ( $outer->cmp($b) == 0 ) {
+        return wantarray ? @result : \@result;
       }
 
-      # purge containments
-      if ( $sorted[$i]->contains( $sorted[$j] ) ) {
-        $j++;
-        next;
+      # masks rest
+      if ( $b->contains($outer) ) {
+        return wantarray ? @result : \@result;
       }
-      last;
+
+      # move cursor forward
+      if ( $outer->{base}->cmp( $b->{base} ) >= 0 ) {
+        $outer->{base} = $b->{last}->incr;
+        last SWITCH;
+      }
+
+      # save diff, move cursor forward
+      if ( $outer->{base}->cmp( $b->{base} ) < 0 ) {
+
+        my $block = bless {}, ref $outer;
+        $block->{base} = $outer->{base};
+        $block->{last} = $b->{base}->decr;
+
+        push @result, $block;
+
+        $outer->{base} = $b->{last}->incr;
+        last SWITCH;
+      }
+
+      die "logic error: rest=$outer, topic: $b,";
+
+    }    # end of SWITCH
+
+    # overflow from last incr
+    if ( not defined $outer->{base} ) {
+      return wantarray ? @result : \@result;
     }
-    $i = $j;
-  }
 
-  # collect free blocks
-  my @free;
-
-  my $cursor = $outer->base;
-  foreach my $inner (@purged) {
-
-    if ( $cursor->cmp( $inner->base ) < 0 ) {
-      my $base_ip = $cursor;
-      my $last_ip = $inner->base->decr;
-
-      # make new block
-      my $block = bless( {}, ref $outer );
-      $block->{base} = $base_ip;
-      $block->{last} = $last_ip;
-      $block->{mask} = Net::IPAM::Block::Private::_get_mask_ip( $base_ip, $last_ip );
-
-      push @free, $block->to_cidrs;
-
-      $cursor = $inner->last->incr;
-      next;
+    # cursor moved behind last
+    if ( $outer->{base}->cmp( $outer->{last} ) > 0 ) {
+      return wantarray ? @result : \@result;
     }
 
-    $cursor = $inner->last->incr;
-    next;
-  }
+  }    # end of LOOP
 
-  if ( $cursor->cmp( $outer->last ) < 0 ) {
-    my $base_ip = $cursor;
-    my $last_ip = $outer->last;
+  # save the rest
+  push @result, $outer;
 
-    # make new cidr block
-    # watch out inheritende
-    my $block = bless( {}, ref $outer );
-    $block->{base} = $base_ip;
-    $block->{last} = $last_ip;
-    $block->{mask} = Net::IPAM::Block::Private::_get_mask_ip( $base_ip, $last_ip );
-
-    push @free, $block->to_cidrs;
-  }
-
-  return wantarray ? @free : [@free];
+  return wantarray ? @result : \@result;
 }
 
 =head1 FUNCTIONS
 
-=head2 aggregate
+=head2 sort_block
 
-  @agg = aggregate(@blocks)
+  use Net::IPAM::Block 'sort_block';
+
+  @sorted_blocks = sort_block @unsorted_blocks;
+
+Faster sort implemention (Schwartzian transform) as explcit sort function:
+
+  @sorted_blocks = sort { $a->cmp($b) } @unsorted_blocks;
+
+=cut
+
+# see also cmp()
+
+sub sort_block {
+  return map { $_->[0] }
+    sort     { $a->[1]->cmp( $b->[1] ) || $b->[2]->cmp( $a->[2] ) }
+    map      { [ $_, $_->{base}, $_->{last} ] } @_;
+}
+
+=head2 merge
+
+
+  use Net::IPAM::Block 'merge';
+
+  @merged = merge(@blocks)
 
 Returns the minimal number of blocks spanning the range of input blocks.
 
 If CIDRs are required, use the following idiom:
 
-  @cidrs = map { $_->to_cidrs } aggregate(@blocks);
+  @cidrs = map { $_->to_cidrs } merge(@blocks);
+
+=cut
+
+sub merge {
+  return @_ if @_ <= 1;
+
+  # sort blocks
+  my @sorted = sort_block(@_);
+
+  # start with first [0] block as prev, see below
+  my @result = ( shift @sorted );
+
+  # [1, ..
+  for (@sorted) {
+
+    # skip rubbish
+    next unless defined $_;
+
+    my $prev = $result[-1];
+
+    # expand prev
+    if ( $prev->overlaps_with($_) ) {
+      $prev->{last} = $_->{last};
+      next;
+    }
+
+    # expand prev
+    my $next = $prev->{last}->incr;
+    if ( defined $next && $next->cmp( $_->{base} ) == 0 ) {
+      $prev->{last} = $_->{last};
+      next;
+    }
+
+    # append block
+    if ( $prev->is_disjunct_with($_) ) {
+      push @result, $_;
+      next;
+    }
+
+    # skip contains and equals
+  }
+
+  return wantarray ? @result : [@result];
+}
+
+=head2 aggregate
+
+*** DEPRECATED *** use merge in favor of
 
 =cut
 
 sub aggregate {
-  my @result;
-
-  # sort blocks => sieve subsets
-  my @sieved = Net::IPAM::Block::Private::_sieve( sort { $a->cmp($b) } @_ );
-
-  my $i = 0;
-  while ( $i < @sieved ) {
-    my $this = $sieved[$i];
-    my $last_changed;
-    my $j;
-    for ( $j = $i + 1 ; $j < @sieved ; $j++ ) {
-
-      # can't agg different IP versions
-      last if $this->version != $sieved[$j]->version;
-
-      # if this.last++ >= next.base, add blocks
-      # no overflow in incr possible, next block is still behind this block
-      if ( $this->{last}->incr->cmp( $sieved[$j]->{base} ) >= 0 ) {
-        $this->{last} = $sieved[$j]->{last};
-        $last_changed++;
-        next;
-      }
-
-      last;
-    }
-    $i = $j;
-
-    # this.last may have changed, calculate new mask
-    $this->{mask} = Net::IPAM::Block::Private::_get_mask_ip( $this->{base}, $this->{last} ) if $last_changed;
-
-    push @result, $this;
-  }
-
-  return wantarray ? @result : [@result];
+  Carp::carp("DEPRECATED: use merge() in favor of aggregate(),");
+  return merge(@_);
 }
 
 =head1 OPERATORS
@@ -902,7 +769,7 @@ L<Net::IPAM::Tree>
 
 =head1 LICENSE AND COPYRIGHT
 
-This software is copyright (c) 2020 by Karl Gaissmaier.
+This software is copyright (c) 2020-2021 by Karl Gaissmaier.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

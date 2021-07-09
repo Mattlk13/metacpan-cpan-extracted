@@ -1,3 +1,180 @@
+0.000068  2021-06-16 13:25:20-07:00 America/Los_Angeles
+
+    - Fix sweeper so it can delete coverage
+
+0.000067  2021-06-16 09:21:14-07:00 America/Los_Angeles
+
+    - Fix missing import
+
+0.000066  2021-06-15 15:52:41-07:00 America/Los_Angeles
+
+    - Move coverage back to its own table for performance reasons
+    - Add UI widget for deleting coverage
+    - Better job marking when a bail-out occurs
+    - Add ability to use db directly for coverage and/or durations
+
+0.000065  2021-05-25 09:15:03-07:00 America/Los_Angeles
+
+    - Make the processor a bit more forgiving of errors
+
+0.000064  2021-05-06 09:58:51-07:00 America/Los_Angeles
+
+    - UI additions - delete and cancel runs
+
+0.000063  2021-05-03 12:46:38-07:00 America/Los_Angeles
+
+    - Fix 'sweeper' that was still using the old coverage model
+
+0.000062  2021-05-03 11:07:48-07:00 America/Los_Angeles
+
+    - Fix 'failed' controller to only show results for 'complete' runs
+
+0.000061  2021-05-03 10:59:52-07:00 America/Los_Angeles
+
+    - Add controller that returns a text list of test files that failed
+
+0.000060  2021-04-26 08:03:57-07:00 America/Los_Angeles
+
+    - Do not trasnfer all coverage data when viewing runs
+
+0.000059  2021-04-23 11:59:30-07:00 America/Los_Angeles
+
+    - Update coverage tools
+
+0.000058  2021-04-20 14:14:50-07:00 America/Los_Angeles
+
+    - Fix versioning issue
+
+0.000057  2021-04-20 14:03:04-07:00 America/Los_Angeles
+
+    - Change from json-view to json-formatter
+    - Update to current yath coverage system
+
+0.000056  2021-04-01 13:41:43-07:00 America/Los_Angeles
+
+    - Add sweeper controller
+
+0.000055  2021-04-01 12:14:26-07:00 America/Los_Angeles
+
+    - Add median data to durations api
+    - Add sweeper utility
+
+0.000054  2021-03-26 10:37:52-07:00 America/Los_Angeles
+
+    - Properly fix the run/settings recording
+
+0.000053  2021-03-25 13:36:16-07:00 America/Los_Angeles
+
+    - Fix run settings recording
+    - Add field for concurrency to be shown
+
+0.000052  2021-03-25 12:45:11-07:00 America/Los_Angeles
+
+    - Fix pinning of runs
+    - Fix timezone settings
+    - Track test run duration
+
+0.000051  2021-03-23 11:32:46-07:00 America/Los_Angeles
+
+    - Free connections when they are not used
+
+0.000050  2021-03-18 13:23:43-07:00 America/Los_Angeles
+
+    - Fix MySQL timeout issue
+
+0.000049  2021-03-18 11:25:52-07:00 America/Los_Angeles
+
+    - Fix cache issue on streamed data
+
+0.000048  2021-03-18 10:26:52-07:00 America/Los_Angeles
+
+    - Better job order from stream. This lets more iteresting jobs come in first.
+
+0.000047  2021-03-18 07:52:55-07:00 America/Los_Angeles
+
+    - Significant reworking into a view controller and a stream controller
+
+0.000046  2021-03-12 10:13:44-08:00 America/Los_Angeles
+
+    - Fix '! PASS !' filtering
+    - Change order of jobs (passing before pending)
+
+0.000045  2021-03-12 09:55:13-08:00 America/Los_Angeles
+
+    - Better caching of the DB handle
+
+0.000044  2021-03-11 18:50:15-08:00 America/Los_Angeles
+
+    - Increase size of JSON fields in mysql
+
+0.000043  2021-03-11 14:37:33-08:00 America/Los_Angeles
+
+    - Fix bug in event rendering (unloaded module)
+    - Fix Datatables JS error
+    - Update DataTables JS files
+    - Remove some JS console.log lines
+
+0.000042  2021-03-11 13:16:48-08:00 America/Los_Angeles
+
+    - Remove use of dead module
+
+0.000041  2021-03-09 15:40:29-08:00 America/Los_Angeles
+
+    - Fix a couple JS and import bugs
+
+0.000040  2021-03-09 14:44:26-08:00 America/Los_Angeles
+
+    - Insert optimization
+
+0.000039  2021-03-09 13:17:07-08:00 America/Los_Angeles
+
+    - Add control over buffering mode on import
+
+0.000038  2021-03-08 13:21:44-08:00 America/Los_Angeles
+
+    - Fix bug in --yathui-db-config option
+
+0.000037  2021-03-08 07:53:10-08:00 America/Los_Angeles
+
+    - Clean up unnecessary events as soon as a job finishes in live mode
+    - Add --yathui-only-db and yathui-db options
+    - Put quick-db for renderer into the yath workdir
+    - Add url when possible when using UIDB
+
+0.000036  2021-03-05 10:34:32-08:00 America/Los_Angeles
+
+    - Fix bug when using non-complete imports
+    - Fix but where share -file wa snot found
+
+0.000035  2021-03-05 09:04:25-08:00 America/Los_Angeles
+
+    - Add live watching of tests
+
+0.000034  2021-02-11 10:15:50-08:00 America/Los_Angeles
+
+    - Add table compression for mysql schemas
+
+0.000033  2021-02-11 09:32:27-08:00 America/Los_Angeles
+
+    - Fix more JS issues where "0" is true in some cases
+
+0.000032  2021-02-11 08:54:03-08:00 America/Los_Angeles
+
+    - Fix bug where sometimes jobs would show as retried
+    - Fix bug where external data for jobs could not be loaded
+
+0.000031  2021-02-10 16:34:16-08:00 America/Los_Angeles
+
+    - Add custom port capabilities to `yath ui`
+
+0.000030  2021-02-10 16:11:52-08:00 America/Los_Angeles
+
+    - Add override stubs
+
+0.000029  2021-02-05 14:37:41-08:00 America/Los_Angeles
+
+    - Add initial MySQL (and MySQL 5.6) support
+
 0.000028  2020-07-11 23:46:09-07:00 America/Los_Angeles
 
     - Better durations storage

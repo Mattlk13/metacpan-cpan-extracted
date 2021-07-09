@@ -4,8 +4,8 @@
 #
 package PDL::Slices;
 
-@EXPORT_OK  = qw( PDL::PP affineinternal PDL::PP s_identity PDL::PP index PDL::PP index1d PDL::PP index2d  indexND indexNDb PDL::PP rangeb PDL::PP rld PDL::PP rle PDL::PP flowconvert PDL::PP converttypei PDL::PP _clump_int PDL::PP xchg PDL::PP mv PDL::PP oslice  using PDL::PP affine PDL::PP diagonalI PDL::PP lags PDL::PP splitdim PDL::PP rotate PDL::PP threadI PDL::PP identvaff PDL::PP unthread  dice dice_axis  slice PDL::PP sliceb );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP affineinternal PDL::PP s_identity PDL::PP index PDL::PP index1d PDL::PP index2d  indexND indexNDb PDL::PP rangeb PDL::PP rld PDL::PP rle PDL::PP flowconvert PDL::PP converttypei PDL::PP _clump_int PDL::PP xchg PDL::PP mv PDL::PP oslice  using PDL::PP affine PDL::PP diagonalI PDL::PP lags PDL::PP splitdim PDL::PP rotate PDL::PP threadI PDL::PP identvaff PDL::PP unthread  dice dice_axis  slice PDL::PP sliceb );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::Slices ;
 
@@ -53,8 +53,8 @@ for details.
 
 PDL indexing and slicing functions usually include two-way data flow,
 so that you can separate the actions of reshaping your data structures
-and modifying the data themselves.  Two special methods, L<copy|copy> and
-L<sever|sever>, help you control the data flow connection between related
+and modifying the data themselves.  Two special methods, L</copy> and
+L</sever>, help you control the data flow connection between related
 variables.
 
  $y = $x->slice("1:3"); # Slice maintains a link between $x and $y.
@@ -122,7 +122,7 @@ Internal vaffine identity function.
 =for bad
 
 s_identity processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -180,9 +180,9 @@ than 0 must agree in a threading sense.
 
 =item * 
 
-C<index2d> works like C<index> but uses separate piddles for X and Y
+C<index2d> works like C<index> but uses separate ndarrays for X and Y
 coordinates.  For more general N-dimensional indexing, see the
-L<PDL::NiceSlice|PDL::NiceSlice> syntax or L<PDL::Slices|PDL::Slices> (in particular C<slice>,
+L<PDL::NiceSlice> syntax or L<PDL::Slices> (in particular C<slice>,
 C<indexND>, and C<range>).
 
 =back 
@@ -203,8 +203,8 @@ as collections of 1-D arrays, so that
 
 puts a single column from C<$x> into C<$y>, and puts a single element
 from each column of C<$x> into C<$c>.  If you want to extract multiple
-columns from an array in one operation, see L<dice|/dice> or
-L<indexND|/indexND>.
+columns from an array in one operation, see L</dice> or
+L</indexND>.
 
 
 
@@ -267,9 +267,9 @@ than 0 must agree in a threading sense.
 
 =item * 
 
-C<index2d> works like C<index> but uses separate piddles for X and Y
+C<index2d> works like C<index> but uses separate ndarrays for X and Y
 coordinates.  For more general N-dimensional indexing, see the
-L<PDL::NiceSlice|PDL::NiceSlice> syntax or L<PDL::Slices|PDL::Slices> (in particular C<slice>,
+L<PDL::NiceSlice> syntax or L<PDL::Slices> (in particular C<slice>,
 C<indexND>, and C<range>).
 
 =back 
@@ -290,8 +290,8 @@ as collections of 1-D arrays, so that
 
 puts a single column from C<$x> into C<$y>, and puts a single element
 from each column of C<$x> into C<$c>.  If you want to extract multiple
-columns from an array in one operation, see L<dice|/dice> or
-L<indexND|/indexND>.
+columns from an array in one operation, see L</dice> or
+L</indexND>.
 
 
 
@@ -354,9 +354,9 @@ than 0 must agree in a threading sense.
 
 =item * 
 
-C<index2d> works like C<index> but uses separate piddles for X and Y
+C<index2d> works like C<index> but uses separate ndarrays for X and Y
 coordinates.  For more general N-dimensional indexing, see the
-L<PDL::NiceSlice|PDL::NiceSlice> syntax or L<PDL::Slices|PDL::Slices> (in particular C<slice>,
+L<PDL::NiceSlice> syntax or L<PDL::Slices> (in particular C<slice>,
 C<indexND>, and C<range>).
 
 =back 
@@ -377,8 +377,8 @@ as collections of 1-D arrays, so that
 
 puts a single column from C<$x> into C<$y>, and puts a single element
 from each column of C<$x> into C<$c>.  If you want to extract multiple
-columns from an array in one operation, see L<dice|/dice> or
-L<indexND|/indexND>.
+columns from an array in one operation, see L</dice> or
+L</indexND>.
 
 
 
@@ -408,7 +408,7 @@ index2d barfs if either of the index values are bad.
 
 =for ref
 
-  Find selected elements in an N-D piddle, with optional boundary handling
+  Find selected elements in an N-D ndarray, with optional boundary handling
 
 =for example
 
@@ -430,7 +430,7 @@ The returned elements are looked up from C<$source>.  Dataflow
 works -- propagated assignment flows back into C<$source>.
 
 IndexND and IndexNDb were originally separate routines but they are both
-now implemented as a call to L<range|/range>, and have identical syntax to
+now implemented as a call to L</range>, and have identical syntax to
 one another.
 
 =cut
@@ -496,11 +496,11 @@ sub PDL::range {
 
 =for ref
 
-Engine for L<range|/range>
+Engine for L</range>
 
 =for example
 
-Same calling convention as L<range|/range>, but you must supply all
+Same calling convention as L</range>, but you must supply all
 parameters.  C<rangeb> is marginally faster as it makes a direct PP call,
 avoiding the perl argument-parsing step.
 
@@ -509,15 +509,15 @@ avoiding the perl argument-parsing step.
 
 =for ref
 
-Extract selected chunks from a source piddle, with boundary conditions
+Extract selected chunks from a source ndarray, with boundary conditions
 
 =for example
 
         $out = $source->range($index,[$size,[$boundary]])
 
-Returns elements or rectangular slices of the original piddle, indexed by
-the C<$index> piddle.  C<$source> is an N-dimensional piddle, and C<$index> is
-a piddle whose first dimension has size up to N.  Each row of C<$index> is
+Returns elements or rectangular slices of the original ndarray, indexed by
+the C<$index> ndarray.  C<$source> is an N-dimensional ndarray, and C<$index> is
+an ndarray whose first dimension has size up to N.  Each row of C<$index> is
 treated as coordinates of a single value or chunk from C<$source>, specifying
 the location(s) to extract.
 
@@ -526,7 +526,7 @@ slice, with controllable boundary conditions.
 
 B<INPUTS>
 
-C<$index> and C<$size> can be piddles or array refs such as you would
+C<$index> and C<$size> can be ndarrays or array refs such as you would
 feed to L<zeroes|PDL::Core/zeroes> and its ilk.  If C<$index>'s 0th dimension
 has size higher than the number of dimensions in C<$source>, then
 C<$source> is treated as though it had trivial dummy dimensions of
@@ -537,7 +537,7 @@ you get two dummy dimensions of size 1 on the end of your source array.
 You can extract single elements or N-D rectangular ranges from C<$source>,
 by setting C<$size>.  If C<$size> is undef or zero, then you get a single
 sample for each row of C<$index>.  This behavior is similar to
-L<indexNDb|/indexNDb>, which is in fact implemented as a call to L<range|/range>.
+L</indexNDb>, which is in fact implemented as a call to L</range>.
 
 If C<$size> is positive then you get a range of values from C<$source> at
 each location, and the output has extra dimensions allocated for them.
@@ -560,11 +560,11 @@ less difficult than it sounds; see the examples below).
 
 Ranges are not allowed to cross the boundary of the original PDL.  Disallowed
 ranges throw an error.  The errors are thrown at evaluation time, not
-at the time of the range call (this is the same behavior as L<slice|/slice>).
+at the time of the range call (this is the same behavior as L</slice>).
 
 =item 1 (synonyms: 't','truncate')
 
-Values outside the original piddle get BAD if you've got bad value
+Values outside the original ndarray get BAD if you've got bad value
 support compiled into your PDL and set the badflag for the source PDL;
 or 0 if you haven't (you must set the badflag if you want BADs for out
 of bound values, otherwise you get 0).  Reverse dataflow works OK for
@@ -574,15 +574,15 @@ execution continues.
 
 =item 2 (synonyms: 'e','x','extend')
 
-Values that would be outside the original piddle point instead to the
-nearest allowed value within the piddle.  See the CAVEAT below on
+Values that would be outside the original ndarray point instead to the
+nearest allowed value within the ndarray.  See the CAVEAT below on
 mappings that are not single valued.
 
 =item 3 (synonyms: 'p','periodic')
 
 Periodic boundary conditions apply: the numbers in $index are applied,
 strict-modulo the corresponding dimensions of $source.  This is equivalent to
-duplicating the $source piddle throughout N-D space.  See the CAVEAT below
+duplicating the $source ndarray throughout N-D space.  See the CAVEAT below
 about mappings that are not single valued.
 
 =item 4 (synonyms: 'm','mirror')
@@ -760,7 +760,7 @@ to tease out the algorithm.
 =for bad
 
 rangeb processes bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -798,7 +798,7 @@ decode to C<$c>.
 =for bad
 
 rld does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -870,7 +870,7 @@ first instance of C<0> in each row of C<$x> should be considered.
 =for bad
 
 rle does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -916,7 +916,7 @@ sub PDL::rle {
 
 =for sig
 
-  Signature: (P(); C(); int n1; int n2)
+  Signature: (P(); C(); PDL_Indx n1; PDL_Indx n2)
 
 =for ref
 
@@ -940,7 +940,7 @@ are exchanged with each other i.e.
 =for bad
 
 xchg does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -961,8 +961,8 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 Re-orders the dimensions of a PDL based on the supplied list.
 
-Similar to the L<xchg|/xchg> method, this method re-orders the dimensions
-of a PDL. While the L<xchg|/xchg> method swaps the position of two dimensions,
+Similar to the L</xchg> method, this method re-orders the dimensions
+of a PDL. While the L</xchg> method swaps the position of two dimensions,
 the reorder method can change the positions of many dimensions at
 once.
 
@@ -1082,7 +1082,7 @@ sub PDL::reorder {
 
 =for sig
 
-  Signature: (P(); C(); int n1; int n2)
+  Signature: (P(); C(); PDL_Indx n1; PDL_Indx n2)
 
 =for ref
 
@@ -1106,7 +1106,7 @@ Negative dimension indices count from the end.
 =for bad
 
 mv does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1134,7 +1134,7 @@ DEPRECATED:  'oslice' is the original 'slice' routine in pre-2.006_006
 versions of PDL.  It is left here for reference but will disappear in
 PDL 3.000
 
-Extract a rectangular slice of a piddle, from a string specifier.
+Extract a rectangular slice of an ndarray, from a string specifier.
 
 C<slice> was the original Swiss-army-knife PDL indexing routine, but is
 largely superseded by the L<NiceSlice|PDL::NiceSlice> source prefilter
@@ -1224,7 +1224,7 @@ depending on whether you prefer error-reporting clarity or speed of execution.
 =for bad
 
 oslice does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1297,7 +1297,7 @@ C<(5,3,5,4,6,5)> then after
 
  $y = $x->diagonal(0,2,5);
 
-the piddle C<$y> has dimensions C<(5,3,4,6)> and
+the ndarray C<$y> has dimensions C<(5,3,4,6)> and
 C<$y-E<gt>at(2,1,0,1)> refers
 to C<$x-E<gt>at(2,1,2,0,1,2)>.
 
@@ -1307,7 +1307,7 @@ NOTE: diagonal doesn't handle threadids correctly. XXX FIX
 =for bad
 
 diagonalI does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1327,11 +1327,11 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for sig
 
-  Signature: (P(); C(); int nthdim; int step; int n)
+  Signature: (P(); C(); PDL_Indx nthdim;PDL_Indx step;PDL_Indx n)
 
 =for ref
 
-Returns a piddle of lags to parent.
+Returns an ndarray of lags to parent.
 
 Usage:
 
@@ -1365,7 +1365,7 @@ in the usual way (-1 = last dim).
 =for bad
 
 lags does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1385,11 +1385,11 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for sig
 
-  Signature: (P(); C(); int nthdim; int nsp)
+  Signature: (P(); C(); PDL_Indx nthdim;PDL_Indx nsp)
 
 =for ref
 
-Splits a dimension in the parent piddle (opposite of L<clump|PDL::Core/clump>)
+Splits a dimension in the parent ndarray (opposite of L<clump|PDL::Core/clump>)
 
 After
 
@@ -1407,7 +1407,7 @@ is always true (C<m> has to be less than 3).
 =for bad
 
 splitdim does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1437,7 +1437,7 @@ Shift vector elements along with wrap. Flows data back&forth.
 =for bad
 
 rotate does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1457,7 +1457,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for sig
 
-  Signature: (P(); C(); int id; SV *list)
+  Signature: (P(); C(); PDL_Indx id; SV *list)
 
 =for ref
 
@@ -1474,7 +1474,7 @@ Put some dimensions to a threadid.
 =for bad
 
 threadI does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1506,7 +1506,7 @@ Mainly for internal use.
 =for bad
 
 identvaff does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1538,7 +1538,7 @@ See [TBD Doc] for details and examples.
 =for bad
 
 unthread does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1566,11 +1566,11 @@ or planes in a cube. This can of course be done with
 the usual dimension tricks but this saves having to
 figure it out each time!
 
-This method is similar in functionality to the L<slice|/slice>
-method, but L<slice|/slice> requires that contiguous ranges or ranges
-with constant offset be extracted. ( i.e. L<slice|/slice> requires
+This method is similar in functionality to the L</slice>
+method, but L</slice> requires that contiguous ranges or ranges
+with constant offset be extracted. ( i.e. L</slice> requires
 ranges of the form C<1,2,3,4,5> or C<2,4,6,8,10>). Because of this
-restriction, L<slice|/slice> is more memory efficient and slightly faster
+restriction, L</slice> is more memory efficient and slightly faster
 than dice
 
 =for usage
@@ -1614,7 +1614,7 @@ dimensions can be omitted implying C<X>'es for those.
  ]
 
 As this is an index function, any modifications to the
-slice change the parent (use the C<.=> operator).
+slice will change the parent (use the C<.=> operator).
 
 =cut
 
@@ -1691,7 +1691,7 @@ have a 2D image C<axis=0> will select certain C<X> values
 - i.e. extract columns
 
 As this is an index function, any modifications to the
-slice change the parent.
+slice will change the parent.
 
 =cut
 
@@ -1719,13 +1719,13 @@ sub PDL::dice_axis {
 
 =for ref
 
-Extract rectangular slices of a piddle, from a string specifier,
+Extract rectangular slices of an ndarray, from a string specifier,
 an array ref specifier, or a combination.
 
 C<slice> is the main method for extracting regions of PDLs and
 manipulating their dimensionality.  You can call it directly or
 via he L<NiceSlice|PDL::NiceSlice> source prefilter that extends
-Perl syntax o include array slicing.
+Perl syntax to include array slicing.
 
 C<slice> can extract regions along each dimension of a source PDL,
 subsample or reverse those regions, dice each dimension by selecting a
@@ -1943,7 +1943,7 @@ info not available
 =for bad
 
 sliceb does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1963,7 +1963,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 =head1 BUGS
 
 For the moment, you can't slice one of the zero-length dims of an
-empty piddle.  It is not clear how to implement this in a way that makes
+empty ndarray.  It is not clear how to implement this in a way that makes
 sense.
 
 Many types of index errors are reported far from the indexing

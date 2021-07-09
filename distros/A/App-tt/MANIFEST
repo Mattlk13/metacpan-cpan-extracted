@@ -6,13 +6,12 @@ cpanfile
 lib/App/tt.pm
 Makefile.PL
 MANIFEST			This list of files
-README
 README.md
 script/tt
 t/00-basic.t
-t/Helper.pm
+t/bin/editor.pl
+t/edit.t
 t/methods.t
-t/register.t
-t/start-stop.t
+t/tt.t
 META.yml                                 Module YAML meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)

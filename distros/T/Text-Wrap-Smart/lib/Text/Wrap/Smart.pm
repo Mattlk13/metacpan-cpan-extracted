@@ -12,8 +12,8 @@ use Params::Validate ':all';
 our ($VERSION, @EXPORT_OK, %EXPORT_TAGS);
 my @subs;
 
-$VERSION = '0.7';
-@subs = qw(exact_wrap fuzzy_wrap wrap_smart);
+$VERSION = '0.9';
+@subs = qw(exact_wrap fuzzy_wrap);
 @EXPORT_OK = @subs;
 %EXPORT_TAGS = ('all' => [ @subs ]);
 
@@ -28,6 +28,17 @@ validation_options(
 },
     stack_skip => 2,
 );
+
+my $pre_process = sub
+{
+    local $_ = ${$_[0]};
+
+    s/^\s+//;
+    s/\s+$//;
+    s/\s+/ /g;
+
+    ${$_[0]} = $_;
+};
 
 my $calc_average = sub
 {
@@ -49,6 +60,9 @@ sub exact_wrap
     _validate(@_);
     my ($text, $wrap_at) = @_;
 
+    $pre_process->(\$text);
+    return () unless length $text;
+
     $wrap_at ||= WRAP_AT_DEFAULT;
     my $average = $calc_average->($text, $wrap_at);
 
@@ -59,6 +73,9 @@ sub fuzzy_wrap
 {
     _validate(@_);
     my ($text, $wrap_at) = @_;
+
+    $pre_process->(\$text);
+    return () unless length $text;
 
     $wrap_at ||= WRAP_AT_DEFAULT;
     my $average = $calc_average->($text, $wrap_at);
@@ -82,14 +99,6 @@ sub _exact_wrap
 sub _fuzzy_wrap
 {
     my ($text, $average) = @_;
-
-    $text = do {
-        local $_ = $text;
-        s/^\s+//;
-        s/\s+$//;
-        s/\s+/ /g;
-        $_
-    };
 
       my @spaces;
     push @spaces, pos $text while $text =~ /(?= )/g;
@@ -146,23 +155,6 @@ sub _validate
     );
 }
 
-# deprecated on 2016-09-06
-sub wrap_smart
-{
-    my ($text, $conf) = @_;
-    croak "wrap_smart(\$text [, { options } ])\n" unless defined $text;
-
-    my $msg_size    =  $conf->{max_msg_size} || WRAP_AT_DEFAULT;
-    my $exact_split = !$conf->{no_split};
-
-    warn 'wrap_smart() is deprecated, use ', $exact_split ? 'exact_wrap()' : 'fuzzy_wrap()', " here instead.\n";
-
-    my $average = $calc_average->($text, $msg_size);
-    my $wrapper = $exact_split ? \&_exact_wrap : \&_fuzzy_wrap;
-
-    return $wrapper->($text, $average);
-}
-
 1;
 __END__
 
@@ -174,12 +166,10 @@ Text::Wrap::Smart - Wrap text into chunks of similar length
 
  use Text::Wrap::Smart ':all';
  # or
- use Text::Wrap::Smart qw(exact_wrap fuzzy_wrap wrap_smart);
+ use Text::Wrap::Smart qw(exact_wrap fuzzy_wrap);
 
  @chunks = exact_wrap($text, $wrap_at);
  @chunks = fuzzy_wrap($text, $wrap_at);
-
- @chunks = wrap_smart($text, \%options); # DEPRECATED
 
 =head1 DESCRIPTION
 
@@ -210,21 +200,11 @@ characters until the first whitespace encountered form a chunk).
 Optionally a wrapping length may be specified; if no length is supplied,
 a default of 160 will be assumed.
 
-=head2 wrap_smart (DEPRECATED)
-
- @chunks = wrap_smart($text [, { options } ]);
-
-The C<options> hash reference may contain the C<no_split> option which specifies
-that words shall not be broken up (i.e., fuzzy wrapping); if C<no_split> is not
-set, exact wrapping will be applied). The C<max_msg_size> option used to set the
-character length boundary for each chunk emitted, but has been changed to set the
-wrapping length now.
-
 =head1 EXPORT
 
 =head2 Functions
 
-C<exact_wrap(), fuzzy_wrap() and wrap_smart()> are exportable.
+C<exact_wrap(), fuzzy_wrap()> are exportable.
 
 =head2 Tags
 

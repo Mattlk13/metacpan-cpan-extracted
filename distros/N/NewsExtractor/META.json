@@ -4,7 +4,7 @@
       "Kang-min Liu <gugod@gugod.org>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "App::ModuleBuildTiny version 0.027",
+   "generated_by" : "App::ModuleBuildTiny version 0.029",
    "license" : [
       "unrestricted"
    ],
@@ -21,7 +21,7 @@
       },
       "develop" : {
          "requires" : {
-            "App::ModuleBuildTiny" : "0.027"
+            "App::ModuleBuildTiny" : "0.029"
          }
       },
       "runtime" : {
@@ -34,6 +34,7 @@
             "JSON" : "0",
             "Mojolicious" : "8.25",
             "Moo" : "0",
+            "Ref::Util" : "0",
             "SemanticWeb::Schema" : "0",
             "Test2::V0" : "0",
             "Try::Tiny" : "0",
@@ -46,7 +47,7 @@
    "provides" : {
       "NewsExtractor" : {
          "file" : "lib/NewsExtractor.pm",
-         "version" : "v0.39.0"
+         "version" : "v0.43.0"
       },
       "NewsExtractor::Article" : {
          "file" : "lib/NewsExtractor/Article.pm"
@@ -131,6 +132,9 @@
       },
       "NewsExtractor::SiteSpecificExtractor::news_tnn_tw" : {
          "file" : "lib/NewsExtractor/SiteSpecificExtractor/news_tnn_tw.pm"
+      },
+      "NewsExtractor::SiteSpecificExtractor::news_ttv_com_tw" : {
+         "file" : "lib/NewsExtractor/SiteSpecificExtractor/news_ttv_com_tw.pm"
       },
       "NewsExtractor::SiteSpecificExtractor::news_tvbs_com_tw" : {
          "file" : "lib/NewsExtractor/SiteSpecificExtractor/news_tvbs_com_tw.pm"
@@ -222,6 +226,9 @@
       "NewsExtractor::SiteSpecificExtractor::www_xinhuanet_com" : {
          "file" : "lib/NewsExtractor/SiteSpecificExtractor/www_xinhuanet_com.pm"
       },
+      "NewsExtractor::SiteSpecificExtractor::yimedia_com_tw" : {
+         "file" : "lib/NewsExtractor/SiteSpecificExtractor/yimedia_com_tw.pm"
+      },
       "NewsExtractor::TXExtractor" : {
          "file" : "lib/NewsExtractor/TXExtractor.pm"
       },
@@ -243,8 +250,8 @@
          "web" : "https://github.com/perltaiwan/NewsExtractor"
       }
    },
-   "version" : "v0.39.0",
-   "x_serialization_backend" : "JSON::PP version 2.97001",
+   "version" : "v0.43.0",
+   "x_serialization_backend" : "JSON::PP version 4.06",
    "x_spdx_expression" : "CC0-1.0",
    "x_static_install" : "1"
 }

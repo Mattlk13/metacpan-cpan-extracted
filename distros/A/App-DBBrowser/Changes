@@ -1,6 +1,52 @@
 Revision history for App-DBBrowser
 
 
+2.271    2021-07-05
+        - Code refactoring.
+        - Update UI.
+
+2.270    2021-06-30
+        - Bugfix in search_and_replace history.
+
+2.269    2021-06-30
+        - Code refactoring.
+        - Update UI input filter.
+
+2.268    2021-06-23
+        - Makefile.PL: fixed wrong Term::Form minimum version.
+
+2.267    2021-06-22
+        - Update UI input filter.
+        - Removed option 'Expand info table'.
+        - Code refactoring.
+
+2.266    2021-06-17
+        - Removed option 'show_table_name'.
+
+2.265    2021-06-11
+        - Removed options 'grid' and 'keep_header'.
+
+2.264    2021-06-04
+        - Update option 'Expand table'.
+
+2.263    2021-05-02
+        - Update functions.
+
+2.262    2021-04-06
+        - Single table row output: skip separator lines.
+
+2.261    2021-03-21
+        - Update saved search_and_replace.
+
+2.260    2021-03-04
+        - New option to filter table rows.
+
+2.258    2021-02-20
+        - Signal name: fixed spelling.
+
+2.257    2021-02-04
+        - Check regex after user input.
+
 2.256    2021-01-01
         - Add bugracker info to the Makefile.PL.
         - Update year copyright.

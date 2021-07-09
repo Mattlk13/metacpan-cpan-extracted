@@ -3,12 +3,10 @@
 #
 #  (C) Paul Evans, 2020 -- leonerd@leonerd.org.uk
 
-package Object::Pad::MOP::Slot;
+package Object::Pad::MOP::Slot 0.43;
 
 use v5.14;
 use warnings;
-
-our $VERSION = '0.35';
 
 # This is an XS-implemented object type provided by Object::Pad itself
 require Object::Pad;
@@ -58,6 +56,22 @@ instance.
 
 On scalar slots, this method can also act as an lvalue mutator allowing a new
 value to be set.
+
+=head2 param_name
+
+   $name = $metaslot->param_name
+
+I<Since version 0.43.>
+
+Returns the name of the parameter if the slot has one; otherwise undef.
+
+=head2 has_param
+
+   $has_param = $metaslot->has_param
+
+I<Since version 0.42.>
+
+Returns true if the slot is assigned to be a named constructor parameter.
 
 =cut
 

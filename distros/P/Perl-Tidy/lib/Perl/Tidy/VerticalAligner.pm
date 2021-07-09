@@ -1,7 +1,7 @@
 package Perl::Tidy::VerticalAligner;
 use strict;
 use warnings;
-our $VERSION = '20210111';
+our $VERSION = '20210625';
 
 use Perl::Tidy::VerticalAligner::Alignment;
 use Perl::Tidy::VerticalAligner::Line;
@@ -118,7 +118,6 @@ BEGIN {
         _zero_count_                  => $i++,
         _last_leading_space_count_    => $i++,
         _comment_leading_space_count_ => $i++,
-        _extra_indent_ok_             => $i++,
     };
 
     # Debug flag. This is a relic from the original program development
@@ -191,7 +190,6 @@ sub new {
     $self->[_zero_count_]                  = 0;
     $self->[_comment_leading_space_count_] = 0;
     $self->[_last_leading_space_count_]    = 0;
-    $self->[_extra_indent_ok_]             = 0;
 
     # Memory of what has been processed
     $self->[_last_level_written_]            = -1;
@@ -400,7 +398,6 @@ sub valign_input {
     my $list_seqno                = $rline_hash->{list_seqno};
     my $outdent_long_lines        = $rline_hash->{outdent_long_lines};
     my $is_terminal_ternary       = $rline_hash->{is_terminal_ternary};
-    my $is_terminal_statement     = $rline_hash->{is_terminal_statement};
     my $rvertical_tightness_flags = $rline_hash->{rvertical_tightness_flags};
     my $level_jump                = $rline_hash->{level_jump};
     my $rfields                   = $rline_hash->{rfields};
@@ -507,20 +504,7 @@ sub valign_input {
     # or if vertical alignment is turned off for debugging
     if ( $level != $group_level || $is_outdented || !$self->[_rOpts_valign_] ) {
 
-        # we are allowed to shift a group of lines to the right if its
-        # level is greater than the previous and next group
-        $self->[_extra_indent_ok_] =
-          (      $level < $group_level
-              && $self->[_last_level_written_] < $group_level );
-
-        $self->_flush_group_lines();
-
-        # If we know that this line will get flushed out by itself because
-        # of level changes, we can leave the extra_indent_ok flag set.
-        # That way, if we get an external flush call, we will still be
-        # able to do some -lp alignment if necessary.
-        $self->[_extra_indent_ok_] =
-          ( $is_terminal_statement && $level > $group_level );
+        $self->_flush_group_lines( $level - $group_level );
 
         $group_level = $level;
         $self->[_group_level_] = $group_level;
@@ -641,6 +625,7 @@ sub valign_input {
                     outdent_long_lines        => $outdent_long_lines,
                     rvertical_tightness_flags => $rvertical_tightness_flags,
                     level                     => $level,
+                    level_end                 => $level_end,
                     Kend                      => $Kend,
                 }
             );
@@ -703,6 +688,8 @@ EOM
             end_group                 => $break_alignment_after,
             Kend                      => $Kend,
             ci_level                  => $ci_level,
+            level                     => $level,
+            level_end                 => $level_end,
             imax_pair                 => -1,
         }
     );
@@ -726,7 +713,7 @@ EOM
 
     # Force break after jump to lower level
     if ( $level_jump < 0 ) {
-        $self->_flush_group_lines();
+        $self->_flush_group_lines($level_jump);
     }
 
     # --------------------------------------------------------------------
@@ -1365,16 +1352,17 @@ sub _flush_comment_lines {
     my $outdent_long_lines = 0;
 
     foreach my $item ( @{$rgroup_lines} ) {
-        my ( $line, $line_len, $Kend ) = @{$item};
+        my ( $str, $str_len, $Kend ) = @{$item};
         $self->valign_output_step_B(
             {
                 leading_space_count       => $leading_space_count,
-                line                      => $line,
-                line_length               => $line_len,
+                line                      => $str,
+                line_length               => $str_len,
                 side_comment_length       => 0,
                 outdent_long_lines        => $outdent_long_lines,
                 rvertical_tightness_flags => "",
                 level                     => $group_level,
+                level_end                 => $group_level,
                 Kend                      => $Kend,
             }
         );
@@ -1392,7 +1380,10 @@ sub _flush_group_lines {
 
     # This is the vertical aligner internal flush, which leaves the cache
     # intact
-    my ($self) = @_;
+    my ( $self, $level_jump ) = @_;
+
+    # $level_jump = $next_level-$group_level, if known
+    #             = undef if not known
 
     my $rgroup_lines = $self->[_rgroup_lines_];
     return unless ( @{$rgroup_lines} );
@@ -1441,8 +1432,29 @@ sub _flush_group_lines {
 
     # STEP 5: For the -lp option, increase the indentation of lists
     # to the desired amount, but do not exceed the line length limit.
+
+    # We are allowed to shift a group of lines to the right if:
+    #  (1) its level is greater than the level of the previous group, and
+    #  (2) its level is greater than the level of the next line to be written.
+
+    my $extra_indent_ok;
+    if ( $group_level > $self->[_last_level_written_] ) {
+
+        # Use the level jump to next line to come, if given
+        if ( defined($level_jump) ) {
+            $extra_indent_ok = $level_jump < 0;
+        }
+
+        # Otherwise, assume the next line has the level of the end of last line.
+        # This fixes case c008.
+        else {
+            my $level_end = $rgroup_lines->[-1]->get_level_end();
+            $extra_indent_ok = $group_level > $level_end;
+        }
+    }
+
     my $extra_leading_spaces =
-      $self->[_extra_indent_ok_]
+      $extra_indent_ok
       ? get_extra_leading_spaces( $rgroup_lines, $rgroups )
       : 0;
 
@@ -4538,6 +4550,7 @@ sub valign_output_step_A {
     my $maximum_field_index       = $line->get_jmax();
     my $rvertical_tightness_flags = $line->get_rvertical_tightness_flags();
     my $Kend                      = $line->get_Kend();
+    my $level_end                 = $line->get_level_end();
 
     # add any extra spaces
     if ( $leading_space_count > $group_leader_length ) {
@@ -4610,6 +4623,7 @@ sub valign_output_step_A {
             outdent_long_lines  => $outdent_long_lines,
             rvertical_tightness_flags => $rvertical_tightness_flags,
             level                     => $level,
+            level_end                 => $level_end,
             Kend                      => $Kend,
         }
     );
@@ -4772,6 +4786,7 @@ sub get_output_line_number {
         my $outdent_long_lines        = $rinput->{outdent_long_lines};
         my $rvertical_tightness_flags = $rinput->{rvertical_tightness_flags};
         my $level                     = $rinput->{level};
+        my $level_end                 = $rinput->{level_end};
         my $Kend                      = $rinput->{Kend};
 
         my $last_level_written = $self->[_last_level_written_];
@@ -4780,6 +4795,7 @@ sub get_output_line_number {
         # perl527/(method.t.2, reg_mesg.t, mime-header.t)
 
         # handle outdenting of long lines:
+        my $is_outdented_line;
         if ($outdent_long_lines) {
             my $excess =
               $str_length -
@@ -4800,6 +4816,7 @@ sub get_output_line_number {
                 }
                 $outdented_line_count++;
                 $self->[_outdented_line_count_] = $outdented_line_count;
+                $is_outdented_line = 1;
             }
         }
 
@@ -4831,12 +4848,12 @@ sub get_output_line_number {
 
         $seqno_string = $seqno_end;
 
-       # handle any cached line ..
-       # either append this line to it or write it out
-       # Note: the function length() is used in this next test out of caution.
-       # All testing has shown that the variable $cached_line_text_length is
-       # correct, but its calculation is complex and a loss of cached text would
-       # be a disaster.
+        # handle any cached line ..
+        # either append this line to it or write it out
+        # Note: the function length() is used in this next test out of caution.
+        # All testing has shown that the variable $cached_line_text_length is
+        # correct, but its calculation is complex and a loss of cached text
+        # would be a disaster.
         if ( length($cached_line_text) ) {
 
             # Dump an invalid cached line
@@ -4855,6 +4872,33 @@ sub get_output_line_number {
                 # handle option of just one tight opening per line:
                 if ( $cached_line_flag == 1 ) {
                     if ( defined($open_or_close) && $open_or_close == 1 ) {
+                        $gap = -1;
+                    }
+                }
+
+                # Do not join the lines if this might produce a one-line
+                # container which exceeds the maximum line length.  This is
+                # necessary prevent blinking, particularly with the combination
+                # -xci -pvt=2.  In that case a one-line block alternately forms
+                # and breaks, causing -xci to alternately turn on and off (case
+                # b765).
+                # Patched to fix cases b656 b862 b971 b972: always do the check
+                # if -vmll is set.  The reason is that the -vmll option can
+                # cause changes in the maximum line length, leading to blinkers
+                # if not checked.
+                if (
+                    $gap >= 0
+                    && ( $self->[_rOpts_variable_maximum_line_length_]
+                        || ( defined($level_end) && $level > $level_end ) )
+                  )
+                {
+                    my $test_line_length =
+                      $cached_line_text_length + $gap + $str_length;
+                    my $maximum_line_length =
+                      $self->maximum_line_length_for_level($last_level_written);
+
+                    # Add a small tolerance in the length test (fixes case b862)
+                    if ( $test_line_length > $maximum_line_length - 2 ) {
                         $gap = -1;
                     }
                 }
@@ -5041,8 +5085,10 @@ sub get_output_line_number {
             }
         }
 
-        # write or cache this line
-        if ( !$open_or_close || $side_comment_length > 0 ) {
+        # write or cache this line ...
+        # fix for case b999: do not cache an outdented line
+        if ( !$open_or_close || $side_comment_length > 0 || $is_outdented_line )
+        {
             $self->valign_output_step_C( $line, $leading_space_count, $level,
                 $Kend );
         }
@@ -5060,7 +5106,6 @@ sub get_output_line_number {
 
         $self->[_last_level_written_]       = $level;
         $self->[_last_side_comment_length_] = $side_comment_length;
-        $self->[_extra_indent_ok_]          = 0;
         return;
     }
 }

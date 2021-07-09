@@ -4,41 +4,13 @@ use strict;
 use warnings;
 
 use Data::Printer;
-use Wikibase::Datatype::Sense;
-use Wikibase::Datatype::Snak;
-use Wikibase::Datatype::Statement;
-use Wikibase::Datatype::Struct::Sense qw(obj2struct);
-use Wikibase::Datatype::Value::Item;
-use Wikibase::Datatype::Value::Monolingual;
-
-# Statement.
-my $statement = Wikibase::Datatype::Statement->new(
-        # instance of (P31) human (Q5)
-        'snak' => Wikibase::Datatype::Snak->new(
-                'datatype' => 'wikibase-item',
-                'datavalue' => Wikibase::Datatype::Value::Item->new(
-                        'value' => 'Q5',
-                ),
-                'property' => 'P31',
-        ),
-);
+use Wikibase::Datatype::Value::Time;
+use Wikibase::Datatype::Struct::Value qw(obj2struct);
 
 # Object.
-my $obj = Wikibase::Datatype::Sense->new(
-        'glosses' => [
-                Wikibase::Datatype::Value::Monolingual->new(
-                        'language' => 'en',
-                        'value' => 'Glosse en',
-                ),
-                Wikibase::Datatype::Value::Monolingual->new(
-                        'language' => 'cs',
-                        'value' => 'Glosse cs',
-                ),
-        ],
-        'id' => 'ID',
-        'statements' => [
-                $statement,
-        ],
+my $obj = Wikibase::Datatype::Value::Time->new(
+        'precision' => 10,
+        'value' => '+2020-09-01T00:00:00Z',
 );
 
 # Get structure.
@@ -49,36 +21,13 @@ p $struct_hr;
 
 # Output:
 # \ {
-#     glosses      {
-#         cs   {
-#             language   "cs",
-#             value      "Glosse cs"
-#         },
-#         en   {
-#             language   "en",
-#             value      "Glosse en"
-#         }
-#     },
-#     id           "ID",
-#     claims   {
-#         P31   [
-#             [0] {
-#                 mainsnak   {
-#                     datatype    "wikibase-item",
-#                     datavalue   {
-#                         type    "wikibase-entityid",
-#                         value   {
-#                             entity-type   "item",
-#                             id            "Q5",
-#                             numeric-id    5
-#                         }
-#                     },
-#                     property    "P31",
-#                     snaktype    "value"
-#                 },
-#                 rank       "normal",
-#                 type       "statement"
-#             }
-#         ]
+#     type    "time",
+#     value   {
+#         after           0,
+#         before          0,
+#         calendarmodel   "http://test.wikidata.org/entity/Q1985727",
+#         precision       10,
+#         time            "+2020-09-01T00:00:00Z",
+#         timezone        0
 #     }
 # }

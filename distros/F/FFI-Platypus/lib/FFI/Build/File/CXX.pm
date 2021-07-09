@@ -3,12 +3,12 @@ package FFI::Build::File::CXX;
 use strict;
 use warnings;
 use 5.008004;
-use base qw( FFI::Build::File::C );
+use parent qw( FFI::Build::File::C );
 use constant default_suffix => '.cxx';
 use constant default_encoding => ':utf8';
 
 # ABSTRACT: Class to track C source file in FFI::Build
-our $VERSION = '1.34'; # VERSION
+our $VERSION = '1.52'; # VERSION
 
 
 sub accept_suffix
@@ -42,7 +42,7 @@ FFI::Build::File::CXX - Class to track C source file in FFI::Build
 
 =head1 VERSION
 
-version 1.34
+version 1.52
 
 =head1 SYNOPSIS
 
@@ -80,7 +80,7 @@ Damyan Ivanov
 
 Ilya Pavlov (Ilya33)
 
-Petr Pisar (ppisar)
+Petr Písař (ppisar)
 
 Mohammad S Anwar (MANWAR)
 
@@ -89,6 +89,12 @@ Håkon Hægland (hakonhagland, HAKONH)
 Meredith (merrilymeredith, MHOWARD)
 
 Diab Jerius (DJERIUS)
+
+Eric Brine (IKEGAMI)
+
+szTheory
+
+José Joaquín Atria (JJATRIA)
 
 =head1 COPYRIGHT AND LICENSE
 

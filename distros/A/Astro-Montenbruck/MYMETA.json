@@ -21,7 +21,6 @@
             "Test::CheckManifest" : "0.9",
             "Test::Harness" : "3.38",
             "Test::More" : "1.30",
-            "Test::Number::Delta" : "1.06",
             "Test::Pod::Coverage" : "1.08",
             "Test::Simple" : "1.30"
          }
@@ -38,14 +37,15 @@
             "List::MoreUtils" : "0.43",
             "Memoize" : "1.03",
             "Readonly" : "2.05",
-            "Term::ANSIColor" : "1.00"
+            "Term::ANSIColor" : "1.00",
+            "Test::Number::Delta" : "1.06"
          }
       }
    },
    "provides" : {
       "Astro::Montenbruck" : {
          "file" : "lib/Astro/Montenbruck.pm",
-         "version" : "1.03"
+         "version" : "1.2"
       },
       "Astro::Montenbruck::CoCo" : {
          "file" : "lib/Astro/Montenbruck/CoCo.pm",
@@ -121,19 +121,19 @@
       },
       "Astro::Montenbruck::RiseSet" : {
          "file" : "lib/Astro/Montenbruck/RiseSet.pm",
-         "version" : "0.01"
+         "version" : "0.02"
       },
       "Astro::Montenbruck::RiseSet::Constants" : {
          "file" : "lib/Astro/Montenbruck/RiseSet/Constants.pm",
-         "version" : "0.01"
+         "version" : "0.02"
       },
-      "Astro::Montenbruck::RiseSet::RST" : {
-         "file" : "lib/Astro/Montenbruck/RiseSet/RST.pm",
+      "Astro::Montenbruck::RiseSet::Plarise" : {
+         "file" : "lib/Astro/Montenbruck/RiseSet/Plarise.pm",
          "version" : "0.01"
       },
       "Astro::Montenbruck::RiseSet::Sunset" : {
          "file" : "lib/Astro/Montenbruck/RiseSet/Sunset.pm",
-         "version" : "0.01"
+         "version" : "0.02"
       },
       "Astro::Montenbruck::SolEqu" : {
          "file" : "lib/Astro/Montenbruck/SolEqu.pm",
@@ -151,16 +151,28 @@
          "file" : "lib/Astro/Montenbruck/Time/Sidereal.pm",
          "version" : "0.01"
       },
-      "Astro::Montenbruck::Utils::Display" : {
-         "file" : "lib/Astro/Montenbruck/Utils/Display.pm",
-         "version" : "0.03"
-      },
       "Astro::Montenbruck::Utils::Helpers" : {
          "file" : "lib/Astro/Montenbruck/Utils/Helpers.pm",
          "version" : "0.04"
+      },
+      "Astro::Montenbruck::Utils::Theme" : {
+         "file" : "lib/Astro/Montenbruck/Utils/Theme.pm",
+         "version" : "0.01"
+      },
+      "Astro::Montenbruck::Utils::Theme::Colorless" : {
+         "file" : "lib/Astro/Montenbruck/Utils/Theme/Colorless.pm",
+         "version" : "0.01"
+      },
+      "Astro::Montenbruck::Utils::Theme::Dark" : {
+         "file" : "lib/Astro/Montenbruck/Utils/Theme/Dark.pm",
+         "version" : "0.01"
+      },
+      "Astro::Montenbruck::Utils::Theme::Light" : {
+         "file" : "lib/Astro/Montenbruck/Utils/Theme/Light.pm",
+         "version" : "0.01"
       }
    },
    "release_status" : "stable",
-   "version" : "1.03",
+   "version" : "1.2",
    "x_serialization_backend" : "JSON::PP version 4.05"
 }

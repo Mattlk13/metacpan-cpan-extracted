@@ -52,9 +52,12 @@ code obtains the next op that will be run and tries to pull the filename from
 it. `eval`, XS, Moose, and other magic can sometimes mask the filename, this
 module only makes a minimal attempt to find the filename in these cases.
 
-This tool DOES NOT cover anything beyond files in which subs executed by the
-test were defined. If you want sub names, lines executed, and more, use
-[Devel::Cover](https://metacpan.org/pod/Devel%3A%3ACover).
+Originally this module only collected the filenames touched by a test. Now in
+addition to that data it can give you seperate lists of files where subs were
+called, and files that were touched via open(). Additionally the sub list
+includes the info about what subs were called. In all of these cases it is also
+possible to know what secgtions of your test called the subs or opened the
+files.
 
 ## REAL EXAMPLES
 
@@ -103,8 +106,9 @@ You can tell prove to use the module this way:
 
     HARNESS_PERL_SWITCHES=-MTest2::Plugin::Cover prove ...
 
-This also works for [Test2::Harness](https://metacpan.org/pod/Test2%3A%3AHarness) aka `yath`, but yath may have a flag to
-enable this for you by the time you are reading these docs.
+For yath:
+
+    yath test --cover-files ...
 
 ## SUPPRESS REPORT
 
@@ -119,23 +123,112 @@ INLINE:
 
     use Test2::Plugin::Cover no_event => 1;
 
+# KNOWING WHAT CALLED WHAT
+
+If you use a system like [Test::Class](https://metacpan.org/pod/Test%3A%3AClass), [Test::Class::Moose](https://metacpan.org/pod/Test%3A%3AClass%3A%3AMoose), or
+[Test2::Tools::Spec](https://metacpan.org/pod/Test2%3A%3ATools%3A%3ASpec) then you divide your tests into subtests (or similar). In
+these cases it would be nice to track what subtest (or equivelent) touched what
+files.
+
+There are 3 methods telated to this, `set_from()`, `get_from()`, and
+`clear_from()` which you can use to manage this meta-data:
+
+    subtest foo => sub {
+        # Note, this is a simple string, but the 'from' data can also be a data
+        # structure.
+        Test2::Plugin::Cover->set_from("foo");
+
+        # subroutine() from Some.pm will be recorded as having been called by 'foo'.
+        Some::subroutine();
+
+        Test2::Plugin::Cover->clear_from();
+    };
+
+Doing this manually for all blocks is not ideal, ideally you would hook your
+tool, such as [Test::Class](https://metacpan.org/pod/Test%3A%3AClass) to call `set_from()` and `clear_from()` for you.
+Adding such a hook is left as an exercide to the reader, and if you make one
+for a popular tool please upload it to cpan and add a ticket or send an email
+for me to link to it here.
+
+Once you have these hooks in place the data will not only show files and subs
+that were called, but what called them.
+
+Please see the `set_from()` documentation for details on values.
+
 # CLASS METHODS
 
-- $arrayref = $class->files()
-- $arrayref = $class->files(filter => \\&filter, extract => \\&extract)
+- $val = $class->get\_from()
 
-    This will return an arrayref of all files touched so far. If no `filter` or
-    `extract` callbacks are provided then `$class->filter()` and
-    `$class->extract()` will be used as defaults.
+    Get the current 'from' value. The default is `'*'` when nothing has set a from
+    value.
+
+- $class->set\_from($val)
+
+    Set a 'from' value. This can be anything, a string, a hashref, etc. Be advised
+    though that it will usually be serialized to JSON, so make sure anything you
+    put in it will be serializable as json.
+
+- $class->clear\_from()
+
+    Resets the clear value to `'*'`
+
+- $bool = $class->was\_from\_modified()
+
+    This will return true if anything has called `set_from()` or
+    `set_from_manager`. This can be reset back to false using `reset_from()`,
+    which also clears the 'from' and 'from\_manager' values.
+
+- $class->set\_from\_manager($module)
+
+    This should be set to a module that implements the following method:
+
+        sub test_parameters {
+            my $class = shift;
+            my ($test_file, \@from_values) = @_;
+
+            ...
+
+            return {
+                # If true - run the test
+                # If false - skip the test
+                # If not present or undef - run the test
+                run => $bool,
+
+                # The following are optional
+                argv  => [ ... ],
+                env   => { ... },
+                stdin => "...",
+            };
+
+            # OR
+            # If true - run the test
+            # If false - skip the test
+            # If undef or empty list - run the test
+            return $bool;
+        }
+
+    This will be used by [Test2::Harness](https://metacpan.org/pod/Test2%3A%3AHarness) to determine what data needs to be
+    passed to a test given a set of 'from' values to instruct the test to run the
+    necessary parts/subtests/groups/methods/etc.
+
+    The 'argv' data will be prepended befor any other arguments provided to the
+    test.
+
+    The 'env' hashref will be merged with any other env vars needed, with these
+    taking priority.
+
+    The 'stdin' string will be used as STDIN for the test.
+
+- $arrayref = $class->files()
+- $arrayref = $class->files(root => $path)
+
+    This will return an arrayref of all files touched so far.
 
     The list of files will be sorted alphabetically, and duplicates will be
     removed.
 
-    Custom filter callbacks should match the interface for
-    `$class->filter()`.
-
-    Custom extract callbacks should match the interface for
-    `$class->extract()`.
+    If a root path is provided it **MUST** be a [Path::Tiny](https://metacpan.org/pod/Path%3A%3ATiny) instance. This path
+    will be used to filter out any files not under the root directory.
 
 - $event = $class->report(%options)
 
@@ -150,14 +243,6 @@ INLINE:
         to filter out any source files that do not live under the current directory.
         This **MUST** be a [Path::Tiny](https://metacpan.org/pod/Path%3A%3ATiny) instance, passing a string will not work.
 
-    - filter => sub { ... }
-
-        Normally `$class->filter()` is used.
-
-    - extract => sub { ... }
-
-        Normally `$class->extract()` is used.
-
     - verbose => $BOOL
 
         If this is set to true then the comment stating how many source files were
@@ -169,9 +254,18 @@ INLINE:
         This is used ONLY when the [Test2::API](https://metacpan.org/pod/Test2%3A%3AAPI) is doing its final book-keeping. Most
         users will never want to use this.
 
-- $class->clear()
+- $class->reset\_coverage()
 
     This will completely clear all coverage data so far.
+
+- $class->reset\_from()
+
+    This will clear the 'from' value, as well as reset the 'was\_from\_modified'
+    state to false.
+
+- $class->full\_reset()
+
+    Calls both `reset_coverage()` and `reset_from()`.
 
 - $file\_or\_undef = $class->filter($file)
 - $file\_or\_undef = $class->filter($file, root => Path::Tiny->new('...'))

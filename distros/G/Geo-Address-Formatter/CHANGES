@@ -1,6 +1,51 @@
 Revision history for Perl module Geo::Address::Formatter.
 
+1.95   2021-06-19
+       - deal with encodes apostrophes
+       - newest address-formatting
 
+1.94   2021-06-08
+       - ability to pass an "address_template" option to format_address
+         to overwrite the template specified in conf
+       - test
+
+1.93   2021-06-07
+       - make sure final_components are reset every time format_address
+         is called
+
+1.92   2021-06-04
+       - PR #9, fix speed regression introduced in 1.91
+
+1.91   2021-06-04
+       - yet another rewrite of _render_template logic to replace
+       the "first" lambda. More robust solution that v1.90
+       see PR #8
+
+1.90   2021-06-03
+       - major rewrite of _render_template logic for dealing with
+         "first" - remove recursive use of Text::Hogan
+       - remove internal template cache as Text::Hogan already has one
+       - remove List::Util as a dependency
+       - remove Text::Trim as a testing dependency       
+
+1.89   2021-05-29
+       - die if conf path doesnt exit or no conf files found
+
+1.88   2021-05-10
+       - remove the tidyall stuff, made life too complicated
+       - more tests
+       - use generic address_template even if a country specific fallback
+         template or formatting rules are specified
+       - newest address-formatting templates       
+
+1.87   2021-03-14
+       rename perltidy conf files so Dist::Zilla adds them to distribution
+
+1.86   2021-03-13
+       - perltidy all files, add tidy test and precommit hook
+         many thanks to Olaf Alders for the step by step guide
+         http://www.perladvent.org/2020/2020-12-01.html
+         
 1.85   2020-11-20
        - ugh, forgot to check in various files
        - newest address-formatting templates       

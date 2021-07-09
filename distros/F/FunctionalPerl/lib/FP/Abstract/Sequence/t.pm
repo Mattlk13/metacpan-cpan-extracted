@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015-2020 Christian Jaeger, copying@christianjaeger.ch
+# Copyright (c) 2015-2021 Christian Jaeger, copying@christianjaeger.ch
 #
 # This is free software, offered under either the same terms as perl 5
 # or the terms of the Artistic License version 2 or the terms of the
@@ -43,7 +43,8 @@ use FP::StrictList;
 use FP::List;
 use FP::Stream;
 use FP::Array 'array';
-use FP::Ops qw(the_method);
+use FP::Ops qw(the_method string_cmp);
+use FP::Div qw(identity);
 use Chj::TEST;
 
 my $t_vals = list(
@@ -208,8 +209,6 @@ our @sequencetypes = qw(
     strictlist
 );
 
-# XX also test array with FP::autobox ?
-
 use FP::Equal;
 use FP::Show;
 
@@ -218,24 +217,119 @@ use FP::Show;
 use FP::PureArray;
 use FP::MutableArray;
 use FP::StrictList;
+use Chj::TEST;
 
-for my $orig (@sequencetypes) {
-    my $constructor = eval '\&' . $orig;
-    die $@ if $@;
-    for my $target (@sequencetypes) {
-        next if $orig eq $target;    #XX TODO: make it always valid
-        next if ($orig eq "mutablearray" and $target eq "purearray");    #XXX
-        my $d1 = $constructor->(qw(a b c d e));
-        my $d2 = Keep($d1)->$target;
-        my $d3 = $d2->$orig;
-        equal $d1, $d3
+TEST {
+    for my $orig (@sequencetypes) {
+        my $constructor = eval '\&' . $orig;
+        die $@ if $@;
+        for my $target (@sequencetypes) {
+            next if $orig eq $target;    #XX TODO: make it always valid
+            next if ($orig eq "mutablearray" and $target eq "purearray");   #XXX
+            my $d1 = $constructor->(qw(a b c d e));
+            my $d2 = Keep($d1)->$target;
+            my $d3 = $d2->$orig;
+            equal $d1, $d3
 
-            # XX what is the recommended way to make/format
-            # exceptions?
-            or die("not equal (from $orig to $target and back): "
-                . show($d1) . " vs. "
-                . show($d3));
+                # XX what is the recommended way to make/format
+                # exceptions?
+                or die("not equal (from $orig to $target and back): "
+                    . show($d1) . " vs. "
+                    . show($d3));
+        }
     }
+    1
 }
+1;
+
+use FP::autobox;
+
+TEST { []->group(\&number_eq) } purearray();
+TEST { [1]->group(\&number_eq) } purearray(purearray(1));
+TEST { [1, 3]->group(\&number_eq) } purearray(purearray(1), purearray(3));
+TEST { [1, 1, 3]->group(\&number_eq) } purearray(purearray(1, 1), purearray(3));
+TEST { [1, 1, 3, 3]->group(\&number_eq) }
+purearray(purearray(1, 1), purearray(3, 3));
+TEST { [1, 1, 3, 3, 4]->group(\&number_eq) }
+purearray(purearray(1, 1), purearray(3, 3), purearray(4));
+TEST { [[3, "a"], [3, "b"], [4, "c"]]->group(on(\&array_first, \&number_eq)) }
+purearray(purearray([3, 'a'], [3, 'b']), purearray([4, 'c']));
+TEST {
+    [[3, "a"], [3, "b"], [4, "c"]]->list->group(on(\&array_first, \&number_eq))
+}
+list(list([3, 'b'], [3, 'a']), list([4, 'c']));
+
+# ^ XXX should give same order as in purearray case. Really implement
+# rlist?
+
+TEST { ["b", "a", "x", "c"]->max(\&string_cmp) } 'x';
+TEST { ["b", "a", "x", "c"]->min(\&string_cmp) } 'a';
+
+# The false-returning behaviour of `any`: (TODO: try this
+# *automatically* with all sequence types instead of this lame
+# copy-paste)
+
+TEST { list(1, 3, 5)->any(\&is_even) } 0;
+TEST {
+    list(1, 3, 5)->any(sub { my ($v) = @_; defined $v })
+}
+1;
+TEST {
+    list(1, 3, 5)->any(sub { my ($v) = @_; not defined $v })
+}
+'';
+TEST {
+    list()->any(sub { my ($v) = @_; defined $v })
+}
+undef;
+TEST {
+    list(undef)->any(sub { my ($v) = @_; defined $v })
+}
+'';
+TEST { list(undef)->any(\&identity) } undef;
+TEST { list('', undef)->any(\&identity) } undef;
+TEST { list('')->any(\&identity) } '';
+
+TEST { purearray(1, 3, 5)->any(\&is_even) } 0;
+TEST {
+    purearray(1, 3, 5)->any(sub { my ($v) = @_; defined $v })
+}
+1;
+TEST {
+    purearray(1, 3, 5)->any(sub { my ($v) = @_; not defined $v })
+}
+'';
+TEST {
+    purearray()->any(sub { my ($v) = @_; defined $v })
+}
+undef;
+TEST {
+    purearray(undef)->any(sub { my ($v) = @_; defined $v })
+}
+'';
+TEST { purearray(undef)->any(\&identity) } undef;
+TEST { purearray('', undef)->any(\&identity) } undef;
+TEST { purearray('')->any(\&identity) } '';
+
+TEST { stream(1, 3, 5)->any(\&is_even) } 0;
+TEST {
+    stream(1, 3, 5)->any(sub { my ($v) = @_; defined $v })
+}
+1;
+TEST {
+    stream(1, 3, 5)->any(sub { my ($v) = @_; not defined $v })
+}
+'';
+TEST {
+    stream()->any(sub { my ($v) = @_; defined $v })
+}
+undef;
+TEST {
+    stream(undef)->any(sub { my ($v) = @_; defined $v })
+}
+'';
+TEST { stream(undef)->any(\&identity) } undef;
+TEST { stream('', undef)->any(\&identity) } undef;
+TEST { stream('')->any(\&identity) } '';
 
 1

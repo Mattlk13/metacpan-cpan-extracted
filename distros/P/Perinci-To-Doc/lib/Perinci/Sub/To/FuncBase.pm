@@ -1,7 +1,9 @@
 package Perinci::Sub::To::FuncBase;
 
-our $DATE = '2020-10-20'; # DATE
-our $VERSION = '0.874'; # VERSION
+our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
+our $DATE = '2021-05-24'; # DATE
+our $DIST = 'Perinci-To-Doc'; # DIST
+our $VERSION = '0.877'; # VERSION
 
 use 5.010;
 use Log::ger;
@@ -214,7 +216,7 @@ sub gen_doc_section_result {
     if ($orig_result_naked) {
         $dres->{human_ret} = $dres->{human_res};
     } else {
-        $dres->{human_ret} = '[status, msg, payload, meta]';
+        $dres->{human_ret} = '[$status_code, $reason, $payload, \%result_meta]';
     }
 
     $dres->{res_summary}     = $riresmeta->langprop("summary");
@@ -240,7 +242,7 @@ Perinci::Sub::To::FuncBase - Base class for Perinci::Sub::To::* function documen
 
 =head1 VERSION
 
-This document describes version 0.874 of Perinci::Sub::To::FuncBase (from Perl distribution Perinci-To-Doc), released on 2020-10-20.
+This document describes version 0.877 of Perinci::Sub::To::FuncBase (from Perl distribution Perinci-To-Doc), released on 2021-05-24.
 
 =for Pod::Coverage .+
 
@@ -254,7 +256,7 @@ Source repository is at L<https://github.com/perlancar/perl-Perinci-To-Doc>.
 
 =head1 BUGS
 
-Please report any bugs or feature requests on the bugtracker website L<https://rt.cpan.org/Public/Dist/Display.html?Name=Perinci-To-Doc>
+Please report any bugs or feature requests on the bugtracker website L<https://github.com/perlancar/perl-Perinci-To-Doc/issues>
 
 When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
@@ -266,7 +268,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

@@ -16,7 +16,7 @@ use PPIx::QuoteLike::Utils qw{
     visual_column_number
 };
 
-our $VERSION = '0.014';
+our $VERSION = '0.017';
 
 # Private to this package.
 sub __new {
@@ -311,6 +311,7 @@ L<PPIx::QuoteLike|PPIx::QuoteLike>.
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
+L<https://rt.cpan.org/Public/Dist/Display.html?Name=PPIx-QuoteLike>,
 L<https://github.com/trwyant/perl-PPIx-QuoteLike/issues>, or in
 electronic mail to the author.
 

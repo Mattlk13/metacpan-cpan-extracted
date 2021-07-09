@@ -25,7 +25,7 @@ my $conf_path = $af_path . '/conf/';
 my $CLASS = 'Geo::Address::Formatter';
 use_ok($CLASS);
 
-my $GAF = $CLASS->new( conf_path => $conf_path );
+my $GAF = $CLASS->new(conf_path => $conf_path);
 
 {
     # is the correct state_code set in German?
@@ -41,7 +41,7 @@ my $GAF = $CLASS->new( conf_path => $conf_path );
     );
 
     my $formatted = $GAF->format_address(\%input);
-    my $rh_comp = $GAF->final_components();    
+    my $rh_comp   = $GAF->final_components();
     is($rh_comp->{state_code}, 'BY', 'correct state_code for Bayern');
 }
 
@@ -59,9 +59,28 @@ my $GAF = $CLASS->new( conf_path => $conf_path );
     );
 
     my $formatted = $GAF->format_address(\%input);
-    my $rh_comp = $GAF->final_components();    
+    my $rh_comp   = $GAF->final_components();
     is($rh_comp->{state_code}, 'BY', 'correct state_code for Bavaria');
 }
+
+
+{
+    # is the correct state_code set in France
+    my %input = (
+        'city'           => 'Sommières-du-Clain',
+        'country'        => 'France',
+        'country_code'   => 'fr',
+        'state_district' => 'Vienne',
+        'place'          => 'Moulin Bois',
+        'postcode'       => '86160',
+        'state'          => 'Nouvelle-Aquitaine',
+    );
+
+    my $formatted = $GAF->format_address(\%input);
+    my $rh_comp   = $GAF->final_components();
+    is($rh_comp->{state_code}, 'NAQ', 'correct state_code for N-A');
+}
+
 
 done_testing();
 

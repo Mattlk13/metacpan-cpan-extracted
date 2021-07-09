@@ -1,6 +1,6 @@
 use utf8;
 
-use Test::More;
+use Test::More 1.302183;
 use Test::Warnings qw/ warning /;
 
 use Encode qw/ encode_utf8 /;
@@ -46,10 +46,14 @@ is minify(" £ simple") => "£ simple";
 
 {
     is minify(" \0 x") => "\0 x";
+
+    is minify("\0") => "\0", "null";
+
+    is minify(" \0 ") => "\0", "null";
+
 }
 
 my $warning = warning {
-    local $TODO = "Bad encoding";
     my $n = chr(160);
     my $r = minify($n);
 };

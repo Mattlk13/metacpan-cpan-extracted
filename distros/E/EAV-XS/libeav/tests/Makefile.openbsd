@@ -62,7 +62,8 @@ clean:
 
 check: check-domain check-lpart check-email check-lib
 
-check-domain: $(TARGETS) $(PARTIAL_TRT)
+check-domain: t-all-tlds-test.bin t-domain-length.bin
+check-domain: t-dash-domains.bin t-retired.bin
 	# =====================================================
 	# domain tests
 	# =====================================================
@@ -75,10 +76,11 @@ check-domain: $(TARGETS) $(PARTIAL_TRT)
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
 	./t-retired.bin 2 2 ../data/retired.txt
 
-check-lpart: $(TARGETS) $(PARTIAL_TRT)
+check-lpart: t-822-localpart.bin t-5321-localpart.bin
+check-lpart: t-5322-localpart.bin t-6531-localpart.bin
 	# === localpart tests
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
-	./t-822-localpart.bin 24 19 ../data/localpart-ascii.txt
+	./t-822-localpart.bin 23 20 ../data/localpart-ascii.txt
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
 	./t-5321-localpart.bin 21 22 ../data/localpart-ascii.txt
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
@@ -133,17 +135,17 @@ check-email: check-email-822 check-email-5321
 check-email: check-email-5322 check-email-6531
 
 
-check-email-822: $(TARGETS) $(PARTIAL_TRT)
+check-email-822: t-822-email.bin
 	#
 	# === RFC 822 email address tests
 	#
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
-	./t-822-email.bin 46 0 ../data/pass-email-ascii.txt
+	./t-822-email.bin 45 1 ../data/pass-email-ascii.txt
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
 	./t-822-email.bin 0 44 ../data/fail-email-ascii.txt
 
 
-check-email-5321: $(TARGETS) $(PARTIAL_TRT)
+check-email-5321: t-5321-email.bin
 	#
 	# === RFC 5321 email address tests
 	#
@@ -153,7 +155,7 @@ check-email-5321: $(TARGETS) $(PARTIAL_TRT)
 	./t-5321-email.bin 0 44 ../data/fail-email-ascii.txt
 
 
-check-email-5322: $(TARGETS) $(PARTIAL_TRT)
+check-email-5322: t-5322-email.bin
 	#
 	# === RFC 5322 email address tests
 	#
@@ -163,7 +165,8 @@ check-email-5322: $(TARGETS) $(PARTIAL_TRT)
 	./t-5322-email.bin 0 44 ../data/fail-email-ascii.txt
 
 
-check-email-6531:
+check-email-6531: t-6531-email.bin t-6531-email-fqdn.bin
+check-email-6531: t-6531-email-tld.bin t-6531-email-tld-special.bin
 	#
 	# === RFC 6531 tests
 	#
@@ -361,7 +364,7 @@ check-email-6531:
 .endif
 .endif
 
-check-lib:
+check-lib: t-eav.bin t-eav-all-modes.bin t-result.bin
 	#
 	# === library tests
 	#
@@ -380,7 +383,7 @@ check-lib:
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
 	./t-eav.bin 7 1 ../data/email-reg.ru.txt
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
-	./t-eav-all-modes.bin 216 14 ../data/pass-email-ascii.txt
+	./t-eav-all-modes.bin 215 15 ../data/pass-email-ascii.txt
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
 	./t-eav-all-modes.bin 0 220 ../data/fail-email-ascii.txt
 .else
@@ -397,7 +400,7 @@ check-lib:
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
 	./t-eav.bin 7 1 ../data/email-reg.ru.txt
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
-	./t-eav-all-modes.bin 218 12 ../data/pass-email-ascii.txt
+	./t-eav-all-modes.bin 217 13 ../data/pass-email-ascii.txt
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
 	./t-eav-all-modes.bin 0 220 ../data/fail-email-ascii.txt
 .endif
@@ -416,7 +419,7 @@ check-lib:
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
 	./t-eav.bin 7 1 ../data/email-reg.ru.txt
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
-	./t-eav-all-modes.bin 208 22 ../data/pass-email-ascii.txt
+	./t-eav-all-modes.bin 207 23 ../data/pass-email-ascii.txt
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
 	./t-eav-all-modes.bin 0 220 ../data/fail-email-ascii.txt
 .else
@@ -433,7 +436,7 @@ check-lib:
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
 	./t-eav.bin 7 1 ../data/email-reg.ru.txt
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
-	./t-eav-all-modes.bin 210 20 ../data/pass-email-ascii.txt
+	./t-eav-all-modes.bin 209 21 ../data/pass-email-ascii.txt
 	env LD_LIBRARY_PATH="${LIB_PATH}" \
 	./t-eav-all-modes.bin 0 220 ../data/fail-email-ascii.txt
 .endif

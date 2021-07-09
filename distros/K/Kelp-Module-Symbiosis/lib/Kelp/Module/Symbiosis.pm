@@ -1,62 +1,111 @@
 package Kelp::Module::Symbiosis;
 
-our $VERSION = '1.01';
+our $VERSION = '1.12';
 
 use Kelp::Base qw(Kelp::Module);
 use Plack::App::URLMap;
 use Carp;
-use Scalar::Util qw(blessed);
+use Scalar::Util qw(blessed refaddr);
+use Plack::Middleware::Conditional;
+use Plack::Util;
+use Kelp::Module::Symbiosis::_Util;
 
-attr "-mounted" => sub { {} };
+attr -mounted => sub { {} };
+attr -loaded => sub { {} };
+attr -middleware => sub { [] };
+attr reverse_proxy => 0;
 
 sub mount
 {
 	my ($self, $path, $app) = @_;
 	my $mounted = $self->mounted;
 
-	carp "Overriding mounting point $path"
-		unless !exists $mounted->{$path};
+	if (!ref $app && $app) {
+		my $loaded = $self->loaded;
+		croak "Symbiosis: cannot mount $app, because no such name was loaded"
+			unless $loaded->{$app};
+		$app = $loaded->{$app};
+	}
+
+	carp "Symbiosis: overriding mounting point $path"
+		if exists $mounted->{$path};
 	$mounted->{$path} = $app;
 	return scalar keys %{$mounted};
 }
 
-sub run_all
+sub _link
 {
-	my ($self) = shift;
+	my ($self, $name, $app, $mount) = @_;
+	my $loaded = $self->loaded;
 
-	warn __PACKAGE__ . '->run_all is deprecated, please use ' . __PACKAGE__ . ' run instead';
-	return $self->run(@_);
+	warn "Symbiosis: overriding module name $name"
+		if exists $loaded->{$name};
+	$loaded->{$name} = $app;
+
+	if ($mount) {
+		$self->mount($mount, $app);
+	}
+	return scalar keys %{$loaded};
 }
 
 sub run
 {
 	my ($self) = shift;
 	my $psgi_apps = Plack::App::URLMap->new;
+	my %addrs;    # apps keyed by refaddr
 
-	my $error = "Cannot start the ecosystem:";
+	my $error = "Symbiosis: cannot start the ecosystem because";
 	while (my ($path, $app) = each %{$self->mounted}) {
 		if (blessed $app) {
 			croak "$error application mounted under $path cannot run()"
 				unless $app->can("run");
-			$psgi_apps->map($path, $app->run(@_));
+
+			# cache the ran application so that it won't be ran twice
+			my $addr = refaddr $app;
+			my $ran = $addrs{$addr} //= $app->run(@_);
+
+			$psgi_apps->map($path, $ran);
 		}
 		elsif (ref $app eq 'CODE') {
 			$psgi_apps->map($path, $app);
 		}
 		else {
-			croak "$error mount point $path is not an object";
+			croak "$error mount point $path is neither an object nor a coderef";
 		}
 	}
 
-	return $psgi_apps->to_app;
+	my $wrapped = Kelp::Module::Symbiosis::_Util::wrap($self, $psgi_apps->to_app);
+	return $self->_reverse_proxy_wrap($wrapped);
+}
+
+sub _reverse_proxy_wrap
+{
+	my ($self, $app) = @_;
+	return $app unless $self->reverse_proxy;
+
+	my $mw_class = Plack::Util::load_class('ReverseProxy', 'Plack::Middleware');
+	return Plack::Middleware::Conditional->wrap(
+		$app,
+		condition => sub { !$_[0]{REMOTE_ADDR} || $_[0]{REMOTE_ADDR} =~ m{127\.0\.0\.1} },
+		builder => sub { $mw_class->wrap($_[0]) },
+	);
 }
 
 sub build
 {
 	my ($self, %args) = @_;
-	if (!exists $args{automount} || $args{automount}) {
-		$self->mount("/", $self->app);
+	$args{mount} //= '/'
+		unless exists $args{mount};
+
+	if ($args{mount}) {
+		$self->mount($args{mount}, $self->app);
 	}
+
+	if ($args{reverse_proxy}) {
+		$self->reverse_proxy(1);
+	}
+
+	Kelp::Module::Symbiosis::_Util::load_middleware($self, %args);
 
 	$self->register(
 		symbiosis => $self,
@@ -78,16 +127,21 @@ Kelp::Module::Symbiosis - Manage an entire ecosystem of Plack organisms under Ke
 	modules => [qw/Symbiosis SomeSymbioticModule/],
 	modules_init => {
 		Symbiosis => {
-			automount => 0, # boolean, defaults to 1
+			mount => '/kelp', # a path to mount Kelp main instance
+		},
+		SomeSymbioticModule => {
+			mount => '/elsewhere', # a path to mount SomeSymbioticModule
 		},
 	},
 
-	# in kelp application
-	$kelp->symbiosis->mount('/app-path' => $kelp); # only required if config 'automount' is explicitly false
-	$kelp->symbiosis->mount('/other-path' => $kelp->some_symbiotic_module);
+	# in kelp application - can be skipped if all mount paths are specified in config above
+	my $symbiosis = $kelp->symbiosis;
+	$symbiosis->mount('/app-path' => $kelp);
+	$symbiosis->mount('/other-path' => $kelp->module_method);
+	$symbiosis->mount('/other-path' => 'module_name'); # alternative - finds a module by name
 
 	# in psgi script
-	my $app = MyApp->new();
+	my $app = KelpApp->new();
 	$app->run_all; # instead of run
 
 =head1 DESCRIPTION
@@ -121,13 +175,6 @@ The main functional reason to use this module is the ability to access the Kelp 
 		... # handle another app's signal
 	}
 
-	sub build {
-		my ($kelp) = @_;
-
-		my $another_app = $kelp->get_another_app;
-		$kelp->symbiosis->mount('/app' => $another_app);
-	}
-
 =head2 What can be mounted?
 
 The sole requirement for a module to be mounted into Symbiosis is its ability to I<run()>, returning the psgi application. A module also needs to be a blessed reference, of course. Fun fact: Symbiosis module itself meets that requirements, so one symbiotic app can be mounted inside another.
@@ -139,7 +186,7 @@ Whichever it is, it should be a psgi application ready to be ran by the server, 
 For very simple use cases, this will work though:
 
 	# in application build method
-	my $some_app = SomePlackApp->new()->to_app;
+	my $some_app = SomePlackApp->new->to_app;
 	$self->symbiosis->mount('/path', $some_app);
 
 =head1 METHODS
@@ -148,23 +195,45 @@ For very simple use cases, this will work though:
 
 	sig: mount($self, $path, $app)
 
-Adds a new $app to the ecosystem under $path.
+Adds a new $app to the ecosystem under $path. I<$app> can be:
 
-=head2 run_all
+=over
 
-	sig: run_all($self)
+=item
 
-DEPRECATED: use L</run> instead.
+A blessed reference - will try to call run on it
+
+=item
+
+A code reference - will try calling it
+
+=item
+
+A string - will try finding a symbiotic module with that name and mounting it. See L<Kelp::Module::Symbiosis::Base/name>
+
+=back
 
 =head2 run
 
 Constructs and returns a new L<Plack::App::URLMap> with all the mounted modules and Kelp itself.
 
+Note: it will not run mounted object twice. This means that it is safe to mount something in two paths at once, and it will just be an alias to the same application.
+
 =head2 mounted
 
 	sig: mounted($self)
 
-Returns a hashref containing a list of mounted modules, keyed with their specified mount paths.
+Returns a hashref containing a list of mounted modules, keyed by their specified mount paths.
+
+=head2 loaded
+
+	sig: loaded($self)
+
+I<new in 1.10>
+
+Returns a hashref containing a list of loaded modules, keyed by their names.
+
+A module is loaded once it is added to Kelp configuration. This can be used to access a module that does not introduce new methods to Kelp.
 
 =head1 METHODS INTRODUCED TO KELP
 
@@ -178,11 +247,37 @@ Shortcut method, same as C<< $kelp->symbiosis->run() >>.
 
 =head1 CONFIGURATION
 
-=head2 automount
+	# Symbiosis MUST be specified as the first one
+	modules => [qw/Symbiosis Module::Some/],
+	modules_init => {
+		Symbiosis => {
+			mount => '/kelp',
+		},
+		'Module::Some' => {
+			mount => '/some',
+			...
+		},
+	}
 
-Whether to automatically call I<mount> for the Kelp instance, which will be mounted to root path I</>. Defaults to I<1>.
+Symbiosis should be the first of the symbiotic modules specified in your Kelp configuration. Failure to meet this requirement will cause your application to crash immediately.
 
-If you set this to I<0> you will have to run something like C<< $kelp->symbiosis->mount($mount_path, $kelp); >> in Kelp's I<build> method. This will allow other paths than root path for the base Kelp application, if needed.
+=head2 mount
+
+I<new in 1.10>
+
+A path to mount the Kelp instance, which defaults to I<'/'>. Specify a string if you wish a to use different path. Specify an I<undef> or empty string to avoid mounting at all - you will have to run something like C<< $kelp->symbiosis->mount($mount_path, $kelp); >> in Kelp's I<build> method.
+
+=head2 reverse_proxy
+
+I<new in 1.11>
+
+A boolean flag (I<1/0>) which enables reverse proxy for all the Plack apps at once. Requires L<Plack::Middleware::ReverseProxy> to be installed.
+
+=head2 middleware, middleware_init
+
+I<new in 1.12>
+
+Middleware specs for the entire ecosystem. Every application mounted in Symbiosis will be wrapped in these middleware. They are configured exactly the same as middlewares in Kelp. Regular Kelp middleware will be used just for the Kelp application, so if you want to wrap all symbionts at once, this is the place to do it.
 
 =head1 CAVEATS
 
@@ -194,7 +289,7 @@ Routes specified in symbiosis will be matched before routes in Kelp. Once you mo
 
 =item * L<Kelp::Module::Symbiosis::Base>, a base for symbiotic modules
 
-=item * L<Kelp::Module::Websocket::AnyEvent>, a reference symbiotic module
+=item * L<Kelp::Module::WebSocket::AnyEvent>, a reference symbiotic module
 
 =item * L<Plack::App::URLMap>, Plack URL mapper application
 

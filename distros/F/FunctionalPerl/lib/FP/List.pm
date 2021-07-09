@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2020 Christian Jaeger, copying@christianjaeger.ch
+# Copyright (c) 2013-2021 Christian Jaeger, copying@christianjaeger.ch
 #
 # This is free software, offered under either the same terms as perl 5
 # or the terms of the Artistic License version 2 or the terms of the
@@ -161,6 +161,7 @@ our @EXPORT_OK = qw(
     list_every list_all list_any list_none
     list_perhaps_find_tail list_perhaps_find
     list_find_tail list_find
+    list_insertion_variants
     is_charlist ldie
     cddr
     cdddr
@@ -212,6 +213,37 @@ package FP::List::List {
 
     *null = \&FP::List::null;
 
+    sub pair_namespace {"FP::List::Pair"}
+
+    sub cons {
+        my $s = shift;
+        @_ == 1 or fp_croak_arity 1;
+        my @p = ($_[0], $s);
+
+        # Now it gets ~ugly: for lazy code, $s can (now, since
+        # AUTOLOAD on them doesn't necessarily force them anymore) now
+        # be a promise with field 2 set.
+        # my $immediate_class = ref($s);
+        # bless \@p,
+        #     UNIVERSAL::isa($immediate_class, "FP::Lazy::AnyPromise")
+        #     ? $$s[2]
+        #     : $immediate_class;
+        # /ugly.
+
+        # OR, simply (since the above would void any chance of simply
+        # using `lazyT` in stream libraries since one couldn't know
+        # the type of cons cells statically)!:
+
+        bless \@p, $s->pair_namespace;
+
+        if ($immutable) {
+            Internals::SvREADONLY $p[0], 1;
+            Internals::SvREADONLY $p[1], 1;
+        }
+        Internals::SvREADONLY @p, 1;
+        \@p
+    }
+
     # return this sequence as a list, i.e. identity
     sub list {
         @_ == 1 or fp_croak_arity 1;
@@ -250,22 +282,7 @@ package FP::List::Null {
     use FP::Carp;
     our @ISA = qw(FP::List::List);
 
-    sub pair_namespace {"FP::List::Pair"}
-
     sub is_null {1}
-
-    sub cons {
-        my $s = shift;
-        @_ == 1 or fp_croak_arity 1;
-        my @p = ($_[0], $s);
-        bless \@p, $s->pair_namespace;
-        if ($immutable) {
-            Internals::SvREADONLY $p[0], 1;
-            Internals::SvREADONLY $p[1], 1;
-        }
-        Internals::SvREADONLY @p, 1;
-        \@p
-    }
 
     sub length {
         0
@@ -308,21 +325,11 @@ package FP::List::Pair {
 
     sub is_null {''}
 
-    sub cons {
-        my $s = shift;
-        @_ == 1 or fp_croak_arity 1;
-        my @p = ($_[0], $s);
-        bless \@p, ref($s);
-        if ($immutable) {
-            Internals::SvREADONLY $p[0], 1;
-            Internals::SvREADONLY $p[1], 1;
-        }
-        Internals::SvREADONLY @p, 1;
-        \@p
-    }
-
     sub car {
-        $_[0][0]
+
+        # $_[0][0]
+        # nope, since lazyT, the argument can be a promise:
+        (ref($_[0]) eq __PACKAGE__ ? $_[0] : FP::List::force $_[0])->[0]
     }
     *first = \&car;
 
@@ -333,14 +340,17 @@ package FP::List::Pair {
     *first_update = \&FP::List::first_update;
 
     sub cdr {
-        $_[0][1]
+
+        # $_[0][1]
+        # nope, since lazyT, the argument can be a promise:
+        (ref($_[0]) eq __PACKAGE__ ? $_[0] : FP::List::force $_[0])->[1]
     }
     *rest         = \&cdr;
     *maybe_rest   = \&rest;
     *perhaps_rest = \&rest;
 
     sub car_and_cdr {
-        @{ $_[0] }
+        @{ ref($_[0]) eq __PACKAGE__ ? $_[0] : FP::List::force $_[0] }
     }
     *first_and_rest         = \&car_and_cdr;
     *perhaps_first_and_rest = \&car_and_cdr;
@@ -667,7 +677,7 @@ sub cdr {
     @_ == 1 or fp_croak_arity 1;
     my ($v) = @_;
     my $r = blessed($v) // die_not_a_pair($v);
-    if ($r eq "FP::List::Pair") {
+    if ($r->isa("FP::List::Pair")) {
         $v->[1]
     } elsif (is_promise $v) {
         @_ = force $v;
@@ -1085,21 +1095,21 @@ sub list_sortCompare {
 
 TEST {
     require FP::Ops;
-    list(5, 3, 8, 4)->sort (\&FP::Ops::number_cmp)->array
+    list(5, 3, 8, 4)->sort (\&FP::Ops::real_cmp)->array
 }
 [3, 4, 5, 8];
 
-TEST { ref(list(5, 3, 8, 4)->sort (\&FP::Ops::number_cmp)) }
+TEST { ref(list(5, 3, 8, 4)->sort (\&FP::Ops::real_cmp)) }
 'FP::_::PureArray';    # XX ok? Need to `->list` if a list is needed
 
-TEST { list(5, 3, 8, 4)->sort (\&FP::Ops::number_cmp)->list->car }
+TEST { list(5, 3, 8, 4)->sort (\&FP::Ops::real_cmp)->list->car }
 3;    # but then PureArray has `first`, too, if that's all you need.
 
-TEST { list(5, 3, 8, 4)->sort (\&FP::Ops::number_cmp)->first }
+TEST { list(5, 3, 8, 4)->sort (\&FP::Ops::real_cmp)->first }
 3;
 
 #(just for completeness)
-TEST { list(5, 3, 8, 4)->sort (\&FP::Ops::number_cmp)->stream->car }
+TEST { list(5, 3, 8, 4)->sort (\&FP::Ops::real_cmp)->stream->car }
 3;
 
 sub rlist_to_array {
@@ -1140,7 +1150,8 @@ TEST { [list(3, 4, 5)->reverse_values] }
 [5, 4, 3];
 
 sub make_for_each {
-    my ($is_stream) = @_;
+    @_ == 2 or fp_croak_arity 2;
+    my ($is_stream, $with_islast) = @_;
     my $liststream = $is_stream ? "stream" : "list";
 
     sub {
@@ -1150,8 +1161,9 @@ sub make_for_each {
     LP: {
             $s = force $s;
             if (is_pair $s) {
-                &$proc(car $s);
-                $s = cdr $s;
+                my $s2 = cdr $s;
+                &$proc(scalar car($s), $with_islast ? scalar is_null($s2) : ());
+                $s = $s2;
                 redo LP;
             } elsif (is_null $s) {
 
@@ -1167,9 +1179,12 @@ sub make_for_each {
 }
 
 sub list_for_each;
-*list_for_each = make_for_each(1);
-
+*list_for_each            = make_for_each(1, 0);
 *FP::List::List::for_each = flip \&list_for_each;
+
+sub list_for_each_with_islast;
+*list_for_each_with_islast            = make_for_each(1, 1);
+*FP::List::List::for_each_with_islast = flip \&list_for_each_with_islast;
 
 TEST_STDOUT {
     list(1, 3)->for_each(\&xprintln)
@@ -1408,6 +1423,18 @@ TEST_STDOUT { write_sexpr cons(1, cons(cons(2, null), null)) }
 
 *FP::List::List::write_sexpr = \&write_sexpr;
 
+# adapted copy of stream_map_with_tail, as usual...
+sub list_map_with_tail {
+    @_ == 3 or fp_croak_arity 3;
+    my ($fn, $l, $tail) = @_;
+    FORCE $l;    # be careful as usual, right?
+    is_null($l)
+        ? $tail
+        : cons(&$fn(car $l), list_map_with_tail($fn, cdr($l), $tail))
+}
+
+*FP::List::List::map_with_tail = flip2of3 \&list_map_with_tail;
+
 sub list_zip2 {
     @_ == 2 or fp_croak_arity 2;
     my ($l, $m) = @_;
@@ -1492,7 +1519,13 @@ sub list_filter_with_tail;
 sub list_map {
     @_ == 2 or fp_croak_arity 2;
     my ($fn, $l) = @_;
-    is_null($l) ? $l : cons(scalar &$fn(car $l), list_map($fn, cdr $l))
+    is_null($l) ? $l : cons(
+        scalar &$fn(car $l),
+        do {
+            no warnings 'recursion';
+            list_map($fn, cdr $l)
+        }
+    )
 }
 
 TEST {
@@ -1971,14 +2004,15 @@ TEST {
 sub list_any {
     @_ == 2 or fp_croak_arity 2;
     my ($pred, $l) = @_;
+    my $v;
 LP: {
         if (is_pair $l) {
-            (&$pred(car $l)) or do {
+            ($v = &$pred(car $l)) or do {
                 $l = cdr $l;
                 redo LP;
             }
         } elsif (is_null $l) {
-            0
+            $v
         } else {
             die "improper list"
         }
@@ -1994,7 +2028,7 @@ TEST {
 TEST {
     list_any sub { $_[0] % 2 }, array_to_list []
 }
-0;
+undef;
 TEST {
     list_any sub { $_[0] % 2 }, array_to_list [2, 5, 8]
 }
@@ -2260,6 +2294,41 @@ TEST_STDOUT {
     write_sexpr(mixed_flatten [1, 2, lazyLight { [3, 9] }], undef, \&lazyLight)
 }
 '("1" "2" "3" "9")';
+
+sub list_insertion_variants {
+    @_ == 2 or @_ == 3 or fp_croak_arity "2 or 3";
+    my ($l, $v, $variants_tail) = @_;
+    if (@_ == 2) {
+        $variants_tail = null
+    }
+    if ($l->is_null) {
+        cons(list($v), $variants_tail)
+    } else {
+        my ($a, $r) = $l->first_and_rest;
+        $r->insertion_variants($v)->map_with_tail(
+            sub {
+                my ($r2) = @_;
+                cons $a, $r2
+            },
+            $variants_tail
+        )->cons(cons($v, $l))
+    }
+}
+
+*FP::List::List::insertion_variants = \&list_insertion_variants;
+
+TEST {
+    list_insertion_variants list(qw(a b c)), 0
+}
+list(
+    list(0,   'a', 'b', 'c'),
+    list('a', 0,   'b', 'c'),
+    list('a', 'b', 0,   'c'),
+    list('a', 'b', 'c', 0)
+);
+TEST { list_insertion_variants list(qw(a)), 0, list "END" }
+list(list(0, 'a'), list('a', 0), 'END');
+TEST { list_insertion_variants list(), 0, list "END" } list(list(0), 'END');
 
 use FP::Char 'is_char';
 

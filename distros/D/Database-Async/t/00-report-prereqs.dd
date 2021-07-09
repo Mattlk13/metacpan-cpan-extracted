@@ -6,6 +6,8 @@ do { my $x = {
                       },
        'develop' => {
                       'requires' => {
+                                      'Devel::Cover' => '0',
+                                      'Devel::Cover::Report::Coveralls' => '0.11',
                                       'Dist::Zilla' => '5',
                                       'Dist::Zilla::PluginBundle::Author::TEAM' => '0',
                                       'Software::License::Perl_5' => '0',
@@ -33,7 +35,7 @@ do { my $x = {
                                       'Log::Any' => '1.050',
                                       'Module::Load' => '0',
                                       'Path::Tiny' => '0.108',
-                                      'Ryu' => '1.008',
+                                      'Ryu' => '3.002',
                                       'Ryu::Async' => '0.016',
                                       'Scalar::Util' => '1.50',
                                       'Syntax::Keyword::Try' => '0.11',

@@ -40,7 +40,7 @@ use App::Regather::Plugin;
 use constant SYNST => [ qw( LDAP_SYNC_PRESENT LDAP_SYNC_ADD LDAP_SYNC_MODIFY LDAP_SYNC_DELETE ) ];
 
 # my @DAEMONARGS = ($0, @ARGV);
-our $VERSION   = '0.80.03';
+our $VERSION   = '0.81.03';
 
 sub new {
   my $class = shift;
@@ -80,6 +80,11 @@ sub new {
 			 foreground => $self->{_opt}{fg},
 			 colors     => $self->{_opt}{colors} );
 
+  if ( $self->{_opt}{plugin_list} ) {
+    App::Regather::Plugin->new( 'list' )->run;
+    exit 0;
+  }
+
   $self->{_opt}{cf} = new
     App::Regather::Config ( filename => $self->{_opt}{config},
 			    logger   => $self->{_opt}{l},
@@ -111,11 +116,6 @@ sub new {
   if ( $self->{_opt}{ch} ) {
     $self->{_opt}{cf}->config_help;
     exit 1;
-  }
-
-  if ( $self->{_opt}{plugin_list} ) {
-    App::Regather::Plugin->new( 'list' )->run;
-    exit 0;
   }
 
   return $self;
@@ -177,6 +177,14 @@ sub run {
 	@svc_map = ();
       }
     }
+
+    push @{$cfgattrs}, '*'
+      if $self->cf->get('service', $i, 'all_attr') != 0;
+
+    $self->l->cc( pr => 'warning', ls => [ __PACKAGE__, $i, ],
+		  fm => "%s: no LDAP attribute to process is mapped for service `%s`" )
+      if $self->cf->get('service', $i, 'all_attr') == 0 && scalar @svc_map == 0;
+
   }
 
   @{$tmp} = sort @{[ @{$cfgattrs}, qw( associatedDomain
@@ -529,14 +537,30 @@ sub ldap_search_callback {
 	      $self->l->cc_ldap_err( mesg => $mesg );
 	      # exit $mesg->code; # !!! NEED TO DECIDE WHAT TO DO
 	    } else {
-	      ### here we pick last reqNewRDN entry, to find the latest UUID for entries
+	      ### here we pick last reqNewRDN entry up, to find the latest UUID for entries
 	      ### with same DN if the object was added/deleted/ModRDN-ed several times
 	      @entries = $mesg->sorted;
 	      $entry = pop @entries;
 	      if ( defined $entry ) {
 		$rdn_re = qr/^$rdn: .*$/;
-		foreach ( @{$entry->get_value('reqOld', asref => 1)} ) {
-		  $rdn_old = (split(/: /, $_))[1] if /$rdn_re/;
+		###### !!! NEDD FIX
+		### slapd.log-20210510-regather-fails-on-rdn
+		###
+		### here we're searching master db log, and the record is absent there, while
+		### it is still present (have no idea why) in local db log ...
+		###
+		### Can't use an undefined value as an ARRAY reference at /usr/local/lib/perl5/site_perl/App/Regather.pm line 546.
+		### BEGIN failed--compilation aborted at /usr/local/bin/regather line 10 (#1)
+		###     (F) A value used as either a hard reference or a symbolic reference must
+		###     be a defined value.  This helps to delurk some insidious errors.
+		### Uncaught exception from user code:
+		###         Can't use an undefined value as an ARRAY reference at /usr/local/lib/perl5/site_perl/App/Regather.pm line 546.
+		###         BEGIN failed--compilation aborted at /usr/local/bin/regather line 10.
+		###### !!! NEED FIX
+		if ( $entry->exists('reqOld') {
+		  foreach ( @{$entry->get_value('reqOld', asref => 1)} ) {
+		    $rdn_old = (split(/: /, $_))[1] if /$rdn_re/;
+		  }
 		}
 		### now we reconstruct original object
 		$mesg = $self->o('ldap')->search( base     => $self->cf->get(qw(ldap srch log_base)),

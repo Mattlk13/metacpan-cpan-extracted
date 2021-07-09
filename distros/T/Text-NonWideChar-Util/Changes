@@ -1,5 +1,28 @@
-Revision history for Text-NonWideChar-Util
+0.004   2021-04-16  Released-By: PERLANCAR; Urgency: low
 
-0.001   2016-07-30 (PERLANCAR)
+        - No functional changes.
+
+	- [dzil] [bugfix] [build] Forgot to use InsertBlock::FromModule
+	  dzil plugin.
+
+	- Edit Changes.
+
+
+0.003   2021-04-14  Released-By: PERLANCAR; Urgency: low
+
+	- No functional changes.
+
+	- [doc] Add FAQ item about the reason for splitting functionalities
+	  over modules/distributions.
+
+
+0.002   2021-01-23  Released-By: PERLANCAR; Urgency: low
+
+        - No functional changes.
+
+	- [doc] Mention some other related modules.
+
+
+0.001   2016-07-30  Released-By: PERLANCAR
 
         - First release.

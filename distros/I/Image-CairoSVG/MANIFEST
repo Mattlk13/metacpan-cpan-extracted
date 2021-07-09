@@ -1,7 +1,12 @@
+apostrophe.svg
 Changes
+examples/durn.png
 examples/locust.png
 examples/locust.svg
+examples/scale.pl
 examples/synopsis.pl
+examples/urn.png
+examples/urn.svg
 lib/Image/CairoSVG.pm
 lib/Image/CairoSVG.pod
 Makefile.PL
@@ -15,6 +20,8 @@ t/Church.svg
 t/from-scalar.png
 t/image-cairosvg.t
 t/image-similar.t
+t/line.png
+t/line.svg
 t/Technical_college-nosurf.png
 t/Technical_college.png
 t/Technical_college.svg

@@ -1,5 +1,5 @@
 package Photonic::LE::NR2::SHP;
-$Photonic::LE::NR2::SHP::VERSION = '0.014';
+$Photonic::LE::NR2::SHP::VERSION = '0.017';
 
 =encoding UTF-8
 
@@ -9,14 +9,14 @@ Photonic::LE::NR2::SHP
 
 =head1 VERSION
 
-version 0.014
+version 0.017
 
 =head1 COPYRIGHT NOTICE
 
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -44,10 +44,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
 =head1 SYNOPSIS
 
    use Photonic::LE::NR2::SHP;
-   my $nrshp=Photonic::LE::NR2::SHP->
-             new(nrf=>$nrf, densityA=>$dA, densityB=>$dB));
-
-
+   my $nrshp=Photonic::LE::NR2::SHP->new(
+             nrf=>$nrf, densityA=>$dA, densityB=>$dB);
 
 =head1 DESCRIPTION
 
@@ -73,7 +71,7 @@ $dB is the density of polarizable entities in medium B
 
 =back
 
-=head1 ACCESORS (read only)
+=head1 ACCESSORS (read only)
 
 =over 4
 
@@ -106,14 +104,8 @@ Number of dimensions of the system
 use namespace::autoclean;
 use PDL::Lite;
 use PDL::NiceSlice;
-use PDL::Complex;
-use PDL::FFTW3;
-use PDL::Constants qw(PI);
-use Photonic::Utils qw(RtoG HProd linearCombine);
-use Photonic::ExtraUtils qw(cgtsl);
 use Moose;
 use MooseX::StrictConstructor;
-
 
 has 'nrf'=>(is=>'ro', isa=>'Photonic::LE::NR2::Field', required=>1,
          documentation=>'Haydock field calculator');

@@ -24,6 +24,7 @@ examples/lextest
 examples/perlcomment.pl
 examples/perllinetype.pl
 examples/perlmask.pl
+examples/perltidy_hide.pl
 examples/perltidy_okw.pl
 examples/perltidyrc_dump.pl
 examples/perlxmltok.pl
@@ -73,6 +74,7 @@ t/snippets20.t
 t/snippets21.t
 t/snippets22.t
 t/snippets23.t
+t/snippets24.t
 t/snippets3.t
 t/snippets4.t
 t/snippets5.t

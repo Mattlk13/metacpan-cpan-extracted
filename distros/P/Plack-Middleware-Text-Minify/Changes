@@ -1,5 +1,23 @@
 Revision history for Plack-Middleware-Text-Minify:
 
+v0.2.0    2021-05-21 14:05:48+01:00 Europe/London
+  [Enhancements]
+  - Do not minify if the `psgix.no-minify` key is true.
+
+v0.1.6    2021-05-15 17:10:03+01:00 Europe/London
+  [Documentation]
+  - Added note about multiple newlines.
+
+v0.1.5    2021-05-06 12:57:13+01:00 Europe/London
+  [Bug Fixes]
+  - Bump minimum version of Text::Minify::XS to v0.4.0.
+
+  [Documentation]
+  - Added note about whitespace cleanup in templating systems.
+
+  [Tests]
+  - Add more author tests.
+
 v0.1.4    2021-01-05 14:29:37+00:00 Europe/London
   [Bug Fixes]
   - Upgrade minimum version of Text::Minify::XS to v0.3.6, GH#2.

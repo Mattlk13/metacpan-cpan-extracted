@@ -9,7 +9,7 @@ my %WriteMakefileArgs = (
     VERSION_FROM     => 'lib/Finance/IG.pm',
     ABSTRACT_FROM    => 'lib/Finance/IG.pm',
     LICENSE          => 'artistic_2',
-    MIN_PERL_VERSION => '5.10',
+    MIN_PERL_VERSION => '5.01',
     CONFIGURE_REQUIRES => {
         'ExtUtils::MakeMaker' => '0',
     },
@@ -26,6 +26,10 @@ my %WriteMakefileArgs = (
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES => 'Finance-IG-*' },
+    EXE_FILES=>['script/igdisp.pl'],
+    META_ADD => {
+  					  no_index => [ qw{ lib/Finance/IG/Record } ],
+                }, 
 );
 
 # Compatibility with old versions of ExtUtils::MakeMaker

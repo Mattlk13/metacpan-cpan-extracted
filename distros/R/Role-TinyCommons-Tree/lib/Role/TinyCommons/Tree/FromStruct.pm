@@ -1,9 +1,9 @@
 package Role::TinyCommons::Tree::FromStruct;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-04-14'; # DATE
+our $DATE = '2021-07-02'; # DATE
 our $DIST = 'Role-TinyCommons-Tree'; # DIST
-our $VERSION = '0.124'; # VERSION
+our $VERSION = '0.127'; # VERSION
 
 use Role::Tiny;
 use Role::Tiny::With;
@@ -33,11 +33,11 @@ Role::TinyCommons::Tree::FromStruct - Role that provides methods to build tree o
 
 =head1 VERSION
 
-This document describes version 0.124 of Role::TinyCommons::Tree::FromStruct (from Perl distribution Role-TinyCommons-Tree), released on 2020-04-14.
+This document describes version 0.127 of Role::TinyCommons::Tree::FromStruct (from Perl distribution Role-TinyCommons-Tree), released on 2021-07-02.
 
-=head1 REQUIRED METHODS
+=head1 MIXED IN ROLES
 
-L<Role::TinyCommons::Tree::Node>
+L<Role::TinyCommons::Tree::NodeMethods>
 
 =head1 PROVIDED METHODS
 
@@ -167,6 +167,9 @@ feature.
 L<Code::Includable::Tree::FromStruct> if you want to use the routines in this
 module without consuming a role.
 
+L<Role::TinyCommons::Tree::FromObjArray> if you want to build a tree of objects
+from a nested array of objects.
+
 L<Role::TinyCommons::Tree::Node>
 
 L<Role::TinyCommons>
@@ -177,7 +180,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2016 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2016 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

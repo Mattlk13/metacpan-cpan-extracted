@@ -29,7 +29,8 @@ use Google::Ads::GoogleAds::Utils::GoogleAdsHelper;
 use Google::Ads::GoogleAds::GoogleAdsException;
 
 use Class::Std::Fast;
-use LWP::UserAgent;
+use LWP::UserAgent::Determined;
+use HTTP::Status qw(:constants);
 use JSON::XS;
 use URI::Query;
 use utf8;
@@ -48,7 +49,7 @@ my %__json_coder_of : ATTR(:name<__json_coder> :default<>);
 sub START {
   my ($self, $ident) = @_;
 
-  $__lwp_agent_of{$ident} ||= LWP::UserAgent->new();
+  $__lwp_agent_of{$ident} ||= LWP::UserAgent::Determined->new();
   # The 'pretty' attribute should be enabled for more readable form in the log.
   # The 'convert_blessed' attributed should be enabled to convert blessed objects.
   $__json_coder_of{$ident} ||= JSON::XS->new->utf8->pretty->convert_blessed;
@@ -67,11 +68,11 @@ sub call {
   ##############################################################################
   if ($http_method eq GET) {
     # HTTP GET request scenarios:
-    #  GET: v6/customers:listAccessibleCustomers
-    #  GET: v6/{+resourceName}
-    #  GET: v6/{+resourceName}:listResults
-    #  GET: v6/customers/{+customerId}/paymentsAccounts
-    #  GET: v6/customers/{+customerId}/merchantCenterLinks
+    #  GET: v8/customers:listAccessibleCustomers
+    #  GET: v8/{+resourceName}
+    #  GET: v8/{+resourceName}:listResults
+    #  GET: v8/customers/{+customerId}/paymentsAccounts
+    #  GET: v8/customers/{+customerId}/merchantCenterLinks
     $request_path = expand_path_template($request_path, $request_body);
 
     # GET: When the $request_body is a hash reference, use the path parameters
@@ -86,13 +87,13 @@ sub call {
     }
   } elsif ($http_method eq POST) {
     # HTTP POST request scenarios:
-    #  POST: v6/geoTargetConstants:suggest
-    #  POST: v6/googleAdsFields:search
-    #  POST: v6/customers/{+customerId}/googleAds:search
-    #  POST: v6/customers/{+customerId}/campaigns:mutate
-    #  POST: v6/{+keywordPlan}:generateForecastMetrics
-    #  POST: v6/{+campaignDraft}:promote
-    #  POST: v6/{+resourceName}:addOperations
+    #  POST: v8/geoTargetConstants:suggest
+    #  POST: v8/googleAdsFields:search
+    #  POST: v8/customers/{+customerId}/googleAds:search
+    #  POST: v8/customers/{+customerId}/campaigns:mutate
+    #  POST: v8/{+keywordPlan}:generateForecastMetrics
+    #  POST: v8/{+campaignDraft}:promote
+    #  POST: v8/{+resourceName}:addOperations
 
     # POST: Retain the 'customerId' variable in the $request_body hash
     # reference after the $request_path is expanded.
@@ -103,7 +104,7 @@ sub call {
     $request_body->{customerId} = $customer_id if defined $customer_id;
   } else {
     # Other HTTP request scenarios:
-    #  DELETE: v6/{+name} for OperationService
+    #  DELETE: v8/{+name} for OperationService
     $request_path = expand_path_template($request_path, $request_body);
   }
 
@@ -141,13 +142,24 @@ sub call {
 
   my $lwp_agent = $self->get___lwp_agent();
 
-  # Set up http timeout and proxy for the lwp agent.
+  # Set up HTTP timeout, retry and proxy for the lwp agent.
   my $http_timeout = $api_client->get_http_timeout();
   $lwp_agent->timeout(
       $http_timeout
     ? $http_timeout
     : Google::Ads::GoogleAds::Constants::DEFAULT_HTTP_TIMEOUT
   );
+
+  my $http_retry_timing = $api_client->get_http_retry_timing();
+  $lwp_agent->timing(
+      $http_retry_timing
+    ? $http_retry_timing
+    : Google::Ads::GoogleAds::Constants::DEFAULT_HTTP_RETRY_TIMING
+  );
+  # Retry for status codes 503 & 504 to be parity with gRPC.
+  $lwp_agent->codes_to_determinate(
+    {HTTP_SERVICE_UNAVAILABLE => 1, HTTP_GATEWAY_TIMEOUT => 1});
+
   my $proxy = $api_client->get_proxy();
   $proxy
     ? $lwp_agent->proxy(['http', 'https'], $proxy)
@@ -215,7 +227,7 @@ sub call {
 
 # Protected method to generate the appropriate REST request headers.
 sub _get_http_headers {
-  my ($self) = @_;
+  my $self = shift;
 
   my $api_client = $self->get_api_client();
 

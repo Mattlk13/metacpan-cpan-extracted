@@ -7,9 +7,12 @@ use Geo::LibProj::cs2cs;
 my $proj_available;
 
 
-use Test::More 0.96 tests => 3 + 1;
+use Test::More 0.96;
 use Test::Exception;
 use Test::Warnings;
+
+plan skip_all => 'test designed for POSIX' if $^O =~ m/MSWin32/;
+plan tests => 3 + 1;
 
 
 my ($c, $p, @p);
@@ -50,10 +53,11 @@ subtest 'transform usage' => sub {
 
 my $old_cmd = $Geo::LibProj::cs2cs::CMD;
 subtest 'child failure' => sub {
+	plan skip_all => 'test requires IPC' if $INC{'Geo/LibProj/FFI.pm'};
 	plan tests => 8;
 	
 	$Geo::LibProj::cs2cs::CMD = 'false';
-	throws_ok { Geo::LibProj::cs2cs->version; } qr/\bexited with status 1\b/, 'exit status';
+	throws_ok { Geo::LibProj::cs2cs->version; } qr/\bexited with status /, 'exit status';
 	$Geo::LibProj::cs2cs::CMD = '/dev/null';
 	throws_ok { Geo::LibProj::cs2cs->version; } qr/\bfailed to execute\b/, 'failed to execute';
 	

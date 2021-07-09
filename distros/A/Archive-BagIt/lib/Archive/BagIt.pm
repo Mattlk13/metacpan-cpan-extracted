@@ -3,17 +3,15 @@ use strict;
 use warnings;
 use utf8;
 use open ':std', ':encoding(UTF-8)';
-use Encode qw(decode);
-use File::Find;
-use File::Spec;
-use Digest::MD5;
-use Class::Load qw(load_class);
-use Carp;
-use POSIX qw(strftime);
+use Encode qw( decode );
+use File::Spec ();
+use Class::Load qw( load_class );
+use Carp qw( carp croak );
+use POSIX qw( strftime );
 use Moo;
 with "Archive::BagIt::Role::Portability";
 
-our $VERSION = '0.071'; # VERSION
+our $VERSION = '0.075'; # VERSION
 
 # ABSTRACT: The main module to handle bags.
 
@@ -177,6 +175,16 @@ has 'errors' => (
 ###############################################
 
 
+
+has 'warnings' => (
+    is   => 'ro',
+    lazy => 1,
+    builder => sub { my $self = shift; return [];},
+);
+
+###############################################
+
+
 has 'digest_callback' => (
     is      => 'ro',
     lazy    => 1,
@@ -310,8 +318,7 @@ sub verify_baginfo {
             $ret = undef;
         }
     } else {
-        push @{$self->{errors}}, "Payload-Oxum was expected in bag-info.txt, but not found!";
-        $ret = undef;
+        push @{$self->{warnings}}, "Payload-Oxum was expected in bag-info.txt, but not found!"; # payload-oxum is recommended, but optional
     }
     return $ret;
 }
@@ -947,7 +954,7 @@ Archive::BagIt - The main module to handle bags.
 
 =head1 VERSION
 
-version 0.071
+version 0.075
 
 =head1 NAME
 
@@ -1174,6 +1181,10 @@ returns true if bag info exists.
 
 Getter to return collected errors after a C<verify_bag()> call with Option C<report_all_errors>
 
+=head2 warnings()
+
+Getter to return collected warnings after a C<verify_bag()> call
+
 =head2 digest_callback()
 
 This method could be reimplemented by derived classes to handle fixity checks in own way. The
@@ -1202,6 +1213,7 @@ returns true if key is reserved
 =head2 verify_baginfo()
 
 checks baginfo-keys, returns true if all fine, otherwise returns undef and the message is pushed to C<errors()>.
+Warnings pushed to C< warnings() >
 
 =head2 delete_baginfo_by_key( $searchkey )
 

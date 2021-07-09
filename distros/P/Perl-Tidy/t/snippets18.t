@@ -273,7 +273,8 @@ my ( $a, $b, $c ) = @_;    # test -nsak="my for"
                 _("Cannot delete zone $name: sub-zones or appellations exist.")
             );
 
-	    # fixed RULE 1: this is now a stable state with -wn
+	    # OLD: fixed RULE 1: this is now a stable state with -wn
+	    # NEW (30 jan 2021): do not weld if one interior token
             $app->FORM->{'appbar1'}->set_status(_(
                  "Cannot delete zone $name: sub-zones or appellations exist."));
 ----------
@@ -321,7 +322,8 @@ my ( $a, $b, $c ) = @_;    # test -nsak="my for"
                 _("Cannot delete zone $name: sub-zones or appellations exist.")
             );
 
-            # fixed RULE 1: this is now a stable state with -wn
+            # OLD: fixed RULE 1: this is now a stable state with -wn
+            # NEW (30 jan 2021): do not weld if one interior token
             $app->FORM->{'appbar1'}->set_status(
                 _("Cannot delete zone $name: sub-zones or appellations exist.")
             );
@@ -337,7 +339,9 @@ my ( $a, $b, $c ) = @_;    # test -nsak="my for"
             # fixed RULE 1 only applies to '('
             my $res = eval { { $die_on_fetch, 0 } };
 
-            my $res = eval { { $die_on_fetch, 0 } };
+            my $res = eval {
+                { $die_on_fetch, 0 }
+            };
 
             # fixed RULE 2 applies to any inner opening token; this is a stable
             # state with -wn
@@ -345,9 +349,11 @@ my ( $a, $b, $c ) = @_;    # test -nsak="my for"
                 _("Cannot delete zone $name: sub-zones or appellations exist.")
             );
 
-            # fixed RULE 1: this is now a stable state with -wn
-            $app->FORM->{'appbar1'}->set_status( _(
-                "Cannot delete zone $name: sub-zones or appellations exist.") );
+            # OLD: fixed RULE 1: this is now a stable state with -wn
+            # NEW (30 jan 2021): do not weld if one interior token
+            $app->FORM->{'appbar1'}->set_status(
+                _("Cannot delete zone $name: sub-zones or appellations exist.")
+            );
 #3...........
         },
 

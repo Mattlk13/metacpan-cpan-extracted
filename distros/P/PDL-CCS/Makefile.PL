@@ -41,6 +41,17 @@ WriteMakefile(
 				     'ExtUtils::MakeMaker'=>0,
 				     'Data::Dumper' => 0,
 				    },
+	      ##
+	      META_MERGE => {
+			     "meta-spec" => { version => 2 },
+			     resources => {
+					   repository => {
+							  url => 'git://github.com/moocow-the-bovine/PDL-CCS.git',
+							  type => 'git',
+							  web => 'https://github.com/moocow-the-bovine/PDL-CCS',
+							 },
+					  },
+			    },
 	     );
 
 ##-- avoid applying 'processPL' rules to 'Config.PL'

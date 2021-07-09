@@ -1,5 +1,16 @@
 Revision history for Redis
 
+0.31 2021-07-04T06:50:31Z
+    - call the callback sub when we get connection error, fixes #117 #118
+
+0.30 2021-05-07T13:06:59Z
+    - fix broken tests using fork(2) #112
+    - do not self->ac = NULL out of callback functions to avoid memory leak #111
+
+0.29 2021-01-17T10:35:59Z
+    - fix Segmentation fault when connection failed #105
+    - fix pod of Redis::Fast::Hash and Redis::Fast::List #106
+
 0.28 2020-11-01T23:04:30Z
     - make the reconnect option double #101
     - fix memory leak of info command #102

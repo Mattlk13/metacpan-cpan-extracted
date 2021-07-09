@@ -13,42 +13,47 @@
 #include "spvm_field.h"
 #include "spvm_limit.h"
 #include "spvm_basic_type.h"
-#include "spvm_sub.h"
+#include "spvm_method.h"
 
-const char* const SPVM_TYPE_TYPE_CATEGORY_C_ID_NAMES[] = {
-  "UNKNOWN",
-  "BYTE",
-  "SHORT",
-  "INT",
-  "LONG",
-  "FLOAT",
-  "DOUBLE",
-  "MULNUM_BYTE",
-  "MULNUM_SHORT",
-  "MULNUM_INT",
-  "MULNUM_LONG",
-  "MULNUM_FLOAT",
-  "MULNUM_DOUBLE",
-  "ANY_OBJECT",
-  "PACKAGE",
-  "NUMERIC_ARRAY",
-  "MULNUM_ARRAY",
-  "OBJECT_ARRAY",
-  "REF_BYTE",
-  "REF_SHORT",
-  "REF_INT",
-  "REF_LONG",
-  "REF_FLOAT",
-  "REF_DOUBLE",
-  "REF_MULNUM_BYTE",
-  "REF_MULNUM_SHORT",
-  "REF_MULNUM_INT",
-  "REF_MULNUM_LONG",
-  "REF_MULNUM_FLOAT",
-  "REF_MULNUM_DOUBLE",
-  "VOID",
-  "STRING",
-};
+const char* const* SPVM_TYPE_TYPE_CATEGORY_C_ID_NAMES(void) {
+
+  static const char* const id_names[] = {
+    "UNKNOWN",
+    "BYTE",
+    "SHORT",
+    "INT",
+    "LONG",
+    "FLOAT",
+    "DOUBLE",
+    "MULNUM_BYTE",
+    "MULNUM_SHORT",
+    "MULNUM_INT",
+    "MULNUM_LONG",
+    "MULNUM_FLOAT",
+    "MULNUM_DOUBLE",
+    "ANY_OBJECT",
+    "PACKAGE",
+    "NUMERIC_ARRAY",
+    "MULNUM_ARRAY",
+    "OBJECT_ARRAY",
+    "REF_BYTE",
+    "REF_SHORT",
+    "REF_INT",
+    "REF_LONG",
+    "REF_FLOAT",
+    "REF_DOUBLE",
+    "REF_MULNUM_BYTE",
+    "REF_MULNUM_SHORT",
+    "REF_MULNUM_INT",
+    "REF_MULNUM_LONG",
+    "REF_MULNUM_FLOAT",
+    "REF_MULNUM_DOUBLE",
+    "VOID",
+    "STRING",
+  };
+  
+  return id_names;
+}
 
 int32_t SPVM_TYPE_get_type_category(SPVM_COMPILER* compiler, int32_t basic_type_id, int32_t dimension, int32_t flag) {
   
@@ -245,13 +250,13 @@ int32_t SPVM_TYPE_has_callback(
   SPVM_PACKAGE* callback = callback_basic_type->package;
   
   // Package which have only anon sub
-  if (package->flag & SPVM_PACKAGE_C_FLAG_ANON_SUB_PACKAGE) {
-    assert(package->subs->length == 1);
-    assert(callback->subs->length == 1);
-    SPVM_SUB* sub_callback = SPVM_LIST_fetch(callback->subs, 0);
-    SPVM_SUB* found_sub = SPVM_LIST_fetch(package->subs, 0);
+  if (package->flag & SPVM_PACKAGE_C_FLAG_ANON_METHOD_PACKAGE) {
+    assert(package->methods->length == 1);
+    assert(callback->methods->length == 1);
+    SPVM_METHOD* method_callback = SPVM_LIST_fetch(callback->methods, 0);
+    SPVM_METHOD* found_method = SPVM_LIST_fetch(package->methods, 0);
     
-    if (strcmp(sub_callback->signature, found_sub->signature) == 0) {
+    if (strcmp(method_callback->signature, found_method->signature) == 0) {
       return 1;
     }
     else {
@@ -260,15 +265,15 @@ int32_t SPVM_TYPE_has_callback(
   }
   // Normal package
   else {
-    assert(callback->subs->length == 1);
-    SPVM_SUB* sub_callback = SPVM_LIST_fetch(callback->subs, 0);
+    assert(callback->methods->length == 1);
+    SPVM_METHOD* method_callback = SPVM_LIST_fetch(callback->methods, 0);
     
-    SPVM_SUB* found_sub = SPVM_HASH_fetch(package->sub_symtable, sub_callback->name, strlen(sub_callback->name));
-    if (!found_sub) {
+    SPVM_METHOD* found_method = SPVM_HASH_fetch(package->method_symtable, method_callback->name, strlen(method_callback->name));
+    if (!found_method) {
       return 0;
     }
     
-    if (strcmp(sub_callback->signature, found_sub->signature) == 0) {
+    if (strcmp(method_callback->signature, found_method->signature) == 0) {
       return 1;
     }
     else {
@@ -344,6 +349,7 @@ SPVM_TYPE* SPVM_TYPE_new(SPVM_COMPILER* compiler) {
 }
 
 int32_t SPVM_TYPE_is_ref_type(SPVM_COMPILER* compiler, int32_t basic_type_id, int32_t dimension, int32_t flag) {
+  (void)compiler;
   (void)basic_type_id;
   (void)dimension;
   
@@ -1102,6 +1108,7 @@ int32_t SPVM_TYPE_is_value_array_type(SPVM_COMPILER* compiler, int32_t basic_typ
 
 int32_t SPVM_TYPE_basic_type_is_multi_numeric_type(SPVM_COMPILER* compiler, int32_t basic_type_id, int32_t dimension, int32_t flag) {
   (void)compiler;
+  (void)dimension;
 
   SPVM_BASIC_TYPE* basic_type = SPVM_LIST_fetch(compiler->basic_types, basic_type_id);
   
@@ -1136,7 +1143,6 @@ int32_t SPVM_TYPE_get_width(SPVM_COMPILER* compiler, int32_t basic_type_id, int3
     SPVM_BASIC_TYPE* basic_type = SPVM_LIST_fetch(compiler->basic_types, basic_type_id);
     assert(basic_type);
     
-    const char* basic_type_name = basic_type->name;
     SPVM_PACKAGE* package = basic_type->package;
     
     assert(package);

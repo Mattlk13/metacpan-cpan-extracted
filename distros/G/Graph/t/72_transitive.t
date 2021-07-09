@@ -1,5 +1,5 @@
 use strict; use warnings;
-use Test::More tests => 235;
+use Test::More;
 
 use Graph::Directed;
 use Graph::Undirected;
@@ -467,6 +467,14 @@ EOF
 }
 
 {
+    my $g = Graph::Undirected->new;
+    $g->add_path(qw(A B C A));
+    my $tcg = $g->transitive_closure;
+    my @paths = sort { @$a <=> @$b } $tcg->all_paths("A", "C");
+    is_deeply \@paths, [ [qw(A C)], [qw(A B C)] ], "no infinite loop";
+}
+
+{
     # 9 4 8 are a cycle, plus longer cycle 9 4 8 7
     # other paths: 1-7, 6-2-3
     my @example = (
@@ -506,3 +514,16 @@ EOF
 EOF
     ok $tcg->is_reachable(7, 8), '7-8 reachable when on cycle';
 }
+
+{
+  my $g = Graph::Directed->new(edges => [
+    [qw(A C)], [qw(A NOTA)], [qw(B A)], [qw(B C)], [qw(B NOTA)],
+  ]);
+  $g->delete_vertex('C');
+  my $tc = $g->transitive_closure;
+  is $tc, 'A-A,A-NOTA,B-A,B-B,B-NOTA,NOTA-NOTA';
+  $tc->delete_edge($_,$_) for qw(A B C N);
+  is $tc, 'A-NOTA,B-A,B-NOTA,NOTA-NOTA';
+}
+
+done_testing;

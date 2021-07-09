@@ -1,5 +1,51 @@
 # Revision history for Perl extension Net::Z3950::FOLIO.
 
+## [2.1.0](https://github.com/folio-org/Net-Z3950-FOLIO/tree/v2.1.0) (Thu May  6 16:17:03 BST 2021)
+
+* Add missing virtual fields to the GraphQL query used to fetch instances with their holdings and items: holdings temporary location, and item permanent and temporary locations. When used with a suffiently recent mod-graphql, fixes ZF-43.
+* The GraphQL query now specifies to fetch up to 100 holdings records, and up to 100 items per holdings record. Fixes ZF-42.
+* The virtual item records in holdings, from which OPAC records and holdings-related MARC fields are generated, now contains not only `temporaryLocation` but also the private field `_permanentLocation`. MARC holdings mappings can refer to this field, and the examples now map it to subfield `L` of the 952 field. An attempt to be all things to all people in ZF-43.
+* Updates to release-procedure documentation.
+
+## [2.0.0](https://github.com/folio-org/Net-Z3950-FOLIO/tree/v2.0.0) (Mon Apr 26 12:19:40 BST 2021)
+
+* Change to three-facet version numbers, which it turns out Perl has supported for a long time. This is necessary (as well as desirable) because CPAN thinks version 1.10 is older than 1.9, which is why there is no version 1.10 there. Fixes ZF-46.
+* Update [the release-procedure document](doc/release-procedure.md) to mention FOLIO-standard handling of version-number in [the module descriptor](ModuleDescriptor.json). Fixes ZF-45.
+* Increase version number to 2.0.0, so CPAN will recognise this as newer. **NOTE.** No functional changes since v1.10.
+
+## [1.10](https://github.com/folio-org/Net-Z3950-FOLIO/tree/v1.10) (Fri Apr 23 16:30:29 BST 2021)
+
+* Add and document boolean `nologin` configuration element, which prevents login. This is potentially useful for running against hypothetical unsecured FOLIO instances, but the real reason we need it is for testing.
+* Add [new test-suite script](t/07-fetch.t) that exercises the Z39.50 server's Fetch operation to get a higher-level entry into all the underlying mechanisms. Fixes ZF-37.
+* MARCXML output now includes the same generated holdings-and-items data as USMARC output. Fixes ZF-38.
+* Refactor internals so each Record is responsible for its own MARC, etc. Fixes ZF-39.
+* Rename all snake-case methods to consistent camel-case. Fixes ZF-40.
+* Fetching a record more than once no longer repeatedly appends multiple sets of holdings/item information. Fixes ZF-36.
+* Post-processing is be applied to generated holdings and item fields. Fixes ZF-35.
+* Replicate holdings-level permanent location at the item level, whence it can be included in MARC records. Fixes ZF-34.
+* Update [source-code overview documentation](doc/source-code-overview.md). Fixes ZF-41.
+
+## [1.9](https://github.com/folio-org/Net-Z3950-FOLIO/tree/v1.9) (Tue Mar  9 16:51:24 GMT 2021)
+
+* Barcode Search in default connfiguration (use attribute 9998) now uses exact match (`==`) rather than the default string match operator (`=`). Fixes an issue raised in DEVOPS-558.
+
+## [1.8](https://github.com/folio-org/Net-Z3950-FOLIO/tree/v1.8) (Fri Feb 26 12:12:08 GMT 2021)
+
+* Optionally, restrict item-level MARC holdings info to item mentioned in barcode search. Fixes ZF-32.
+* Make `t/07-short-session.t` robust: skip this test if `zoomsh` is not available.
+
+## [1.7](https://github.com/folio-org/Net-Z3950-FOLIO/tree/v1.7) (Wed Feb 24 18:28:36 GMT 2021)
+
+* The `stripDiacritics` post-processor handles additional special cases. Fixes ZF-31.
+* [The sample `Dockerfile`](Dockerfile) now invokes the server with the `-v-session` command-line option. This disables logging of new and ended sessions, which is a practical neccesity when deployed using Kubernetes, AWS ECS or similar setups, as these frequently ping the server to check that it's alive, resulting in log-flooding.
+* Clarifications to the documentation.
+* We no longer need to use a configuration override for ISBN searching in the Chicago service. Completes ZF-24.
+* Towards providing MARC holdings data. Part of ZF-30.
+
+## [1.6](https://github.com/folio-org/Net-Z3950-FOLIO/tree/v1.6) (Tue Jan 26 15:34:56 GMT 2021)
+
+* Element-set names are treated case-insensitively, meaning that (among other things) "F" and "B" are recognized as well as "f" and "b". Fixes ZF-29.
+
 ## [1.5](https://github.com/folio-org/Net-Z3950-FOLIO/tree/v1.5) (Mon Nov 30 15:07:08 GMT 2020)
 
 * Bring version-number in [`ModuleDescriptor.json`](ModuleDescriptor.json) up to date. I forgot to do this in v1.4, with the result that it wouldn't build in Jenkins.

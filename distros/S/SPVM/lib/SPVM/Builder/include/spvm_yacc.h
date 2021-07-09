@@ -41,7 +41,7 @@
    enum yytokentype {
      PACKAGE = 258,
      HAS = 259,
-     SUB = 260,
+     METHOD = 260,
      OUR = 261,
      ENUM = 262,
      MY = 263,
@@ -101,39 +101,43 @@
      STREQ = 317,
      NUMNE = 318,
      NUMEQ = 319,
-     ISA = 320,
-     STRLE = 321,
-     STRLT = 322,
-     STRGE = 323,
-     STRGT = 324,
-     NUMLE = 325,
-     NUMLT = 326,
-     NUMGE = 327,
-     NUMGT = 328,
-     SHIFT = 329,
-     REMAINDER = 330,
-     DIVIDE = 331,
-     MULTIPLY = 332,
-     REFCNT = 333,
-     ISWEAK = 334,
-     LENGTH = 335,
-     SCALAR = 336,
-     CONVERT = 337,
-     MINUS = 338,
-     PLUS = 339,
-     DEREF = 340,
-     REF = 341,
-     BIT_NOT = 342,
-     LOGICAL_NOT = 343,
-     DEC = 344,
-     INC = 345,
-     ARROW = 346
+     STRING_CMP = 320,
+     NUMERIC_CMP = 321,
+     ISA = 322,
+     STRLE = 323,
+     STRLT = 324,
+     STRGE = 325,
+     STRGT = 326,
+     NUMLE = 327,
+     NUMLT = 328,
+     NUMGE = 329,
+     NUMGT = 330,
+     SHIFT = 331,
+     REMAINDER = 332,
+     DIVIDE = 333,
+     MULTIPLY = 334,
+     DUMP = 335,
+     REFOP = 336,
+     REFCNT = 337,
+     ISWEAK = 338,
+     STRING_LENGTH = 339,
+     SCALAR = 340,
+     CONVERT = 341,
+     MINUS = 342,
+     PLUS = 343,
+     DEREF = 344,
+     CREATE_REF = 345,
+     BIT_NOT = 346,
+     LOGICAL_NOT = 347,
+     DEC = 348,
+     INC = 349,
+     ARROW = 350
    };
 #endif
 /* Tokens.  */
 #define PACKAGE 258
 #define HAS 259
-#define SUB 260
+#define METHOD 260
 #define OUR 261
 #define ENUM 262
 #define MY 263
@@ -193,33 +197,37 @@
 #define STREQ 317
 #define NUMNE 318
 #define NUMEQ 319
-#define ISA 320
-#define STRLE 321
-#define STRLT 322
-#define STRGE 323
-#define STRGT 324
-#define NUMLE 325
-#define NUMLT 326
-#define NUMGE 327
-#define NUMGT 328
-#define SHIFT 329
-#define REMAINDER 330
-#define DIVIDE 331
-#define MULTIPLY 332
-#define REFCNT 333
-#define ISWEAK 334
-#define LENGTH 335
-#define SCALAR 336
-#define CONVERT 337
-#define MINUS 338
-#define PLUS 339
-#define DEREF 340
-#define REF 341
-#define BIT_NOT 342
-#define LOGICAL_NOT 343
-#define DEC 344
-#define INC 345
-#define ARROW 346
+#define STRING_CMP 320
+#define NUMERIC_CMP 321
+#define ISA 322
+#define STRLE 323
+#define STRLT 324
+#define STRGE 325
+#define STRGT 326
+#define NUMLE 327
+#define NUMLT 328
+#define NUMGE 329
+#define NUMGT 330
+#define SHIFT 331
+#define REMAINDER 332
+#define DIVIDE 333
+#define MULTIPLY 334
+#define DUMP 335
+#define REFOP 336
+#define REFCNT 337
+#define ISWEAK 338
+#define STRING_LENGTH 339
+#define SCALAR 340
+#define CONVERT 341
+#define MINUS 342
+#define PLUS 343
+#define DEREF 344
+#define CREATE_REF 345
+#define BIT_NOT 346
+#define LOGICAL_NOT 347
+#define DEC 348
+#define INC 349
+#define ARROW 350
 
 
 

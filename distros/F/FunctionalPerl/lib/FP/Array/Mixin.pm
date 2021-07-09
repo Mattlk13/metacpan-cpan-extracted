@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2014-2020 Christian Jaeger, copying@christianjaeger.ch
+# Copyright (c) 2014-2021 Christian Jaeger, copying@christianjaeger.ch
 #
 # This is free software, offered under either the same terms as perl 5
 # or the terms of the Artistic License version 2 or the terms of the
@@ -37,6 +37,7 @@ use warnings;
 use warnings FATAL => 'uninitialized';
 
 use FP::Carp;
+use Carp;
 use FP::Optional qw(perhaps_to_maybe);
 use FP::Combinators qw (flip flip2of3 rot3right rot3left);
 use FP::Array ":all";
@@ -184,39 +185,40 @@ sub FP_Sequence_length {
     my ($self, $prefixlen) = @_;
     $prefixlen + $self->length
 }
-*set                 = blessing \&array_set;
-*update              = blessing \&array_update;
-*push                = blessing \&array_push;
-*pop                 = blessing_snd \&array_pop;
-*shift               = blessing_snd \&array_shift;
-*unshift             = blessing \&array_unshift;
-*sub                 = blessing \&array_sub;
-*take                = blessing \&array_take;
-*drop                = blessing \&array_drop;
-*drop_while          = blessing flip \&array_drop_while;
-*take_while          = blessing flip \&array_take_while;
-*take_while_and_rest = blessing2 flip \&array_take_while_and_rest;
-*append              = blessing \&array_append;
-*reverse             = blessing \&array_reverse;
-*xone                = \&array_xone;
-*perhaps_one         = \&array_perhaps_one;
-*hashing_uniq        = blessing \&array_hashing_uniq;
-*zip2                = blessing \&array_zip2;
-*for_each            = flip \&array_for_each;
-*map                 = blessing flip \&array_map;
-*map_with_index      = blessing flip \&array_map_with_index;
-*map_with_islast     = blessing flip \&array_map_with_islast;
-*filter              = blessing flip \&array_filter;
-*zip                 = blessing \&array_zip;
-*fold                = rot3left \&array_fold;
-*fold_right          = rot3left \&array_fold_right;
-*preferred_fold      = \&fold;                                       # ?
-*intersperse         = blessing \&array_intersperse;
-*strings_join        = \&array_strings_join;
-*every               = flip \&array_every;
-*any                 = flip \&array_any;
-*sum                 = \&array_sum;
-*hash_group_by       = \&array_to_hash_group_by;
+*set                  = blessing \&array_set;
+*update               = blessing \&array_update;
+*push                 = blessing \&array_push;
+*pop                  = blessing_snd \&array_pop;
+*shift                = blessing_snd \&array_shift;
+*unshift              = blessing \&array_unshift;
+*sub                  = blessing \&array_sub;
+*take                 = blessing \&array_take;
+*drop                 = blessing \&array_drop;
+*drop_while           = blessing flip \&array_drop_while;
+*take_while           = blessing flip \&array_take_while;
+*take_while_and_rest  = blessing2 flip \&array_take_while_and_rest;
+*append               = blessing \&array_append;
+*reverse              = blessing \&array_reverse;
+*xone                 = \&array_xone;
+*perhaps_one          = \&array_perhaps_one;
+*hashing_uniq         = blessing \&array_hashing_uniq;
+*zip2                 = blessing \&array_zip2;
+*for_each             = flip \&array_for_each;
+*for_each_with_islast = flip \&array_for_each_with_islast;
+*map                  = blessing flip \&array_map;
+*map_with_index       = blessing flip \&array_map_with_index;
+*map_with_islast      = blessing flip \&array_map_with_islast;
+*filter               = blessing flip \&array_filter;
+*zip                  = blessing \&array_zip;
+*fold                 = rot3left \&array_fold;
+*fold_right           = rot3left \&array_fold_right;
+*preferred_fold       = \&fold;                                       # ?
+*intersperse          = blessing \&array_intersperse;
+*strings_join         = \&array_strings_join;
+*every                = flip \&array_every;
+*any                  = flip \&array_any;
+*sum                  = \&array_sum;
+*hash_group_by        = \&array_to_hash_group_by;
 
 *sort        = blessing \&array_sort;
 *sortCompare = blessing \&array_sortCompare;
@@ -229,4 +231,37 @@ sub FP_Sequence_length {
 *perhaps_find      = flip \&array_perhaps_find;
 *find              = perhaps_to_maybe(\&array_perhaps_find);
 
-_END_    # Chj::NamespaceCleanAbove
+sub group {
+    @_ >= 2 and @_ <= 3 or fp_croak_arity "2-3";
+    my ($self, $equal, $maybe_tail) = @_;
+    croak("can't currently handle tail argument for array-likes")
+        if defined $maybe_tail;
+    require FP::PureArray;    # ugly?
+    my @res;
+    my $len = @$self;
+    if ($len >= 1) {
+        for (my $i = 0; $i < $len; $i++) {
+            my $cur = $self->[$i];
+            $i++;
+            my @group = $cur;
+        LP: {
+                if ($i >= $len) {
+                    push @res, FP::_::PureArray->new_from_array(\@group);
+                } else {
+                    my $a = $self->[$i];
+                    if ($equal->($cur, $a)) {
+                        push @group, $a;
+                        $i++;
+                        redo LP;
+                    } else {
+                        push @res, FP::_::PureArray->new_from_array(\@group);
+                        $i--;    # !
+                    }
+                }
+            }
+        }
+    }
+    FP::_::PureArray->new_from_array(\@res)
+}
+
+_END_                            # Chj::NamespaceCleanAbove

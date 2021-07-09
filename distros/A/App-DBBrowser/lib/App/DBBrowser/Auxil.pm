@@ -10,6 +10,7 @@ use Scalar::Util qw( looks_like_number );
 use JSON qw( decode_json );
 
 use Term::Choose            qw();
+use Term::Choose::Constants qw( WIDTH_CURSOR );
 use Term::Choose::LineFold  qw( line_fold print_columns );
 use Term::Choose::Screen    qw( clear_screen );
 use Term::Choose::Util      qw( insert_sep get_term_width get_term_height unicode_sprintf );
@@ -50,7 +51,9 @@ sub get_stmt {
     my $in = '';
     if ( $used_for eq 'print' ) {
         $term_w = get_term_width();
-        $term_w++ if $^O ne 'MSWin32' && $^O ne 'cygwin';
+        if ( $^O ne 'MSWin32' && $^O ne 'cygwin' ) {
+            $term_w += WIDTH_CURSOR;
+        }
         $in = ' ' x $sf->{o}{G}{base_indent};
         $indent0 = { init_tab => $in x 0, subseq_tab => $in x 1 };
         $indent1 = { init_tab => $in x 1, subseq_tab => $in x 2 };
@@ -67,7 +70,7 @@ sub get_stmt {
     elsif ( $stmt_type eq 'Create_table' ) {
         my $stmt = sprintf "CREATE TABLE $sql->{table} (%s)", join ', ', map { $_ // '' } @{$sql->{create_table_cols}};
         @tmp = ( $sf->__stmt_fold( $stmt, $term_w, $indent0 ) );
-        $sf->{i}{occupied_term_height} += @tmp;
+        $sf->{i}{occupied_term_height} += @tmp;                                     # modifies  $sf->{i}{occupied_term_height}
 
     }
     elsif ( $stmt_type eq 'Create_view' ) {
@@ -101,9 +104,9 @@ sub get_stmt {
         }
         else {
             push @tmp, $sf->__stmt_fold( "VALUES(", $term_w, $indent1 );
-            $sf->{i}{occupied_term_height} += @tmp;
+            $sf->{i}{occupied_term_height} += @tmp;                                 # modifies  $sf->{i}{occupied_term_height}
             $sf->{i}{occupied_term_height} += 2; # ")" and empty row
-            my $arg_rows = $sf->insert_into_args_info_format( $sql, $indent2->{init_tab} );
+            my $arg_rows = $sf->info_format_insert_args( $sql, $indent2->{init_tab} );
             push @tmp, @$arg_rows;
             push @tmp, $sf->__stmt_fold( ")", $term_w, $indent1 );
         }
@@ -139,13 +142,16 @@ sub get_stmt {
 }
 
 
-sub insert_into_args_info_format {
+sub info_format_insert_args {
     my ( $sf, $sql, $indent ) = @_;
     my $term_h = get_term_height();
     my $term_w = get_term_width();
-    $term_w++ if $^O ne 'MSWin32' && $^O ne 'cygwin';
+    if ( $^O ne 'MSWin32' && $^O ne 'cygwin' ) {
+        $term_w += WIDTH_CURSOR;
+    }
     my $row_count = @{$sql->{insert_into_args}};
-    my $avail_h = $term_h - $sf->{i}{occupied_term_height}; # where {occupied_term_height} is used
+    my $avail_h = $term_h - $sf->{i}{occupied_term_height}; # <= where {occupied_term_height} is used
+    $avail_h -= 1; # 1 for the footer line
     if ( $avail_h < 5) {
         $avail_h = 5;
     }
@@ -215,21 +221,26 @@ sub __select_cols {
 }
 
 
-sub print_sql {
-    my ( $sf, $sql, $waiting ) = @_;
-    my $stmt = '';
-    for my $stmt_type ( @{$sf->{i}{stmt_types}} ) {
-         $stmt .= $sf->get_stmt( $sql, $stmt_type, 'print' );
-    }
-    $stmt .= "\n";
-    if ( defined wantarray ) {
-        return $stmt;
+sub print_sql_info {
+    my ( $sf, $info, $waiting ) = @_;
+    if ( ! defined $info ) {
+        return;
     }
     print clear_screen();
-    print $stmt;
+    print $info, "\n";
     if ( defined $waiting ) {
-        print $waiting;
+        print $waiting . "\r";
     }
+}
+
+
+sub get_sql_info {
+    my ( $sf, $sql ) = @_;
+    my $stmt = '';
+    for my $stmt_type ( @{$sf->{i}{stmt_types}} ) {
+         $stmt .= $sf->get_stmt( $sql, $stmt_type, 'print' );   # occupied_term_height could be changed
+    }
+    return $stmt;
 }
 
 
@@ -257,27 +268,30 @@ sub stmt_placeholder_to_value {
 
 
 sub alias {
-    my ( $sf, $type, $identifier, $default ) = @_;
+    my ( $sf, $sql, $type, $identifier, $default ) = @_;
     my $term_w = get_term_width();
-    my $info;
+    my $tmp_info;
     if ( $identifier eq '' ) { # Union
         $identifier .= 'UNION Alias: ';
     }
     elsif ( print_columns( $identifier . ' AS ' ) > $term_w / 3 ) {
-        $info = 'Alias: ' . "\n" . $identifier;
+        $tmp_info = 'Alias: ' . "\n" . $identifier;
         $identifier = 'AS ';
     }
     else {
-        $info = 'Alias: ';
+        $tmp_info = 'Alias: ';
         $identifier .= ' AS ';
     }
     my $alias;
     if ( $sf->{o}{alias}{$type} ) {
         my $tf = Term::Form->new( $sf->{i}{tf_default} );
+        my $info = $sf->get_sql_info( $sql ) . "\n" . $tmp_info;
         # Readline
-        $alias = $tf->readline( $identifier,
+        $alias = $tf->readline(
+            $identifier,
             { info => $info }
         );
+        $sf->print_sql_info( $info );
     }
     if ( ! defined $alias || ! length $alias ) {
         $alias = $default;
@@ -291,7 +305,13 @@ sub alias {
 
 sub quote_table {
     my ( $sf, $td ) = @_;
-    my @idx = $sf->{o}{G}{qualified_table_name} ? ( 0 .. 2 ) : ( 2 );
+    my @idx;
+    if ( $sf->{o}{G}{qualified_table_name} || $sf->{i}{db_attached} ) {
+        @idx = ( 0 .. 2 );
+    }
+    else {
+        @idx = ( 2 );
+    }
     if ( $sf->{o}{G}{quote_identifiers} ) {
         return $sf->{d}{dbh}->quote_identifier( @{$td}[@idx] );
     }

@@ -1,11 +1,14 @@
 #! /usr/bin/perl -w
+use strict;
 use Module::Build;
 use lib qw(lib);
 use DbFramework::Util;
-require 't/util.pl';
+require './t/util.pl';
 
-$catalog_db = 'dbframework_catalog';
-%keytypes   = (primary => 0, foreign => 1, index => 2);
+exit 0 if $ENV{AUTOMATED_TESTING};
+
+my $catalog_db = 'dbframework_catalog';
+my %keytypes   = (primary => 0, foreign => 1, index => 2);
 
 Module::Build->prompt(<<EOF, "");
 
@@ -22,10 +25,10 @@ my $config = 't/Config.pm';
 
 unless ( -f $config && Module::Build->prompt("$config exists, use it?", "Y") =~ /^y/i ) {
   # select drivers to test
-  my @drivers = qw/mysql mSQL Pg/;
+  my @drivers = grep eval "require DBD::$_; 1;", qw/mysql mSQL Pg/;
   my $drivers = Module::Build->prompt("Enter (space seperated) DBI drivers to test:", join(" ", @drivers));
   @drivers = split /\s/,$drivers;
-  $test_db = 'test';
+  my $test_db = 'test';
 
   my %driver;
   for my $driver ( @drivers ) {
@@ -53,10 +56,10 @@ to $db i.e. 'DBI:$driver:[dsn_string]':}, $db);
 	  # create catalog schema
 	  my %sql = %{catalog_schema()};
 	  # default to mysql DDL syntax
-	  $ddl = (exists $sql{$driver}) ? $driver : 'mysql';
-	  $dsn = $driver{$driver}->{$db}->{dsn};
-	  $u   = $driver{$driver}->{$db}->{u};
-	  $p   = $driver{$driver}->{$db}->{p};
+	  my $ddl = (exists $sql{$driver}) ? $driver : 'mysql';
+	  $dsn    = $driver{$driver}->{$db}->{dsn};
+	  my $u   = $driver{$driver}->{$db}->{u};
+	  my $p   = $driver{$driver}->{$db}->{p};
 	  my $dbh = DbFramework::Util::get_dbh($dsn,$u,$p);
 	  $dbh->{PrintError} = 0;
 	  for my $table ( qw/c_db c_key c_relationship c_table/ ) {
@@ -284,7 +287,7 @@ CREATE TABLE c_table (
 
 my $build = Module::Build->new(
     dist_name       => "DbFramework",
-    dist_version    => "1.12",
+    dist_version    => "1.14",
     dist_abstract   => "Classes for Manipulating DBI Databases, Based on the CDIF Data Model Subject Area",
     dist_author     => "imacat <imacat\@mail.imacat.idv.tw>",
     license         => "perl",
@@ -302,6 +305,21 @@ my $build = Module::Build->new(
         "Module::Signature"	=> 0,
     },
     add_to_cleanup	=> [ "t/Config.pm", "TAGS" ],
+
+    meta_merge  => {
+        "meta-spec" => { version => 2 },
+        resources   => {
+            homepage    => "https://metacpan.org/release/DbFramework",
+            repository  => {
+                type    => "git",
+                url     => "git://github.com/imacat/DbFramework.git",
+                web     => "https://github.com/imacat/DbFramework",
+            },
+            bugtracker  => {
+                "web"   => "https://github.com/imacat/DbFramework/issues"
+            }
+        },
+    },
 );
 
 $build->create_build_script;

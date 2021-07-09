@@ -2,7 +2,7 @@ package App::Yath::Plugin::Git;
 use strict;
 use warnings;
 
-our $VERSION = '1.000042';
+our $VERSION = '1.000062';
 
 use IPC::Cmd qw/can_run/;
 use Test2::Harness::Util::IPC qw/run_cmd/;
@@ -25,20 +25,38 @@ sub git_output {
     my $class = shift;
     my (@args) = @_;
 
-    my $cmd = $class->git_cmd or return;
+    my $cmd = $class->git_cmd or return sub {()};
 
     my ($rh, $wh, $irh, $iwh);
     pipe($rh, $wh) or die "No pipe: $!";
     pipe($irh, $iwh) or die "No pipe: $!";
     my $pid = run_cmd(stderr => $iwh, stdout => $wh, command => [$cmd, @args]);
-    waitpid($pid, 0);
-    return if $?;
 
     close($wh);
     close($iwh);
-    close($irh);
 
-    return <$rh>;
+    $rh->blocking(1);
+    $irh->blocking(0);
+
+    my $waited = 0;
+    return sub {
+        my $line = <$rh>;
+        return $line if defined $line;
+
+        unless ($waited++) {
+            local $?;
+            waitpid($pid, 0);
+            print STDERR <$irh> if $?;
+            close($irh);
+
+            # Try again
+            $line = <$rh>;
+            return $line if defined $line;
+        }
+
+        close($rh);
+        return;
+    };
 }
 
 sub inject_run_data {
@@ -63,7 +81,14 @@ sub inject_run_data {
         for my $set (@sets) {
             my ($var, @args) = @$set;
             next if $$var; # Already set
-            chomp($$var = join "\n" => $class->git_output(@args));
+            my $output = $class->git_output(@args);
+
+            my @lines;
+            while (my $line = $output->()) {
+                push @lines => $line;
+            }
+
+            chomp($$var = join "\n" => @lines);
         }
 
     return unless $long_sha;
@@ -86,25 +111,38 @@ sub inject_run_data {
     return;
 }
 
-sub changed_files {
+sub changed_diff {
     my $class = shift;
     my ($settings) = @_;
+
+    $class->_changed_diff($settings->git->change_base);
+}
+
+sub _changed_diff {
+    my $class = shift;
+    my ($base) = @_;
+
     my $cmd = $class->git_cmd or return;
 
-    if (my $base = $settings->git->change_base) {
-        my $from = 'HEAD';
+    my $from = 'HEAD';
 
+    if ($base) {
         $from .= "^" while system($cmd => 'merge-base', '--is-ancestor', $from, $base);
-
-        return map { chomp($_); $_ } $class->git_output('diff', $from, '--name-only');
+        return $class->_diff_from($from);
     }
 
-    my @files = map { chomp($_); $_ } $class->git_output('diff', 'HEAD', '--name-only');
+    my @files = $class->_diff_from($from);
+    return @files if @files;
 
-    @files = map { chomp($_); $_ } $class->git_output('diff', 'HEAD^', '--name-only')
-        unless @files;
+    return $class->_diff_from("${from}^");
+}
 
-    return @files;
+sub _diff_from {
+    my $class = shift;
+    my ($from) = @_;
+    my $cmd = $class->git_cmd or return;
+
+    return (line_sub => $class->git_output('diff', '-U1000000', '-W', '--minimal', $from));
 }
 
 1;

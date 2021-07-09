@@ -2,6 +2,9 @@
 #define _UNIX_GUTS_H_
 
 #include "generic/config.h"
+#if defined(HAS_GLIBC) && !defined(_GNU_SOURCE)
+#	define _GNU_SOURCE
+#endif
 #define Drawable        XDrawable
 #define Font            XFont
 #define Window          XWindow
@@ -196,6 +199,7 @@ typedef struct _FontFlags {
 	unsigned disabled         : 1;
 	unsigned funky            : 1;
 	unsigned heights_cache    : 1;
+	unsigned known            : 1;
 } FontFlags;
 
 typedef struct _FontInfo {
@@ -761,6 +765,8 @@ typedef struct _UnixGuts
 
 	int                          unicode_hex_input_flags;
 	char                         unicode_hex_input_buffer[MAX_UNICODE_HEX_LENGTH + 1];
+
+	Bool                         application_stop_signal;
 } UnixGuts;
 
 extern UnixGuts  guts;
@@ -1059,7 +1065,7 @@ typedef union _unix_sys_data
 #define DRIN		pguts-> display, pguts-> screen_number
 #define X_WINDOW	(PComponent(self)-> handle)
 #define X(obj)		((PDrawableSysData)(PComponent((obj))-> sysData))
-#define DEFXX		PDrawableSysData selfxx = (self == nilHandle ? nil : X(self))
+#define DEFXX		PDrawableSysData selfxx = (self == NULL_HANDLE ? NULL : X(self))
 #define M(obj)		((PMenuSysData)(PComponent((obj))-> sysData))
 #define DEFMM           PMenuSysData selfxx = ((PMenuSysData)(PComponent((self))-> sysData))
 #define C(obj)		((PClipboardSysData)(PComponent((obj))-> sysData))
@@ -1338,6 +1344,7 @@ struct MsgDlg {
 	Point   btnSz;
 	Bool    wide;
 	char ** wrapped;
+	int     count;
 	int     wrappedCount;
 	int    *widths, *lengths;
 	int     OKwidth;

@@ -3,62 +3,44 @@
 use strict;
 use warnings;
 
-use Data::Printer;
-use Wikibase::Datatype::Struct::Sense qw(struct2obj);
+use Wikibase::Datatype::Struct::Value qw(struct2obj);
 
-# Item structure.
+# Time structure.
 my $struct_hr = {
-        'glosses' => {
-                'cs' => {
-                        'language' => 'cs',
-                        'value' => 'Glosse cs',
-                },
-                'en' => {
-                        'language' => 'en',
-                        'value' => 'Glosse en',
-                },
-        },
-        'id' => 'ID',
-        'claims' => {
-                'P31' => [{
-                        'mainsnak' => {
-                                'datatype' => 'wikibase-item',
-                                'datavalue' => {
-                                        'type' => 'wikibase-entityid',
-                                        'value' => {
-                                                'entity-type' => 'item',
-                                                'id' => 'Q5',
-                                                'numeric-id' => 5,
-                                        },
-                                },
-                                'property' => 'P31',
-                                'snaktype' => 'value',
-                        },
-                        'rank' => 'normal',
-                        'type' => 'statement',
-                }],
+        'type' => 'time',
+        'value' => {
+                'after' => 0,
+                'before' => 0,
+                'calendarmodel' => 'http://test.wikidata.org/entity/Q1985727',
+                'precision' => 10,
+                'time' => '+2020-09-01T00:00:00Z',
+                'timezone' => 0,
         },
 };
 
 # Get object.
 my $obj = struct2obj($struct_hr);
 
-# Dump object.
-p $obj;
+# Get calendar model.
+my $calendarmodel = $obj->calendarmodel;
+
+# Get precision.
+my $precision = $obj->precision;
+
+# Get type.
+my $type = $obj->type;
+
+# Get value.
+my $value = $obj->value;
+
+# Print out.
+print "Calendar model: $calendarmodel\n";
+print "Precision: $precision\n";
+print "Type: $type\n";
+print "Value: $value\n";
 
 # Output:
-# Wikibase::Datatype::Sense  {
-#     Parents       Mo::Object
-#     public methods (7) : BUILD, can (UNIVERSAL), DOES (UNIVERSAL), check_array_object (Mo::utils), check_number_of_items (Mo::utils), isa (UNIVERSAL), VERSION (UNIVERSAL)
-#     private methods (1) : __ANON__ (Mo)
-#     internals: {
-#         glosses      [
-#             [0] Wikibase::Datatype::Value::Monolingual,
-#             [1] Wikibase::Datatype::Value::Monolingual
-#         ],
-#         id           "ID",
-#         statements   [
-#             [0] Wikibase::Datatype::Statement
-#         ]
-#     }
-# }
+# Calendar model: Q1985727
+# Precision: 10
+# Type: time
+# Value: +2020-09-01T00:00:00Z

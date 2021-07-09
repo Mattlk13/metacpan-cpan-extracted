@@ -1,0 +1,20 @@
+Build.PL
+Changes
+LICENSE
+META.json
+README.md
+cpanfile
+lib/Data/QuickMemoPlus/Reader.pm
+minil.toml
+t/00_compile.t
+t/01_warnings.t
+t/02_main.t
+t/data/QuickMemo _191208_220400(6).lqm
+t/data/QuickMemo+_191208_220400(5).lqm
+t/data/garbled.lqm
+t/data/good_file.lqm
+t/data/junk.lqm
+t/data/missing_jlqm.lqm
+t/lib/ExampleMemo.pm
+META.yml
+MANIFEST

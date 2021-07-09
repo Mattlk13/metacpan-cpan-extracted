@@ -56,9 +56,6 @@ use Term::ReadKey; #for GetTerminalSize
 $PDL::onlinedoc = undef;
 $PDL::onlinedoc = PDL::Doc->new(FindStdFile());
 
-use PDL::Config;
-my $bvalflag = $PDL::Config{WITH_BADVAL} || 0;
-
 # Find std file
 
 sub FindStdFile {
@@ -460,7 +457,7 @@ prints signature of PDL function
 
 The signature is the normal dimensionality of the
 function's arguments.  Calling with different dimensions
-doesn't break -- it causes threading.  See L<PDL::PP|PDL::PP> for details.
+doesn't break -- it causes threading.  See L<PDL::PP> for details.
 
 =for example
 
@@ -681,22 +678,17 @@ sub help {
 The following commands support online help in the perldl shell:
 
  help 'thing'   -- print docs on 'thing' (func, module, manual, autoload-file)
- help vars      -- print information about all current piddles
+ help vars      -- print information about all current ndarrays
  help url       -- locate the HTML version of the documentation
  help www       -- View docs with default web browser (set by env: PERLDL_WWW)
 
- whatis <expr>  -- Describe the type and structure of an expression or piddle.
+ whatis <expr>  -- Describe the type and structure of an expression or ndarray.
  apropos 'word' -- search for keywords/function names 
  usage          -- print usage information for a given PDL function
  sig            -- print signature of PDL function
+ badinfo        -- information on the support for bad values
 
  ('?' is an alias for 'help';  '??' is an alias for 'apropos'.)
-EOH
-
-print "  badinfo         -- information on the support for bad values\n"
-   if $bvalflag;
-
-print <<'EOH';
 
 Quick start:
   apropos 'manual:' -- Find all the manual documents
@@ -736,10 +728,6 @@ And has a horrible name.
 sub badinfo {
     my $func = shift;
     die "Usage: badinfo \$funcname\n" unless defined $func;
-
-    die "PDL has not been compiled with support for bad values.\n" .
-	"Recompile with WITH_BADVAL set to 1 in config file!.\n"
-	    unless $bvalflag;
 
     die "no online doc database" unless defined $PDL::onlinedoc;
 

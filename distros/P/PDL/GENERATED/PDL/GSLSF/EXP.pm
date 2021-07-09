@@ -4,8 +4,8 @@
 #
 package PDL::GSLSF::EXP;
 
-@EXPORT_OK  = qw( PDL::PP gsl_sf_exp PDL::PP gsl_sf_exprel_n PDL::PP gsl_sf_exp_err );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP gsl_sf_exp PDL::PP gsl_sf_exprel_n PDL::PP gsl_sf_exp_err );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::GSLSF::EXP ;
 
@@ -64,7 +64,7 @@ Exponential
 =for bad
 
 gsl_sf_exp does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -93,7 +93,7 @@ N-relative Exponential. exprel_N(x) = N!/x^N (exp(x) - Sum[x^k/k!, {k,0,N-1}]) =
 =for bad
 
 gsl_sf_exprel_n does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -122,7 +122,7 @@ Exponential of a quantity with given error.
 =for bad
 
 gsl_sf_exp_err does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

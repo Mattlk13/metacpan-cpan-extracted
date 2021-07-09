@@ -150,7 +150,7 @@ $r->any( [ 'GET', 'POST' ] => '/blog/edit' )
 $r->get( '/blog/view/:id/:slug' )
     ->to( 'yancy#get' => schema => 'blog', template => 'blog_view' )
     ->name( 'blog.view' );
-$r->get( '/blog/page/<page:num>', { page => 1 } )
+$r->get( '/blog/page/<page:num>' => [format => ['html', 'rss']], { format => undef, page => 1 } )
     ->to( 'yancy#list' => schema => 'blog', template => 'blog_list', order_by => { -desc => 'title' } )
     ->name( 'blog.list' );
 $r->get( '/blog/user/1/:page', { filter => { id => $items{blog}[0]{id} }, page => 1 } )
@@ -297,8 +297,7 @@ subtest 'get' => sub {
           ->status_is( 500 )
           ->content_like( qr{ID field &quot;id&quot; not defined in stash} );
         $t->get_ok( '/error/get/id404' )
-          ->status_is( 404 )
-          ->content_like( qr{Page not found} );
+          ->status_is( 404 );
     };
 
     subtest 'subclassing/extending' => sub {
@@ -310,8 +309,7 @@ subtest 'get' => sub {
 
         subtest 'errors' => sub {
             $t->get_ok( '/extend/error/get/id404' )
-              ->status_is( 404 )
-              ->content_like( qr{Page not found} );
+              ->status_is( 404 );
         };
     };
 };

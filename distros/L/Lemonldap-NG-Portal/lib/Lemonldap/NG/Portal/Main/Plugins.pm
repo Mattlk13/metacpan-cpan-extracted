@@ -2,7 +2,7 @@
 # into "plugins" list in lemonldap-ng.ini, section "portal"
 package Lemonldap::NG::Portal::Main::Plugins;
 
-our $VERSION = '2.0.8';
+our $VERSION = '2.0.11';
 
 package Lemonldap::NG::Portal::Main;
 
@@ -19,8 +19,8 @@ our @pList = (
     portalStatus                        => '::Plugins::Status',
     cda                                 => '::Plugins::CDA',
     notification                        => '::Plugins::Notifications',
-    portalCheckLogins                   => '::Plugins::History',
     stayConnected                       => '::Plugins::StayConnected',
+    portalCheckLogins                   => '::Plugins::History',
     bruteForceProtection                => '::Plugins::BruteForceProtection',
     grantSessionRules                   => '::Plugins::GrantSession',
     upgradeSession                      => '::Plugins::Upgrade',
@@ -31,8 +31,11 @@ our @pList = (
     impersonationRule                   => '::Plugins::Impersonation',
     contextSwitchingRule                => '::Plugins::ContextSwitching',
     decryptValueRule                    => '::Plugins::DecryptValue',
-    globalLogoutRule                    => '::Plugins::GlobalLogout',
-    refreshSessions                     => '::Plugins::Refresh',
+    findUser                            => '::Plugins::FindUser',
+    adaptativeAuthenticationLevelRules =>
+      '::Plugins::AdaptativeAuthenticationLevel',
+    globalLogoutRule => '::Plugins::GlobalLogout',
+    refreshSessions  => '::Plugins::Refresh',
 );
 
 ##@method list enabledPlugins
@@ -60,7 +63,15 @@ sub enabledPlugins {
 
     # Load static plugin list
     for ( my $i = 0 ; $i < @pList ; $i += 2 ) {
-        push @res, $pList[ $i + 1 ] if ( $conf->{ $pList[$i] } );
+        my $pluginConf = $conf->{ $pList[$i] };
+        if ( ref($pluginConf) eq "HASH" ) {
+
+            # Do not load plugin if config is an empty hash
+            push @res, $pList[ $i + 1 ] if %{$pluginConf};
+        }
+        else {
+            push @res, $pList[ $i + 1 ] if $pluginConf;
+        }
     }
 
     # Check if SOAP is enabled

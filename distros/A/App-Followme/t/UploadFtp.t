@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 use strict;
 
-use Cwd;
 use IO::File;
 use File::Path qw(rmtree);
 use File::Spec::Functions qw(catdir catfile rel2abs splitdir);
@@ -23,12 +22,11 @@ require App::Followme::UploadFtp;
 
 my $test_dir = catdir(@path, 'test');
 
-rmtree($test_dir);
+rmtree($test_dir) if -e $test_dir;
 mkdir $test_dir or die $!;
 chmod 0755, $test_dir;
-
 chdir $test_dir or die $!;
-$test_dir = cwd();
+
 
 my %configuration = (
                      top_directory => $test_dir,
@@ -52,7 +50,7 @@ SKIP: {
 
     my $dir = 'subdir';
     my $remote_file = 'filename.html';
-    my $local_file = rel2abs($remote_file);
+    my $local_file = catfile($test_dir, $remote_file);
 
     my $file = <<EOQ;
 <html>

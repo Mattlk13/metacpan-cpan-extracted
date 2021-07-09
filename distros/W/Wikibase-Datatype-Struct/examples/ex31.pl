@@ -4,12 +4,12 @@ use strict;
 use warnings;
 
 use Data::Printer;
-use Wikibase::Datatype::Value::Item;
-use Wikibase::Datatype::Struct::Value::Item qw(obj2struct);
+use Wikibase::Datatype::Value::String;
+use Wikibase::Datatype::Struct::Value::String qw(obj2struct);
 
 # Object.
-my $obj = Wikibase::Datatype::Value::Item->new(
-        'value' => 'Q123',
+my $obj = Wikibase::Datatype::Value::String->new(
+        'value' => 'foo',
 );
 
 # Get structure.
@@ -20,10 +20,6 @@ p $struct_hr;
 
 # Output:
 # \ {
-#     type    "wikibase-entityid",
-#     value   {
-#         entity-type   "item",
-#         id            "Q123",
-#         numeric-id    123
-#     }
+#     type    "string",
+#     value   "foo"
 # }

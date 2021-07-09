@@ -20,14 +20,18 @@ PDL development and is often used from within Makefile.PL's.
 
 package PDL::Core::Dev;
 
+use strict;
+use warnings;
 use File::Path;
 use File::Basename;
 use ExtUtils::Manifest;
-use English; require Exporter;
+require Exporter;
+use Config;
+eval { require Devel::CheckLib };
 
-@ISA    = qw( Exporter );
+our @ISA    = qw( Exporter );
 
-@EXPORT = qw( isbigendian genpp %PDL_DATATYPES
+our @EXPORT = qw( isbigendian genpp
 	     PDL_INCLUDE PDL_TYPEMAP
 	     PDL_AUTO_INCLUDE PDL_BOOT
 		 PDL_INST_INCLUDE PDL_INST_TYPEMAP
@@ -35,7 +39,11 @@ use English; require Exporter;
 		 pdlpp_postamble pdlpp_stdargs write_dummy_make
                 unsupported getcyglib trylink
                 pdlpp_mkgen
+                got_complex_version
 		 );
+
+my $O_NONBLOCK = defined $Config{'o_nonblock'} ? $Config{'o_nonblock'}
+                : 'O_NONBLOCK';
 
 # Installation locations
 # beware: whereami_any now appends the /Basic or /PDL directory as appropriate
@@ -47,9 +55,7 @@ use English; require Exporter;
 # Return library locations
 
 sub PDL_INCLUDE { '"-I'.whereami_any().'/Core"' };
-sub PDL_TYPEMAP { whereami_any().'/Core/typemap.pdl' };
-# sub PDL_INST_INCLUDE { '-I'.whereami_any().'/Core' };
-# sub PDL_INST_TYPEMAP { whereami_any().'/Core/typemap.pdl' };
+sub PDL_TYPEMAP { whereami_any().'/Core/typemap' };
 
 sub PDL_INST_INCLUDE {&PDL_INCLUDE}
 sub PDL_INST_TYPEMAP {&PDL_TYPEMAP}
@@ -94,7 +100,7 @@ sub whereami_any {
 }
 
 sub whereami {
-   for $dir (@INC,qw|. .. ../.. ../../.. ../../../..|) {
+   for my $dir (qw|. .. ../.. ../../.. ../../../..|,@INC) {
       return ($_[0] ? $dir . '/Basic' : $dir)
 	if -e "$dir/Basic/Core/Dev.pm";
    }
@@ -104,7 +110,7 @@ sub whereami {
 }
 
 sub whereami_inst {
-   for $dir (@INC,map {$_."/blib"} qw|. .. ../.. ../../.. ../../../..|) {
+   for my $dir (@INC,map {$_."/blib"} qw|. .. ../.. ../../.. ../../../..|) {
       return ($_[0] ? $dir . '/PDL' : $dir)
 	if -e "$dir/PDL/Core/Dev.pm";
    }
@@ -146,38 +152,24 @@ unless ( %PDL::Config ) {
 
 # Data types to C types mapping
 # get the map from Types.pm
-{
-# load PDL::Types only if it has not been previously loaded
-  my $loaded_types = grep (m%(PDL|Core)/Types[.]pm$%, keys %INC);
-  $@ = ''; # reset
-  eval('require "'.whereami_any().'/Core/Types.pm"') # lets dist Types.pm win
-    unless $loaded_types; # only when PDL::Types not yet loaded
-  if($@) {  # if PDL::Types doesn't work try with full path (during build)
-    my $foo = $@;
-    $@="";
-    eval('require PDL::Types');
-    if($@) {
-      die "can't find PDL::Types: $foo and $@" unless $@ eq "";
-    }
-  }
+sub loadmod_Types {
+  # load PDL::Types only if it has not been previously loaded
+  return if grep (m%(PDL|Core)/Types[.]pm$%, keys %INC);
+  eval { require(whereami_any().'/Core/Types.pm') }; # lets dist Types.pm win
+  return if !$@;
+  # if PDL::Types doesn't work try with full path (during build)
+  my $foo = $@;
+  eval { require PDL::Types };
+  return if !$@;
+  die "can't find PDL::Types: $foo and $@";
 }
-PDL::Types->import();
 
 my $inc = defined $PDL::Config{MALLOCDBG}->{include} ?
   "$PDL::Config{MALLOCDBG}->{include}" : '';
 my $libs = defined $PDL::Config{MALLOCDBG}->{libs} ?
   "$PDL::Config{MALLOCDBG}->{libs}" : '';
 
-%PDL_DATATYPES = ();
-foreach $key (keys %PDL::Types::typehash) {
-    $PDL_DATATYPES{$PDL::Types::typehash{$key}->{'sym'}} =
-	$PDL::Types::typehash{$key}->{'ctype'};
-}
-
 # non-blocking IO configuration
-
-$O_NONBLOCK = defined $Config{'o_nonblock'} ? $Config{'o_nonblock'}
-                : 'O_NONBLOCK';
 
 =head2 isbigendian
 
@@ -258,10 +250,11 @@ sub isbigendian {
 # (i) O_NONBLOCK - open flag for non-blocking I/O (5/Aug/96)
 #
 
-
+# return exit code, so 0 = OK
 sub genpp {
-
-   $gotstart = 0; @gencode = ();
+   loadmod_Types();
+   my $gotstart = 0; my @gencode = ();
+   my ($loopvar, $indent);
 
    while (<>) { # Process files in @ARGV list - result to STDOUT
 
@@ -275,10 +268,10 @@ sub genpp {
          die "Found GENERICLOOP while searching for ENDGENERICLOOP\n" if $gotstart;
          $loopvar = $2;
          $indent = $1;
-         print $PREMATCH;
+         print $`;
 
          @gencode = ();  # Start saving code
-         push @gencode, $POSTMATCH;
+         push @gencode, $';
          $gotstart = 1;
          next;
       }
@@ -287,11 +280,11 @@ sub genpp {
 
          die "Found ENDGENERICLOOP while searching for GENERICLOOP\n" unless $gotstart;
 
-         push @gencode, $PREMATCH;
+         push @gencode, $`;
 
-         flushgeneric();  # Output the generic code
+         print flushgeneric($indent, $loopvar, \@gencode);  # Output the generic code
 
-         print $POSTMATCH;  # End of genric code
+         print $';  # End of genric code
          $gotstart = 0;
          next;
       }
@@ -304,37 +297,37 @@ sub genpp {
       }
 
    } # End while
+   0;
 }
 
 sub flushgeneric {  # Construct the generic code switch
+   my ($indent, $loopvar, $gencode) = @_;
+   my @m;
+   push @m, $indent,"switch ($loopvar) {\n\n";
 
-   print $indent,"switch ($loopvar) {\n\n";
+   for my $t (PDL::Types::types()) {
+     my ($case, $type, $ppsym) = map $t->$_, qw(sym ctype ppsym);
+     push @m, $indent,"case $case:\n"; # Start of this case
+     push @m, $indent,"   {";
 
-   for $case (PDL::Types::typesrtkeys()){
+     # Now output actual code with substitutions
 
-     $type = $PDL_DATATYPES{$case};
-
-     my $ppsym = $PDL::Types::typehash{$case}->{ppsym};
-     print $indent,"case $case:\n"; # Start of this case
-     print $indent,"   {";
-
-     # Now output actual code with substutions
-
-     for  (@gencode) {
-        $line = $_;
+     for  (@$gencode) {
+        my $line = $_;
 
         $line =~ s/\bgeneric\b/$type/g;
         $line =~ s/\bgeneric_ppsym\b/$ppsym/g;
 
-        print "   ",$line;
+        push @m, "   ",$line;
      }
 
-     print "}break;\n\n";  # End of this case
+     push @m, "}break;\n\n";  # End of this case
    }
-   print $indent,"default:\n";
-   print $indent,'   croak ("Not a known data type code=%d",'.$loopvar.");\n";
-   print $indent,"}";
+   push @m, $indent,"default:\n";
+   push @m, $indent,'   croak ("Not a known data type code=%d",'.$loopvar.");\n";
+   push @m, $indent,"}";
 
+   join '', @m;
 }
 
 sub _oneliner {
@@ -348,10 +341,9 @@ sub genpp_cmdline {
   my ($in, $out) = @_;
   my $devpm = whereami_any()."/Core/Dev.pm";
   sprintf(_oneliner(<<'EOF'), $devpm) . qq{ "$in" > "$out"};
-require "%s"; PDL::Core::Dev->import(); genpp();
+require "%s"; PDL::Core::Dev->import(); exit genpp();
 EOF
 }
-
 
 # Standard PDL postamble
 #
@@ -374,39 +366,25 @@ EOF
 }
 
 # Expects list in format:
-# [gtest.pd, GTest, PDL::GTest,     ['../GIS/Proj', ...] ], [...]
-# source,    prefix,module/package, optional deps
+# [gtest.pd, GTest, PDL::GTest[, PDL::XSPkg] ], [...]
+# source,    prefix,module/package, optional pp_addxs destination
 # The idea is to support in future several packages in same dir - EUMM
 #   7.06 supports
-# each optional dep is a relative dir that a "make" will chdir to and
-# "make" first - so the *.pd file can then "use" what it makes
 
 # This is the function internal for PDL.
 
 sub pdlpp_postamble_int {
-	join '',map { my($src,$pref,$mod, $deps) = @$_;
-        die "If give dependencies, must be array-ref" if $deps and !ref $deps;
+	join '',map { my($src,$pref,$mod,$callpack) = @$_;
 	my $w = whereami_any();
 	$w =~ s%/((PDL)|(Basic))$%%;  # remove the trailing subdir
 	my $top = File::Spec->abs2rel($w);
 	my $basic = File::Spec->catdir($top, 'Basic');
 	my $core = File::Spec->catdir($basic, 'Core');
-	my $gen = File::Spec->catdir($basic, 'Gen');
-        my $depbuild = '';
-        for my $dep (@{$deps || []}) {
-            my $target = '';
-            if ($dep eq 'core') {
-                $dep = $top;
-                $target = ' core';
-            }
-            $dep =~ s#([\(\)])#\\$1#g; # in case of unbalanced (
-            $depbuild .= _oneliner("exit(!(chdir q($dep) && !system(q(\$(MAKE)$target))))");
-            $depbuild .= "\n\t";
-        }
+	$callpack //= '';
 qq|
 
 $pref.pm: $src $core/Types.pm
-	$depbuild\$(PERLRUNINST) \"-MPDL::PP qw[$mod $mod $pref]\" $src
+	\$(PERLRUNINST) \"-MPDL::PP qw[$mod $mod $pref $callpack]\" $src
 
 $pref.xs: $pref.pm
 	\$(TOUCH) \$@
@@ -418,17 +396,18 @@ $pref\$(OBJ_EXT): $pref.c
 	} (@_)
 }
 
-
 # This is the function to be used outside the PDL tree.
+# same format as pdlpp_postamble_int
 sub pdlpp_postamble {
-	join '',map { my($src,$pref,$mod) = @$_;
+	join '',map { my($src,$pref,$mod,$callpack) = @$_;
 	my $w = whereami_any();
 	$w =~ s%/((PDL)|(Basic))$%%;  # remove the trailing subdir
 	my $oneliner = _oneliner(qq{exit if \$ENV{DESTDIR}; use PDL::Doc; eval { PDL::Doc::add_module(q{$mod}); }});
+	$callpack //= '';
 qq|
 
 $pref.pm: $src
-	\$(PERL) "-I$w" \"-MPDL::PP qw[$mod $mod $pref]\" $src
+	\$(PERL) "-I$w" \"-MPDL::PP qw[$mod $mod $pref $callpack]\" $src
 
 $pref.xs: $pref.pm
 	\$(TOUCH) \$@
@@ -453,10 +432,11 @@ sub pdlpp_stdargs_int {
  my $mallocinc = exists $PDL::Config{MALLOCDBG}->{include} ?
    $PDL::Config{MALLOCDBG}->{include} : '';
 my $libsarg = $libs || $malloclib ? "$libs $malloclib " : ''; # for Win32
+ require ExtUtils::MakeMaker;
  return (
  	%::PDL_OPTIONS,
 	 'NAME'  	=> $mod,
-	 'VERSION_FROM' => "$w/Basic/Core/Version.pm",
+	 'VERSION_FROM' => "$w/Basic/PDL.pm",
 	 'TYPEMAPS'     => [&PDL_TYPEMAP()],
 	 'OBJECT'       => "$pref\$(OBJ_EXT)",
 	 PM 	=> {"$pref.pm" => "\$(INST_LIBDIR)/$pref.pm"},
@@ -464,16 +444,18 @@ my $libsarg = $libs || $malloclib ? "$libs $malloclib " : ''; # for Win32
 	 'INC'          => &PDL_INCLUDE()." $inc $mallocinc",
 	 'LIBS'         => $libsarg ? [$libsarg] : [],
 	 'clean'        => {'FILES'  => "$pref.xs $pref.pm $pref\$(OBJ_EXT) $pref.c"},
-     (eval ($ExtUtils::MakeMaker::VERSION) >= 6.57_02 ? ('NO_MYMETA' => 1) : ()),
+	 NO_MYMETA => 1,
  );
 }
 
 sub pdlpp_stdargs {
  my($rec) = @_;
  my($src,$pref,$mod) = @$rec;
+ require ExtUtils::MakeMaker;
  return (
  	%::PDL_OPTIONS,
 	 'NAME'  	=> $mod,
+	 'VERSION_FROM' => $src,
 	 'TYPEMAPS'     => [&PDL_INST_TYPEMAP()],
 	 'OBJECT'       => "$pref\$(OBJ_EXT)",
 	 PM 	=> {"$pref.pm" => "\$(INST_LIBDIR)/$pref.pm"},
@@ -482,7 +464,7 @@ sub pdlpp_stdargs {
 	 'LIBS'         => $libs ? ["$libs "] : [],
 	 'clean'        => {'FILES'  => "$pref.xs $pref.pm $pref\$(OBJ_EXT) $pref.c"},
 	 'dist'         => {'PREOP'  => '$(PERL) "-I$(INST_ARCHLIB)" "-I$(INST_LIB)" -MPDL::Core::Dev -e pdlpp_mkgen $(DISTVNAME)' },
-     (eval ($ExtUtils::MakeMaker::VERSION) >= 6.57_02 ? ('NO_MYMETA' => 1) : ()),
+	 NO_MYMETA => 1,
  );
 }
 
@@ -680,13 +662,7 @@ sub trylink {
   my $HIDE = !$hide ? '' : '>/dev/null 2>&1';
   if($^O =~ /mswin32/i) {$HIDE = '>NUL 2>&1'}
 
-  my $tempd;
-
-  $tempd = File::Temp::tempdir(CLEANUP=>1) || die "trylink: could not make TEMPDIR";
-  ### if($^O =~ /MSWin32/i) {$tempd = File::Spec->tmpdir()}
-  ### else {
-  ###    $tempd = $PDL::Config{TEMPDIR} ||
-  ### }
+  my $tempd = File::Temp::tempdir(CLEANUP=>1) || die "trylink: could not make temp dir";
 
   my ($tc,$te) = map {&$cfile($tempd,"testfile$_")} ('.c','');
   open FILE,">$tc" or die "trylink: couldn't open testfile `$tc' for writing, $!";
@@ -728,17 +704,13 @@ prints on C<STDOUT> XS text for F<Core.xs>.
 =cut
 
 sub datatypes_switch {
-  my $ntypes = $#PDL::Types::names;
-  my @m;
-  foreach my $i ( 0 .. $ntypes ) {
-    my $type = PDL::Type->new( $i );
+  loadmod_Types();
+  foreach my $type ( PDL::Types::types() ) {
     my $typesym = $type->symbol;
     my $typeppsym = $type->ppsym;
-    my $cname = $type->ctype;
-    $cname =~ s/^PDL_//;
-    push @m, "\tcase $typesym: retval.type = $typesym; retval.value.$typeppsym = PDL.bvals.$cname; break;";
+    my $cname = $type->shortctype;
+    print "\tcase $typesym: retval.type = $typesym; retval.value.$typeppsym = PDL.bvals.$cname; break;\n";
   }
-  print map "$_\n", @m;
 }
 
 =head2 generate_core_flags
@@ -761,12 +733,11 @@ my %flags = (
     dimschgd => { FLAG => "PARENTDIMSCHANGED" },
     tracedebug => { FLAG => "TRACEDEBUG", set => 1},
 );
-#if ( $bvalflag ) { $flags{baddata} = { set => 1, FLAG => "BADVAL" }; }
 
 sub generate_core_flags {
     # access (read, if set is true then write as well; if postset true then
     #         read first and write new value after that)
-    # to piddle's state
+    # to ndarray's state
     foreach my $name ( sort keys %flags ) {
         my $flag = "PDL_" . ($flags{$name}{FLAG} || uc($name));
         if ( $flags{$name}{set} ) {
@@ -821,22 +792,37 @@ prints on C<STDOUT> XS text with badval initialisation, for F<Core.xs>.
 =cut
 
 sub generate_badval_init {
+  loadmod_Types();
   for my $type (PDL::Types::types()) {
-    my $typename = $type->ctype;
-    $typename =~ s/^PDL_//;
+    my $typename = $type->shortctype;
     my $bval = $type->defbval;
-    if ($PDL::Config{BADVAL_USENAN} && $type->usenan) {
-      # note: no defaults if usenan
-      print "\tPDL.bvals.$typename = PDL.NaN_$type;\n"; #Core NaN value
-    } else {
-      print "\tPDL.bvals.$typename = PDL.bvals.default_$typename = $bval;\n";
-    }
+    print "\tPDL.bvals.$typename = PDL.bvals.default_$typename = $bval;\n";
   }
-#    PDL.bvals.Byte   = PDL.bvals.default_Byte   = UCHAR_MAX;
-#    PDL.bvals.Short  = PDL.bvals.default_Short  = SHRT_MIN;
-#    PDL.bvals.Ushort = PDL.bvals.default_Ushort = USHRT_MAX;
-#    PDL.bvals.Long   = PDL.bvals.default_Long   = INT_MIN;
+}
 
+=head2 got_complex_version
+
+=for ref
+
+  PDL::Core::Dev::got_complex_version($func_name, $num_params)
+
+For a given function appearing in C99's C<complex.h>, will return a
+boolean of whether the system being compiled on has the complex version
+of that. E.g. for C<sin>, will test whether C<csin> exists.
+
+=cut
+
+my %got_complex_cache;
+sub got_complex_version {
+    my ($name, $params) = @_;
+    return $got_complex_cache{$name} if defined $got_complex_cache{$name};
+    my $args = join ',', ('(double complex)1') x $params;
+    $got_complex_cache{$name} = Devel::CheckLib::check_lib(
+        ($Config{gccversion} ? (ccflags => '-O0') : ()), # stop GCC optimising test code away
+        lib => 'm',
+        header => 'complex.h',
+        function => sprintf('double num; num = creal(c%s(%s)); return 0;', $name, $args),
+    );
 }
 
 1;

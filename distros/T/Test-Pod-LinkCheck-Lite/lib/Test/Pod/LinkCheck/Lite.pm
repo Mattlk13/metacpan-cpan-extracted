@@ -22,7 +22,7 @@ use Scalar::Util ();		# Core since 5.7.3
 use Storable ();		# Core since 5.7.3
 use Test::Builder ();		# Core since 5.6.2
 
-our $VERSION = '0.005';
+our $VERSION = '0.007';
 
 our @ISA = qw{ Exporter };
 
@@ -535,7 +535,6 @@ sub _fail {
 sub _skip {
     my ( $self, @msg ) = @_;
     local $Test::Builder::Level =  _nest_depth();
-    $DB::single = 1;
     $TEST->skip( $self->__build_test_msg( @msg ) );
     $self->{_test}{skip}++;
     return 0;
@@ -842,7 +841,6 @@ sub _get_module_index_cpan_meta_db {
 # L<...|http://...>.
 sub _handle_url {
     my ( $self, $link ) = @_;
-
 
     $self->check_url()
 	or return $self->_skip( $link, 'not checked; url checks disabled' );
@@ -1542,7 +1540,9 @@ Junior were particularly useful to me.
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
-L<https://rt.cpan.org>, or in electronic mail to the author.
+L<https://rt.cpan.org/Public/Dist/Display.html?Name=Test-Pod-LinkCheck-Lite>,
+L<https://github.com/trwyant/perl-Test-Pod-LinkCheck-Lite/issues>, or in
+electronic mail to the author.
 
 =head1 AUTHOR
 
@@ -1550,7 +1550,7 @@ Thomas R. Wyant, III F<wyant at cpan dot org>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2019-2020 by Thomas R. Wyant, III
+Copyright (C) 2019-2021 by Thomas R. Wyant, III
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl 5.10.0. For more details, see the full text

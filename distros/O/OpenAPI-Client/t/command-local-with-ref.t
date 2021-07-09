@@ -6,6 +6,7 @@ use Test::More;
 
 my $spec = path(qw(t spec with-ref.json))->to_abs;
 plan skip_all => 'Cannot read spec' unless -r $spec;
+$ENV{MOJO_LOG_LEVEL} //= 'warn';
 
 eval {
   my $app = Mojolicious->new;
@@ -17,8 +18,7 @@ eval {
 
   $oc = OpenAPI::Client->new('/api', app => $app);
   ok $oc, 'OpenAPI::Client loaded bundled spec' or diag $@;
-  ok !$oc->validator->schema->get('/definitions'), 'no definitions added';
-  ok $oc->validator->schema->get('/responses/error'), 'responses/error is still there';
+  ok $oc->validator->get('/responses/error'), 'responses/error is still there';
 
   $oc = OpenAPI::Client->new('/ext', app => $app);
   ok $oc, 'OpenAPI::Client loaded bundled spec' or diag $@;

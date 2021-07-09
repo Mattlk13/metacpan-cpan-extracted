@@ -21,24 +21,25 @@ extern "C" {
 
 WinGuts guts;
 DWORD   rc;
-PHash   stylusMan      = nil; // pen & brush manager
-PHash   fontMan        = nil; // font manager
-PHash   patMan         = nil; // pattern resource manager
-PHash   menuMan        = nil; // HMENU manager
-PHash   imageMan       = nil; // HBITMAP manager
-PHash   regnodeMan     = nil; // cache for apc_widget_user_profile
-PHash   myfontMan      = nil; // hash of calls to apc_font_load
-PHash   menuBitmapMan  = nil; // HBITMAP manager for SetMenuItemBitmaps 
-PHash   scriptCacheMan = nil; // SCRIPT_CACHE entries per font/script
+PHash   stylusMan      = NULL; // pen & brush manager
+PHash   fontMan        = NULL; // font manager
+PHash   patMan         = NULL; // pattern resource manager
+PHash   menuMan        = NULL; // HMENU manager
+PHash   imageMan       = NULL; // HBITMAP manager
+PHash   regnodeMan     = NULL; // cache for apc_widget_user_profile
+PHash   myfontMan      = NULL; // hash of calls to apc_font_load
+PHash   menuBitmapMan  = NULL; // HBITMAP manager for SetMenuItemBitmaps 
+PHash   scriptCacheMan = NULL; // SCRIPT_CACHE entries per font/script
 HPEN    hPenHollow;
 HBRUSH  hBrushHollow;
+HCURSOR arrowCursor;
 PatResource hPatHollow;
 DIBMONOBRUSH bmiHatch = {
 	{ sizeof( BITMAPINFOHEADER), 8, 8, 1, 1, BI_RGB, 0, 0, 0, 2, 2},
 	{{0,0,0,0}, {0,0,0,0}}
 };
 int     FONTSTRUCSIZE;
-Handle lastMouseOver = nilHandle;
+Handle lastMouseOver = NULL_HANDLE;
 MusClkRec musClk = {0};
 char * keyLayouts[]   = {  "0409", "0403", "0405", "0406", "0407",
 	"0807","0809","080A","080C","0C0C","100C","0810","0814","0816",
@@ -80,22 +81,8 @@ typedef enum _MONITOR_DPI_TYPE {
 #define MONITOR_DEFAULTTONEAREST         2
 #endif
 
-typedef struct _DWM_BLURBEHIND {
-	DWORD dwFlags;
-	BOOL  fEnable;
-	HRGN  hRgnBlur;
-	BOOL  fTransitionOnMaximized;
-} DWM_BLURBEHIND;
-
-#ifndef DWM_BB_ENABLE
-#define DWM_BB_ENABLE 0x00000001
-#define DWM_BB_BLURREGION 0x00000002
-#define DWM_BB_TRANSITIONONMAXIMIZED 0x00000004
-#endif
-
 static HRESULT (__stdcall *SetProcessDpiAwareness)(PROCESS_DPI_AWARENESS)  = NULL;
 static HRESULT (__stdcall *GetDpiForMonitor)(HMONITOR,MONITOR_DPI_TYPE,UINT*,UINT*) = NULL;
-static HRESULT (__stdcall *DwmEnableBlurBehindWindow)(HWND hWnd, const DWM_BLURBEHIND *pBlurBehind) = NULL;
 static HRESULT (__stdcall *DwmIsCompositionEnabled)(BOOL *pfEnabled) = NULL;
 static BOOL    (__stdcall *GetUserPreferredUILanguages)(DWORD dwFlags, PULONG pulNumLanguages, PZZWSTR pwszLanguagesBuffer, PULONG pcchLanguagesBuffer) = NULL;
 
@@ -123,43 +110,6 @@ dpi_change(void)
 }
 
 Bool
-set_dwm_blur( HWND win, int enable, HRGN mask, int transition_on_maximized)
-{
-	HRESULT hr;
-	DWM_BLURBEHIND b;
-
-	if ( !win )
-		return DwmEnableBlurBehindWindow != NULL;
-
-	if ( !DwmEnableBlurBehindWindow ) return false;
-
-	b. dwFlags = 0;
-	if ( enable >= 0 ) {
-		b. dwFlags |= DWM_BB_ENABLE;
-		b. fEnable = enable;
-	}
-	if (( HRGN) mask != (HRGN)-1) {
-		b. dwFlags |= DWM_BB_BLURREGION;
-		b. hRgnBlur = mask;
-	}
-	if ( transition_on_maximized >= 0 ) {
-		b. dwFlags |= DWM_BB_TRANSITIONONMAXIMIZED;
-		b. fTransitionOnMaximized = transition_on_maximized;
-	}
-
-	if ( b. dwFlags == 0 )
-		return true;
-
-	if (( hr = DwmEnableBlurBehindWindow(win, &b)) != S_OK ) {
-		apiHErr(hr);
-		apcErrClear;
-		return false;
-	}
-
-	return true;
-}
-
-Bool
 is_dwm_enabled( void )
 {
 	if ( DwmIsCompositionEnabled ) {
@@ -175,7 +125,7 @@ is_dwm_enabled( void )
 		valType = REG_DWORD;
 		valSize = sizeof(DWORD);
 		if ( RegOpenKeyEx( HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\DWM", 0, KEY_READ, &hKey) == 0 ) {
-			if ( RegQueryValueEx( hKey, "CompositionPolicy", nil, &valType, ( LPBYTE)&dw, &valSize) != 0 )
+			if ( RegQueryValueEx( hKey, "CompositionPolicy", NULL, &valType, ( LPBYTE)&dw, &valSize) != 0 )
 				dw = 1;
 			RegCloseKey( hKey);
 			return dw == 0;
@@ -210,6 +160,7 @@ window_subsystem_init( char * error_buf)
 	guts. mainThreadId = GetCurrentThreadId();
 	guts. errorMode = SetErrorMode( SEM_FAILCRITICALERRORS);
 	guts. desktopWindow = GetDesktopWindow();
+	arrowCursor    = LoadCursor( NULL, IDC_ARROW);
 
 	memset( &wc, 0, sizeof( wc));
 	wc.style         = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
@@ -230,7 +181,7 @@ window_subsystem_init( char * error_buf)
 	wc.cbWndExtra    = 0;
 	wc.hInstance     = guts. instance;
 	wc.hIcon         = LoadIcon( guts. instance, IDI_APPLICATION);
-	wc.hCursor       = LoadCursor( NULL, IDC_ARROW);
+	wc.hCursor       = arrowCursor;
 	wc.hbrBackground = (HBRUSH)NULL;
 	wc.lpszClassName = L"GenericFrame";
 	RegisterClassW( &wc);
@@ -242,7 +193,7 @@ window_subsystem_init( char * error_buf)
 	wc.cbWndExtra    = 0;
 	wc.hInstance     = guts. instance;
 	wc.hIcon         = LoadIcon( guts. instance, IDI_APPLICATION);
-	wc.hCursor       = LoadCursor( NULL, IDC_ARROW);
+	wc.hCursor       = arrowCursor;
 	wc.hbrBackground = (HBRUSH)NULL;
 	wc.lpszClassName = L"LayeredFrame";
 	RegisterClassW( &wc);
@@ -275,7 +226,7 @@ window_subsystem_init( char * error_buf)
 		hPenHollow        = CreatePen( PS_NULL, 0, 0);
 		hBrushHollow      = CreateBrushIndirect( &b);
 		hPatHollow. dotsCount = 0;
-		hPatHollow. dotsPtr   = nil;
+		hPatHollow. dotsPtr   = NULL;
 		FONTSTRUCSIZE    = (char *)(&(f. name)) - (char *)(&f);
 	}
 
@@ -288,7 +239,6 @@ window_subsystem_init( char * error_buf)
 	if ( os.dwMajorVersion >= 5) {
 		HMODULE mod = LoadLibrary("DWMAPI.DLL");
 		if ( mod ) {
-			LOAD_FUNC(mod, DwmEnableBlurBehindWindow);
 			LOAD_FUNC(mod, DwmIsCompositionEnabled);
 		}
 		mod = LoadLibrary("KERNEL32.DLL");
@@ -373,10 +323,10 @@ window_subsystem_init( char * error_buf)
 	{
 		char buf[ KL_NAMELENGTH * 2] = "";
 		HKL current      = GetKeyboardLayout( 0);
-		int i, j, size   = GetKeyboardLayoutList( 0, nil);
+		int i, j, size   = GetKeyboardLayoutList( 0, NULL);
 		HKL * kl         = ( HKL *) malloc( sizeof( HKL) * size);
 
-		guts. keyLayout = nil;
+		guts. keyLayout = NULL;
 		if ( !GetKeyboardLayoutName( buf)) apiErr;
 		for ( j = 0; j < ( sizeof( keyLayouts) / sizeof( char*)); j++) {
 			if ( strncmp( buf + 4, keyLayouts[ j], 4) == 0) {
@@ -479,11 +429,11 @@ window_subsystem_done()
 	hash_destroy( stylusMan,  true);
 	hash_destroy( regnodeMan, false);
 
-	hash_first_that( menuBitmapMan, menu_bitmap_cleaner, nil, nil, nil);
+	hash_first_that( menuBitmapMan, menu_bitmap_cleaner, NULL, NULL, NULL);
 	hash_destroy( menuBitmapMan,  false);
 	hash_destroy( scriptCacheMan,  true);
 
-	hash_first_that( myfontMan, myfont_cleaner, nil, nil, nil);
+	hash_first_that( myfontMan, myfont_cleaner, NULL, NULL, NULL);
 	hash_destroy( myfontMan,  false);
 	DeleteObject( hPenHollow);
 	DeleteObject( hBrushHollow);
@@ -507,7 +457,7 @@ char * err_msg( DWORD errId, char * buffer)
 {
 	LPVOID lpMsgBuf;
 	int len;
-	if ( buffer == nil) buffer = err_buf;
+	if ( buffer == NULL) buffer = err_buf;
 	FormatMessage( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, errId,
 		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 		( LPTSTR) &lpMsgBuf, 0, NULL);
@@ -667,7 +617,7 @@ LRESULT CALLBACK generic_view_handler( HWND win, UINT  msg, WPARAM mp1, LPARAM m
 		if (( HIWORD( mp1) == 0 /* menu source */) && ( mp2 == 0)) {
 			if ( LOWORD( mp1) <= MENU_ID_AUTOSTART) {
 				HWND active = GetFocus();
-				if ( active != nil) SendMessage( active, LOWORD( mp1), 0, 0);
+				if ( active != NULL) SendMessage( active, LOWORD( mp1), 0, 0);
 			} else if ( sys lastMenu) {
 				PAbstractMenu a = ( PAbstractMenu) sys lastMenu;
 				if ( a-> stage <= csNormal)
@@ -885,8 +835,8 @@ AGAIN:
 	case WM_INITMENU:
 		{
 			PMenuWndData mwd = ( PMenuWndData) hash_fetch( menuMan, &mp1, sizeof( void*));
-			PMenuItemReg m = nil;
-			sys lastMenu = mwd ? mwd-> menu : nilHandle;
+			PMenuItemReg m = NULL;
+			sys lastMenu = mwd ? mwd-> menu : NULL_HANDLE;
 			if ( mwd && mwd-> menu && ( PAbstractMenu(mwd-> menu)->stage <= csNormal)) {
 				m = ( PMenuItemReg) AbstractMenu_first_that( mwd-> menu, find_oid, INT2PTR(void*,mwd->id), true);
 				hiStage    = true;
@@ -894,7 +844,7 @@ AGAIN:
 				ev. gen. H = mwd-> menu;
 				ev. gen. i = m ? m-> id : 0;
 			}
-			if (( msg == WM_INITMENUPOPUP) && ( m == nil))
+			if (( msg == WM_INITMENUPOPUP) && ( m == NULL))
 				ev. cmd = 0;
 		}
 		break;
@@ -915,6 +865,9 @@ AGAIN:
 	case WM_MBUTTONDOWN:
 		ev. pos. button = mbMiddle;
 		goto MB_DOWN;
+	case WM_XBUTTONDOWN:
+		ev. pos. button = (HIWORD(mp1) == XBUTTON1) ? mb4 : mb5;
+		goto MB_DOWN;
 	case WM_LBUTTONUP:
 		ev. pos. button = mbLeft;
 		goto MB_UP;
@@ -923,6 +876,9 @@ AGAIN:
 		goto MB_UP;
 	case WM_MBUTTONUP:
 		ev. pos. button = mbMiddle;
+		goto MB_UP;
+	case WM_XBUTTONUP:
+		ev. pos. button = (HIWORD(mp1) == XBUTTON1) ? mb4 : mb5;
 		goto MB_UP;
 	case WM_LBUTTONDBLCLK:
 		ev. pos. button = mbLeft;
@@ -933,6 +889,9 @@ AGAIN:
 	case WM_MBUTTONDBLCLK:
 		ev. pos. button = mbMiddle;
 		goto MB_DBLCLK;
+	case WM_XBUTTONDBLCLK:
+		ev. pos. button = (HIWORD(mp1) == XBUTTON1) ? mb4 : mb5;
+		goto MB_DBLCLK;
 	case WM_LMOUSECLICK:
 		ev. pos. button = mbLeft;
 		goto MB_CLICK;
@@ -942,6 +901,9 @@ AGAIN:
 	case WM_MMOUSECLICK:
 		ev. pos. button = mbMiddle;
 		goto MB_CLICK;
+	case WM_XMOUSECLICK:
+		ev. pos. button = (HIWORD(mp1) == XBUTTON1) ? mb4 : mb5;
+		goto MB_CLICK;
 	case WM_MOUSEWHEEL:
 		{
 			POINT p;
@@ -949,7 +911,7 @@ AGAIN:
 			p. y = (short)HIWORD( mp2);
 			ev. cmd         = cmMouseWheel;
 			ev. pos. button = ( short) HIWORD( mp1);
-			MapWindowPoints( nil, win, &p, 1);
+			MapWindowPoints( NULL, win, &p, 1);
 			ev. pos. where. x = p. x;
 			ev. pos. where. y = sys lastSize. y - p. y - 1;
 		}
@@ -964,7 +926,7 @@ AGAIN:
 			SendMessage( win, WM_MOUSEENTER, mp1, mp2);
 			if ( !guts. mouseTimer) {
 				guts. mouseTimer = 1;
-				if ( !SetTimer( dsys(application)handle, TID_USERMAX, 100, nil)) apiErr;
+				if ( !SetTimer( dsys(application)handle, TID_USERMAX, 100, NULL)) apiErr;
 			}
 		}
 		goto MB_MAIN;
@@ -1037,7 +999,7 @@ AGAIN:
 			(( GetKeyState( VK_MENU)    < 0) ? kmAlt   : 0);
 		if (( ev. key. mod & kmCtrl) && ( ev. key. code <= 'z'))
 			ev. key. code += 'A' - 1;
-		key = CAbstractMenu-> translate_key( nilHandle, ev. key. code, ev. key. key, ev. key. mod);
+		key = CAbstractMenu-> translate_key( NULL_HANDLE, ev. key. code, ev. key. key, ev. key. mod);
 		if ( v-> self-> process_accel( self, key))
 			return MAKELONG( 0, MNC_CLOSE);
 
@@ -1078,7 +1040,7 @@ AGAIN:
 			ev. gen . P. x = ( short) LOWORD( mp2);
 			ev. gen . P. y = sz. y - ( short) HIWORD( mp2) - sys yOverride;
 			if ( is_apt( aptTransparent))
-				InvalidateRect( win, nil, false);
+				InvalidateRect( win, NULL, false);
 		}
 		break;
 	}
@@ -1128,7 +1090,8 @@ AGAIN:
 		ev. cmd = cmSetup;
 		break;
 	case WM_REPAINT_LAYERED:
-		hwnd_repaint_layered( self, true );
+		if ( var stage == csNormal )
+			hwnd_repaint_layered( self, true );
 		break;
 	case WM_SETFOCUS:
 		if ( guts. focSysDialog) return 1;
@@ -1216,7 +1179,7 @@ AGAIN:
 		break;
 	}
 	case WM_DESTROY:
-		v-> handle = nilHandle;       // tell apc not to kill this HWND
+		v-> handle = NULL_HANDLE;       // tell apc not to kill this HWND
 		SetWindowLongPtr( win, GWLP_USERDATA, 0);
 		Object_destroy(( Handle) v);
 		break;
@@ -1239,7 +1202,7 @@ AGAIN:
 		break;
 	}
 	case WM_MOUSEMOVE:
-		if ( is_apt( aptEnabled)) SetCursor( sys pointer);
+		SetCursor( is_apt( aptEnabled) ? sys pointer : arrowCursor);
 		break;
 	case WM_MOUSEWHEEL:
 		return ( LRESULT)1;
@@ -1452,7 +1415,7 @@ LRESULT CALLBACK generic_frame_handler( HWND win, UINT  msg, WPARAM mp1, LPARAM 
 				{
 					HWND old = ( HWND)(( PWidget) lastMouseOver)-> handle;
 					Handle s;
-					lastMouseOver = nilHandle;
+					lastMouseOver = NULL_HANDLE;
 					SendMessage( old, WM_MOUSEEXIT, 0, 0);
 					s = hwnd_to_view( wp);
 					if ( s && ( HWND)(( PWidget) s)-> handle == wp)
@@ -1666,7 +1629,7 @@ LRESULT CALLBACK generic_app_handler( HWND win, UINT  msg, WPARAM mp1, LPARAM mp
 			dsys( application) lastSize. y = ( short) HIWORD( mp2);
 			if ( dc) {
 				if ( oldBPP != guts. displayBMInfo. bmiHeader. biBitCount)
-					hash_first_that( imageMan, kill_img_cache, (void*)1, nil, nil);
+					hash_first_that( imageMan, kill_img_cache, (void*)1, NULL, NULL);
 				dc_free();
 			}
 			break;
@@ -1687,7 +1650,7 @@ LRESULT CALLBACK generic_app_handler( HWND win, UINT  msg, WPARAM mp1, LPARAM mp
 			stylus_clean();
 			font_clean();
 			destroy_font_hash();
-			hash_first_that( imageMan, kill_img_cache, nil, nil, nil);
+			hash_first_that( imageMan, kill_img_cache, NULL, NULL, NULL);
 			hash_destroy( regnodeMan, false);
 			regnodeMan = hash_create();
 			break;

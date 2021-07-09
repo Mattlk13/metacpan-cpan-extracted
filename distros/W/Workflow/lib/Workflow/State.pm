@@ -11,13 +11,12 @@ use Exception::Class;
 use Workflow::Factory qw( FACTORY );
 use English qw( -no_match_vars );
 
-$Workflow::State::VERSION = '1.49';
+$Workflow::State::VERSION = '1.54';
 
 my @FIELDS   = qw( state description type );
 my @INTERNAL = qw( _test_condition_count _factory );
 __PACKAGE__->mk_accessors( @FIELDS, @INTERNAL );
 
-my ($log);
 
 ########################################
 # PUBLIC
@@ -45,7 +44,7 @@ sub get_available_action_names {
 
     # assuming that the user wants the _fresh_ list of available actions,
     # we clear the condition cache before checking which ones are available
-    delete $wf->{'_condition_result_cache'};
+    local $wf->{'_condition_result_cache'} = {};
 
     foreach my $action_name (@all_actions) {
 
@@ -79,7 +78,6 @@ sub is_action_available {
     $EVAL_ERROR->rethrow() if (ref $EVAL_ERROR);
 
     croak $EVAL_ERROR;
-
 }
 
 sub clear_condition_cache {
@@ -89,8 +87,6 @@ sub clear_condition_cache {
 
 sub evaluate_action {
     my ( $self, $wf, $action_name ) = @_;
-    $log ||= get_logger();
-
     my $state = $self->state;
 
     # NOTE: this will throw an exception if C<$action_name> is not
@@ -104,137 +100,30 @@ sub evaluate_action {
         } else {
             $condition_name = $condition->name;
         }
-        my $orig_condition = $condition_name;
-        my $opposite       = 0;
 
-        $log->is_debug
-            && $log->debug("Checking condition $condition_name");
-
-        if ( $condition_name =~ m{ \A ! }xms ) {
-
-            # this condition starts with a '!' and is thus supposed
-            # to return the opposite of an original condition, whose
-            # name is the same except for the '!'
-            $orig_condition =~ s{ \A ! }{}xms;
-            $opposite = 1;
-            $log->is_debug
-                && $log->debug(
-                "Condition starts with a !: '$condition_name'");
-        }
-
-        if ( $Workflow::Condition::CACHE_RESULTS
-             && exists $wf->{'_condition_result_cache'}->{$orig_condition} ) {
-
-            # The condition has already been evaluated and the result
-            # has been cached
-            $log->is_debug
-                && $log->debug(
-                "Condition has been cached: '$orig_condition', cached result: ",
-                $wf->{'_condition_result_cache'}->{$orig_condition}
-                );
-            if ( !$opposite ) {
-                $log->is_debug
-                    && $log->debug("Opposite is false.");
-                if ( !$wf->{'_condition_result_cache'}->{$orig_condition} )
-                {
-                    $log->is_debug
-                        && $log->debug("Cached condition result is false.");
-                    condition_error "No access to action '$action_name' in ",
-                        "state '$state' because cached ",
-                        "condition '$orig_condition' already ",
-                        "failed before.";
-                }
-            } else {
-
-                # we have to return an error if the original cached
-                # condition did NOT fail
-                $log->is_debug
-                    && $log->debug("Opposite is true.");
-                if ( $wf->{'_condition_result_cache'}->{$orig_condition} ) {
-                    $log->is_debug
-                        && $log->debug("Cached condition is true.");
-                    condition_error "No access to action '$action_name' in ",
-                        "state '$state' because cached ",
-                        "condition '$orig_condition' did NOT ",
-                        "fail before and we are being asked ",
-                        "for the opposite.";
-                }
+        my $rv;
+        eval {
+            $rv = Workflow::Condition->evaluate_condition($wf, $condition_name);
+        };
+        if ($EVAL_ERROR) {
+            if (Exception::Class->caught('Workflow::Exception::Condition')) {
+                condition_error "No access to action '$action_name' in ",
+                    "state '$state' because $EVAL_ERROR ";
             }
-        } else {
-
-            # we did not evaluate the condition yet, we have to do
-            # it now
-            if ($opposite) {
-
-                # so far, the condition is just a hash containing a
-                # name. As the result has not been cached, we have
-                # to get the real condition with the original
-                # condition name and evaluate that
-                $condition = $self->_factory()
-                    ->get_condition( $orig_condition, $self->type() );
-            }
-            $log->is_debug
-                && $log->debug( q{Evaluating condition '},
-                $condition->name, q{'} );
-            eval { $condition->evaluate($wf) };
-            if ($EVAL_ERROR) {
-
-                # Check if this is a Workflow::Exception::Condition
-                if (Exception::Class->caught('Workflow::Exception::Condition')) {
-                    # TODO: We may just want to pass the error up
-                    # without wrapping it...
-                    $wf->{'_condition_result_cache'}->{$orig_condition} = 0;
-                    if ( !$opposite ) {
-                        $log->is_debug
-                            && $log->debug("No access to action '$action_name', condition " .
-                             "'$orig_condition' failed because ' . $EVAL_ERROR");
-
-                        condition_error "No access to action '$action_name' in ",
-                            "state '$state' because: $EVAL_ERROR";
-                    } else {
-                        $log->is_debug
-                            && $log->debug("opposite condition '$orig_condition' failed because ' . $EVAL_ERROR");
-                    }
-                } else {
-                    $log->is_debug
-                        && $log->debug("Got uncatchable exception in condition $condition_name ");
-
-                    # if EVAL_ERROR is an execption object rethrow it
-                    $EVAL_ERROR->rethrow() if (ref $EVAL_ERROR ne'');
-
-                    # if it is a string (bubbled up from die/croak), make an Exception Object
-                    # For briefness, we just send back the first line of EVAL
-                    my @t = split /\n/, $EVAL_ERROR;
-                    my $ee = shift @t;
-                    Exception::Class::Base->throw( error
-                        => "Got unknown exception while handling condition '$condition_name' / " . $ee );
-                }
-            } else {
-                $wf->{'_condition_result_cache'}->{$orig_condition} = 1;
-                if ($opposite) {
-
-                    $log->is_debug
-                        && $log->debug(
-                            "No access to action '$action_name', condition '$orig_condition' ".
-                            "did NOT failed but opposite requested");
-
-                    condition_error "No access to action '$action_name' in ",
-                        "state '$state' because condition ",
-                        "$orig_condition did NOT fail and we ",
-                        "are checking $condition_name.";
-                } else {
-
-                    $log->is_debug &&
-                        $log->debug(
-                            "condition '$orig_condition' failed, because '$EVAL_ERROR', " .
-                            "but opposite requested");
-
-                }
+            else {
+                $EVAL_ERROR->rethrow() if (ref $EVAL_ERROR ne '');
+                # For briefness, we just send back the first line of EVAL
+                my @t = split /\n/, $EVAL_ERROR;
+                my $ee = shift @t;
+                Exception::Class::Base->throw(
+                    error
+                    => "Got unknown exception while handling condition '$condition_name' / " . $ee );
             }
         }
-        $log->is_debug
-            && $log->debug(
-            "Condition '$condition_name' evaluated successfully");
+        elsif (! $rv) {
+            condition_error "No access to action '$action_name' in ",
+                "state '$state' because condition '$condition_name' failed";
+        }
     }
 }
 
@@ -261,7 +150,6 @@ sub get_autorun_action_name {
             "execution. If you want it to be run automatically ",
             "set the 'autorun' property to 'yes'.";
     }
-    $log ||= get_logger();
 
     my @actions   = $self->get_available_action_names($wf);
     my $pre_error = "State '$state' should be automatically executed but ";
@@ -273,8 +161,8 @@ sub get_autorun_action_name {
         workflow_error
             "$pre_error there are no actions available for execution.";
     }
-    $log->is_debug
-        && $log->debug(
+    $self->log->is_debug
+        && $self->log->debug(
         "Auto-running state '$state' with action '$actions[0]'");
     return $actions[0];
 }
@@ -311,13 +199,12 @@ sub init {
 
     # Fallback for old style
     $factory ||= FACTORY;
-    $log ||= get_logger();
     my $name = $config->{name};
 
     my $class = ref $self;
 
-    $log->is_debug
-        && $log->debug("Constructing '$class' object for state $name");
+    $self->log->is_debug
+        && $self->log->debug("Constructing '$class' object for state $name");
 
     $self->state($name);
     $self->_factory($factory);
@@ -346,7 +233,7 @@ sub init {
                     $resulting );
             }
         }
-        $log->debug("Adding action '$action_name' to '$class' '$name'");
+        $self->log->debug("Adding action '$action_name' to '$class' '$name'");
         $self->_add_action_config( $action_name, $state_action_config );
     }
 }
@@ -372,15 +259,14 @@ sub _assign_resulting_state_from_array {
         workflow_error "Errors found assigning 'resulting_state' to ",
             "action '$action_name' in state '$name': ", join '; ', @errors;
     }
-    $log->is_debug
-        && $log->debug( "Assigned multiple resulting states in '$name' and ",
+    $self->log->is_debug
+        && $self->log->debug( "Assigned multiple resulting states in '$name' and ",
         "action '$action_name' from array ok" );
     return \%new_resulting;
 }
 
 sub _add_action_config {
     my ( $self, $action_name, $action_config ) = @_;
-    $log ||= get_logger();
     my $state = $self->state;
     unless ( $action_config->{resulting_state} ) {
         my $no_change_value = Workflow->NO_CHANGE_VALUE;
@@ -389,8 +275,8 @@ sub _add_action_config {
             "is required -- if you do not want the state to ",
             "change, use the value '$no_change_value'.";
     }
-    $log->is_debug
-        && $log->debug("Adding '$state' '$action_name' config");
+    $self->log->is_debug
+        && $self->log->debug("Adding '$state' '$action_name' config");
     $self->{_actions}{$action_name} = $action_config;
     my @action_conditions = $self->_create_condition_objects($action_config);
     $self->{_conditions}{$action_name} = \@action_conditions;
@@ -398,7 +284,6 @@ sub _add_action_config {
 
 sub _create_condition_objects {
     my ( $self, $action_config ) = @_;
-    $log ||= get_logger();
     my @conditions = $self->normalize_array( $action_config->{condition} );
     my @condition_objects = ();
     foreach my $condition_info (@conditions) {
@@ -417,8 +302,8 @@ sub _create_condition_objects {
                 );
         } else {
             if ( $condition_info->{name} =~ m{ \A ! }xms ) {
-                $log->is_debug
-                    && $log->debug(
+                $self->log->is_debug
+                    && $self->log->debug(
                     "Condition starts with !, pushing hash with name only");
 
                 # push a hashref only, not a real object
@@ -427,8 +312,8 @@ sub _create_condition_objects {
                 push @condition_objects,
                     { 'name' => $condition_info->{name} };
             } else {
-                $log->is_info
-                    && $log->info(
+                $self->log->is_info
+                    && $self->log->info(
                     "Fetching condition '$condition_info->{name}'");
                 push @condition_objects,
                     $self->_factory()
@@ -463,13 +348,15 @@ sub _get_next_condition_count {
 
 __END__
 
+=pod
+
 =head1 NAME
 
 Workflow::State - Information about an individual state in a workflow
 
 =head1 VERSION
 
-This documentation describes version 1.14 of this package
+This documentation describes version 1.54 of this package
 
 =head1 SYNOPSIS
 
@@ -611,7 +498,7 @@ Returns name of action to be used for autorunning the state.
 
 =head3 clear_condition_cache ( )
 
-Deprecated, kept for 1.49 compatibility.
+Deprecated, kept for 1.54 compatibility.
 
 Used to empties the condition result cache for a given state.
 
@@ -651,23 +538,27 @@ performing some sanity checks like ensuring every action has a
 
 =head1 SEE ALSO
 
-L<Workflow>
+=over
 
-L<Workflow::Condition>
+=item * L<Workflow>
 
-L<Workflow::Factory>
+=item * L<Workflow::Condition>
+
+=item * L<Workflow::Factory>
+
+=back
 
 =head1 COPYRIGHT
 
-Copyright (c) 2003-2007 Chris Winters. All rights reserved.
+Copyright (c) 2003-2021 Chris Winters. All rights reserved.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
+Please see the F<LICENSE>
+
 =head1 AUTHORS
 
-Jonas B. Nielsen (jonasbn) E<lt>jonasbn@cpan.orgE<gt> is the current maintainer.
-
-Chris Winters E<lt>chris@cwinters.comE<gt>
+Please see L<Workflow>
 
 =cut

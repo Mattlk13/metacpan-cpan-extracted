@@ -4,17 +4,17 @@ use warnings;
 use strict;
 use 5.008003;
 
-our $VERSION = '0.529';
+our $VERSION = '0.535';
 use Exporter 'import';
 our @EXPORT_OK = qw( fill_form read_line );
 
-use Carp       qw( croak carp );
+use Carp       qw( croak );
 use List::Util qw( any );
 
 use Term::Choose::LineFold        qw( line_fold print_columns cut_to_printwidth );
-use Term::Choose::Constants       qw( :keys );
+use Term::Choose::Constants       qw( :all );
 use Term::Choose::Screen          qw( :all );
-use Term::Choose::Util            qw( unicode_sprintf );
+use Term::Choose::Util            qw( unicode_sprintf get_term_size get_term_width get_term_height );
 use Term::Choose::ValidateOptions qw( validate_options );
 
 my $Plugin;
@@ -58,47 +58,59 @@ sub _valid_options {
     my ( $caller ) = @_;
     if ( $caller eq 'new' ) {
         return {
-            clear_screen     => '[ 0 1 ]',
-            codepage_mapping => '[ 0 1 ]',
-            show_context     => '[ 0 1 ]',
-            auto_up          => '[ 0 1 2 ]',
-            color            => '[ 0 1 2 ]',
-            hide_cursor      => '[ 0 1 2 ]',
-            no_echo          => '[ 0 1 2 ]',
-            read_only        => 'Array_Int',
-            back             => 'Str',
-            confirm          => 'Str',
-            default          => 'Str',
-            extra            => 'Str', # experimental
-            info             => 'Str',
-            prompt           => 'Str',
+            codepage_mapping   => '[ 0 1 ]',
+            show_context       => '[ 0 1 ]',
+            auto_up            => '[ 0 1 2 ]',
+            clear_screen       => '[ 0 1 2 ]',
+            color              => '[ 0 1 2 ]',
+            hide_cursor        => '[ 0 1 2 ]',       # hide_cursor == 2 # documentation
+            no_echo            => '[ 0 1 2 ]',
+            page               => '[ 0 1 2 ]',       # undocumented
+            keep               => '[ 1-9 ][ 0-9 ]*', # undocumented
+            read_only          => 'Array_Int',
+            section_separators => 'Array_Int',       # 24.06.2021 removed
+            skip_items         => 'Regexp',          # experimental
+                                                     # only keys are checked, passed values are ignored
+                                                     # it's up to the user to remove the skipped items from the returned array
+            back               => 'Str',
+            confirm            => 'Str',
+            default            => 'Str',
+            footer             => 'Str',             # undocumented
+            info               => 'Str',
+            prompt             => 'Str',
         };
     }
     if ( $caller eq 'readline' ) {
         return {
-            clear_screen     => '[ 0 1 ]',
             codepage_mapping => '[ 0 1 ]',
             show_context     => '[ 0 1 ]',
+            clear_screen     => '[ 0 1 2 ]',
             color            => '[ 0 1 2 ]',
             hide_cursor      => '[ 0 1 2 ]',
             no_echo          => '[ 0 1 2 ]',
+            page             => '[ 0 1 2 ]',
             default          => 'Str',
+            footer           => 'Str',
             info             => 'Str',
         };
     }
     if ( $caller eq 'fill_form' ) {
         return {
-            clear_screen     => '[ 0 1 ]',
-            codepage_mapping => '[ 0 1 ]',
-            auto_up          => '[ 0 1 2 ]',
-            color            => '[ 0 1 2 ]',
-            hide_cursor      => '[ 0 1 2 ]',
-            read_only        => 'Array_Int',
-            back             => 'Str',
-            confirm          => 'Str',
-            extra            => 'Str', # experimental
-            info             => 'Str',
-            prompt           => 'Str',
+            codepage_mapping   => '[ 0 1 ]',
+            auto_up            => '[ 0 1 2 ]',
+            clear_screen       => '[ 0 1 2 ]',
+            color              => '[ 0 1 2 ]',
+            hide_cursor        => '[ 0 1 2 ]',
+            page               => '[ 0 1 2 ]',
+            keep               => '[ 1-9 ][ 0-9 ]*',
+            read_only          => 'Array_Int',
+            section_separators => 'Array_Int', # 24.06.2021 removed
+            skip_items         => 'Regexp',
+            back               => 'Str',
+            confirm            => 'Str',
+            footer             => 'Str',
+            info               => 'Str',
+            prompt             => 'Str',
         };
     }
 }
@@ -106,20 +118,24 @@ sub _valid_options {
 
 sub _defaults {
     return {
-        auto_up          => 0,
-        back             => '   BACK',
-        clear_screen     => 0,
-        codepage_mapping => 0,
-        color            => 0,
-        confirm          => 'CONFIRM',
-        default          => '',
-        extra            => '', # experimental
-        hide_cursor      => 1,
-        info             => '',
-        no_echo          => 0,
-        prompt           => '',
-        read_only        => [],
-        show_context     => 0,
+        auto_up            => 0,
+        back               => '   BACK',
+        clear_screen       => 0,
+        codepage_mapping   => 0,
+        color              => 0,
+        confirm            => 'CONFIRM',
+        default            => '',
+        footer             => '',
+        hide_cursor        => 1,
+        info               => '',
+        keep               => 5,
+        no_echo            => 0,
+        page               => 1,
+        prompt             => '',
+        read_only          => [],
+        section_separators => [],           # 24.06.2021 removed
+        skip_items         => undef,
+        show_context       => 0,
     };
 }
 
@@ -133,16 +149,21 @@ sub __init_term {
 sub __reset_term {
     my ( $self, $up ) = @_;
     if ( defined $self->{plugin} ) {
-        $self->{plugin}->__reset_mode();
+        $self->{plugin}->__reset_mode( { hide_cursor => 0 } );
     }
     if ( $up ) {
         print up( $up );
     }
-    print "\r" . clear_to_end_of_screen();
+    if ( $self->{clear_screen} == 2 ) {
+        print "\r" . clear_to_end_of_line();
+    }
+    else {
+        print "\r" . clear_to_end_of_screen();
+    }
     if ( $self->{hide_cursor} == 1 ) {
         print show_cursor();
     }
-    elsif ( $self->{hide_cursor} == 2 ) { # documentation
+    elsif ( $self->{hide_cursor} == 2 ) {
         print hide_cursor();
     }
     if ( exists $self->{backup_instance_defaults} ) {
@@ -203,7 +224,7 @@ sub __calculate_threshold {
 
 sub __before_readline {
     my ( $self, $m ) = @_;
-    my @info = line_fold( $self->{info}, $self->{i}{term_w}, { color => $self->{color}, join => 0 } );
+    my @pre_text_array;
     if ( $self->{show_context} ) {
         my @before_lines;
         if ( $m->{diff} ) {
@@ -242,16 +263,18 @@ sub __before_readline {
                 $self->{i}{keys}[0] = '';
             }
         }
-        $self->{i}{pre_text} = join "\n", @info, @before_lines;
+        push @pre_text_array, @before_lines;
     }
     else {
         $self->{i}{keys}[0] = $self->__get_prompt();
-        $self->{i}{pre_text} = join "\n", @info;
     }
-    $self->{i}{pre_text_row_count} = $self->{i}{pre_text} =~ tr/\n//;
-    if ( length $self->{i}{pre_text} ) {
-        ++$self->{i}{pre_text_row_count};
+    if ( $self->{clear_screen} == 2 ) {
+        $self->{i}{pre_text} = join "\n", map { "\r" . clear_to_end_of_line() . $_ } @pre_text_array;
     }
+    else {
+        $self->{i}{pre_text} = join "\n", @pre_text_array;
+    }
+    $self->{i}{pre_text_row_count} = scalar @pre_text_array;
 }
 
 sub __get_prompt {
@@ -269,17 +292,17 @@ sub __get_prompt {
 sub __after_readline {
     my ( $self, $m ) = @_;
     my $count_chars_after = @{$m->{str}} - ( @{$m->{p_str}} + $m->{diff} );
-    if (  ! $self->{show_context} || ! $count_chars_after ) {
+    if ( ! $self->{show_context} || ! $count_chars_after ) {
         $self->{i}{post_text} = '';
         $self->{i}{post_text_row_count} = 0;
         return;
     }
-    my @after_lines;
+    my @post_text_array;
     my $line = '';
     my $line_w = 0;
     for my $i ( ( @{$m->{str}} - $count_chars_after ) .. $#{$m->{str}} ) {
         if ( $line_w + $m->{str}[$i][1] > $self->{i}{term_w} ) {
-            push @after_lines, $line;
+            push @post_text_array, $line;
             $line = $m->{str}[$i][0];
             $line_w = $m->{str}[$i][1];
             next;
@@ -288,12 +311,53 @@ sub __after_readline {
         $line_w = $line_w + $m->{str}[$i][1];
     }
     if ( $line_w ) {
-        push @after_lines, $line;
+        push @post_text_array, $line;
     }
-    $self->{i}{post_text} = join "\n", @after_lines;
-    if ( length $self->{i}{post_text} ) {
-        $self->{i}{post_text_row_count} = $self->{i}{post_text} =~ tr/\n//;
-        ++$self->{i}{post_text_row_count};
+    if ( $self->{clear_screen} == 2 ) { # never
+        $self->{i}{post_text} = join "\n", map { "\r" . clear_to_end_of_line() . $_ } @post_text_array;
+    }
+    else {
+        $self->{i}{post_text} = join "\n", @post_text_array;
+    }
+    $self->{i}{post_text_row_count} = scalar @post_text_array;
+}
+
+
+sub __print_footer {
+    my ( $self ) = @_;
+    my $used_rows = (
+          $self->{i}{info_row_count}
+        + $self->{i}{pre_text_row_count}
+        + 1     #readline
+        + $self->{i}{post_text_row_count}
+    );
+    my $empty = get_term_height() - $used_rows;
+    my $footer_line = sprintf $self->{i}{footer_fmt}, 1;
+    if ( $empty > 0 ) {
+        print "\n" x $empty;
+        print $footer_line;
+        print up( $empty );
+    }
+    else {
+        if ( get_term_height >= 2 ) { ##
+            print "\n";
+            print $footer_line;
+            print up( 1 );
+        }
+    }
+}
+
+
+sub __modify_readline_options {
+    my ( $self ) = @_;
+    if ( $self->{clear_screen} == 2 && $self->{show_context} ) {
+        $self->{clear_screen} = 0;
+    }
+    if ( length $self->{footer} && $self->{page} != 2 ) {
+        $self->{page} = 2;
+    }
+    if ( $self->{page} == 2 && $self->{clear_screen} != 1 ) {
+        $self->{clear_screen} = 1;
     }
 }
 
@@ -301,8 +365,21 @@ sub __after_readline {
 sub __init_readline {
     my ( $self, $term_w, $prompt ) = @_;
     $self->{i}{term_w} = $term_w;
+    if ( $self->{clear_screen} == 1 ) {
+        print clear_screen();
+    }
+    if ( length $self->{info} ) {
+        my @info = line_fold( $self->{info}, $self->{i}{term_w}, { color => $self->{color}, join => 0 } );
+        $self->{i}{info_row_count} = @info;
+        print join( "\n", @info ), "\n";
+    }
+    else {
+        $self->{i}{info_row_count} = 0;
+    }
     $self->{i}{seps}[0] = ''; # in __readline
     $self->{i}{curr_row} = 0; # in __readlline and __string_and_pos
+    $self->{i}{pre_text_row_count} = 0;
+    $self->{i}{post_text_row_count} = 0;
     if ( $self->{color} ) {
         my @color;
         $prompt =~ s/\x{feff}//g;
@@ -333,6 +410,14 @@ sub __init_readline {
     }
     $self->{i}{th} = int( $self->{i}{avail_w} / 5 );
     $self->{i}{th} = 40 if $self->{i}{th} > 40;
+    if ( $self->{page} == 2 ) {
+        $self->{i}{page_count} = 1; ##
+        $self->{i}{print_footer} = 1;
+        $self->__prepare_footer_fmt();
+    }
+    else {
+        $self->{i}{print_footer} = 0;
+    }
     my $list = [ [ $prompt, $self->{default} ] ];
     my $m = $self->__string_and_pos( $list );
     return $m;
@@ -366,6 +451,7 @@ sub readline {
             $self->{$key} = $opt->{$key} if defined $opt->{$key};
         }
     }
+    $self->__modify_readline_options();
     if ( $^O eq "MSWin32" ) {
         print $self->{codepage_mapping} ? "\e(K" : "\e(U";
     }
@@ -376,28 +462,36 @@ sub readline {
         exit;
     };
     $self->__init_term();
-    my $term_w = ( get_term_size() )[0];
+    my $term_w = get_term_width();
     my $m = $self->__init_readline( $term_w, $prompt );
     my $big_step = 10;
     my $up_before = 0;
-    if ( $self->{clear_screen} ) {
-        print clear_screen();
-    }
 
     CHAR: while ( 1 ) {
         if ( $self->{i}{beep} ) {
             print bell();
             $self->{i}{beep} = 0;
         }
-        my $tmp_term_w = ( get_term_size() )[0];
+        my $tmp_term_w = get_term_width();
         if ( $tmp_term_w != $term_w ) {
             $term_w = $tmp_term_w;
+            $self->{default} = join( '', map { $_->[0] } @{$m->{str}} );
             $m = $self->__init_readline( $term_w, $prompt );
+        }
+        if ( $self->{show_context} ) {
+            if ( ( $self->{i}{pre_text_row_count} + 2 + $self->{i}{post_text_row_count} ) >= get_term_height() ) { ##
+                $self->{show_context} = 0;
+                $up_before = 0;
+                $self->{default} = join( '', map { $_->[0] } @{$m->{str}} );
+                $m = $self->__init_readline( $term_w, $prompt );
+            }
         }
         if ( $up_before ) {
             print up( $up_before );
         }
-        print "\r" . clear_to_end_of_screen();
+        if ( $self->{clear_screen} < 2 ) {
+            print "\r" . clear_to_end_of_screen();
+        }
         $self->__before_readline( $m );
         $up_before = $self->{i}{pre_text_row_count};
         if ( $self->{hide_cursor} ) {
@@ -406,16 +500,23 @@ sub readline {
         if ( length $self->{i}{pre_text} ) {
             print $self->{i}{pre_text}, "\n";
         }
+
         $self->__after_readline( $m );
         if ( length $self->{i}{post_text} ) {
             print "\n" . $self->{i}{post_text};
+        }
+        if ( $self->{i}{print_footer} ) {
+            $self->__print_footer();
+        }
+        if ( $self->{i}{post_text_row_count} ) {
+            # after __print_footer()
             print up( $self->{i}{post_text_row_count} );
         }
         $self->__print_readline( $m );
         my $char = $self->{plugin}->__get_key_OS();
         if ( ! defined $char ) {
             $self->__reset_term();
-            carp "EOT: $!";
+            warn "EOT: $!";
             return;
         }
         # reset $m->{avail_w} to default:
@@ -775,17 +876,18 @@ sub __unicode_trim {
 
 sub __length_longest_key {
     my ( $self, $list ) = @_;
-    my $len = []; #
     my $longest = 0;
     for my $i ( 0 .. $#$list ) {
-        $len->[$i] = print_columns( $list->[$i][0] );
         if ( $i < @{$self->{i}{pre}} ) {
             next;
         }
-        $longest = $len->[$i] if $len->[$i] > $longest;
+        if ( any { $_ == $i } @{$self->{i}{keys_to_skip}} ) {
+            next;
+        }
+        my $len = print_columns( $list->[$i][0] );
+        $longest = $len if $len > $longest;
     }
     $self->{i}{max_key_w} = $longest;
-    $self->{i}{key_w} = $len;
 }
 
 
@@ -813,9 +915,9 @@ sub __prepare_hight {
         $self->{i}{pre_text_row_count} = $self->{i}{pre_text} =~ tr/\n//;
         $self->{i}{pre_text_row_count} += 1;
         $self->{i}{avail_h} -= $self->{i}{pre_text_row_count};
-        my $min_avail_h = 5;
+        my $min_avail_h = $self->{keep};
         if (  $term_h < $min_avail_h ) {
-            $min_avail_h =  $term_h;
+            $min_avail_h = $term_h;
         }
         if ( $self->{i}{avail_h} < $min_avail_h ) {
             $self->{i}{avail_h} = $min_avail_h;
@@ -825,14 +927,20 @@ sub __prepare_hight {
         $self->{i}{pre_text_row_count} = 0;
     }
     if ( @$list > $self->{i}{avail_h} ) {
-        $self->{i}{pages} = int @$list / ( $self->{i}{avail_h} - 1 );
+        $self->{i}{page_count} = int @$list / ( $self->{i}{avail_h} - 1 );
         if ( @$list % ( $self->{i}{avail_h} - 1 ) ) {
-            $self->{i}{pages}++;
+            $self->{i}{page_count}++;
         }
+    }
+    else {
+        $self->{i}{page_count} = 1;
+    }
+    if ( $self->{page} == 2 || ( $self->{page} == 1 && $self->{i}{page_count} > 1) ) {
+        $self->{i}{print_footer} = 1;
         $self->{i}{avail_h}--;
     }
     else {
-        $self->{i}{pages} = 1;
+        $self->{i}{print_footer} = 0;
     }
     return;
 }
@@ -853,10 +961,40 @@ sub __print_current_row {
 }
 
 
+sub __get_row_section_separator {
+    my ( $self, $list, $idx ) = @_;
+    my $remainder = '';
+    my $val = '';
+    ( $self->{i}{keys}[$idx], $remainder ) = cut_to_printwidth( $list->[$idx][0], $self->{i}{max_key_w}, 1 );
+    if ( length $remainder ) {
+        ( $self->{i}{seps}[$idx], $remainder ) = cut_to_printwidth( $remainder, 2, 1 );
+        if ( length $remainder ) {
+            $val = cut_to_printwidth( $remainder, $self->{i}{avail_w}, 0 );
+        }
+    }
+    if ( ! length $self->{i}{seps}[$idx] ) {
+        $self->{i}{seps}[$idx] = '  ';
+    }
+    elsif ( length $self->{i}{seps}[$idx] == 1 ) {
+        $self->{i}{seps}[$idx] .= ' ';
+    }
+    my $row = $self->{i}{keys}[$idx] . $self->{i}{seps}[$idx] . $val;
+    if ( exists $self->{i}{key_colors} && @{$self->{i}{key_colors}[$idx]} ) {
+        my @key_colors = @{$self->{i}{key_colors}[$idx]};
+        $row =~ s/\x{feff}/shift @key_colors/ge;
+        $row .= normal();
+    }
+    return $row;
+}
+
+
 sub __get_row {
     my ( $self, $list, $idx ) = @_;
     if ( $idx < @{$self->{i}{pre}} ) {
         return $list->[$idx][0];
+    }
+    if ( any { $_ == $idx } @{$self->{i}{keys_to_skip}} ) {
+        return $self->__get_row_section_separator( $list, $idx ); ## name
     }
     if ( ! defined $self->{i}{keys}[$idx] ) {
         my $key = $list->[$idx][0];
@@ -894,24 +1032,39 @@ sub __write_screen {
         push @rows, $self->__get_row( $list, $idx );
     }
     print join "\n", @rows;
-    if ( $self->{i}{pages} > 1 ) {
+    $self->{i}{curr_page} = int( $self->{i}{end_row} / $self->{i}{avail_h} ) + 1;
+    if ( $self->{i}{print_footer} ) {
         if ( $self->{i}{avail_h} - ( $self->{i}{end_row} + 1 - $self->{i}{begin_row} ) ) {
             print "\n" x ( $self->{i}{avail_h} - ( $self->{i}{end_row} - $self->{i}{begin_row} ) - 1 );
         }
-        $self->{i}{page} = int( $self->{i}{end_row} / $self->{i}{avail_h} ) + 1;
-        my $page_number = sprintf '- Page %d/%d -', $self->{i}{page}, $self->{i}{pages};
-        if ( length $page_number > $self->{i}{term_w} ) {
-            $page_number = substr sprintf( '%d/%d', $self->{i}{page}, $self->{i}{pages} ), 0, $self->{i}{term_w};
+        print "\n", sprintf $self->{i}{footer_fmt}, $self->{i}{curr_page};
+    }
+    my $up = $self->{i}{avail_h} - ( $self->{i}{curr_row} - $self->{i}{begin_row} );
+    print up( $up ) if $up;
+}
+
+
+sub __prepare_footer_fmt {
+    my ( $self ) = @_;
+    if ( ! $self->{i}{print_footer} ) {
+        return;
+    }
+    my $width_p_count = length $self->{i}{page_count};
+    my $p_count = $self->{i}{page_count};
+    my $footer_fmt = '--- %0' . $width_p_count . 'd/' . $p_count . ' ---';
+    if ( $self->{footer} ) {
+        $footer_fmt .= $self->{footer};
+    }
+    if ( print_columns( sprintf $footer_fmt, $p_count ) > $self->{i}{term_w} ) { # color
+        $footer_fmt = '%0' . $width_p_count . 'd/' . $p_count;
+        if ( length( sprintf $footer_fmt, $p_count ) > $self->{i}{term_w} ) {
+            if ( $width_p_count > $self->{i}{term_w} ) {
+                $width_p_count = $self->{i}{term_w};
+            }
+            $footer_fmt = '%0' . $width_p_count . '.' . $width_p_count . 's';
         }
-        print "\n", $page_number;
-        my $up = $self->{i}{avail_h} - ( $self->{i}{curr_row} - $self->{i}{begin_row} );
-        print up( $up ) if $up;
     }
-    else {
-        $self->{i}{page} = 1;
-        my $up = $self->{i}{end_row} - $self->{i}{curr_row};
-        print up( $up ) if $up;
-    }
+    $self->{i}{footer_fmt} = $footer_fmt;
 }
 
 
@@ -930,7 +1083,7 @@ sub __write_first_screen {
     }
     $self->{i}{seps} = [];
     $self->{i}{keys} = [];
-    if ( $self->{clear_screen} ) {
+    if ( $self->{clear_screen} == 1 ) {
         print clear_screen();
     }
     else {
@@ -945,12 +1098,10 @@ sub __write_first_screen {
     $self->__write_screen( $list );
 }
 
+
 sub __prepare_meta_menu_elements {
     my ( $self, $term_w ) = @_;
     my @meta_menu_elements = ( 'back', 'confirm' );
-    if ( defined $self->{extra} && length $self->{extra} ) {
-        unshift @meta_menu_elements, 'extra';
-    }
     $self->{i}{pre} = [];
     for my $meta_menu_element ( @meta_menu_elements ) {
         my @color;
@@ -973,6 +1124,20 @@ sub __prepare_meta_menu_elements {
 }
 
 
+sub __modify_fill_form_options {
+    my ( $self ) = @_;
+    if ( $self->{clear_screen} == 2 ) {
+        $self->{clear_screen} = 0;
+    }
+    if ( length $self->{footer} && $self->{page} != 2 ) {
+        $self->{page} = 2;
+    }
+    if ( $self->{page} == 2 && ! $self->{clear_screen} ) {
+        $self->{clear_screen} = 1;
+    }
+}
+
+
 sub fill_form {
     if ( ref $_[0] ne __PACKAGE__ ) {
         my $ob = __PACKAGE__->new();
@@ -991,12 +1156,17 @@ sub fill_form {
             $self->{$key} = $opt->{$key} if defined $opt->{$key};
         }
     }
+    $self->__modify_fill_form_options();
     if ( $^O eq "MSWin32" ) {
         print $self->{codepage_mapping} ? "\e(K" : "\e(U";
     }
     my @tmp;
-    push @tmp, $self->{info}   if length $self->{info};
-    push @tmp, $self->{prompt} if length $self->{prompt};
+    if ( length $self->{info} ) {
+        push @tmp, $self->{info};
+    }
+    if ( length $self->{prompt} ) {
+        push @tmp, $self->{prompt};
+    }
     $self->{i}{pre_text} = join "\n", @tmp;
     $self->{i}{sep}    = ': ';
     $self->{i}{sep_ro} = '| ';
@@ -1012,13 +1182,41 @@ sub fill_form {
     };
     $self->__init_term();
     my ( $term_w, $term_h ) = get_term_size();
-    $self->{i}{extra_orig}   = $self->{extra};
     $self->{i}{back_orig}    = $self->{back};
     $self->{i}{confirm_orig} = $self->{confirm};
     $self->__prepare_meta_menu_elements( $term_w );
     $self->{i}{read_only} = [];
     if ( @{$self->{read_only}} ) {
         $self->{i}{read_only} = [ map { $_ + @{$self->{i}{pre}} } @{$self->{read_only}} ];
+    }
+
+    $self->{i}{keys_to_skip} = [];
+    if ( defined $self->{skip_items} ) {
+        for my $i ( 0 .. $#$orig_list ) {
+            if ( $orig_list->[$i][0] =~ $self->{skip_items} ) {
+                push @{$self->{i}{keys_to_skip}}, $i + @{$self->{i}{pre}};
+            }
+            else {
+                $self->{i}{end_down} = $i;
+            }
+        }
+        $self->{i}{end_down} += @{$self->{i}{pre}};
+    }
+    #########################################################################################  24.06.2021  ####  App::DBBrowser < 2.269 use 'section_separators'
+    elsif ( @{$self->{section_separators}||[]} ) {
+        $self->{i}{end_down} = $#$orig_list;
+        my $id = -1;
+        if ( $self->{section_separators}[$id] == $#$orig_list ) {
+            while ( $self->{section_separators}[$id] - $self->{section_separators}[--$id] == 1 ) {
+                --$self->{i}{end_down};
+            }
+        }
+        $self->{i}{keys_to_skip} = [ map { $_ + @{$self->{i}{pre}} } @{$self->{section_separators}} ];
+        $self->{i}{end_down} += @{$self->{i}{pre}};
+    }
+    ############################################################################################################
+    else {
+        $self->{i}{end_down} = $#$orig_list + @{$self->{i}{pre}};
     }
     my $list;
     if ( $self->{color} ) {
@@ -1038,12 +1236,10 @@ sub fill_form {
     }
     my $auto_up = $self->{auto_up};
     my $back_row = 0;
-    if ( $self->{extra} ) {
-        $back_row = 1;
-    }
     $self->__length_longest_key( $list );
     $self->__prepare_width( $term_w );
     $self->__prepare_hight( $list, $term_w, $term_h );
+    $self->__prepare_footer_fmt();
     $self->__write_first_screen( $list, $back_row, $auto_up );
     my $m = $self->__string_and_pos( $list );
     my $k = 0;
@@ -1063,10 +1259,22 @@ sub fill_form {
             }
             $self->__print_current_row( $list, $m );
         }
-        my $char = $self->{plugin}->__get_key_OS();
+        my $char;
+        if ( any { $_ == $self->{i}{curr_row} } @{$self->{i}{keys_to_skip}} ) {
+            if ( $self->{i}{direction} eq 'up' || $self->{i}{curr_row} >= $self->{i}{end_down} ) {
+                $char = VK_UP;
+            }
+            else {
+                $char = VK_DOWN;
+            }
+        }
+        else {
+            $char = $self->{plugin}->__get_key_OS();
+        }
+        $self->{i}{direction} = 'down';
         if ( ! defined $char ) {
             $self->__reset_term();
-            carp "EOT: $!";
+            warn "EOT: $!";
             return;
         }
         next CHAR if $char == NEXT_get_key;
@@ -1080,6 +1288,7 @@ sub fill_form {
             $self->__length_longest_key( $list );
             $self->__prepare_width( $term_w );
             $self->__prepare_hight( $list, $term_w, $term_h );
+            $self->__prepare_footer_fmt();
             $self->__write_first_screen( $list, $back_row, $auto_up );
             $m = $self->__string_and_pos( $list );
         }
@@ -1170,7 +1379,7 @@ sub fill_form {
         }
         elsif ( $char == VK_PAGE_UP || $char == CONTROL_B ) {
             $k = 1;
-            if ( $self->{i}{page} == 1 ) {
+            if ( $self->{i}{curr_page} == 1 ) {
                 if ( $self->{i}{curr_row} == 0 ) {
                     $self->{i}{beep} = 1;
                 }
@@ -1191,7 +1400,7 @@ sub fill_form {
         }
         elsif ( $char == VK_PAGE_DOWN || $char == CONTROL_F ) {
             $k = 1;
-            if ( $self->{i}{page} == $self->{i}{pages} ) {
+            if ( $self->{i}{curr_page} == $self->{i}{page_count} ) {
                 if ( $self->{i}{curr_row} == $#$list ) {
                     $self->{i}{beep} = 1;
                 }
@@ -1247,18 +1456,21 @@ sub fill_form {
                 return;
             }
             elsif ( $list->[$self->{i}{curr_row}][0] eq $self->{confirm} ) {                                        # if ENTER on {confirm/1}: leave and return result
-                splice @$list, 0, @{$self->{i}{pre}};
-                $self->__reset_term( $up );
-                return [ map { [ $orig_list->[$_][0], $list->[$_][1] ] } 0 .. $#{$list} ];
-            }
-            elsif ( $list->[$self->{i}{curr_row}][0] eq $self->{extra} ) {
-                $self->__reset_term( $up );
-                return -1;
+                #if ( @{$self->{i}{valid_keys}} ) { ##
+                #    my $valid_keys = $self->{i}{valid_keys};
+                #    my $pre_count = @{$self->{i}{pre}};
+                #    $self->__reset_term( $up );
+                #    return [ map { [ $orig_list->[$_-$pre_count][0], $list->[$_][1] ] } @$valid_keys ];
+                #else {
+                    splice @$list, 0, @{$self->{i}{pre}};
+                    $self->__reset_term( $up );
+                    return [ map { [ $orig_list->[$_][0], $list->[$_][1] ] } 0 .. $#{$list} ];
+                #}
             }
             if ( $auto_up == 2 ) {                                                                                  # if ENTER && "auto_up" == 2 && any row: jumps {back/0}
                 print up( $up );
                 print "\r" . clear_to_end_of_screen();
-                $self->__write_first_screen( $list, $back_row, $auto_up );                                                  # cursor on {back}
+                $self->__write_first_screen( $list, $back_row, $auto_up );                                          # cursor on {back}
                 $m = $self->__string_and_pos( $list );
             }
             elsif ( $self->{i}{curr_row} == $#$list ) {                                                             # if ENTER && {last row}: jumps to the {first data row/2}
@@ -1281,7 +1493,7 @@ sub fill_form {
                     print down( 1 );
                 }
                 else {
-                    print up( $up );                                                                                 # or else to the next page
+                    print up( $up );                                                                                # or else to the next page
                     $self->__print_next_page( $list );
                 }
             }
@@ -1305,6 +1517,9 @@ sub __reset_previous_row {
     my ( $self, $list, $idx ) = @_;
     print "\r" . clear_to_end_of_line();
     print $self->__get_row( $list, $idx );
+    if ( $self->{i}{curr_row} < $idx ) {
+        $self->{i}{direction} = 'up';
+    }
 }
 
 
@@ -1315,6 +1530,9 @@ sub __print_next_page {
     $self->{i}{end_row}   = $#$list if $self->{i}{end_row} > $#$list;
     print "\r" . clear_to_end_of_screen();
     $self->__write_screen( $list );
+    if ( $self->{i}{curr_row} == $self->{i}{end_row} ) {
+        $self->{i}{direction} = 'up';
+    }
 }
 
 
@@ -1325,6 +1543,9 @@ sub __print_previous_page {
     $self->{i}{begin_row} = 0 if $self->{i}{begin_row} < 0;
     print "\r" . clear_to_end_of_screen();
     $self->__write_screen( $list );
+    if ( $self->{i}{curr_row} > $self->{i}{begin_row} ) {
+        $self->{i}{direction} = 'up';
+    }
 }
 
 
@@ -1345,7 +1566,7 @@ Term::Form - Read lines from STDIN.
 
 =head1 VERSION
 
-Version 0.529
+Version 0.535
 
 =cut
 
@@ -1431,78 +1652,27 @@ To set the different options it can be passed a reference to a hash as an option
 
 C<readline> reads a line from STDIN.
 
-    $line = $new->readline( $prompt, [ \%options ] );
+    $line = $new->readline( $prompt, \%options );
 
 The fist argument is the prompt string.
 
 The optional second argument is the default string (see option I<default>) if it is not a reference. If the second
 argument is a hash-reference, the hash is used to set the different options. The keys/options are
 
-=over
-
-=item
-
-clear_screen
+=head3 clear_screen
 
 If enabled, the screen is cleared before the output.
 
-0 - off
+0 - clears from the current position to the end of screen
 
-1 - on
+1 - clears the entire screen
 
-default: C<0>
-
-=item
-
-color
-
-Enables the support for color and text formatting escape sequences for the prompt string and the I<info> text.
-
-0 - off
-
-1 - on
+2 - if I<show_context> is disabled, clears only the current (readline) row. If I<show_context> is enabled behaves like
+I<clear_screen> where set to 0.
 
 default: C<0>
 
-=item
-
-info
-
-Expects as is value a string. If set, the string is printed on top of the output of C<readline>.
-
-=item
-
-default
-
-Set a initial value of input.
-
-=item
-
-no_echo
-
-- if set to C<0>, the input is echoed on the screen.
-
-- if set to C<1>, "C<*>" are displayed instead of the characters.
-
-- if set to C<2>, no output is shown apart from the prompt string.
-
-default: C<0>
-
-=item
-
-show_context
-
-Display the input that does not fit into the "readline" before or after the "readline".
-
-0 - disable I<show_context>
-
-1 - enable I<show_context>
-
-default: C<0>
-
-=item
-
-codepage_mapping
+=head3 codepage_mapping
 
 This option has only meaning if the operating system is MSWin32.
 
@@ -1518,9 +1688,21 @@ Setting this option to C<1> enables the codepage mapping offered by L<Win32::Con
 
 default: C<0>
 
-=item
+=head3 color
 
-hide_cursor
+Enables the support for color and text formatting escape sequences for the prompt string and the I<info> text.
+
+0 - off
+
+1 - on
+
+default: C<0>
+
+=head3 default
+
+Set a initial value of input.
+
+=head3 hide_cursor
 
 0 - disabled
 
@@ -1528,7 +1710,29 @@ hide_cursor
 
 default: C<1>
 
-=back
+=head3 info
+
+Expects as is value a string. If set, the string is printed on top of the output of C<readline>.
+
+=head3 no_echo
+
+- if set to C<0>, the input is echoed on the screen.
+
+- if set to C<1>, "C<*>" are displayed instead of the characters.
+
+- if set to C<2>, no output is shown apart from the prompt string.
+
+default: C<0>
+
+=head3 show_context
+
+Display the input that does not fit into the "readline" before or after the "readline".
+
+0 - disable I<show_context>
+
+1 - enable I<show_context>
+
+default: C<0>
 
 =head2 fill_form
 
@@ -1542,50 +1746,7 @@ as the default value for the "readline" (initial value of input).
 
 The optional second argument is a hash-reference. The keys/options are
 
-=over
-
-=item
-
-clear_screen
-
-If enabled, the screen is cleared before the output.
-
-0 - off
-
-1 - on
-
-default: C<0>
-
-=item
-
-color
-
-Enables the support for color and text formatting escape sequences for the form-keys, the "back"-string, the
-"confirm"-string, the I<info> text and the I<prompt> text.
-
-0 - off
-
-1 - on
-
-default: C<0>
-
-=item
-
-info
-
-Expects as is value a string. If set, the string is printed on top of the output of C<fill_form>.
-
-=item
-
-prompt
-
-If I<prompt> is set, a main prompt string is shown on top of the output.
-
-default: undefined
-
-=item
-
-auto_up
+=head3 auto_up
 
 With I<auto_up> set to C<0> or C<1> pressing C<ENTER> moves the cursor to the next line (if the cursor is not on the
 "back" or "confirm" row). If the last row is reached, the cursor jumps to the first data row if C<ENTER> is pressed.
@@ -1601,35 +1762,7 @@ initially cursor position is on the first menu entry ("back").
 
 default: C<1>
 
-=item
-
-clear_screen
-
-If enabled, the screen is cleared before the output.
-
-default: disabled
-
-=item
-
-read_only
-
-Set a form-row to read only.
-
-Expected value: a reference to an array with the indexes of the rows which should be read only.
-
-default: empty array
-
-=item
-
-confirm
-
-Set the name of the "confirm" menu entry.
-
-default: C<Confirm>
-
-=item
-
-back
+=head3 back
 
 Set the name of the "back" menu entry.
 
@@ -1637,9 +1770,17 @@ The "back" menu entry can be disabled by setting I<back> to an empty string.
 
 default: C<Back>
 
-=item
+=head3 clear_screen
 
-codepage_mapping
+If enabled, the screen is cleared before the output.
+
+0 - off
+
+1 - on
+
+default: C<0>
+
+=head3 codepage_mapping
 
 This option has only meaning if the operating system is MSWin32.
 
@@ -1655,9 +1796,24 @@ Setting this option to C<1> enables the codepage mapping offered by L<Win32::Con
 
 default: C<0>
 
-=item
+=head3 color
 
-hide_cursor
+Enables the support for color and text formatting escape sequences for the form-keys, the "back"-string, the
+"confirm"-string, the I<info> text and the I<prompt> text.
+
+0 - off
+
+1 - on
+
+default: C<0>
+
+=head3 confirm
+
+Set the name of the "confirm" menu entry.
+
+default: C<Confirm>
+
+=head3 hide_cursor
 
 0 - disabled
 
@@ -1665,7 +1821,23 @@ hide_cursor
 
 default: C<1>
 
-=back
+=head3 info
+
+Expects as is value a string. If set, the string is printed on top of the output of C<fill_form>.
+
+=head3 prompt
+
+If I<prompt> is set, a main prompt string is shown on top of the output.
+
+default: undefined
+
+=head3 read_only
+
+Set a form-row to read only.
+
+Expected value: a reference to an array with the indexes of the rows which should be read only.
+
+default: empty array
 
 To close the form and get the modified list (reference to an array or arrays) as the return value select the
 "confirm" menu entry. If the "back" menu entry is chosen to close the form, C<fill_form> returns nothing.

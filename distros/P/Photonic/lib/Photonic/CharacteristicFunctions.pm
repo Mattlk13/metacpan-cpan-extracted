@@ -1,5 +1,5 @@
 package Photonic::CharacteristicFunctions;
-$Photonic::CharacteristicFunctions::VERSION = '0.014';
+$Photonic::CharacteristicFunctions::VERSION = '0.017';
 
 =encoding UTF-8
 
@@ -8,7 +8,7 @@ $Photonic::CharacteristicFunctions::VERSION = '0.014';
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -55,12 +55,11 @@ sub ellipse { #f y e determinan univocamente el problema  general de inclusion
     my $a=PDL->pdl(1,1);
     my $z=PDL->zeroes(2*$N+1,2*$N+1); #change to admit arbitrary lattice
     my $r=$z->PDL::ndcoords-PDL->pdl($N,$N);
-    if(($e>=1.0 && $ff<PI/(4.0*$e)) || ($e<=1.0 && $ff<PI*$e/4.0)){
-	$a=sqrt($ff/PI)*(PDL->pdl(1.0/sqrt($e),sqrt($e)));
-	$a*=2*$N+1;
-    }else{croak "filling fraction very large: overlaping of ellipses ! \n"}
-    my $t=($r->((1))/$a->((1)))**2+($r->((0))/$a->((0)))**2<=1.0;
-    return $t;
+    croak "filling fraction very large: overlaping of ellipses ! \n"
+	if !(($e>=1.0 && $ff<PI/(4.0*$e)) || ($e<=1.0 && $ff<PI*$e/4.0));
+    $a=sqrt($ff/PI)*(PDL->pdl(1.0/sqrt($e),sqrt($e)));
+    $a*=2*$N+1;
+    ($r->((1))/$a->((1)))**2+($r->((0))/$a->((0)))**2<=1.0;
 }
 
 sub triangle { #smooth triangle for testing
@@ -105,7 +104,7 @@ Photonic::CharacteristicFunctions
 
 =head1 VERSION
 
-version 0.014
+version 0.017
 
 =head1 SYNOPSIS
 

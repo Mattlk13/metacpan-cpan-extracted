@@ -1,7 +1,7 @@
 #ifndef SPVM_PACKAGE_H
 #define SPVM_PACKAGE_H
 
-#include "spvm_base.h"
+#include "spvm_typedecl.h"
 
 enum {
   SPVM_PACKAGE_C_CATEGORY_CLASS,
@@ -11,26 +11,24 @@ enum {
 
 enum {
   SPVM_PACKAGE_C_FLAG_POINTER = 1,
-  SPVM_PACKAGE_C_FLAG_ANON_SUB_PACKAGE = 2,
+  SPVM_PACKAGE_C_FLAG_ANON_METHOD_PACKAGE = 2,
   SPVM_PACKAGE_C_FLAG_PUBLIC = 4,
 };
 
-extern const char* const SPVM_PACKAGE_C_CATEGORY_NAMES[];
-
-struct SPVM_package {
+struct spvm_package {
   SPVM_OP* op_package;
   SPVM_OP* op_name;
   SPVM_LIST* package_vars;
   SPVM_HASH* package_var_symtable;
-  SPVM_LIST* subs;
-  SPVM_HASH* sub_symtable;
+  SPVM_LIST* methods;
+  SPVM_HASH* method_symtable;
   SPVM_LIST* fields;
   SPVM_HASH* field_symtable;
-  SPVM_SUB* sub_destructor;
+  SPVM_METHOD* method_destructor;
   SPVM_LIST* info_package_var_ids;
   SPVM_HASH* info_package_var_id_symtable;
-  SPVM_LIST* info_sub_ids;
-  SPVM_HASH* info_sub_id_symtable;
+  SPVM_LIST* info_method_ids;
+  SPVM_HASH* info_method_id_symtable;
   SPVM_LIST* info_field_ids;
   SPVM_HASH* info_field_id_symtable;
   SPVM_LIST* info_basic_type_ids;
@@ -49,10 +47,14 @@ struct SPVM_package {
   int32_t flag;
   int32_t category;
   const char* name;
-  SPVM_OP* op_begin_sub;
+  SPVM_OP* op_begin_method;
   int32_t fail_load;
+  int32_t has_precompile_descriptor;
+  SPVM_LIST* anon_methods;
+  int8_t is_anon;
 };
 
 SPVM_PACKAGE* SPVM_PACKAGE_new(SPVM_COMPILER* compiler);
+const char* const* SPVM_PACKAGE_C_CATEGORY_NAMES(void);
 
 #endif

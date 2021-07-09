@@ -45,9 +45,9 @@ LinkEmbedder->new->test_ok(
 LinkEmbedder->new->test_ok(
   'https://www.aftenposten.no/kultur/i/lo5X7/Kunstig-intelligens-ma-ikke-lenger-trenes-av-mennesker' => {
     isa              => 'LinkEmbedder::Link::Basic',
-    author_name      => qr{Per Kristian},
+    class            => 'le-rich le-card le-image-card le-provider-aftenposten',
     cache_age        => 0,
-    html             => qr{class="le-card le-image-card le-rich le-provider-aftenposten".*Google har}s,
+    html             => qr{Google har}s,
     provider_name    => 'Aftenposten',
     provider_url     => 'https://www.aftenposten.no/',
     thumbnail_height => 1047,
@@ -55,9 +55,27 @@ LinkEmbedder->new->test_ok(
     thumbnail_width  => 2000,
     title            => 'Google har skapt kunstig intelligens som trener seg selv',
     type             => 'rich',
-    url     => 'https://www.aftenposten.no/kultur/i/lo5X7/Kunstig-intelligens-ma-ikke-lenger-trenes-av-mennesker',
-    version => '1.0'
+    url              => 'https://www.aftenposten.no/kultur/i/lo5X7/Kunstig-intelligens-ma-ikke-lenger-trenes-av-mennesker',
+    version          => '1.0'
   }
+);
+
+LinkEmbedder->new->test_ok(
+    'https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-mp4-file.mp4' => {
+        isa              => 'LinkEmbedder::Link::Basic',
+        class            => 'le-video le-provider-learningcontainer',
+        cache_age        => 0,
+        html             => learningcontainer_html(),
+        provider_name    => 'Learningcontainer',
+        provider_url     => 'https://www.learningcontainer.com/',
+        thumbnail_height => undef,
+        thumbnail_url    => undef,
+        thumbnail_width  => undef,
+        title            => 'sample-mp4-file.mp4',
+        type             => 'video',
+        url              => 'https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-mp4-file.mp4',
+        version          => '1.0'
+    }
 );
 
 done_testing;
@@ -72,7 +90,7 @@ HERE
 
 sub thorsen_html {
   return <<'HERE';
-<div class="le-card le-image-card le-rich le-provider-thorsen">
+<div class="le-rich le-card le-image-card le-provider-thorsen">
     <a href="https://thorsen.pm/blog/" class="le-thumbnail">
       <img src="https://www.thorsen.pm/editor/wp-content/uploads/2019/03/jhthorsen-face-1300.jpg" alt="Placeholder">
     </a>
@@ -81,6 +99,17 @@ sub thorsen_html {
   <div class="le-meta">
     <span class="le-goto-link"><a href="https://thorsen.pm/blog/"><span>https://thorsen.pm/blog/</span></a></span>
   </div>
+</div>
+HERE
+}
+
+sub learningcontainer_html {
+  return <<'HERE';
+<div class="le-video le-provider-learningcontainer">
+  <video preload="metadata" controls>
+    <source src="https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-mp4-file.mp4" type="video/mp4">
+    <p>Your browser is unable to play video/mp4 content.</p>
+  </video>
 </div>
 HERE
 }

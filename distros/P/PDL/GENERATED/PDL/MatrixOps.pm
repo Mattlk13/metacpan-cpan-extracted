@@ -4,8 +4,8 @@
 #
 package PDL::MatrixOps;
 
-@EXPORT_OK  = qw(  identity  stretcher  inv  det  determinant PDL::PP eigens_sym PDL::PP eigens PDL::PP svd  lu_decomp  lu_decomp2  lu_backsub PDL::PP simq PDL::PP squaretotri );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw( identity  stretcher  inv  det  determinant PDL::PP eigens_sym PDL::PP eigens PDL::PP svd  lu_decomp  lu_decomp2  lu_backsub PDL::PP simq PDL::PP squaretotri );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::MatrixOps ;
 
@@ -43,7 +43,7 @@ determinant finding, eigenvalue/vector finding, singular value
 decomposition, etc.  PDL::MatrixOps routines are written in a mixture
 of Perl and C, so that they are reliably present even when there is no
 FORTRAN compiler or external library available (e.g.
-L<PDL::Slatec|PDL::Slatec> or any of the PDL::GSL family of modules).
+L<PDL::Slatec> or any of the PDL::GSL family of modules).
 
 Matrix manipulation, particularly with large matrices, is a
 challenging field and no one algorithm is suitable in all cases.  The
@@ -55,7 +55,7 @@ Except as noted, the matrices are PDLs whose 0th dimension ranges over
 column and whose 1st dimension ranges over row.  The matrices appear
 correctly when printed.
 
-These routines should work OK with L<PDL::Matrix|PDL::Matrix> objects
+These routines should work OK with L<PDL::Matrix> objects
 as well as with normal PDLs.
 
 =head1 TIPS ON MATRIX OPERATIONS
@@ -67,7 +67,7 @@ corner.  This means that if you print a PDL that contains a matrix,
 the matrix appears correctly on the screen, but if you index a matrix
 element, you use the indices in the reverse order that you would in a
 math textbook.  If you prefer your matrices indexed in (row, column)
-order, you can try using the L<PDL::Matrix|PDL::Matrix> object, which
+order, you can try using the L<PDL::Matrix> object, which
 includes an implicit exchange of the first two dimensions but should
 be compatible with most of these matrix operations.  TIMTOWDTI.)
 
@@ -153,21 +153,22 @@ use strict;
 
 Return an identity matrix of the specified size.  If you hand in a
 scalar, its value is the size of the identity matrix; if you hand in a
-dimensioned PDL, the 0th dimension is the size of the matrix.
+dimensioned PDL, the 0th dimension is the first two dimensions of the
+matrix, with higher dimensions preserved.
 
 =cut
 
 sub identity {
   my $n = shift;
-  my $out = ((UNIVERSAL::isa($n,'PDL')) ? 
-	  (  ($n->getndims > 0) ? 
-	     zeroes($n->dim(0),$n->dim(0)) : 
-	     zeroes($n->at(0),$n->at(0))
-	  ) :
-	  zeroes($n,$n)
-	  );
-  my $tmp; # work around perl -d "feature"
-  ($tmp = $out->diagonal(0,1))++;
+  my $out =
+    !UNIVERSAL::isa($n,'PDL') ? zeroes($n,$n) :
+    $n->getndims == 0 ? zeroes($n->at(0),$n->at(0)) :
+    undef;
+  if (!defined $out) {
+    my @dims = $n->dims;
+    $out = zeroes(@dims[0, 0, 2..$#dims]);
+  }
+  (my $tmp = $out->diagonal(0,1))++; # work around perl -d "feature"
   $out;
 }
 
@@ -285,9 +286,7 @@ sub inv {
     barf("PDL::inv: got a singular matrix or LU decomposition\n");
   }
 
-  my $idenA = $x->zeros;
-  $idenA->diagonal(0,1) .= 1;
-  my $out = lu_backsub($lu,$perm,$par,$idenA)->xchg(0,1)->sever;
+  my $out = lu_backsub($lu,$perm,$par,identity($x))->transpose->sever;
 
   return $out
     unless($x->is_inplace);
@@ -381,7 +380,7 @@ a large collection of matrices all at once if you want.
 Matrices up to 3x3 are handled by direct multiplication; larger matrices
 are handled by recursive descent to the 3x3 case.
 
-The LU-decomposition method L<det|det> is faster in isolation for
+The LU-decomposition method L</det> is faster in isolation for
 single matrices larger than about 4x4, and is much faster if you end up
 reusing the LU decomposition of C<$a> (NOTE: check performance and
 threading benchmarks with new code).
@@ -455,7 +454,7 @@ sub determinant {
 
 Eigenvalues and -vectors of a symmetric square matrix.  If passed
 an asymmetric matrix, the routine will warn and symmetrize it, by taking
-the average value.  That is, it will solve for 0.5*($a+$a->mv(0,1)).
+the average value.  That is, it will solve for 0.5*($a+$a->transpose).
 
 It's threadable, so if C<$a> is 3x3x100, it's treated as 100 separate 3x3
 matrices, and both C<$ev> and C<$e> get extra dimensions accordingly.
@@ -485,8 +484,8 @@ runs across their components.
 
 =for bad
 
-eigens_sym ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+eigens_sym ignores the bad-value flag of the input ndarrays.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -501,7 +500,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
       barf "Need real square matrix for eigens_sym" 
             if $#d < 1 or $d[0] != $d[1];
       my ($n) = $d[0];
-      my ($sym) = 0.5*($x + $x->mv(0,1));
+      my ($sym) = 0.5*($x + $x->transpose);
       my ($err) = PDL::max(abs($sym));
       barf "Need symmetric component non-zero for eigens_sym"
           if $err == 0;
@@ -523,7 +522,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
       
       &PDL::_eigens_sym_int($lt, $ev, $e);
 
-      return $ev->xchg(0,1), $e
+      return $ev->transpose, $e
 	if(wantarray);
       $e;                #just eigenvalues
    }
@@ -602,8 +601,8 @@ numbers.  It might be useful to be able to return complex eigenvalues.
 
 =for bad
 
-eigens ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+eigens ignores the bad-value flag of the input ndarrays.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -618,7 +617,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
       my $n = $d[0];
       barf "Need real square matrix for eigens" 
             if $#d < 1 or $d[0] != $d[1];
-      my $deviation = PDL::max(abs($x - $x->mv(0,1)))/PDL::max(abs($x));
+      my $deviation = PDL::max(abs($x - $x->transpose))/PDL::max(abs($x));
       if ( $deviation <= 1e-5 ) {
           #taken from eigens_sym code
 
@@ -631,7 +630,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
       
           &PDL::_eigens_sym_int($lt, $ev, $e);
 
-          return $ev->xchg(0,1), $e   if wantarray;
+          return $ev->transpose, $e   if wantarray;
           return $e;  #just eigenvalues
       }
       else {
@@ -652,7 +651,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
           &PDL::_eigens_int($x->clump(0,1), $ev, $e);
 
-          return $ev->index(0)->xchg(0,1)->sever, $e->index(0)->sever
+          return $ev->index(0)->transpose->sever, $e->index(0)->sever
               if(wantarray);
           return $e->index(0)->sever;  #just eigenvalues
       }
@@ -724,8 +723,8 @@ orientation of the ellipsoid of transformation:
 
 =for bad
 
-svd ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+svd ignores the bad-value flag of the input ndarrays.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -783,7 +782,7 @@ to get it one way or the other.
 
 LU decomposition is the answer to a lot of matrix questions,
 including inversion and determinant-finding, and C<lu_decomp>
-is used by L<inv|/inv>.
+is used by L</inv>.
 
 If you pass in C<$perm> and C<$parity>, they either must be
 predeclared PDLs of the correct size ($perm is an n-vector,
@@ -851,7 +850,7 @@ sub lu_decomp {
       $parity = $in->((0),(0))->ones;
    }
 
-   my($scales) = $in->abs->maximum; # elementwise by rows
+   my($scales) = $in->copy->abs->maximum; # elementwise by rows
 
    if(($scales==0)->sum) {
       return undef;
@@ -943,13 +942,13 @@ LU decompose a matrix, with no row permutation
 
 =for description
 
-C<lu_decomp2> works just like L<lu_decomp|lu_decomp>, but it does B<no>
-pivoting at all.  For compatibility with L<lu_decomp|lu_decomp>, it
+C<lu_decomp2> works just like L</lu_decomp>, but it does B<no>
+pivoting at all.  For compatibility with L</lu_decomp>, it
 will give you a permutation list and a parity scalar if you ask
 for them -- but they are always trivial.
 
 Because C<lu_decomp2> does not pivot, it is numerically B<unstable> --
-that means it is less precise than L<lu_decomp>, particularly for
+that means it is less precise than L</lu_decomp>, particularly for
 large or near-singular matrices.  There are also specific types of 
 non-singular matrices that confuse it (e.g. ([0,-1,0],[1,0,0],[0,0,1]),
 which is a 90 degree rotation matrix but which confuses C<lu_decomp2>).
@@ -961,7 +960,7 @@ decomposition for some of the input matrices.
 
 The output is a single matrix that contains the LU decomposition of C<$a>;
 you can even do it in-place, thereby destroying C<$a>, if you want.  See
-L<lu_decomp> for more information about LU decomposition. 
+L</lu_decomp> for more information about LU decomposition. 
 
 C<lu_decomp2> is ported from I<Numerical Recipes> into PDL.
 
@@ -1051,22 +1050,59 @@ sub lu_decomp2 {
 
 =for ref
 
-Solve a x = b for matrix a, by back substitution into a's LU decomposition.
+Solve A x = B for matrix A, by back substitution into A's LU decomposition.
 
 =for usage
 
-  ($lu,$perm,$par) = lu_decomp($x);
-  
-  $x = lu_backsub($lu,$perm,$par,$y);  # or
-  $x = lu_backsub($lu,$perm,$y);       # $par is not required for lu_backsub
-  
-  lu_backsub($lu,$perm,$y->inplace); # modify $y in-place
-  
-  $x = lu_backsub(lu_decomp($x),$y); # (ignores parity value from lu_decomp)
+  ($lu,$perm,$par) = lu_decomp($A);
+
+  $x = lu_backsub($lu,$perm,$par,$A);  # or
+  $x = lu_backsub($lu,$perm,$B);       # $par is not required for lu_backsub
+
+  lu_backsub($lu,$perm,$B->inplace); # modify $B in-place
+
+  $x = lu_backsub(lu_decomp($A),$B); # (ignores parity value from lu_decomp)
+
+  # starting from square matrix A and columns matrix B, with mathematically
+  # correct dimensions
+  $A = identity(4) + ones(4, 4);
+  $A->slice('2,0') .= 0; # break symmetry to see if need transpose
+  $B = sequence(2, 4);
+  # all these functions take B as rows, interpret as though notional columns
+  # mathematically confusing but can't change as back-compat and also
+  # familiar to Fortran users, so just transpose inputs and outputs
+
+  # using lu_backsub
+  ($lu,$perm,$par) = lu_decomp($A);
+  $x = lu_backsub($lu,$perm,$par, $B->transpose)->transpose;
+
+  # or with Slatec LINPACK
+  use PDL::Slatec;
+  gefa($lu=$A->copy, $ipiv=null, $info=null);
+  # 1 = do transpose because Fortran's idea of rows vs columns
+  gesl($lu, $ipiv, $x=$B->transpose->copy, 1);
+  $x = $x->inplace->transpose;
+
+  # or with LAPACK
+  use PDL::LinearAlgebra::Real;
+  getrf($lu=$A->copy, $ipiv=null, $info=null);
+  getrs($lu, 1, $x=$B->transpose->copy, $ipiv, $info=null); # again, need transpose
+  $x=$x->inplace->transpose;
+
+  # or with GSL
+  use PDL::GSL::LINALG;
+  LU_decomp(my $lu=$A->copy, my $p=null, my $signum=null);
+  # $B and $x, first dim is because GSL treats as vector, higher dims thread
+  # so we transpose in and back out
+  LU_solve($lu, $p, $B->transpose, my $x=null);
+  $x=$x->inplace->transpose;
+
+  # proof of the pudding is in the eating:
+  print $A x $x;
 
 =for description
 
-Given the LU decomposition of a square matrix (from L<lu_decomp|lu_decomp>),
+Given the LU decomposition of a square matrix (from L</lu_decomp>),
 C<lu_backsub> does back substitution into the matrix to solve
 C<a x = b> for given vector C<b>.  It is separated from the
 C<lu_decomp> method so that you can call the cheap C<lu_backsub>
@@ -1084,8 +1120,8 @@ column vector.
 
 If C<$lu> is dense and you have more than a few points to
 solve for, it is probably cheaper to find C<a^-1> with
-L<inv|/inv>, and just multiply C<x = a^-1 b>.) in fact,
-L<inv|/inv> works by calling C<lu_backsub> with the identity
+L</inv>, and just multiply C<x = a^-1 b>.) in fact,
+L</inv> works by calling C<lu_backsub> with the identity
 matrix.
 
 C<lu_backsub> is ported from section 2.3 of I<Numerical Recipes>.
@@ -1171,22 +1207,8 @@ sub lu_backsub {
 THREAD_OK:
 
    # Permute the vector and make a copy if necessary.
-   my $out;
-   # my $nontrivial = ! (($perm==(PDL->xvals($perm->dims)))->all);
-   my $nontrivial = ! (($perm==$perm->xvals)->clump(-1)->andover);
-
-   if($nontrivial) {
-      if($y->is_inplace) {
-         $y .= $y->dummy(1,$y->dim(0))->index($perm->dummy(1,1))->sever;   # TODO: check threading
-         $out = $y;
-      } else {
-         $out = $y->dummy(1,$y->dim(0))->index($perm->dummy(1,1))->sever;  # TODO: check threading
-      }
-   } else {
-      # should check for more matrix dims to thread over
-      # but ignore the issue for now
-      $out = ($y->is_inplace ? $y : $y->copy);
-   }
+   my $out = $y->dummy(1,$y->dim(0))->index($perm->dummy(1));
+   $out = $out->sever if !$y->is_inplace;
    print STDERR "lu_backsub: starting with \$out" . pdl($out->dims) . "\n" if $PDL::debug;
 
    # Make sure threading over lu happens OK...
@@ -1196,7 +1218,6 @@ THREAD_OK:
       do {
          $out = $out->dummy(-1,$lu->dim($out->ndims+1));
       } while($out->ndims < $lu->ndims-1);
-      $out = $out->sever;
    }
 
    ## Do forward substitution into L
@@ -1214,7 +1235,7 @@ THREAD_OK:
    my $ludiag = $lu->diagonal(0,1);
    {
       my $tmp; # work around for perl -d "feature"
-      ($tmp = $out->index($n1)) /= $ludiag->index($n1)->dummy(0,1);        # TODO: check threading
+      ($tmp = $out->index($n1)) /= $ludiag->index($n1)->dummy(0);        # TODO: check threading
    }
 
    for ($row=$n1; $row>0; $row--) {
@@ -1223,9 +1244,13 @@ THREAD_OK:
       ($tmp = $out->index($r1)) -= ($lu->($row:$n1,$r1) *                  # TODO: check thread dims
          $out->($row:$n1)
       )->sumover;
-      ($tmp = $out->index($r1)) /= $ludiag->index($r1)->dummy(0,1);        # TODO: check thread dims
+      ($tmp = $out->index($r1)) /= $ludiag->index($r1)->dummy(0);        # TODO: check thread dims
    }
 
+   if ($y->is_inplace) {
+     $y->setdims([$out->dims]) if !PDL::all($y->shape == $out->shape); # assgn needs same shape
+     $y .= $out;
+   }
    $out;
 }
 
@@ -1260,15 +1285,15 @@ different C<$y> vector using the same a matrix previously reduced when
 C<flag=0> (the C<$ips> vector generated in the previous solution is also
 required).
 
-See also L<lu_backsub|lu_backsub>, which does the same thing with a slightly
+See also L</lu_backsub>, which does the same thing with a slightly
 less opaque interface.
 
 
 
 =for bad
 
-simq ignores the bad-value flag of the input piddles.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+simq ignores the bad-value flag of the input ndarrays.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1300,7 +1325,7 @@ Convert a symmetric square matrix to triangular vector storage.
 =for bad
 
 squaretotri does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -1315,20 +1340,6 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 ;
-
-
-sub eigen_c {
-	print STDERR "eigen_c is no longer part of PDL::MatrixOps or PDL::Math; use eigens instead.\n";
-
-##	my($mat) = @_;
-##	my $s = $mat->getdim(0);
-##	my $z = zeroes($s * ($s+1) / 2);
-##	my $ev = zeroes($s);
-##	squaretotri($mat,$z);
-##	my $k = 0 * $mat;
-##	PDL::eigens($z, $k, $ev);
-##	return ($ev, $k);
-}
 
 
 =head1 AUTHOR

@@ -21,7 +21,7 @@ use Perl::Critic::Utils qw< :booleans :characters hashify :severities >;
 
 use base 'Perl::Critic::Policy';
 
-our $VERSION = '0.108';
+our $VERSION = '0.111';
 
 #-----------------------------------------------------------------------------
 
@@ -47,6 +47,8 @@ Readonly::Hash my %GLOBAL_DECLARATION => (
     state   => $FALSE,
     our     => $TRUE,
 );
+
+Readonly::Scalar my $CATCH      => 'catch';
 
 Readonly::Scalar my $PACKAGE    => '_' . __PACKAGE__;
 
@@ -95,6 +97,12 @@ sub supported_parameters { return (
         {
             name        => 'allow_state_in_expression',
             description => 'Allow state variable with low-precedence Boolean',
+            behavior    => 'boolean',
+            default_string  => '0',
+        },
+        {
+            name        => 'check_catch',
+            description => 'Check the catch() clause of try/catch',
             behavior    => 'boolean',
             default_string  => '0',
         },
@@ -234,6 +242,9 @@ sub _get_symbol_declarations {
 
     $self->_get_stray_variable_declarations( $document );
 
+    $self->{_check_catch}
+        and $self->_get_catch_declarations( $document );
+
     return;
 
 }
@@ -355,6 +366,34 @@ sub _get_ppi_statement_variable {
 
 #-----------------------------------------------------------------------------
 
+# The catch() clause of try/catch is a special case because the 'my' is
+# implied. Also the syntax requires you to specify a variable even if
+# you have no intention of using it.
+# NOTE that we assume that if we get called, the check is to be done.
+sub _get_catch_declarations {
+    my ( $self, $document ) = @_;
+    foreach my $word ( @{ $document->find( 'PPI::Token::Word' ) || [] } ) {
+        $CATCH eq $word->content()
+            or next;
+        my $list = $word->snext_sibling()
+            or next;
+        $list->isa( 'PPI::Structure::List' )
+            or next;
+        my $block = $list->snext_sibling()
+            or next;
+        $block->isa( 'PPI::Structure::Block' )
+            or next;
+        foreach my $sym ( @{ $list->find( 'PPI::Token::Symbol' ) || [] } ) {
+            # Should be only one, but ...
+            $self->_record_symbol_definition(
+                $sym, $sym->statement() );
+        }
+    }
+    return;
+}
+
+#-----------------------------------------------------------------------------
+
 # Sorry, but this is just basicly hard.
 sub _get_variable_declarations {    ## no critic (ProhibitExcessComplexity)
     my ( $self, $document ) = @_;
@@ -447,7 +486,6 @@ sub _get_variable_declarations {    ## no critic (ProhibitExcessComplexity)
                 );
 
             }
-
 
         } continue {
             $elem
@@ -1192,12 +1230,10 @@ __END__
 
 Perl::Critic::Policy::Variables::ProhibitUnusedVarsStricter - Don't ask for storage you don't need.
 
-
 =head1 AFFILIATION
 
 This Policy is stand-alone, and is not part of the core
 L<Perl::Critic|Perl::Critic>.
-
 
 =head1 NOTE
 
@@ -1258,7 +1294,6 @@ not include the declarations. The list assignment is missed because PPI
 does not parse it as containing a
 L<PPI::Statement::Variable|PPI::Statement::Variable>. However, variables
 B<used> inside such constructions B<will> be detected.
-
 
 =head1 CONFIGURATION
 
@@ -1347,6 +1382,34 @@ by any operator. The latter means that something like
 
 will be accepted.
 
+=head2 check_catch
+
+Under ordinary circumstances the C<$err> variable in
+
+ try {
+   ...
+ } catch ( $err ) {
+   ...
+ }
+
+will be invisible to this policy because, although it is in fact the
+declaration of a lexical variable, the absence of a C<my> means it does
+not look like one to L<PPI|PPI>. If you want to test these, you can add
+a block like this to your F<.perlcriticrc> file:
+
+    [Variables::ProhibitUnusedVarsStricter]
+    check_catch = 1
+
+This option is not on by default because there appears to be no way to
+define a C<catch()> block without a variable, whether or not you intend
+to use it.
+
+B<Caveat:> if L<PPI|PPI> ever starts recognizing C<catch( $foo )> as
+containing a L<PPI::Statement::Variable|PPI::Statement::Variable>, this
+configuration variable will become moot, as the extra logic will no
+longer be needed. As soon as I recognize this has happened (and there
+B<is> an author test for it) I will document this configuration item as
+a no-op, deprecate it, and probably eventually retract it.
 
 =head1 AVOIDING UNUSED VARIABLES
 
@@ -1401,6 +1464,12 @@ or, if you prefer,
     #     3     4    5
     my ($mday,$mon,$year) = ( localtime() )[ 3, 4, 5 ];
 
+=head1 SUPPORT
+
+Support is by the author. Please file bug reports at
+L<https://rt.cpan.org/Public/Dist/Display.html?Name=Perl-Critic-Policy-Variables-ProhibitUnusedVarsStricter>,
+L<https://github.com/trwyant/perl-Perl-Critic-Policy-Variables-ProhibitUnusedVarsStricter/issues>, or in
+electronic mail to the author.
 
 =head1 AUTHOR
 
@@ -1408,7 +1477,7 @@ Thomas R. Wyant, III F<wyant at cpan dot org>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2012-2020 Thomas R. Wyant, III
+Copyright (C) 2012-2021 Thomas R. Wyant, III
 
 =head1 LICENSE
 

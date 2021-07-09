@@ -2,8 +2,8 @@ NAME
     Ubuntu::Releases - List Ubuntu releases
 
 VERSION
-    This document describes version 20200221.0 of Ubuntu::Releases (from
-    Perl distribution Ubuntu-Releases), released on 2020-02-21.
+    This document describes version 20210115.1 of Ubuntu::Releases (from
+    Perl distribution Ubuntu-Releases), released on 2021-01-15.
 
 SYNOPSIS
      use Ubuntu::Releases;
@@ -13,8 +13,9 @@ SYNOPSIS
 DESCRIPTION
     This module contains list of Ubuntu releases. Data source is currently
     at: <https://github.com/sharyanto/gudangdata-distrowatch>
-    (table/redhat_release) which in turn is retrieved from
-    <http://distrowatch.com>.
+    (table/ubuntu_release) which in turn is retrieved from
+    <http://distrowatch.com>. Additional data source:
+    <https://github.com/sharyanto/gudangdata> (table/ubuntu_release_animal).
 
 FUNCTIONS
   list_ubuntu_releases
@@ -955,7 +956,7 @@ SOURCE
 
 BUGS
     Please report any bugs or feature requests on the bugtracker website
-    <https://rt.cpan.org/Public/Dist/Display.html?Name=Ubuntu-Releases>
+    <https://github.com/perlancar/perl-Ubuntu-Releases/issues>
 
     When submitting a bug or request, please include a test-file or a patch
     to an existing test-file that illustrates the bug or desired feature.
@@ -967,8 +968,8 @@ AUTHOR
     perlancar <perlancar@cpan.org>
 
 COPYRIGHT AND LICENSE
-    This software is copyright (c) 2020, 2019, 2017, 2016, 2015, 2014 by
-    perlancar@cpan.org.
+    This software is copyright (c) 2021, 2020, 2019, 2017, 2016, 2015, 2014
+    by perlancar@cpan.org.
 
     This is free software; you can redistribute it and/or modify it under
     the same terms as the Perl 5 programming language system itself.

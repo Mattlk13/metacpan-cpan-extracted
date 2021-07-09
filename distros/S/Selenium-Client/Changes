@@ -1,0 +1,28 @@
+Revision history for Selenium-Client
+
+1.04 2021-04-12 TEODESIAN
+    [BUG FIXES]
+    - Don't clobber $? in destructor
+    - Use Playwright.pm's more clever DESTROY code
+
+1.03 2021-04-01 TEODESIAN
+    [BUG FIXES]
+    - Fix issue where child elements found with FindElementFromElement() (and FindElementsFromElement) would use the parent element ID rather than their own
+    - Expose the elementid parameter in Selenium::Element objects immediately after instantiation
+    [DOCUMENTATION]
+    - Note that SwitchToFrame does not actually work with element IDs as suggested by WC3 standard
+
+1.02 2021-02-10 TEODESIAN
+    [BUG FIXES]
+    - Declare minimum version of perl 5.28
+
+1.01 2021-02-09 TEODESIAN
+    [BUG FIXES]
+    - Fix issue with spawning Selenium JARs on Win32
+    - Fix issue with setting up needed folders in homedir (Thanks to Manni Heumann)
+    [NEW FEATURES]
+    - Add convenience apparatus for building caps & sane defaults (headless=1)
+
+1.00  2021-02-04 TEODESIAN
+    - Initial release
+

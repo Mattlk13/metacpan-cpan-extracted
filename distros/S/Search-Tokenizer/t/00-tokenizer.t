@@ -1,6 +1,7 @@
-#!perl -T
-
-use Test::More tests => 4;
+#!perl
+use strict;
+use warnings;
+use Test::More;
 
 BEGIN {
   use_ok( 'Search::Tokenizer' ) || print "Bail out!";
@@ -18,30 +19,24 @@ my $tokenizer = Search::Tokenizer->new(
 my $string    = q{Don't touch my guru};
 my $iterator  = $tokenizer->($string);
 
-is_deeply([unroll($iterator)],
+is_deeply([Search::Tokenizer::unroll($iterator)],
           [  ['Don',    3,  0,  5, 0],
              ['touch',  5,  6, 11, 1],
              ['guru',   4, 15, 19, 3], ],
           'new tokenizer');
 
-
 $string   = "il était une bergère";
 $tokenizer = Search::Tokenizer::unaccent(stopwords => {il => 1, une => 1});
 $iterator  = $tokenizer->($string);
-is_deeply([unroll($iterator, 1)], [qw/etait bergere/], "unaccent");
+is_deeply([Search::Tokenizer::unroll($iterator, 1)],
+          [qw/etait bergere/],
+          "unaccent");
 
 $iterator  = $tokenizer->("IL ÉTAIT UNE BERGÈRE");
-is_deeply([unroll($iterator, 1)], [qw/etait bergere/], "unaccent uppercase");
+is_deeply([Search::Tokenizer::unroll($iterator, 1)],
+          [qw/etait bergere/],
+          "unaccent uppercase");
 
+done_testing();
 
-sub unroll {
-  my $iterator      = shift;
-  my $just_the_term = shift;
-  my @results;
-
-  while (my @r = $iterator->() ) {
-    push @results, $just_the_term ? $r[0] : \@r;
-  }
-  return @results;
-}
 

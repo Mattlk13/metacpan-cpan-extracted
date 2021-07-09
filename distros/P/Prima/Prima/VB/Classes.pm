@@ -990,6 +990,7 @@ sub prf_adjust_default
 		current
 		currentWidget
 		delegations
+		effects
 		focused
 		popup
 		selected
@@ -1014,6 +1015,7 @@ sub prf_adjust_default
 		fillPattern
 		fillPatternOffset
 		fillMode
+		miterLimit
 		region
 		rop
 		rop2
@@ -1545,6 +1547,7 @@ package Prima::VB::Types::text;
 use strict;
 use vars qw(@ISA);
 @ISA = qw(Prima::VB::Types::textee);
+use Prima::Utils;
 
 sub open
 {
@@ -1566,6 +1569,7 @@ sub open
 		origin => [5, $sz[1] - $sz - 1],
 		size   => [$sz, $sz],
 		hint   => 'Load',
+		flat   => 1,
 		growMode => gm::GrowLoY,
 		image  => $VB::main-> {openbutton}-> image,
 		glyphs => $VB::main-> {openbutton}-> glyphs,
@@ -1573,7 +1577,7 @@ sub open
 			my $d = VB::open_dialog();
 			if ( $d-> execute) {
 				my $f = $d-> fileName;
-				if ( open F, $f) {
+				if ( Prima::Utils::open( \*F, '<', $f)) {
 					local $/;
 					$f = <F>;
 					$self-> {A}-> text( $f);
@@ -1589,6 +1593,7 @@ sub open
 		origin => [ 5 + 1 + $sz, $sz[1] - $sz - 1],
 		size   => [$sz, $sz],
 		hint   => 'Save',
+		flat   => 1,
 		growMode => gm::GrowLoY,
 		image  => $VB::main-> {savebutton}-> image,
 		glyphs => $VB::main-> {savebutton}-> glyphs,
@@ -1599,7 +1604,7 @@ sub open
 			]);
 			if ( $dlg-> execute) {
 				my $f = $dlg-> fileName;
-				if ( open F, ">$f") {
+				if ( Prima::Utils::open(\*F, ">", $f)) {
 					local $/;
 					$f = $self-> {A}-> text;
 					print F $f;
@@ -1614,6 +1619,7 @@ sub open
 		origin => [ 5 + (1 + $sz) * 2, $sz[1] - $sz - 1],
 		size   => [$sz, $sz],
 		hint   => 'Clear',
+		flat   => 1,
 		growMode => gm::GrowLoY,
 		image  => $VB::main-> {newbutton}-> image,
 		glyphs => $VB::main-> {newbutton}-> glyphs,
@@ -2685,6 +2691,7 @@ sub open
 		origin => [ 5 + 0 * ( 1 + $sz), $sz[1] - $sz - 1],
 		size   => [ $sz, $sz],
 		hint   => 'Load',
+		flat   => 1,
 		image  => $VB::main-> {openbutton}-> image,
 		glyphs => $VB::main-> {openbutton}-> glyphs,
 		growMode => gm::GrowLoY,
@@ -2755,6 +2762,7 @@ sub open
 		origin => [ 5 + 1 * ( 1 + $sz), $sz[1] - $sz - 1],
 		size   => [ $sz, $sz],
 		hint   => 'Save',
+		flat   => 1,
 		image  => $VB::main-> {savebutton}-> image,
 		glyphs => $VB::main-> {savebutton}-> glyphs,
 		growMode => gm::GrowLoY,
@@ -2766,6 +2774,7 @@ sub open
 		origin => [ 5 + 2 * ( 1 + $sz), $sz[1] - $sz - 1],
 		size   => [ $sz, $sz],
 		hint   => 'Clear',
+		flat   => 1,
 		glyphs => $VB::main-> {newbutton}-> glyphs,
 		image  => $VB::main-> {newbutton}-> image,
 		growMode => gm::GrowLoY,

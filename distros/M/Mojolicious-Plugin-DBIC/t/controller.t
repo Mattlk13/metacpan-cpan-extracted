@@ -41,6 +41,14 @@ $r->get( '/notes', {
     resultset => 'Notes',
     template => 'notes/list',
 }, 'notes.list' );
+$r->get( '/notes/paged/:page', {
+    page => 1,
+    limit => 1,
+    controller => 'DBIC',
+    action => 'list',
+    resultset => 'Notes',
+    template => 'notes/list',
+}, 'notes.paged' );
 $r->any( [ 'GET', 'POST' ], '/notes/new', {
     controller => 'DBIC',
     action => 'set',
@@ -76,6 +84,24 @@ $t->get_ok( '/notes' )->status_is( 200 )
   ->text_is( 'li:nth-child(3)' => $notes[2]->title )
   ;
 
+$t->get_ok( '/notes/paged' )->status_is( 200 )
+  ->or( sub { diag shift->tx->res->body } )
+  ->text_is( 'li:nth-child(1)' => $notes[0]->title )
+  ->element_exists_not( 'li:nth-child(2)' => 'only one row shown' )
+  ;
+
+$t->get_ok( '/notes/paged/2' )->status_is( 200 )
+  ->or( sub { diag shift->tx->res->body } )
+  ->text_is( 'li:nth-child(1)' => $notes[1]->title )
+  ->element_exists_not( 'li:nth-child(2)' => 'only one row shown' )
+  ;
+
+$t->get_ok( '/notes/paged', form => { '$order_by' => 'desc:id' } )->status_is( 200 )
+  ->or( sub { diag shift->tx->res->body } )
+  ->text_is( 'li:nth-child(1)' => $notes[2]->title )
+  ->element_exists_not( 'li:nth-child(2)' => 'only one row shown' )
+  ;
+
 $t->get_ok( '/notes/1' )->status_is( 200 )
   ->or( sub { diag shift->tx->res->body } )
   ->text_is( 'h1' => $notes[0]->title )
@@ -98,7 +124,7 @@ $t->get_ok( '/notes/new?title=New%20Item' )->status_is( 200 )
   ->element_exists( 'form', 'form exists' )
   ->element_exists( 'input[name=csrf_token]', 'CSRF token exists' )
   ->element_exists( 'input[name=title]', 'title input exists' )
-  ->element_exists( 'input[name=title][value="New Item"', 'title input value correct' )
+  ->element_exists( 'input[name=title][value="New Item"]', 'title input value correct' )
   ->element_exists( 'textarea[name=description]', 'description input exists' )
   ->element_exists( 'input[type=submit]', 'submit button exists' )
   ;
@@ -133,7 +159,7 @@ $t->get_ok( "/notes/$id/edit?title=New%20Item" )->status_is( 200 )
   ->element_exists( 'form', 'form exists' )
   ->element_exists( 'input[name=csrf_token]', 'CSRF token exists' )
   ->element_exists( 'input[name=title]', 'title input exists' )
-  ->element_exists( 'input[name=title][value="New Item"', 'title input value correct' )
+  ->element_exists( 'input[name=title][value="New Item"]', 'title input value correct' )
   ->element_exists( 'textarea[name=description]', 'description input exists' )
   ->element_exists( 'input[type=submit]', 'submit button exists' )
   ;

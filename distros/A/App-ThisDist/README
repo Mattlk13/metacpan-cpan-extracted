@@ -3,13 +3,18 @@ NAME
     with current directory
 
 VERSION
-    This document describes version 0.007 of App::ThisDist (from Perl
-    distribution App-ThisDist), released on 2020-10-11.
+    This document describes version 0.011 of App::ThisDist (from Perl
+    distribution App-ThisDist), released on 2021-06-22.
 
 DESCRIPTION
     See included scripts:
 
     *   this-dist
+
+    *   this-mod
+
+CONTRIBUTOR
+    perlancar (on netbook-dell-xps13) <perlancar@gmail.com>
 
 FUNCTIONS
   this_dist
@@ -19,7 +24,11 @@ FUNCTIONS
 
     If $dir is not specified, will default to current directory. If
     $extract_version is set to true, will also try to extract distribution
-    version and will return "?" when unable to do so.
+    version and will return "?" for version when version cannot be found.
+
+  this_mod
+    A thin wrapper for "this_dist". It just converts "-" in the result to
+    "::", so "Foo-Bar" becomes "Foo::Bar".
 
 HOMEPAGE
     Please visit the project's homepage at
@@ -43,7 +52,7 @@ AUTHOR
     perlancar <perlancar@cpan.org>
 
 COPYRIGHT AND LICENSE
-    This software is copyright (c) 2020 by perlancar@cpan.org.
+    This software is copyright (c) 2021, 2020 by perlancar@cpan.org.
 
     This is free software; you can redistribute it and/or modify it under
     the same terms as the Perl 5 programming language system itself.

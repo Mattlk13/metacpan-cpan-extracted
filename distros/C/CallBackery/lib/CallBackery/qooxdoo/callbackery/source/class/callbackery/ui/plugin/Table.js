@@ -205,6 +205,7 @@ qx.Class.define('callbackery.ui.plugin.Table', {
             this._form.addListener('changeData',function(e){
                 model.setFormData(e.getData());
                 if (this._loading == 0){ // only reload when data has been changed by human
+                    this._loadDataReadOnly();
                     model.reloadData();
                 }
             },this);
@@ -214,10 +215,11 @@ qx.Class.define('callbackery.ui.plugin.Table', {
                 switch (data.action){
                     case 'reload':
                     case 'dataModified':
+                        this._loadDataReadOnly();
                         model.reloadData();
                         break;
                 }
-            });
+            }, this);
             return table;
         }
     }

@@ -1,4 +1,4 @@
-#! /usr/bin/perl
+#!/usr/bin/env perl
 
 use strict;
 use warnings;
@@ -8,7 +8,7 @@ use if $ENV{DEBUG} => "Smart::Comments";
 use File::Temp;               # don't leave any traces :)
 use Env qw($TEST_VERBOSE);
 
-use lib 't';
+use lib qw(../lib lib ../t t);
 use TestUtil;
 
 #use Log::Log4perl ":easy";    # makes workflow happy
@@ -51,7 +51,7 @@ my $file = catfile(FACTORY->get_persister("file")->path->{DIRNAME},
   if $wf0;
 
 if ($TEST_VERBOSE) {
-	diag "serializing workflow and context to: $file";
+        diag "serializing workflow and context to: $file";
 }
 
 ### PERSISTER file: $file

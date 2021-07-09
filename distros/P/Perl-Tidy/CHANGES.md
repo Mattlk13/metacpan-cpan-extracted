@@ -1,5 +1,85 @@
 # Perltidy Change Log
 
+## 2021 06 25
+
+    - This release adds several new requested parameters.  No significant bugs have 
+      been found since the last release, but a number of minor problems have been 
+      corrected.
+
+    - Added a new option '--code-skipping', requested in git #65, in which code
+      between comment lines '#<<V' and '#>>V' is passed verbatim to the output
+      stream without error checking.  It is simmilar to --format-skipping
+      but there is no error checking of the skipped code. This can be useful for 
+      skipping past code which employs an extended syntax.
+
+    - Added a new option for closing paren placement, -vtc=3, requested in rt #136417.
+
+    - Added flag -atnl, --add-terminal-newline, to help issue git #58.
+      This flag tells perltidy to terminate the last line of the output stream 
+      with a newline character, regardless of whether or not the input stream 
+      was terminated with a newline character.  This is the default.
+      If this flag is negated, with -natnl, then perltidy will add a terminal
+      newline character to the the output stream only if the input
+      stream is terminated with a newline.
+
+    - Some nested structures formatted with the -lp indentation option may have
+      some changes in indentation.  This is due to updates which were made to
+      prevent formatting instability when line lengths are limited by the maximum line
+      length. Most scripts will not be affected. If this causes unwanted formatting
+      changes, try increasing the --maximum-line-length by a few characters.
+
+    - Numerous minor fixes have been made. A complete list is at:
+
+           https://github.com/perltidy/perltidy/blob/master/local-docs/BugLog.pod
+
+## 2021 04 02
+
+    - This release fixes several non-critical bugs which have been found since the last
+    release.  An effort has been made to keep existing formatting unchanged.
+
+    - Fixed issue git #57 regarding uninitialized warning flag.
+
+    - Added experimental flag -lpxl=s requested in issue git #56 to provide some
+    control over which containers get -lp indentation.
+
+    - Fixed issue git #55 regarding lack of coordination of the --break-before-xxx
+    flags and the --line-up-parens flag.
+
+    - Fixed issue git #54 regarding irregular application of the --break-before-paren
+    and similar --break-before-xxx flags, in which lists without commas were not 
+    being formatted according to these flags.
+
+    - Fixed issue git #53. A flag was added to turn off alignment of spaced function 
+    parens.  If the --space-function-paren, -sfp flag is set, a side-effect is that the
+    spaced function parens may get vertically aligned.  This can be undesirable,
+    so a new parameter '--function-paren-vertical-alignment', or '-fpva', has been
+    added to turn this vertical alignment off. The default is '-fpva', so that 
+    existing formatting is not changed.  Use '-nfpva' to turn off unwanted
+    vertical alignment.  To illustrate the possibilities:
+
+        # perltidy [default]
+        myfun( $aaa, $b, $cc );
+        mylongfun( $a, $b, $c );
+
+        # perltidy -sfp
+        myfun     ( $aaa, $b, $cc );
+        mylongfun ( $a, $b, $c );
+    
+        # perltidy -sfp -nfpva
+        myfun ( $aaa, $b, $cc );
+        mylongfun ( $a, $b, $c );
+
+    - Fixed issue git #51, a closing qw bare paren was not being outdented when
+    the -nodelete-old-newlines flag was set.
+
+    - Fixed numerous edge cases involving unusual parameter combinations which
+      could cause alternating output states.  Most scripts will not be
+      changed by these fixes.
+
+    - A more complete list of updates is at
+
+           https://github.com/perltidy/perltidy/blob/master/local-docs/BugLog.pod
+
 ## 2021 01 11
 
     - Fixed issue git #49, -se breaks warnings exit status behavior.

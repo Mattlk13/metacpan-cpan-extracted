@@ -1,0 +1,38 @@
+0.2.3   2021-05-18  Released-By: PERLANCAR; Urgency: medium
+
+	- [ux] apply_roles(): Search also Role::TinyCommons::Collection
+	  namespace, throw an error if a specified role cannot be found in
+	  any namespace.
+
+	- [doc] Add example for apply_roles().
+
+
+0.2.2   2021-05-07  Released-By: PERLANCAR; Urgency: medium
+
+	- ArrayDataRole::Spec::Basic: provide method apply_roles().
+
+
+0.2.1   2021-05-03  Released-By: PERLANCAR; Urgency: medium
+
+	- Mix Role::TinyCommons::Collection::GetItemByPos into
+	  ArrayDataRole::Spec::Basic.
+
+	- [compliance] Use 'StopIteration' as the die string, as specified
+	  by Role::TinyCommons::Iterator::Basic.
+
+	- [doc] Add more namespace organization, add FAQ entries.
+
+
+0.2.0   2021-04-20  Released-By: PERLANCAR; Urgency: medium; Backward-Incompatible: yes
+
+	- [incompatible change] For better reusability and orthogonality,
+	  reimplement ArrayData using Role::TinyCommons::Iterator::Resettable
+	  (changed method names, e.g. elem() -> get_next_item(), there's no
+	  longer get_elem(), etc).
+
+        - [removed] Remove ArrayDataRole::Spec::Seekable for now.
+
+
+0.1.0   2021-04-11  Released-By: PERLANCAR; Unreleased: yes
+
+        - First, early release.

@@ -1,3 +1,15 @@
+1.0.13 2021-06-24 14:34:17 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - add DESTROY logger to Controller to track leaks
+
+1.0.12 2021-06-07 15:16:47 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - make handling of prefix argument more robust
+
+1.0.11 2021-03-17 17:25:51 +0100 Tobias Oetiker <tobi@oetiker.ch>
+
+ - rerelease to sync versions
+
 1.0.10 2021-01-11 17:14:17 +0100 Tobias Oetiker <tobi@oetiker.ch>
 
  - use any instead of deprecated route call

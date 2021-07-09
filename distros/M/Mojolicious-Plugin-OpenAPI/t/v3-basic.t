@@ -16,6 +16,7 @@ get '/pets/:petId' => sub {
 
 get '/pets' => sub {
   my $c = shift->openapi->valid_input or return;
+  $c->res->headers->header('x-next' => $c->param('limit') // 0);
   $c->render(openapi => $c->param('limit') ? [] : {});
   },
   'listPets';
@@ -26,9 +27,8 @@ post '/pets' => sub {
   },
   'createPets';
 
-plugin OpenAPI => {
+my $openapi_plugin = plugin OpenAPI => {
   url      => path(__FILE__)->dirname->child(qw(spec v3-petstore.json)),
-  schema   => 'v3',
   renderer => sub {
     my ($c, $data) = @_;
     my $ct = $c->stash('openapi_negotiated_content_type') || 'application/json';
@@ -40,15 +40,20 @@ plugin OpenAPI => {
 };
 
 my $t = Test::Mojo->new;
-$t->get_ok('/v1.json')->status_is(200)->json_like('/servers/0/url', qr{^http://[^/]+/v1$});
+$t->get_ok('/v1.json')->status_is(200)->json_like('/servers/0/url', qr{^http://[^/]+/v1$})
+  ->json_hasnt('/basePath');
+
+ok !$openapi_plugin->validator->data->{basePath}, 'basePath was not added';
 
 $t->get_ok('/v1/pets?limit=invalid', {Accept => 'application/json'})->status_is(400)
+  ->json_is('/errors/0/path',    '/limit')
   ->json_is('/errors/0/message', 'Expected integer - got string.');
 
-# TODO: Should probably be 400
-$t->get_ok('/v1/pets?limit=10', {Accept => 'not/supported'})->status_is(500)
-  ->json_is('/errors/0/message', 'No responses rules defined for not/supported.');
+$t->get_ok('/v1/pets?limit=5', {Accept => 'application/json'})->status_is(200)
+  ->header_is('x-next', 5)->content_is('[]');
 
+$t->get_ok('/v1/pets?limit=10', {Accept => 'not/*'})->status_is(400)
+  ->json_is('/errors/0/message', 'Expected application/json, application/xml - got not/*.');
 $t->get_ok('/v1/pets?limit=0', {Accept => 'application/json'})->status_is(500)
   ->json_is('/errors/0/message', 'Expected array - got object.');
 
@@ -64,8 +69,7 @@ $t->get_ok('/v1/pets?limit=10', {Accept => 'text/html,*/*;q=0.8'})->status_is(20
 $t->get_ok('/v1/pets?limit=10', {Accept => 'application/json'})->status_is(200)->content_is('[]');
 
 $t->post_ok('/v1/pets', {Accept => 'application/json', Cookie => 'debug=foo'})->status_is(400)
-  ->json_is('/errors/0/message', 'Invalid Content-Type.')
-  ->json_is('/errors/1/message', 'Expected integer - got string.');
+  ->json_is('/errors/0/message', 'Missing property.')->json_is('/errors/0/path', '/body');
 
 $t->post_ok('/v1/pets', {Cookie => 'debug=1'}, json => {id => 1, name => 'Supercow'})
   ->status_is(201)->content_is('');

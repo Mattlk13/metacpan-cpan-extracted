@@ -9,7 +9,7 @@ use Net::SAML2::XML::Util qw/ no_comments /;
 
 use Net::SAML2::XML::Sig;
 use MIME::Base64 qw/ decode_base64 /;
-use Crypt::OpenSSL::VerifyX509;
+use Crypt::OpenSSL::Verify;
 
 
 has 'cert_text' => (isa => 'Str', is => 'ro');
@@ -24,6 +24,7 @@ sub handle_response {
     my $xml_opts = { x509 => 1 };
     $xml_opts->{ cert_text } = $self->cert_text if ($self->cert_text);
     $xml_opts->{ exclusive } = 1;
+    $xml_opts->{ no_xml_declaration } = 1;
     my $x = Net::SAML2::XML::Sig->new($xml_opts);
     my $ret = $x->verify($xml);
     die "signature check failed" unless $ret;
@@ -32,7 +33,7 @@ sub handle_response {
         my $cert = $x->signer_cert
             or die "Certificate not provided and not in SAML Response, cannot validate";
 
-        my $ca = Crypt::OpenSSL::VerifyX509->new($self->cacert);
+        my $ca = Crypt::OpenSSL::Verify->new($self->cacert, { strict_certs => 0, });
         if ($ca->verify($cert)) {
             return sprintf("%s (verified)", $cert->subject);
         } else {
@@ -57,7 +58,7 @@ Net::SAML2::Binding::POST
 
 =head1 VERSION
 
-version 0.29
+version 0.34
 
 =head1 SYNOPSIS
 
@@ -108,6 +109,7 @@ This software is copyright (c) 2021 by Chris Andrews and Others; in detail:
             2017       Alessandro Ranellucci
             2019       Timothy Legge
             2020       Timothy Legge, Wesley Schwengle
+            2021       Timothy Legge
 
 
 This is free software; you can redistribute it and/or modify it under

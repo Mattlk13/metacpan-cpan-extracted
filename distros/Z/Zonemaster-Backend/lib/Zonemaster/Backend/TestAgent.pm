@@ -21,20 +21,24 @@ sub new {
     my ( $class, $params ) = @_;
     my $self = {};
 
-    if ( $params && $params->{config} ) {
-        $self->{config} = $params->{config};
+    if ( ! $params || ! $params->{config} ) {
+        die "missing 'config' parameter";
     }
 
-    if ( $params && $params->{db} ) {
-        eval "require $params->{db}";
-        $self->{db} = "$params->{db}"->new( { config => $self->{config} } );
+    $self->{config} = $params->{config};
+
+    my $dbtype;
+    if ( $params->{dbtype} ) {
+        $dbtype = $self->{config}->check_db($params->{dbtype});
     }
     else {
-        my $backend_module = "Zonemaster::Backend::DB::" . $self->{config}->BackendDBType();
-        eval "require $backend_module";
-        $self->{db} = $backend_module->new( { config => $self->{config} } );
+        $dbtype = $self->{config}->DB_engine;
     }
-        
+
+    my $backend_module = "Zonemaster::Backend::DB::" . $dbtype;
+    eval "require $backend_module";
+    $self->{db} = $backend_module->new( { config => $self->{config} } );
+
     $self->{profiles} = $self->{config}->ReadProfilesInfo();
     foreach my $profile (keys %{$self->{profiles}}) {
         die "default profile cannot be private" if ($profile eq 'default' && $self->{profiles}->{$profile}->{type} eq 'private');
@@ -76,14 +80,6 @@ sub run {
         die "Must give the name of a domain to test.\n";
     }
     $domain = $self->to_idn( $domain );
-
-    if (defined $params->{ipv4}) {
-        Zonemaster::Engine::Profile->effective->set( q{net.ipv4}, ( $params->{ipv4} ) ? ( 1 ) : ( 0 ) );
-    }
-
-    if (defined $params->{ipv6}) {
-        Zonemaster::Engine::Profile->effective->set( q{net.ipv6}, ( $params->{ipv6} ) ? ( 1 ) : ( 0 ) );
-    }
 
     # used for progress indicator
     my ( $previous_module, $previous_method ) = ( '', '' );
@@ -137,7 +133,7 @@ sub run {
     if ( $params->{ds_info} && @{ $params->{ds_info} } > 0 ) {
         $self->add_fake_ds( $domain, $params->{ds_info} );
     }
-    
+
 
     # If the profile parameter has been set in the API, then load a profile
     if ( $params->{profile} ) {
@@ -150,6 +146,16 @@ sub run {
         else {
             die "The profile [$params->{profile}] is not defined in the backend_config ini file" if ($params->{profile} ne 'default')
         }
+    }
+
+    # If IPv4 or IPv6 transport has been explicitly disabled or enabled, then load it after
+    # any explicitly set profile has been loaded.
+    if (defined $params->{ipv4}) {
+        Zonemaster::Engine::Profile->effective->set( q{net.ipv4}, ( $params->{ipv4} ) ? ( 1 ) : ( 0 ) );
+    }
+
+    if (defined $params->{ipv6}) {
+        Zonemaster::Engine::Profile->effective->set( q{net.ipv6}, ( $params->{ipv6} ) ? ( 1 ) : ( 0 ) );
     }
 
     # Actually run tests!
@@ -198,7 +204,7 @@ sub add_fake_delegation {
             $data{ $self->to_idn( $ns ) } = undef;
         }
     }
-    
+
     Zonemaster::Engine->add_fake_delegation( $domain => \%data );
 
     return;

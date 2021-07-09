@@ -23,6 +23,7 @@ t/WrapScope/ConfigGenerator/samples/multiple_packages.pm
 t/WrapScope/ConfigGenerator/samples/multiple_packages_block_syntax.pm
 t/WrapScope/ConfigGenerator/samples/no_packages.pm
 t/WrapScope/ConfigGenerator/samples/wrapped.pm
+t/WrapScope/arg_tags.t
 t/WrapScope/caller.t
 t/WrapScope/context.t
 t/WrapScope/errors.t
@@ -44,6 +45,7 @@ t/WrapScope/samples/wrapscope2.txt
 t/WrapScope/tags.t
 t/WrapScope/warnings.t
 t/lib/Line/Storage.pm
+t/bugs/leftover-match.t
 t/guarded-span.t
 META.yml                                 Module YAML meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)

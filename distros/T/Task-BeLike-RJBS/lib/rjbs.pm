@@ -1,6 +1,6 @@
-package rjbs;
+package rjbs 20210619.000;
 # ABSTRACT: all the junk that rjbs likes in his one-offs
-$rjbs::VERSION = '20200521.000';
+
 use 5.20.0;
 use feature ();
 use experimental ();
@@ -12,7 +12,8 @@ sub import {
   feature->import(':5.20');
   experimental->import(qw( signatures postderef lexical_subs ));
 
-  $] >= 5.021010 && experimental->import(qw( bitwise refaliasing ));
+  $] >= 5.022000 && experimental->import(qw( bitwise refaliasing ));
+  $] >= 5.026000 && experimental->import(qw( declared_refs ));
 }
 
 1;
@@ -29,7 +30,7 @@ rjbs - all the junk that rjbs likes in his one-offs
 
 =head1 VERSION
 
-version 20200521.000
+version 20210619.000
 
 =head1 OVERVIEW
 
@@ -45,11 +46,11 @@ inside" Task::BeLike::RJBS.
 
 =head1 AUTHOR
 
-Ricardo Signes <rjbs@cpan.org>
+Ricardo Signes <rjbs@semiotic.systems>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Ricardo Signes.
+This software is copyright (c) 2021 by Ricardo Signes.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

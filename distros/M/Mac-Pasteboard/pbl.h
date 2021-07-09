@@ -21,11 +21,20 @@
 
 #include <CoreFoundation/CFBase.h>
 
+#define ASCII_ENCODING kCFStringEncodingASCII
+#define UTF8_ENCODING kCFStringEncodingUTF8
+
 /* this could also credibly be "public.plain-text", but in point
  * of fact the text programs I could bring easily to bear (pbpaste,
  * AppleWorks, vim, and PasteboardPeeker) could not see this.
  */
+#ifdef UTF_8_PLAIN_TEXT
+#define DEFAULT_FLAVOR "public.utf8-plain-text"
+#define DEFAULT_ENCODE 1
+#else
 #define DEFAULT_FLAVOR "com.apple.traditional-mac-plain-text"
+#define DEFAULT_ENCODE 0
+#endif /* def UTF_8_PLAIN_TEXT */
 
 #ifdef DEBUG_PBL
 void pblx_free (char *mod, void *mem);

@@ -83,11 +83,11 @@ static void test_as_string () {
     REQUIRE(o.as_string<T>() == src);
 }
 
-TEST_CASE("Simple", "[Sv]") {
+TEST_CASE("Simple", "[Simple]") {
     perlvars vars;
     Simple my(vars.iv);
     Sv oth_valid(vars.ov), oth_invalid(vars.av);
-    int ivsize = Simple(eval_pv("use Config; $Config{ivsize}", 0));
+    int ivsize = Simple(eval("use Config; $Config{ivsize}"));
 
     SECTION("ctor") {
         SECTION("empty") {
@@ -396,5 +396,27 @@ TEST_CASE("Simple", "[Sv]") {
             Simple o(100);
             REQUIRE(o.at(0) == '1');
         }
+    }
+
+    SECTION("LV") {
+        auto lv = SvREFCNT_inc(SvRV(eval_pv("\\substr('suka', 1, 2)", 1)));
+
+        SECTION("detached to a value") {
+            auto val = Simple(lv);
+            CHECK(SvTYPE(val.get()) != SVt_PVLV);
+            CHECK(val.as_string() == "uk");
+        }
+        SECTION("refcnt") {
+            auto rcnt = SvREFCNT(lv);
+            auto val = Simple(lv);
+            CHECK(SvREFCNT(lv) == rcnt);
+
+            SvREFCNT_inc(lv);
+            rcnt = SvREFCNT(lv);
+            auto val2 = Simple::noinc(lv);
+            CHECK(SvREFCNT(lv) == rcnt - 1);
+        }
+
+        SvREFCNT_dec(lv);
     }
 }

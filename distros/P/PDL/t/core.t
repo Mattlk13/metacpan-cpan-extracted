@@ -1,22 +1,9 @@
-# -*-perl-*-
-#
-# test some PDL core routines
-#
-
 use strict;
 use Test::More;
-
-BEGIN {
-    # if we've got this far in the tests then
-    # we can probably assume PDL::LiteF works!
-    #
-    eval {
-        require PDL::LiteF;
-    } or BAIL_OUT("PDL::LiteF failed: $@");
-    plan tests => 75;
-    PDL::LiteF->import;
-}
-$| = 1;
+use PDL::LiteF;
+use Config;
+use PDL::Types;
+use Math::Complex ();
 
 sub tapprox ($$) {
     my ( $x, $y ) = @_;
@@ -46,10 +33,10 @@ ok tapprox( $c_dbl->sclr, 4 ), "sclr test of 3-elem pdl (dbl)";
 is( PDL->sclr({Check=>'barf'}), 2, "changed error mode of sclr" );
 
 eval '$c_long->sclr';
-like $@, qr/multielement piddle in 'sclr' call/, "sclr failed on multi-element piddle (long)";
+like $@, qr/multielement ndarray in 'sclr' call/, "sclr failed on multi-element ndarray (long)";
 
 eval '$c_dbl->sclr';
-like $@, qr/multielement piddle in 'sclr' call/, "sclr failed on multi-element piddle (dbl)";
+like $@, qr/multielement ndarray in 'sclr' call/, "sclr failed on multi-element ndarray (dbl)";
 
 # test reshape barfing with negative args
 #
@@ -77,7 +64,7 @@ $c++; # check dataflow in reshaped PDL
 ok all( $y == $c ), "dataflow"; # should flow back to y
 ok all( $x == 2 ), "dataflow";
 
-our $d = pdl(5); # zero dim piddle and reshape/squeeze
+our $d = pdl(5); # zero dim ndarray and reshape/squeeze
 ok $d->reshape(-1)->ndims==0, "reshape(-1) on 0-dim PDL gives 0-dim PDL";
 ok $d->reshape(1)->ndims==1, "reshape(1) on 0-dim PDL gives 1-dim PDL";
 ok $d->reshape(1)->reshape(-1)->ndims==0, "reshape(-1) on 1-dim, 1-element PDL gives 0-dim PDL";
@@ -89,20 +76,18 @@ is($c->hdr->{demo}, "yes", "hdr before reshape");
 $c->reshape(5,5);
 is($c->hdr->{demo}, "yes", "hdr after reshape");
 
-
-
 # test topdl
 
-isa_ok( PDL->topdl(1),       "PDL", "topdl(1) returns a piddle" );
-isa_ok( PDL->topdl([1,2,3]), "PDL", "topdl([1,2,3]) returns a piddle" );
-isa_ok( PDL->topdl(1,2,3),   "PDL", "topdl(1,2,3) returns a piddle" );
+isa_ok( PDL->topdl(1),       "PDL", "topdl(1) returns an ndarray" );
+isa_ok( PDL->topdl([1,2,3]), "PDL", "topdl([1,2,3]) returns an ndarray" );
+isa_ok( PDL->topdl(1,2,3),   "PDL", "topdl(1,2,3) returns an ndarray" );
 $x=PDL->topdl(1,2,3);
-ok (($x->nelem == 3  and  all($x == pdl(1,2,3))), "topdl(1,2,3) returns a 3-piddle containing (1,2,3)");
+ok (($x->nelem == 3  and  all($x == pdl(1,2,3))), "topdl(1,2,3) returns a 3-ndarray containing (1,2,3)");
 
 
 # test $PDL::undefval support in pdl (bug #886263)
 #
-is $PDL::undefval, 0, "default value of $PDL::undefval is 0";
+is $PDL::undefval, 0, "default value of \$PDL::undefval is 0";
 
 $x = [ [ 2, undef ], [3, 4 ] ];
 $y = pdl( $x );
@@ -131,29 +116,37 @@ do {
 
 # pdl of a pdl
 $x = pdl(pdl(5));
-ok all( $x== pdl(5)), "pdl() can piddlify a piddle";
+ok all( $x== pdl(5)), "pdl() can piddlify an ndarray";
 
-TODO: {
-   local $TODO = 'Known_problems bug sf.net #3011879' if ($PDL::Config{SKIP_KNOWN_PROBLEMS} or exists $ENV{SKIP_KNOWN_PROBLEMS});
-
-   # pdl of mixed-dim pdls: pad within a dimension
-   $x = pdl( zeroes(5), ones(3) );
-   ok all($x == pdl([0,0,0,0,0],[1,1,1,0,0])),"Piddlifying two piddles concatenates them and pads to length" or diag("x=$x\n");
-}
+# pdl of mixed-dim pdls: pad within a dimension
+$x = pdl( zeroes(5), ones(3) );
+ok all($x == pdl([0,0,0,0,0],[1,1,1,0,0])),"Piddlifying two ndarrays concatenates them and pads to length" or diag("x=$x\n");
 
 # pdl of mixed-dim pdls: pad a whole dimension
 $x = pdl( [[9,9],[8,8]], xvals(3)+1 );
-ok all($x == pdl([[[9,9],[8,8],[0,0]] , [[1,0],[2,0],[3,0]] ])),"can concatenate mixed-dim piddles" or diag("x=$x\n");
+ok all($x == pdl([[[9,9],[8,8],[0,0]] , [[1,0],[2,0],[3,0]] ])),"can concatenate mixed-dim ndarrays" or diag("x=$x\n");
 
 # pdl of mixed-dim pdls: a hairier case
 $c = pdl [1], pdl[2,3,4], pdl[5];
-ok all($c == pdl([[[1,0,0],[0,0,0]],[[2,3,4],[5,0,0]]])),"Can concatenate mixed-dim piddles: hairy case" or diag("c=$c\n");
+ok all($c == pdl([[[1,0,0],[0,0,0]],[[2,3,4],[5,0,0]]])),"Can concatenate mixed-dim ndarrays: hairy case" or diag("c=$c\n");
 
 # same thing, with undefval set differently
 do {
     local($PDL::undefval) = 99;
+    $c = pdl undef;
+    ok all($c == pdl(99)), "explicit, undefval of 99 works" or diag("c=$c\n");
     $c = pdl [1], pdl[2,3,4], pdl[5];
-    ok all($c == pdl([[[1,99,99],[99,99,99]],[[2,3,4],[5,99,99]]])), "undefval works for padding" or diag("c=$c\n");;
+    ok all($c == pdl([[[1,99,99],[99,99,99]],[[2,3,4],[5,99,99]]])), "implicit, undefval works for padding" or diag("c=$c\n");
+    $PDL::undefval = undef;
+    $c = pdl undef;
+    ok all($c == pdl(0)), "explicit, undefval of undef falls back to 0" or diag("c=$c\n");
+    $c = pdl [1], [2,3,4];
+    ok all($c == pdl([1,0,0],[2,3,4])), "implicit, undefval of undef falls back to 0" or diag("c=$c\n");
+    $PDL::undefval = inf;
+    $c = pdl undef;
+    ok all($c == inf), "explicit, undefval of PDL scalar works" or diag("c=$c\n");
+    $c = pdl [1], [2,3,4];
+    ok all($c == pdl([1,inf,inf],[2,3,4])), "implicit, undefval of a PDL scalar works" or diag("c=$c\n");
 } while(0);
 
 # empty pdl cases
@@ -178,32 +171,32 @@ ok( all($y==pdl([[[5,0]]],[[[0,0]]])), "concatenating an empty and a scalar on t
 
 # cat problems
 eval {cat(1, pdl(1,2,3), {}, 6)};
-ok ($@ ne '', 'cat barfs on non-piddle arguments');
-like ($@, qr/Arguments 0, 2 and 3 are not piddles/, 'cat correctly identifies non-piddle arguments');
+ok ($@ ne '', 'cat barfs on non-ndarray arguments');
+like ($@, qr/Arguments 0, 2 and 3 are not ndarrays/, 'cat correctly identifies non-ndarray arguments');
 $@ = '';
 eval {cat(1, pdl(1,2,3))};
-like($@, qr/Argument 0 is not a piddle/, 'cat uses good grammar when discussing non-piddles');
+like($@, qr/Argument 0 is not an ndarray/, 'cat uses good grammar when discussing non-ndarrays');
 $@ = '';
 
 my $two_dim_array = cat(pdl(1,2), pdl(1,2));
 eval {cat(pdl(1,2,3,4,5), $two_dim_array, pdl(1,2,3,4,5), pdl(1,2,3))};
-ok ($@ ne '', 'cat barfs on mismatched piddles');
+ok ($@ ne '', 'cat barfs on mismatched ndarrays');
 like($@, qr/The dimensions of arguments 1 and 3 do not match/
-	, 'cat identifies all piddles with differing dimensions');
-like ($@, qr/\(argument 0\)/, 'cat identifies the first actual piddle in the arg list');
+	, 'cat identifies all ndarrays with differing dimensions');
+like ($@, qr/\(argument 0\)/, 'cat identifies the first actual ndarray in the arg list');
 $@ = '';
 eval {cat(pdl(1,2,3), pdl(1,2))};
 like($@, qr/The dimensions of argument 1 do not match/
-	, 'cat uses good grammar when discussing piddle dimension mismatches');
+	, 'cat uses good grammar when discussing ndarray dimension mismatches');
 $@ = '';
 eval {cat(1, pdl(1,2,3), $two_dim_array, 4, {}, pdl(4,5,6), pdl(7))};
 ok ($@ ne '', 'cat barfs combined screw-ups');
-like($@, qr/Arguments 0, 3 and 4 are not piddles/
-	, 'cat properly identifies non-piddles in combined screw-ups');
+like($@, qr/Arguments 0, 3 and 4 are not ndarrays/
+	, 'cat properly identifies non-ndarrays in combined screw-ups');
 like($@, qr/arguments 2 and 6 do not match/
-	, 'cat properly identifies piddles with mismatched dimensions in combined screw-ups');
+	, 'cat properly identifies ndarrays with mismatched dimensions in combined screw-ups');
 like($@, qr/\(argument 1\)/,
-	'cat properly identifies the first actual piddle in combined screw-ups');
+	'cat properly identifies the first actual ndarray in combined screw-ups');
 $@ = '';
 
 eval {$x = cat(pdl(1),pdl(2,3));};
@@ -222,10 +215,20 @@ is($c2->type,'float','concatentating different datatypes returns the highest typ
 my $i=0;
 map{ ok(all($_==$list[$i]),"cat/dog symmetry for values ($i)"); $i++; }$c2->dog;
 
-# new_or_inplace
 $x = sequence(byte,5);
 
+$x->inplace;
+ok($x->is_inplace,"original item inplace-d true inplace flag");
+$y = $x->copy;
+ok($x->is_inplace,"original item true inplace flag after copy");
+ok(!$y->is_inplace,"copy has false inplace flag");
+$y++;
+ok(all($y!=sequence(byte,5)),"copy returns severed copy of the original thing if inplace is set");
+ok($x->is_inplace,"original item still true inplace flag");
+ok(!$y->is_inplace,"copy still false inplace flag");
+ok(all($x==sequence(byte,5)),"copy really is severed");
 
+# new_or_inplace
 $y = $x->new_or_inplace;
 ok( all($y==$x) && ($y->get_datatype ==  $x->get_datatype), "new_or_inplace with no pref returns something like the orig.");
 
@@ -246,13 +249,13 @@ my $empty = zeroes(0);
 ok($empty->nelem==0,"you can make an empty PDL with zeroes(0)");
 ok("$empty" =~ m/Empty/, "an empty PDL prints 'Empty'");
 
-ok($null->info =~ /^PDL->null$/, "null piddle's info is 'PDL->null'");
+ok($null->info =~ /^PDL->null$/, "null ndarray's info is 'PDL->null'");
 my $mt_info = $empty->info;
 $mt_info =~m/\[([\d,]+)\]/;
 my $mt_info_dims = pdl("$1");
-ok(any($mt_info_dims==0), "empty piddle's info contains a 0 dimension");
-ok($null->isnull && $null->isempty, "a null piddle is both null and empty");
-ok(!$empty->isnull && $empty->isempty, "an empty piddle is empty but not null");
+ok(any($mt_info_dims==0), "empty ndarray's info contains a 0 dimension");
+ok($null->isnull && $null->isempty, "a null ndarray is both null and empty");
+ok(!$empty->isnull && $empty->isempty, "an empty ndarray is empty but not null");
 
 $x = short pdl(3,4,5,6);
 eval { $x->reshape(2,2);};
@@ -264,3 +267,177 @@ $y = $x->slice(":,:");
 eval { $y->reshape(4); };
 ok( $@ !~ m/Can\'t/, "reshape doesn't fail on a PDL with a parent" );
 
+{
+my $pb = double ones(2,3);
+my $ind = 1;
+is(($pb->dims)[0], 2);
+is(($pb->dims)[1], 3);
+note $pb;
+is($pb->at(1,1), 1);
+is($pb->at(1,2), 1);
+}
+
+my $array = [
+ [[1,2],
+  [3,4]],
+ [[5,6],
+  [7,8]],
+ [[9,10],
+  [11,12]]
+];
+my $pdl = pdl $array;
+is_deeply( unpdl($pdl), $array, "back convert 3d");
+SKIP: {
+  skip("your perl hasn't 64bit int support", 6) if $Config{ivsize} < 8;
+  my $input = [
+      -9223372036854775808, #min int64
+      -9000000000000000001,
+      -9000000000000000002,
+      -9000000000000000003,
+      -9000000000000000004,
+      -9000000000000000005,
+      -8999999999999999999,
+      -8999999999999999998,
+      -8999999999999999997,
+      -8999999999999999996,
+      -1000000000000000001,
+               -2147483648, #min int32
+                2147483647, #max int32
+                4294967295, #max uint32
+       1000000000000000001,
+       9000000000000000001,
+       9000000000000000002,
+       9000000000000000003,
+       9000000000000000004,
+       9000000000000000005,
+       8999999999999999999,
+       8999999999999999998,
+       8999999999999999997,
+       8999999999999999996,
+       9223372036854775807, #max int64
+  ];
+  is_deeply(longlong($input)->unpdl, $input, 'back convert of 64bit integers');
+  my $small_pdl = longlong([ -9000000000000000001, 9000000000000000001 ]);
+  is($small_pdl->at(0), -9000000000000000001, 'at/1');
+  is(PDL::Core::at_bad_c($small_pdl, [1]),  9000000000000000001, 'at_bad_c/1');
+  $small_pdl->set(0, -8888888888888888888);
+  PDL::Core::set_c($small_pdl, [1], 8888888888888888888);
+  is($small_pdl->at(0), -8888888888888888888, 'at/2');
+  is(PDL::Core::at_bad_c($small_pdl, [1]),  8888888888888888888, 'at_bad_c/2');
+  is_deeply($small_pdl->unpdl, [ -8888888888888888888, 8888888888888888888 ], 'unpdl/small_pdl');
+}
+
+my $big_ushort = ushort(65535);
+is $big_ushort->badflag, 0, 'max ushort value badflag';
+is PDL::Core::at_bad_c($big_ushort, []), 65535, 'max ushort value not "BAD" per se';
+
+{
+my $x = cdouble(2, 3);
+PDL::Core::set_c($x, [1], i);
+is $x.'', '[2 i]', 'set_c can take ndarray value';
+}
+
+{
+my $x = cdouble(2, Math::Complex::i());
+is $x.'', '[2 i]', 'type constructor can take Math::Complex value';
+$x = pdl(Math::Complex::cplx(2, 0), Math::Complex::i());
+is $x.'', '[2 i]', 'pdl defaults to cdouble if Math::Complex values';
+$x = pdl([Math::Complex::cplx(2, 0), Math::Complex::i()]);
+is $x.'', '[2 i]', 'pdl defaults to cdouble if Math::Complex values in arrayref';
+}
+
+{
+my $pa = zeroes(20);
+$pa->hdrcpy(1);
+$pa->dump;
+$pa->sethdr( {Field1=>'arg1',
+	     Field2=>'arg2'});
+note "pa: ", explain $pa->gethdr();
+ok($pa->hdrcpy);
+{
+	my $pb = $pa+1;
+	note "pb: ", explain $pb->gethdr();
+	ok( defined($pb->gethdr));
+	is_deeply($pa->gethdr,$pb->gethdr);
+}
+{
+	my $pb = ones(20) + $pa;
+	note "pb: ", explain $pb->gethdr();
+	ok( defined($pb->gethdr));
+	is_deeply($pa->gethdr,$pb->gethdr);
+}
+{
+	my $pc = $pa->slice('0:5');
+	note "pc: ", explain $pc->gethdr();
+	is_deeply($pa->gethdr,$pc->gethdr);
+}
+{
+	my $pd = $pa->copy;
+	note "pd: ", explain $pd->gethdr();
+	is_deeply($pa->gethdr,$pd->gethdr);
+}
+{
+	$pa->hdrcpy(0);
+	ok(defined($pa->slice('3')->hdr) && !( keys (%{$pa->slice('3')->hdr})));
+	ok(!defined($pa->slice('3')->gethdr));
+}
+}
+
+{
+my $pa = pdl 42.4;
+note "A is $pa";
+
+is($pa->get_datatype,$PDL_D, "A is double");
+
+my $pb = byte $pa;
+note "B (byte $pa) is $pb";
+
+is($pb->get_datatype,$PDL_B, "B is byte");
+is($pb->at(),42, 'byte value is 42');
+
+my $pc = $pb * 3;
+is($pc->get_datatype, $PDL_B, "C also byte");
+note "C ($pb * 3) is $pc";
+
+my $pd = $pb * 600.0;
+is($pd->get_datatype, $PDL_F, "D promoted to float");
+note "D ($pb * 600) is $pd";
+
+my $pi = 4*atan2(1,1);
+
+my $pe = $pb * $pi;
+is($pe->get_datatype, $PDL_D, "E promoted to double (needed to represent result)");
+note "E ($pb * PI) is $pe";
+
+my $pf = $pb * "-2.2";
+is($pf->get_datatype, $PDL_D, "F check string handling");
+note "F ($pb * string(-2.2)) is $pf";
+}
+
+{
+my @types = (
+	{ typefunc => *byte  , size => 1 },
+	{ typefunc => *short , size => 2 },
+	{ typefunc => *ushort, size => 2 },
+	{ typefunc => *long  , size => 4 },
+	{ typefunc => *float , size => 4 },
+	{ typefunc => *double, size => 8 },
+);
+for my $type (@types) {
+	my $pdl = $type->{typefunc}(42); # build a PDL with datatype $type->{type}
+	is( PDL::Core::howbig( $pdl->get_datatype ), $type->{size} );
+}
+}
+
+for (['ones', 1], ['zeroes', 0], ['nan', 'NaN'], ['inf', 'Inf'], ['i', 'i']) {
+  my ($name, $val) = @$_;
+  no strict 'refs';
+  my $g = eval { $name->() };
+  is $@, '', "$name works with no args";
+  like $g.'', qr/^$val/i, "$name() gives back right value";
+  my $g1 = eval { $name->(2) };
+  is $@, '', "$name works with 1 args";
+  is_deeply [$g1->dims], [2], 'right dims';
+}
+
+done_testing;

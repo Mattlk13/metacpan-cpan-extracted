@@ -2,7 +2,8 @@ package Test2::Licensecheck;
 
 my $CLASS = __PACKAGE__;
 
-use strictures;
+use strict;
+use warnings;
 
 use Test2::API qw(context);
 use Test2::Todo;
@@ -14,9 +15,8 @@ use App::Licensecheck;
 use base 'Exporter';
 our @EXPORT = qw(license_is license_like);
 
-my $app = App::Licensecheck->new;
+my $app = App::Licensecheck->new( shortname_scheme => 'debian,spdx' );
 $app->lines(0);
-$app->deb_fmt(1);
 
 sub license_is ($$)
 {

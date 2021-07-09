@@ -9,12 +9,12 @@ use lib '../..';
 use base qw(App::Followme::FileData);
 
 use Pod::Simple::XHTML;
-use File::Spec::Functions qw(abs2rel catfile rel2abs splitdir);
+use File::Spec::Functions qw(abs2rel catfile splitdir);
 
 use App::Followme::FIO;
 use App::Followme::Web;
 
-our $VERSION = "1.95";
+our $VERSION = "2.02";
 
 #----------------------------------------------------------------------
 # Read the default parameter values
@@ -23,11 +23,86 @@ sub parameters {
     my ($self) = @_;
 
     return (
-            extension => 'pm,pod',
-            title_template => '<h2></h2>',
             package => '',
             pod_directory => '',
+            final_directory => '',
+            extension => 'pm,pod',
+            title_template => '<h2></h2>',
            );
+}
+
+#----------------------------------------------------------------------
+# Alter urls in body of pod file to corect final location
+
+sub alter_url {
+    my ($self, $url) = @_;
+
+    my $site_url = $self->get_site_url($url);
+
+    my $package;
+    if ($site_url eq substr($url, 0, length($site_url))) {
+        $package = substr($url, length($site_url));
+    } else {
+        $package = $url;
+    }
+
+    $package =~ s/^$self->{package}:://;
+    my @package_path = split(/::/, $package);
+
+    my $filename = catfile($self->{base_directory}, @package_path);
+
+    my $found;
+    foreach my $ext ('pod', 'pm', 'pl') {
+        if (-e "$filename.$ext") {
+            $filename .= ".$ext";
+            $found = 1;
+            last;
+        }
+    }
+
+    if ($found) {
+        $url = $self->filename_to_url($self->{top_directory}, 
+                                      $filename,
+                                      $self->{web_extension});
+    } else {
+        $url = '';
+    }
+
+    return $url;
+}
+
+#-----------------------------------------------------------------------
+# Get the name of the web file a file will be converted to
+
+sub convert_filename {
+    my ($self, $filename) = @_;
+
+    die "Base directory is undefined" unless $self->{base_directory};
+
+    my $new_file = abs2rel($filename, $self->{base_directory});
+    $new_file = join('-', splitdir(lc($new_file)));
+
+    $new_file =~ s/\.[^\.]*$/.$self->{web_extension}/;
+    $new_file = catfile($self->{final_directory}, $new_file);
+
+    return $new_file;
+}
+
+#-----------------------------------------------------------------------
+# Get the name of the source directory for ConvertPage
+
+sub convert_source_directory {
+    my ($self, $directory) = @_;
+
+    die "Base directory is undefined" unless $self->{base_directory};
+
+    my $source_directory;
+    if (fio_same_file($directory, $self->{final_directory},
+                      $self->{case_sensitivity})) {
+        $source_directory = $self->{base_directory};
+    }
+
+    return $source_directory;
 }
 
 #----------------------------------------------------------------------
@@ -38,8 +113,13 @@ sub extract_body {
 
     my @section = split(/<\s*\/?body[^>]*>/i, $html);
     s/^\s+// foreach @section;
+    
+    my $body = $section[1];
 
-    return $section[1];
+    $body =~ s/src="([^"]*)"/'src="' . $self->alter_url($1) . '"'/ge;
+    $body =~ s/href="([^"]*)"/'href="' . $self->alter_url($1) . '"'/ge;
+
+    return $body;
 }
 
 #----------------------------------------------------------------------
@@ -63,20 +143,24 @@ sub fetch_content {
                                           $title_parser);
 
         my %mapping = ('title' => 'name',
-                       'description' => 'description',
                        'summary' => 'description',
+                       'author' => 'author',
                        );
 
         while (my ($cname, $sname) = each %mapping) {
             $content{$cname} = $section->{$sname};
         }
 
-        foreach my $cname (qw(title)) {
+        foreach my $cname (qw(author title)) {
             my @tokens = web_split_at_tags($content{$cname});
             $content{$cname} = web_only_text(@tokens);
         }
     }
 
+    if ($content{title}) {
+        my @title_parts = split(/\s+-+\s+/, $content{title}, 2);
+        $content{title} = $title_parts[0];
+    }
 
     return %content;
 }
@@ -109,25 +193,84 @@ sub fetch_sections {
 }
 
 #----------------------------------------------------------------------
+# Convert filename to url
+
+sub filename_to_url {
+    my ($self, $directory, $filename, $ext) = @_;
+
+    $filename = $self->convert_filename($filename);
+    return $self->SUPER::filename_to_url($directory, $filename, $ext);
+}
+
+#----------------------------------------------------------------------
 # Find the directory containing the pod files
 
-sub find_pod_directory {
+sub find_base_directory {
     my ($self)= @_;
 
     my @package_path = split(/::/, $self->{package});
-    pop(@package_path);
-
     my $package_folder = catfile(@package_path);
-    my @folders = (split(/\s*,\s*/, $self->{pod_directory}), @INC);
+    my $package_file = "$package_folder.pm";
+
+    my @folders;
+    push(@folders, split(/\s*,\s*/, $self->{pod_directory}))
+        if $self->{pod_directory};
+    push(@folders, @INC);
 
     for my $folder (@folders) {
-        my $pod_folder = catfile($folder, $package_folder);
-        if (-e $pod_folder) {
-            return $pod_folder;
+        if (-e catfile($folder, $package_file)) {
+            pop(@package_path);
+            return ($folder, \@package_path);
+
+        } elsif(-e catfile($folder, $package_folder)) {
+            return ($folder, \@package_path);
         }
     }
 
     return;
+}
+
+#----------------------------------------------------------------------
+# Treat all pod files as if they were in a single directory
+
+sub find_matching_directories {
+    my ($self, $directory) = @_;
+
+    my @directories = ();
+    return @directories;
+}
+
+#----------------------------------------------------------------------
+# Treat all pod files as if they were in a single directory
+
+sub find_matching_files {
+    my ($self, $folder) = @_;
+
+    my ($filenames, $folders) = fio_visit($folder);
+
+    my @files;
+    foreach my $filename (@$filenames) {
+        push(@files, $filename) if $self->match_file($filename);
+    }
+
+    foreach my $folder (@$folders) {
+        push(@files, $self->find_matching_files($folder)) 
+            if $self->match_directory($folder);
+    }
+
+    return @files;
+}
+
+#-----------------------------------------------------------------------
+# Treat all pod files as if they were in a single directory
+
+sub get_folders {
+    my ($self, $filename) = @_;
+
+    my ($directory, $file) = fio_split_filename($filename);
+    my @directories = $self->find_matching_directories($directory);
+
+    return \@directories;
 }
 
 #----------------------------------------------------------------------
@@ -154,11 +297,15 @@ sub initialize_parser {
 # Initialize pod parser and find pod directory
 
 sub setup {
-    my ($self, %configuration) = @_;
+    my ($self) = @_;
 
-    my $directory = $self->find_pod_directory();
-    die "Couldn't find folder for $self->{package}" unless defined $directory;
-    $self->{base_directory} = $directory;
+    my  ($pod_folder, $package_path) = $self->find_base_directory();
+    die "Couldn't find folder for $self->{package}" 
+        unless defined $pod_folder;
+
+    $self->{final_directory} = $self->{base_directory};
+    $self->{base_directory} = catfile($pod_folder, @$package_path);
+    $self->{package} = join('::', @$package_path);
 
     return;
 }
@@ -205,9 +352,9 @@ a name to the build method, the sigil should not be used.
 
 =item $body
 
-All the contents of the file, minus the title if there is one. Markdown is
-called on the file's content to generate html before being stored in the body
-variable.
+All the contents of the file, minus the title if there is one. 
+Pod::Simple::XHTML is called on the file's content to generate html 
+before being stored in the body variable.
 
 =item $description
 
@@ -226,10 +373,10 @@ The following parameters are used from the configuration:
 
 =over 4
 
-=item extension
+=item pod_extension
 
-The extension of files that are converted to web pages. The default value
-is pod.
+The extension of files that contain pod documentation. The default value
+is pm,pod.
 
 =item pod_directory
 

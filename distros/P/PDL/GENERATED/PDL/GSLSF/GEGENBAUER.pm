@@ -4,8 +4,8 @@
 #
 package PDL::GSLSF::GEGENBAUER;
 
-@EXPORT_OK  = qw( PDL::PP gsl_sf_gegenpoly_n PDL::PP gsl_sf_gegenpoly_array );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP gsl_sf_gegenpoly_n PDL::PP gsl_sf_gegenpoly_array );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::GSLSF::GEGENBAUER ;
 
@@ -64,7 +64,7 @@ Evaluate Gegenbauer polynomials.
 =for bad
 
 gsl_sf_gegenpoly_n does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -93,7 +93,7 @@ Calculate array of Gegenbauer polynomials from 0 to n-1.
 =for bad
 
 gsl_sf_gegenpoly_array does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

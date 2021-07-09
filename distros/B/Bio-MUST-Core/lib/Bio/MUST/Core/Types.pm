@@ -1,6 +1,6 @@
 package Bio::MUST::Core::Types;
 # ABSTRACT: Distribution-wide Moose types for Bio::MUST::Core
-$Bio::MUST::Core::Types::VERSION = '0.210120';
+$Bio::MUST::Core::Types::VERSION = '0.211470';
 use Moose::Util::TypeConstraints;
 
 use autodie;
@@ -140,16 +140,15 @@ coerce 'Bio::MUST::Core::IdList'
     => from 'ArrayRef[Str]'
     => via { Bio::MUST::Core::IdList->new( ids => $_ ) }
 
-# TODO: uncomment and check this (still useful?)
-#     => from 'ArrayRef[Bio::MUST::Core::SeqId]'
-#     => via { Bio::MUST::Core::IdList->new(
-#         ids => [ map { $_->full_id } @{$_} ]
-#     ) }
-#
-#     => from 'ArrayRef[Bio::MUST::Core::Seq]'
-#     => via { Bio::MUST::Core::IdList->new(
-#         ids => [ map { $_->full_id } @{$_} ]
-#     ) }
+    => from 'ArrayRef[Bio::MUST::Core::SeqId]'
+    => via { Bio::MUST::Core::IdList->new(
+        ids => [ map { $_->full_id } @{$_} ]
+    ) }
+
+    => from 'ArrayRef[Bio::MUST::Core::Seq]'
+    => via { Bio::MUST::Core::IdList->new(
+        ids => [ map { $_->full_id } @{$_} ]
+    ) }
 
     => from 'Path::Class::File'
     => via { Bio::MUST::Core::IdList->load( $_->stringify ) }
@@ -189,7 +188,6 @@ coerce 'Bio::MUST::Core::Types::Dir'
 ;
 
 # === in part borrowed from Bio::FastParsers to avoid dependency
-# TODO: consolidate at next update of FastParsers as it is now a dependency
 
 # subtype for 'file' attributes
 subtype 'Bio::MUST::Core::Types::File'
@@ -222,7 +220,7 @@ Bio::MUST::Core::Types - Distribution-wide Moose types for Bio::MUST::Core
 
 =head1 VERSION
 
-version 0.210120
+version 0.211470
 
 =head1 SYNOPSIS
 

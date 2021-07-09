@@ -3,7 +3,6 @@ use strict;
 
 use Test::More tests => 8;
 
-use Cwd;
 use IO::File;
 use File::Path qw(rmtree);
 use File::Spec::Functions qw(catdir catfile rel2abs splitdir);
@@ -39,24 +38,27 @@ require App::Followme::Module;
 
 my $test_dir = catdir(@path, 'test');
 
-rmtree($test_dir);
+rmtree($test_dir) if -e $test_dir;
 mkdir $test_dir;
 chmod 0755, $test_dir;
 
 my $subdir = catfile(@path, 'test', 'sub');
 mkdir ($subdir) or die $!;
 chmod 0755, $subdir;
-
 chdir $test_dir or die $!;
-$test_dir = cwd();
 
-my $template_file = 'template.htm';
+my $template_file = catfile($test_dir, 'template.htm');
 
 #----------------------------------------------------------------------
 # Create object
 
-my $obj = App::Followme::Module->new(template_directory => 'sub',
-                                     template_file => $template_file);
+my %configuration = (top_directory => $test_dir,
+                     base_directory => $test_dir,
+                     template_directory => 'sub',
+                     template_file => $template_file
+                    );
+
+my $obj = App::Followme::Module->new(%configuration);
 
 isa_ok($obj, "App::Followme::Module"); # test 1
 can_ok($obj, qw(new run)); # test 2
@@ -165,31 +167,31 @@ do {
 # Test read configuration
 
 do {
-    my %configuration = ('' => {one => 1, two => 2});
+    my %configuration = (one => 1, two => 2);
     my $app = App::Followme::Module->new();
 
     my $source = <<'EOQ';
 # Test configuration file
 
-three = 3
-four = 4
+three: 3
+four:  4
 
-run_after = App::Followme::CreateSitemap
+run_after:
+    - App::Followme::CreateSitemap
 
 EOQ
 
-    my $filename = 'test.cfg';
+    my $filename = catfile($test_dir, 'test.cfg');
     my $fd = IO::File->new($filename, 'w');
     print $fd $source;
     close($fd);
 
     %configuration = $app->read_configuration($filename, %configuration);
 
-    my %configuration_ok = ('' => {one => 1, two => 2,
-                                   three => 3, four => 4,
-                                   run_before => [],
-                                   run_after => ['App::Followme::CreateSitemap'],
-                                  }
+    my %configuration_ok = (one => 1, two => 2,
+                            three => 3, four => 4,
+                            run_before => [],
+                            run_after => ['App::Followme::CreateSitemap'],
                            );
 
     is_deeply(\%configuration, \%configuration_ok,
@@ -212,7 +214,8 @@ do {
 # Test render file
 
 do {
-   my $page = $obj->render_file('one.html');
+    my $filename = catfile($test_dir, 'one.html');
+    my $page = $obj->render_file($filename);
 
-   like($page, qr(Page one), 'render file'); # test 8
+    like($page, qr(Page one), 'render file'); # test 8
 };

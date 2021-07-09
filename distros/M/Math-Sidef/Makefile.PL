@@ -6,8 +6,9 @@ WriteMakefile
   'NAME' => 'Math::Sidef',
   'VERSION_FROM' => 'lib/Math/Sidef.pm',
   'PREREQ_PM' => {
+                   'Exporter' => '0',
                    'Math::AnyNum' => '0.36',
-                   'Sidef' => '3.96',
+                   'Sidef' => '3.97',
                    'Test::More' => 0
                  },
   'INSTALLDIRS' => 'site',

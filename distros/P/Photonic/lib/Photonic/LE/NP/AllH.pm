@@ -1,5 +1,5 @@
 package Photonic::LE::NP::AllH;
-$Photonic::LE::NP::AllH::VERSION = '0.014';
+$Photonic::LE::NP::AllH::VERSION = '0.017';
 
 =encoding UTF-8
 
@@ -9,14 +9,14 @@ Photonic::LE::NP::AllH
 
 =head1 VERSION
 
-version 0.014
+version 0.017
 
 =head1 COPYRIGHT NOTICE
 
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -50,7 +50,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
    my $haydock_as=$iter->as;
    my $haydock_bs=$iter->bs;
    my $haydock_b2s=$iter->b2s;
-   my $haydock_states=$iter->states;
 
 =head1 DESCRIPTION
 
@@ -88,7 +87,7 @@ non-retarded system at a time and saves them to later retrival.
 
 =back
 
-=head1 ACCESORS (read only)
+=head1 ACCESSORS (read only)
 
 =over 4
 
@@ -128,10 +127,6 @@ Array of Haydock b coefficients squared
 =cut
 
 use namespace::autoclean;
-use Machine::Epsilon;
-use PDL::Lite;
-use PDL::NiceSlice;
-use Photonic::Utils qw(EProd);
 use Moose;
 use MooseX::StrictConstructor;
 

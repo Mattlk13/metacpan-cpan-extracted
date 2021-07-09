@@ -285,6 +285,10 @@ The snappy compressed ELF format
 
 The lzo compressed ELF format
 
+=item Sys::Virt::Domain::CORE_DUMP_FORMAT_WIN_DMP
+
+The Windows dump format
+
 =back
 
 =item $dom->destroy()
@@ -2217,6 +2221,10 @@ The guest hostname
 
 Filesystem mount information
 
+=item Sys::Virt::Domain::GUEST_INFO_DISKS
+
+Block device information
+
 =back
 
 C<$flags> is currently unused and defaults to zero.
@@ -2272,6 +2280,29 @@ Remove C<@keys> from the current set of keys, rather than replacing
 the existing keys. It is not an error if the keys do not exist.
 
 =back
+
+=item my @msgs = $dom->get_messages($flags=0)
+
+Retrieve a list of messages associated with the domain. The
+optional C<$flags> parameter can accept zero or more of
+
+=over 4
+
+=item Sys::Virt::Domain::MESSAGE_DEPRECATION
+
+Warnings about use of deprecated features
+
+=item Sys::Virt::Domain::MESSAGE_TAINTING
+
+Warnings about actions that have tainting the domain
+
+=back
+
+=item $dom->start_dirty_rate_calc($dom, $secs, $flags=0)
+
+Request calculation of the domain's memory dirty rate over
+the next C<$secs> seconds. C<$flags> is currently unused
+and defaults to zero.
 
 =back
 
@@ -3070,7 +3101,12 @@ Allocation is preferred from the masked nodes
 
 =item Sys::Virt::Domain::NUMATUNE_MEM_INTERLEAVE
 
-Allocation is interleaved across all masked nods
+Allocation is interleaved across all masked nodes
+
+=item Sys::Virt::Domain::NUMATUNE_MEM_RESTRICTIVE
+
+Allocation is determined by the host using the masked
+nodes.
 
 =back
 
@@ -4510,6 +4546,10 @@ IOThread performance statistics values
 
 Memory bandwidth statistics values
 
+=item Sys::Virt::Domain::STATS_DIRTYRATE
+
+Memory dirty rate statistics
+
 =back
 
 =head2 PROCESS SIGNALS
@@ -5025,6 +5065,24 @@ Whether the flag is action-required or action-optional
 
 The failure occurred while the previous fault was being
 handled.
+
+=back
+
+=head2 MEMORY DIRTY RATE STATUS CONSTANTS
+
+=over 4
+
+=item Sys::Virt::Domain::DIRTYRATE_UNSTARTED
+
+The dirty rate is not being measured currently.
+
+=item Sys::Virt::Domain::DIRTYRATE_MEASURING
+
+The dity rate is in the process of being measured
+
+=item Sys::Virt::Domain::DIRTYRATE_MEASURED
+
+The dirty rate has been measured
 
 =back
 

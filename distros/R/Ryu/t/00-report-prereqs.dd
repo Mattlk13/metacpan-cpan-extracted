@@ -6,6 +6,7 @@ do { my $x = {
                       },
        'develop' => {
                       'requires' => {
+                                      'Devel::Cover' => '0',
                                       'Devel::Cover::Report::Coveralls' => '0.11',
                                       'Dist::Zilla' => '5',
                                       'Dist::Zilla::PluginBundle::Author::TEAM' => '0',
@@ -48,6 +49,7 @@ do { my $x = {
                                     },
                       'suggests' => {
                                       'JSON::SL' => 'v1.0.6',
+                                      'Sentinel' => '0.06',
                                       'XML::LibXML::SAX::ChunkParser' => '0.00008'
                                     }
                     },

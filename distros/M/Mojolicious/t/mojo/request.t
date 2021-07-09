@@ -1255,6 +1255,21 @@ subtest 'Build HTTP 1.1 request body' => sub {
   ok $req->is_finished, 'request is finished';
 };
 
+subtest 'Build HTTP 1.1 POST request without body' => sub {
+  my $req = Mojo::Message::Request->new;
+  $req->method('POST');
+  $req->url->parse('http://127.0.0.1/foo/bar');
+  $req = Mojo::Message::Request->new->parse($req->to_string);
+  is $req->method,  'POST',     'right method';
+  is $req->version, '1.1',      'right version';
+  is $req->url,     '/foo/bar', 'right URL';
+  is $req->url->to_abs,             'http://127.0.0.1/foo/bar', 'right absolute URL';
+  is $req->headers->host,           '127.0.0.1',                'right "Host" value';
+  is $req->headers->content_length, 0,                          'right "Content-Length" value';
+  is $req->body, '', 'no content';
+  ok $req->is_finished, 'request is finished';
+};
+
 subtest 'Build WebSocket handshake request' => sub {
   my $req      = Mojo::Message::Request->new;
   my $finished = undef;
@@ -1275,7 +1290,7 @@ subtest 'Build WebSocket handshake request' => sub {
   is $req->headers->connection,             'Upgrade',                 'right "Connection" value';
   is $req->headers->upgrade,                'websocket',               'right "Upgrade" value';
   is $req->headers->host,                   'example.com',             'right "Host" value';
-  is $req->headers->content_length,         0,                         'right "Content-Length" value';
+  is $req->headers->content_length,         undef,                     'no "Content-Length" value';
   is $req->headers->sec_websocket_accept,   'abcdef=',                 'right "Sec-WebSocket-Key" value';
   is $req->headers->sec_websocket_protocol, 'sample',                  'right "Sec-WebSocket-Protocol" value';
   is $req->body, '', 'no content';
@@ -1302,7 +1317,7 @@ subtest 'Build WebSocket handshake request (with clone)' => sub {
   is $req->headers->connection,             'Upgrade',                 'right "Connection" value';
   is $req->headers->upgrade,                'websocket',               'right "Upgrade" value';
   is $req->headers->host,                   'example.com',             'right "Host" value';
-  is $req->headers->content_length,         0,                         'right "Content-Length" value';
+  is $req->headers->content_length,         undef,                     'no "Content-Length" value';
   is $req->headers->sec_websocket_accept,   'abcdef=',                 'right "Sec-WebSocket-Key" value';
   is $req->headers->sec_websocket_protocol, 'sample',                  'right "Sec-WebSocket-Protocol" value';
   is $req->body, '', 'no content';
@@ -1316,7 +1331,7 @@ subtest 'Build WebSocket handshake request (with clone)' => sub {
   is $clone->headers->connection,             'Upgrade',                 'right "Connection" value';
   is $clone->headers->upgrade,                'websocket',               'right "Upgrade" value';
   is $clone->headers->host,                   'example.com',             'right "Host" value';
-  is $req->headers->content_length,           0,                         'right "Content-Length" value';
+  is $req->headers->content_length,           undef,                     'no "Content-Length" value';
   is $clone->headers->sec_websocket_accept,   'abcdef=',                 'right "Sec-WebSocket-Key" value';
   is $clone->headers->sec_websocket_protocol, 'sample',                  'right "Sec-WebSocket-Protocol" value';
   is $clone->body, '', 'no content';
@@ -1344,7 +1359,7 @@ subtest 'Build WebSocket handshake proxy request' => sub {
   is $req->headers->connection,             'Upgrade',                 'right "Connection" value';
   is $req->headers->upgrade,                'websocket',               'right "Upgrade" value';
   is $req->headers->host,                   'example.com',             'right "Host" value';
-  is $req->headers->content_length,         0,                         'right "Content-Length" value';
+  is $req->headers->content_length,         undef,                     'no "Content-Length" value';
   is $req->headers->sec_websocket_accept,   'abcdef=',                 'right "Sec-WebSocket-Key" value';
   is $req->headers->sec_websocket_protocol, 'sample',                  'right "Sec-WebSocket-Protocol" value';
   is $req->body, '', 'no content';
@@ -1747,7 +1762,7 @@ subtest 'Parse and clone multipart/form-data request (changing size)' => sub {
 subtest 'Parse multipart/form-data request with charset' => sub {
   my $req = Mojo::Message::Request->new;
   is $req->default_charset, 'UTF-8', 'default charset is UTF-8';
-  my $yatta = 'やった';
+  my $yatta      = 'やった';
   my $yatta_sjis = encode 'Shift_JIS', $yatta;
   my $multipart
     = "------1234567890\x0d\x0a"

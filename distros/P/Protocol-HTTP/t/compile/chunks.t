@@ -1,5 +1,4 @@
 use 5.012;
-
 use lib 't/lib';
 use MyTest;
 use Test::More;
@@ -21,6 +20,12 @@ subtest "make chunk + final_chunk" => sub {
         "hello-world\r\n"
         ;
     is $res->final_chunk(),
+        "0\r\n".
+        "\r\n"
+        ;
+    is $res->final_chunk('hello-world'),
+        "b\r\n".
+        "hello-world\r\n".
         "0\r\n".
         "\r\n"
         ;

@@ -1,7 +1,9 @@
 package Vote::Count::ReadBallots;
 
-use 5.022;
+use 5.024;
 use feature qw/postderef signatures/;
+use strict;
+use warnings;
 no warnings qw/experimental/;
 use Path::Tiny 0.108;
 use Carp;
@@ -11,17 +13,17 @@ use YAML::XS;
 
 # ABSTRACT: Read Ballots for Vote::Count. Toolkit for vote counting.
 
-our $VERSION='1.09';
+our $VERSION='2.00';
 
 =head1 NAME
 
 Vote::Count::ReadBallots
 
-=head1 VERSION 1.09
+=head1 VERSION 2.00
 
 =head1 SYNOPSIS
 
-  Vote::Count::ReadBallots;
+  use Vote::Count::ReadBallots;
 
   my $data1 = read_ballots('t/data/data1.txt');
 
@@ -36,6 +38,7 @@ All public methods are exported.
     ballots   {
         CHOCOLATE:MINTCHIP:VANILLA {
             count   1,
+            votevalue   1, # needed for STV support
             votes   [
                 [0] "CHOCOLATE",
                 [1] "MINTCHIP",
@@ -139,12 +142,11 @@ sub read_ballots( $filename ) {
     'comment'   => ''
   );
 BALLOTREADLINES:
-  for my $line_raw ( path($filename)->lines ) {
+  for my $line_raw ( path($filename)->lines({chomp => 1}) ) {
     if ( $line_raw =~ m/^\#/ ) {
       $data{'comment'} .= $line_raw;
       next BALLOTREADLINES;
     }
-    chomp $line_raw;
     if ( $line_raw =~ m/^\:CHOICES\:/ ) {
       if ( $data{'choices'} ) {
         croak("File $filename redefines CHOICES \n$line_raw\n");
@@ -175,6 +177,7 @@ BALLOTREADLINES:
       $data{'ballots'}{$line}{'votes'} = \@votes;
     }
   }
+  for my  $K ( keys $data{'ballots'}->%* ) { $data{'ballots'}{$K}{'votevalue'} = 1 }
   return \%data;
 }
 
@@ -186,7 +189,7 @@ sub write_ballots ( $BallotSet, $destination ) {
     my $cnt = $BallotSet->{'ballots'}{$k}{'count'};
     push @data, "$cnt:$k";
   }
-  for (@data) { $_ .= "\n" if $_ !~ /\n$/ }
+  for my $D (@data) { $D .= "\n" if $D !~ /\n$/ }
   path($destination)->spew(@data);
 }
 
@@ -224,6 +227,7 @@ sub read_range_ballots ( $source, $format = 'json' ) {
 1;
 
 #buildpod
+
 #FOOTER
 
 =pod
@@ -238,11 +242,15 @@ John Karr (BRAINBUZ) brainbuz@cpan.org
 
 CONTRIBUTORS
 
-Copyright 2019 by John Karr (BRAINBUZ) brainbuz@cpan.org.
+Copyright 2019-2021 by John Karr (BRAINBUZ) brainbuz@cpan.org.
 
 LICENSE
 
 This module is released under the GNU Public License Version 3. See license file for details. For more information on this license visit L<http://fsf.org>.
+
+SUPPORT
+
+This software is provided as is, per the terms of the GNU Public License. Professional support and customisation services are available from the author.
 
 =cut
 

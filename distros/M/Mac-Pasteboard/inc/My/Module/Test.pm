@@ -8,19 +8,30 @@ use warnings;
 use Carp;
 use Test::More 0.88;
 
-use Exporter qw{ import };
+use Exporter;
+our @ISA = qw{ Exporter };
 
-our $VERSION = '0.012';
+no if "$]" >= 5.020, feature => qw{ signatures };
+
+# This occurs in both inc/My/Module/Meta.pm and inc/My/Module/Test.pm
+use constant CAN_USE_UNICODE	=> "$]" >= 5.008004;
+
+our $VERSION = '0.100';
 
 our @EXPORT =		## no critic (ProhibitAutomaticExportation)
 qw{
     check_testable
     do_utf
+    hex_diag
     pb_name
     pb_opt
     pb_putter
+    set_test_output_encoding
     test_vs_pbpaste
+    CAN_USE_UNICODE
 };
+
+use constant REF_ARRAY	=> ref [];
 
 sub check_testable (;$) {	## no critic (ProhibitSubroutinePrototypes)
     my ( $prog ) = @_;
@@ -59,6 +70,28 @@ sub check_testable (;$) {	## no critic (ProhibitSubroutinePrototypes)
     sub do_utf {
 	return $do_utf;
     }
+}
+
+sub hex_diag ($;$) {
+    my ( $got, $expect ) = @_;
+    foreach (
+	[ got => $got ],
+	( @_ > 1 ? [ expected => $expect ] : () ),
+    ) {
+	my ( $name, $value ) = @{ $_ };
+	my $hex = do {
+	    use bytes;
+	    unpack 'H*', $value;
+	};
+	$hex =~ s/ ( .. ) /$1 /smxg;
+	$hex =~ s/ \s+ \z //smx;
+	diag sprintf '%12s: %s', $name, $hex;
+	if ( $ENV{DEVELOPER_DEBUG} ) {
+	    require Devel::Peek;
+	    Devel::Peek::Dump( $value );
+	}
+    }
+    return;
 }
 
 sub pb_name ($) {	## no critic (ProhibitSubroutinePrototypes, RequireArgUnpacking)
@@ -102,16 +135,67 @@ sub pb_putter ($) {	## no critic (ProhibitSubroutinePrototypes, RequireArgUnpack
     }
 }
 
+sub set_test_output_encoding (;$) {	## no critic (ProhibitSubroutinePrototypes)
+    my ( $encoding ) = @_;
+    CAN_USE_UNICODE
+	or return;
+    unless ( defined $encoding ) {
+	local $@ = undef;
+	eval {
+	    require I18N::Langinfo;
+	    $encoding = I18N::Langinfo::langinfo(
+		I18N::Langinfo::CODESET() );
+	    1;
+	} or $encoding = '';
+    }
+    defined $encoding
+	and '' ne $encoding
+	or return;
+    my $builder = Test::More->builder();
+    foreach ( qw{ output failure_output todo_output } ) {
+	_my_binmode( $builder->$_(), ":encoding($encoding)" )
+	    or confess "Failed to set Test::More $_ encoding to $encoding: $!";
+    }
+    return;
+}
+
+# I hate this, but Perl 5.6.2 does not have the two-argument binmode.
+if ( CAN_USE_UNICODE ) {
+    eval 'sub _my_binmode { binmode $_[0], $_[1] }';
+} else {
+    eval 'sub _my_binmode { 1 }';
+}
+
 sub test_vs_pbpaste ($$$) {	## no critic (ProhibitSubroutinePrototypes, RequireArgUnpacking)
     my ( $pbopt, $expect, $name ) = @_;
     my @cmd = qw{ pbpaste };
+    if ( defined $pbopt ) {
+	if ( REF_ARRAY eq ref $pbopt ) {
+	    push @cmd, @{ $pbopt };
+	} else {
+	    push @cmd, split qr< \s+ >smx, $pbopt;
+	}
+    }
     defined $pbopt
 	and push @cmd, $pbopt;
-    my $got = `@cmd`;
+    open my $fh, '-|', @cmd
+	or croak "Failed to open pipe from @cmd: $!";
+    # FIXME do I need to be more canny about this?
+    if ( CAN_USE_UNICODE ) {
+	_my_binmode( $fh, ':encoding(utf-8)' )
+	    or croak "Failed to set pipe from @cmd to utf-8: $!";
+    }
+    my $got = do {
+	local $/ = undef;
+	<$fh>;
+    };
+    close $fh;
     chomp $got;
     chomp $expect;
-    @_ = ( $got, $expect, $name );
-    goto &is;
+    local $Test::Builder::Level = $Test::Builder::Level + 1;
+    is $got, $expect, $name
+	and return 1;
+    return hex_diag( $got, $expect );
 }
 
 1;

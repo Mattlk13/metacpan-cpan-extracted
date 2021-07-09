@@ -1,8 +1,16 @@
-package Pod::Weaver;
+package Pod::Weaver 4.018;
 # ABSTRACT: weave together a Pod document from an outline
-$Pod::Weaver::VERSION = '4.015';
+
 use Moose;
 use namespace::autoclean;
+
+# BEGIN BOILERPLATE
+use v5.20.0;
+use warnings;
+use utf8;
+no feature 'switch';
+use experimental qw(postderef postderef_qq); # This experiment gets mainlined.
+# END BOILERPLATE
 
 #pod =head1 SYNOPSIS
 #pod
@@ -86,7 +94,7 @@ sub plugins_with {
   my ($self, $role) = @_;
 
   $role =~ s/^-/Pod::Weaver::Role::/;
-  my @plugins = grep { $_->does($role) } @{ $self->plugins };
+  my @plugins = grep { $_->does($role) } $self->plugins->@*;
 
   return \@plugins;
 }
@@ -119,23 +127,23 @@ sub weave_document {
 
   my $document = Pod::Elemental::Document->new;
 
-  for (@{ $self->plugins_with(-Preparer) }) {
+  for ($self->plugins_with(-Preparer)->@*) {
     $_->prepare_input($input);
   }
 
-  for (@{ $self->plugins_with(-Dialect) }) {
+  for ($self->plugins_with(-Dialect)->@*) {
     $_->translate_dialect($input->{pod_document});
   }
 
-  for (@{ $self->plugins_with(-Transformer) }) {
+  for ($self->plugins_with(-Transformer)->@*) {
     $_->transform_document($input->{pod_document});
   }
 
-  for (@{ $self->plugins_with(-Section) }) {
+  for ($self->plugins_with(-Section)->@*) {
     $_->weave_section($document, $input);
   }
 
-  for (@{ $self->plugins_with(-Finalizer) }) {
+  for ($self->plugins_with(-Finalizer)->@*) {
     $_->finalize_document($document, $input);
   }
 
@@ -165,7 +173,7 @@ sub new_with_default_config {
 
 sub new_from_config {
   my ($class, $arg, $new_arg) = @_;
-  
+
   my $root = $arg->{root} || '.';
   my $name = File::Spec->catfile($root, 'weaver');
   my ($sequence) = Pod::Weaver::Config::Finder->new->read_config($name);
@@ -206,7 +214,7 @@ sub new_from_config_sequence {
     confess "arguments attempted to override 'weaver'"
       if defined $arg->{weaver};
 
-    push @{ $self->plugins },
+    push $self->plugins->@*,
       $plugin_class->new({
         %$arg,
         plugin_name => $name,
@@ -232,7 +240,7 @@ Pod::Weaver - weave together a Pod document from an outline
 
 =head1 VERSION
 
-version 4.015
+version 4.018
 
 =head1 SYNOPSIS
 
@@ -254,6 +262,17 @@ perform simple text substitution, but instead builds a
 Pod::Elemental::Document.  Its plugins sketch out a series of sections
 that will be produced based on an existing Pod document or other provided
 information.
+
+=head1 PERL VERSION SUPPORT
+
+This module has the same support period as perl itself:  it supports the two
+most recent versions of perl.  (That is, if the most recently released version
+is v5.40, then this module should work on both v5.40 and v5.38.)
+
+Although it may work on older versions of perl, no guarantee is made that the
+minimum required version will not be increased.  The version may be increased
+for any reason, and there is no promise that patches will be accepted to lower
+the minimum required perl.
 
 =head1 ATTRIBUTES
 
@@ -306,11 +325,11 @@ L<Pod::Weaver::PluginBundle::Default>.
 
 =head1 AUTHOR
 
-Ricardo SIGNES <rjbs@cpan.org>
+Ricardo SIGNES <rjbs@semiotic.systems>
 
 =head1 CONTRIBUTORS
 
-=for stopwords Alex Peters Apocalypse Blabos de Blebe Caleb Cushing Christian Walde Christopher J. Madsen Chris Weyl Dave Houston Rolsky David E. Wheeler Golden Zurborg Doug Bell Florian Ragwitz Jonathan "Duke" Leto Joshua Keroes Karen Etheridge Kent Fredric Marcel Gruenauer Randy Stauner Sam Graham Shlomi Fish
+=for stopwords Alex Peters Apocalypse Blabos de Blebe Caleb Cushing Christian Walde Christopher J. Madsen Chris Weyl Dave Houston Rolsky David E. Wheeler Golden Miguel Susano Pinto Zurborg Doug Bell Florian Ragwitz Jonathan "Duke" Leto Joshua Keroes Karen Etheridge Kent Fredric Kivanc Yazan Marcel Gruenauer Randy Stauner Sam Graham Shlomi Fish
 
 =over 4
 
@@ -360,6 +379,10 @@ David Golden <dagolden@cpan.org>
 
 =item *
 
+David Miguel Susano Pinto <carandraug+dev@gmail.com>
+
+=item *
+
 David Zurborg <post@david-zurb.org>
 
 =item *
@@ -388,6 +411,10 @@ Kent Fredric <kentfredric@gmail.com>
 
 =item *
 
+Kivanc Yazan <kyzn@cpan.org>
+
+=item *
+
 Marcel Gruenauer <hanekomu@gmail.com>
 
 =item *
@@ -406,7 +433,7 @@ Shlomi Fish <shlomif@shlomifish.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2016 by Ricardo SIGNES.
+This software is copyright (c) 2021 by Ricardo SIGNES.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

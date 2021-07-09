@@ -4,9 +4,9 @@ use warnings;
 use lib qw(./lib t/lib);
 
 my $driver;
-use Neo4j::Test;
+use Neo4j_Test;
 BEGIN {
-	unless ($driver = Neo4j::Test->driver) {
+	unless ( $driver = Neo4j_Test->driver() ) {
 		print qq{1..0 # SKIP no connection to Neo4j server\n};
 		exit;
 	}
@@ -24,21 +24,34 @@ my ($s);
 
 
 subtest 'ServerInfo' => sub {
-	plan tests => 6;
-	my $server;
-	lives_ok { $server = $driver->session->server } 'get ServerInfo';
+	plan tests => 7;
+	my ($session, $server);
+	lives_ok { $session = $driver->session(database => 'system') } 'get session';
+	lives_ok { $server = $session->server } 'get ServerInfo';
 	isa_ok $server, 'Neo4j::Driver::ServerInfo', 'isa ServerInfo';
-	lives_and { my $a = Neo4j::Test->server_address; like($server->address, qr/$a$/) } 'server address';
-	my $vinfo = "";
+	lives_and { my $a = Neo4j_Test->server_address(); like($server->address(), qr/$a$/) } 'server address';
+	my ($vinfo, $protocol, $result) = ("") x 3;
 	lives_and { ok $vinfo = $server->version } 'server version';
 	like $vinfo, qr(^Neo4j/\d+\.\d+\.\d), 'server version syntax';
-	lives_ok { $vinfo .= " (" . $server->protocol . ")" } 'server protocol';
+	lives_ok { $protocol = $server->protocol; } 'server protocol';
+	
+	eval {
+		$session->run('SHOW DEFAULT DATABASE');
+		my $media_type = $session->{net}->{http_agent}->http_header->{content_type};
+		$result = "JSON" if $media_type =~ m/\bjson\b/i;
+		$result = "Jolt" if $media_type =~ m/\bjolt\b/i;
+		$result = "Jolt sparse" if $media_type =~ m/\bjolt\b.+\bstrict=false\b/i;
+		$result = "Jolt strict" if $media_type =~ m/\bjolt\b.+\bstrict=true\b/i;
+	};
+	$vinfo .= " ($protocol $result)" if $protocol && $result;
+	$vinfo .= " ($protocol)" if $protocol && ! $result;
+	$vinfo .= " ($result)" if ! $protocol && $result;
 	diag $vinfo if $ENV{AUTHOR_TESTING};  # give feedback about which Neo4j version is being tested
 };
 
 
 subtest 'database selection (HTTP)' => sub {
-	plan skip_all => "(currently testing Bolt)" if $Neo4j::Test::bolt;
+	plan skip_all => "(currently testing Bolt)" if $Neo4j_Test::bolt;
 	plan tests => 9;
 	my ($version, $db);
 	# no database option (or undefined)
@@ -90,11 +103,12 @@ subtest 'error handling' => sub {
 	
 	# this really just tests Neo4j::Driver
 	throws_ok {
-		Neo4j::Test->driver_no_connect->session->run('');
+		Neo4j_Test->driver_no_connect->session->run('');
 	} qr/\bConnection refused\b|\bCan't connect\b|\bUnknown host\b/i, 'no connection';
-	return if $Neo4j::Test::bolt;  # next test segfaults with Neo4j::Bolt 0.40 / Neo4j::Client 0.44
+	return if $Neo4j_Test::bolt;  # next test segfaults with Neo4j::Bolt 0.40 / Neo4j::Client 0.44
+	return unless $Neo4j_Test::sim || $ENV{TEST_NEO4J_PASSWORD};  # next test requires a real or simulated server with auth enabled
 	throws_ok {
-		Neo4j::Test->driver_no_auth->session->run('');
+		Neo4j_Test->driver_no_auth->session->run('');
 	} qr/\bUnauthorized\b|\bpassword is invalid\b/, 'Unauthorized';
 };
 

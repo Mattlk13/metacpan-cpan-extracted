@@ -2,7 +2,8 @@ package Test2::Licensecheck::ScanCode;
 
 my $CLASS = __PACKAGE__;
 
-use strictures;
+use strict;
+use warnings;
 
 use Test2::API qw(context);
 use Test2::Todo;
@@ -22,9 +23,8 @@ our @EXPORT = qw(are_licensed_like_scancode);
 
 my $corpus = File::BaseDir::data_dirs('tests/ScanCode');
 
-my $app = App::Licensecheck->new;
+my $app = App::Licensecheck->new( shortname_scheme => 'debian,spdx' );
 $app->lines(0);
-$app->deb_fmt(1);
 
 sub licenses ($)
 {
@@ -82,6 +82,7 @@ sub expected ($$;$)
 		s/^kevlin-henney/Kevlin-Henney/;
 		s/^mit$/Expat/;
 		s/^unicode-mappings$/Unicode-strict/;
+		s/^w3c-software-20021231$/W3C-20021231/;
 
 		# TODO: support output number format normalization
 		s/-PLUS$/+/i;

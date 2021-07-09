@@ -62,10 +62,8 @@ WriteMakefile(
             MailingList => 'mailto:lemonldap-ng-dev@ow2.org',
             license     => 'http://opensource.org/licenses/GPL-2.0',
             homepage    => 'http://lemonldap-ng.org/',
-            bugtracker  => {
-                web =>
-                  'https://gitlab.ow2.org/lemonldap-ng/lemonldap-ng/issues',
-            },
+            bugtracker =>
+              'https://gitlab.ow2.org/lemonldap-ng/lemonldap-ng/issues',
             x_twitter => 'https://twitter.com/lemonldapng',
         },
     },
@@ -81,6 +79,7 @@ WriteMakefile(
         'Digest::SHA'            => 0,
         'HTML::Template'         => 0,
         'JSON'                   => 0,
+        'JSON::XS'               => 0,
         'Mouse'                  => 0,
         'Plack'                  => 0,
         'Test::Pod'              => 1.00,
@@ -102,9 +101,9 @@ WriteMakefile(
         FILES => 't/lmConf*'
     },
     MAN1PODS => {
-        'scripts/convertConfig'    => 'blib/man1/convertConfig.1p',
-        'scripts/convertSessions'  => 'blib/man1/convertSessions.1p',
-        'scripts/lemonldap-ng-cli' => 'blib/man1/lemonldap-ng-cli.1p',
+        'scripts/convertConfig'         => 'blib/man1/convertConfig.1p',
+        'scripts/convertSessions'       => 'blib/man1/convertSessions.1p',
+        'scripts/lemonldap-ng-cli'      => 'blib/man1/lemonldap-ng-cli.1p',
         'scripts/lemonldap-ng-sessions' => 'blib/man1/lemonldap-ng-sessions.1p',
     },
 );

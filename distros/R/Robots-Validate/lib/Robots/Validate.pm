@@ -17,7 +17,7 @@ use Types::Standard -types;
 
 use namespace::autoclean;
 
-our $VERSION = 'v0.2.0';
+our $VERSION = 'v0.2.4';
 
 
 has resolver => (
@@ -49,6 +49,18 @@ sub _build_robots {
     return [
 
         {
+            name   => 'Applebot',
+            agent  => qr/\bApplebot\b/,
+            domain => qr/\.applebot\.apple\.com$/,
+        },
+
+        {
+            name   => 'Arquivo.pt',
+            agent  => qr/arquivo-web-crawler/,
+            domain => qr/\.arquivo\.pt$/,
+        },
+
+        {
             name   => 'Baidu',
             agent  => qr/\bBaiduspider\b/,
             domain => qr/\.crawl\.baidu\.com$/,
@@ -60,6 +72,12 @@ sub _build_robots {
             agent  => qr/\b(?:Bingbot|MSNBot|AdIdxBot|BingPreview)\b/i,
             domain => qr/\.search\.msn\.com$/,
 
+        },
+
+        {
+            name   => 'CocCoc',
+            agent  => qr/\bcoccocbot-web\b/,
+            domain => qr/\.coccoc\.com$/,
         },
 
         {
@@ -81,6 +99,12 @@ sub _build_robots {
         },
 
         {
+            name   => 'IONOS',
+            agent  => qr/\bIonCrawl\b/,
+            domain => qr/\.1and1\.org$/,
+        },
+
+        {
             name   => 'LinkedIn',
             agent  => qr/\bLinkedInBot\b/,
             domain => qr/\.linkedin\.com$/,
@@ -93,9 +117,27 @@ sub _build_robots {
         },
 
         {
+            name   => 'Neevabot',
+            agent  => qr/\bNeevabot\b/,
+            domain => qr/\.neevabot\.com$/,
+        },
+
+        {
+            name   => 'PetalBot',
+            agent  => qr/\bPetalBot\b/,
+            domain => qr/\.petalsearch\.com$/,
+        },
+
+        {
             name   => 'Pinterest',
             agent  => qr/\bPinterest\b/,
             domain => qr/\.pinterest\.com$/,
+        },
+
+        {
+            name   => 'Qwant',
+            agent  => qr/\bQwantify\b/,
+            domain => qr/\.qwant\.com$/,
         },
 
         {
@@ -212,7 +254,7 @@ Robots::Validate - Validate that IP addresses are associated with known robots
 
 =head1 VERSION
 
-version v0.2.0
+version v0.2.4
 
 =head1 SYNOPSIS
 
@@ -293,6 +335,11 @@ Alternatively, you can pass in a Plack environment:
 
 =head1 KNOWN ISSUES
 
+=head2 Undocumented Rules
+
+Many of these rules are not documented, but have been guessed from web
+traffic.
+
 =head2 Limitations
 
 The current module can only be used for systems that consistently
@@ -333,7 +380,7 @@ Robert Rothenberg <rrwo@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2018-2019 by Robert Rothenberg.
+This software is Copyright (c) 2018-2021 by Robert Rothenberg.
 
 This is free software, licensed under:
 

@@ -4,8 +4,8 @@
 #
 package PDL::ImageRGB;
 
-@EXPORT_OK  = qw(  interlrgb rgbtogr bytescl cquant  PDL::PP cquant_c );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw( interlrgb rgbtogr bytescl cquant  PDL::PP cquant_c );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::ImageRGB ;
 
@@ -125,7 +125,7 @@ Make an RGB image from a palette image and its lookup table.
 Input should be of an integer type and the lookup table (3,x,...). Will perform
 the lookup for any N-dimensional input pdl (i.e. 0D, 1D, 2D, ...). Uses the
 index command but will not dataflow by default. If you want it to dataflow the
-dataflow_forward flag must be set in the $lut piddle (you can do that by saying
+dataflow_forward flag must be set in the $lut ndarray (you can do that by saying
 $lut->set_dataflow_f(1)).
 
 =cut
@@ -142,9 +142,9 @@ sub PDL::interlrgb {
     barf "expecting (3,x) input" if ($lut->dims)[0] != 3;
     # do the conversion as an implicitly threaded index lookup
     if ($lut->fflows) {
-      $res = $lut->xchg(0,1)->index($pdl->dummy(0));
+      $res = $lut->transpose->index($pdl->dummy(0));
     } else {
-      $res = $lut->xchg(0,1)->index($pdl->dummy(0))->sever;
+      $res = $lut->transpose->index($pdl->dummy(0))->sever;
     }
     return $res;
 }

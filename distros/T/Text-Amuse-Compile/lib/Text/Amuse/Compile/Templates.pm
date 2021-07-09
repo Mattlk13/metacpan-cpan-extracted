@@ -215,6 +215,19 @@ sub html {
   <style type="text/css">
  <!--/*--><![CDATA[/*><!--*/
 [% css %]
+@media only screen {
+  body {
+    margin: 40px auto;
+    max-width: 720px;
+    line-height: 1.6;
+    font-size: 18px;
+    color: rgb(0, 0, 0);
+    padding: 0 20px;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.2;
+  }
+}
   /*]]>*/-->
     </style>
 </head>
@@ -302,33 +315,19 @@ sub css {
 @page { margin: 5pt; }
 [% END %]
 
-[% IF webfonts %]
-
+[% IF epub_embed_fonts %]
+  [% FOREACH family IN fonts.families %]
+     [% IF family.has_files %]
+       [% FOREACH ff IN family.font_files %]
 @font-face {
-  font-family: "[% webfonts.family %]";
-  font-weight: normal;
-  font-style: normal;
-  src: url("[% webfonts.regular %]") format("[% webfonts.format %]");
+  font-family: "[% family.name %]";
+  font-weight: [% ff.css_font_weight %];
+  font-style:  [% ff.css_font_style %];
+  src: url("[% ff.basename %]") format("[% ff.format %]");
 }
-@font-face {
-  font-family: "[% webfonts.family %]";
-  font-weight: normal;
-  font-style: italic;
-  src: url("[% webfonts.italic %]") format("[% webfonts.format %]");
-}
-@font-face {
-  font-family: "[% webfonts.family %]";
-  font-weight: bold;
-  font-style: normal;
-  src: url("[% webfonts.bold %]") format("[% webfonts.format %]");
-}
-@font-face {
-  font-family: "[% webfonts.family %]";
-  font-weight: bold;
-  font-style: italic;
-  src: url("[% webfonts.bolditalic %]") format("[% webfonts.format %]");
-}
-
+       [% END %]
+     [% END %]
+  [% END %]
 [% END %]
 
 html,body {
@@ -337,6 +336,7 @@ html,body {
 	border: none;
  	background: transparent;
 	font-family: [% IF fonts %]"[% fonts.main.name %]",[% END %] serif;
+    word-wrap: break-word;
 }
 
 div#thework {
@@ -387,6 +387,14 @@ div#page {
    padding:20px;
 }
 [% END %]
+
+.muse-sc {
+   font-variant: small-caps;
+}
+
+.muse-sf {
+   font-family: [% IF fonts %]"[% fonts.sans.name %]",[% END %]Helvetica,Arial, sans-serif;
+}
 
 pre, code {
     font-family: [% IF fonts %]"[% fonts.mono.name %]",[% END %]Consolas, courier, monospace;
@@ -740,10 +748,20 @@ sub latex {
                [% safe_options.paging %],%
                paper=[% safe_options.papersize %]]%
                {[% safe_options.class %]}
+[% IF safe_options.use_geometry %]
+\usepackage[%
+  top=[% safe_options.geometry_top_margin %],%
+  outer=[% safe_options.geometry_outer_margin %],[% IF safe_options.headings %]includehead,[% END %]%
+  width=[% safe_options.areaset_width %],%
+  height=[% safe_options.areaset_height %]%
+  ]{geometry}
+[% ELSE %]
 [% IF safe_options.areaset_width %]
 [% IF safe_options.areaset_height %]
 \areaset[current]{[% safe_options.areaset_width %]}{[% safe_options.areaset_height %]}
 [% END %]
+[% END %]
+
 [% END %]
 
 [% IF tex_indexes %]

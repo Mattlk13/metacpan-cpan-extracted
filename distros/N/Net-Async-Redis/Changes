@@ -1,5 +1,62 @@
 Revision history for Net-Async-Redis
 
+3.013     2021-04-27 10:28:39+08:00 Asia/Kuala_Lumpur
+    No new features.
+
+    Bugs fixed:
+
+    - removed `dynamically` usage for `$log->{context}` since it can trigger a
+    memory leak and also affects performance, see:
+    https://github.com/binary-com/perl-Myriad/issues/117 for an example
+
+3.012     2021-04-22 21:26:23+08:00 Asia/Kuala_Lumpur
+    New features:
+
+    - automatic connection and queuing is now more reliable, you should only
+    need `await $redis->connected` in a few cases now
+    - acess to client-side invalidation events, for implementing observables
+    - enable keyspace notifications in cluster mode
+
+    Bugs fixed:
+
+    - various issues with client-side caching resolved
+    - in cluster mode, XREAD could fail due to incorrect node lookup for key
+    (Github #23, thanks to Marc Frank for the patch)
+    - the stream read/write lengths were using the same internal key,
+    so any changes to one value would affect the other as well
+    - XINFO was mapping to the wrong key in cluster mode, thanks to Eyad for
+    catching and fixing this
+
+3.011     2021-02-03 03:43:05+08:00 Asia/Kuala_Lumpur
+    New features:
+
+    - ->failover added from latest commands list
+
+3.010     2021-02-01 04:56:52+08:00 Asia/Kuala_Lumpur
+    New features:
+
+    - ->bootstrap will now fail if the cluster's nodes addresses are not initiated.
+    - cluster->execute_command will now redirect the command to the correct node 
+      if 'MOVED' error received.
+    - latest commands from 6.2
+    - this includes ->getdel, ->getex, ->zrandfield
+
+3.009     2021-01-27 06:33:18+08:00 Asia/Kuala_Lumpur
+    No new features.
+
+    Bugs fixed:
+
+    - `XGROUP` KEY_FINDER index was wrong.
+    - `PUBLISH`/`SUBSCRIBE` were not in the KEY_FINDER index.
+    - Net::Async::Redis::Cluster was ignoring the protocol compatibility layer.
+
+3.008     2021-01-17 01:29:19+08:00 Asia/Kuala_Lumpur
+    New features:
+
+    - latest commands from 6.2
+    - this includes ->xautoclaim, ->client_unpause and the `count => 'any'` option
+    on various commands
+
 3.007     2020-12-31 07:23:30+08:00 Asia/Kuala_Lumpur
     New features:
 

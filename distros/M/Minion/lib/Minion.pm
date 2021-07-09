@@ -12,6 +12,7 @@ use Mojo::Loader qw(load_class);
 use Mojo::Promise;
 use Mojo::Server;
 use Mojo::Util qw(scope_guard steady_time);
+use YAML::XS qw(Dump);
 
 has app => sub { $_[0]{app_ref} = Mojo::Server->new->build_app('Mojo::HelloWorld') }, weak => 1;
 has 'backend';
@@ -20,7 +21,7 @@ has missing_after                  => 1800;
 has [qw(remove_after stuck_after)] => 172800;
 has tasks                          => sub { {} };
 
-our $VERSION = '10.15';
+our $VERSION = '10.22';
 
 sub add_task {
   my ($self, $name, $task) = @_;
@@ -102,12 +103,8 @@ sub new {
   return $self->backend($class->new(@_)->minion($self));
 }
 
-sub perform_jobs {
-  my ($self, $options) = @_;
-  my $worker = $self->worker;
-  while (my $job = $worker->register->dequeue(0, $options)) { $job->perform }
-  $worker->unregister;
-}
+sub perform_jobs               { _perform_jobs(0, @_) }
+sub perform_jobs_in_foreground { _perform_jobs(1, @_) }
 
 sub repair { shift->_delegate('repair') }
 
@@ -157,12 +154,26 @@ sub _delegate {
   return $self;
 }
 
+sub _dump { local $YAML::XS::Boolean = 'JSON::PP'; Dump(@_) }
+
 sub _iterator {
   my ($self, $jobs, $options) = (shift, shift, shift // {});
   return Minion::Iterator->new(minion => $self, options => $options, jobs => $jobs);
 }
 
 sub _info { shift->backend->list_jobs(0, 1, {ids => [shift]})->{jobs}[0] }
+
+sub _perform_jobs {
+  my ($foreground, $minion, $options) = @_;
+
+  my $worker = $minion->worker;
+  while (my $job = $worker->register->dequeue(0, $options)) {
+    if    (!$foreground)                     { $job->perform }
+    elsif (defined(my $err = $job->execute)) { $job->fail($err) }
+    else                                     { $job->finish }
+  }
+  $worker->unregister;
+}
 
 sub _result {
   my ($self, $promise, $id) = @_;
@@ -210,142 +221,27 @@ Minion - Job queue
 =begin html
 
 <p>
-  <img alt="Screenshot" src="https://raw.github.com/mojolicious/minion/master/examples/admin.png?raw=true"    
-    width="600px">
+  <img alt="Screenshot" src="https://raw.github.com/mojolicious/minion/main/examples/admin.png?raw=true" width="600px">
 </p>
 
 =end html
 
 L<Minion> is a high performance job queue for the Perl programming language, with support for multiple named queues,
-priorities, delayed jobs, job dependencies, job progress, job results, retries with backoff, rate limiting, unique
-jobs, expiring jobs, statistics, distributed workers, parallel processing, autoscaling, remote control,
-L<Mojolicious|https://mojolicious.org> admin ui, resource leak protection and multiple backends (such as
+priorities, high priority fast lane, delayed jobs, job dependencies, job progress, job results, retries with backoff,
+rate limiting, unique jobs, expiring jobs, statistics, distributed workers, parallel processing, autoscaling, remote
+control, L<Mojolicious|https://mojolicious.org> admin ui, resource leak protection and multiple backends (such as
 L<PostgreSQL|https://www.postgresql.org>).
 
 Job queues allow you to process time and/or computationally intensive tasks in background processes, outside of the
 request/response lifecycle of web applications. Among those tasks you'll commonly find image resizing, spam filtering,
 HTTP downloads, building tarballs, warming caches and basically everything else you can imagine that's not super fast.
 
-=head1 BASICS
-
-You can use L<Minion> as a standalone job queue or integrate it into L<Mojolicious> applications with the plugin
-L<Mojolicious::Plugin::Minion>.
-
-  use Mojolicious::Lite -signatures;
-
-  plugin Minion => {Pg => 'postgresql://sri:s3cret@localhost/test'};
-
-  # Slow task
-  app->minion->add_task(poke_mojo => sub ($job, @args) {
-    $job->app->ua->get('mojolicious.org');
-    $job->app->log->debug('We have poked mojolicious.org for a visitor');
-  });
-
-  # Perform job in a background worker process
-  get '/' => sub ($c) {
-    $c->minion->enqueue('poke_mojo');
-    $c->render(text => 'We will poke mojolicious.org for you soon.');
-  };
-
-  app->start;
-
-Background worker processes are usually started with the command L<Minion::Command::minion::worker>, which becomes
-automatically available when an application loads L<Mojolicious::Plugin::Minion>.
-
-  $ ./myapp.pl minion worker
-
-The worker process will fork a new process for every job that is being processed. This allows for resources such as
-memory to be returned to the operating system once a job is finished. Perl fork is very fast, so don't worry about the
-overhead.
-
-  Minion::Worker
-  |- Minion::Job [1]
-  |- Minion::Job [2]
-  +- ...
-
-By default up to four jobs will be processed in parallel, but that can be changed with configuration options or on
-demand with signals.
-
-  $ ./myapp.pl minion worker -j 12
-
-Jobs can be managed right from the command line with L<Minion::Command::minion::job>.
-
-  $ ./myapp.pl minion job
-
-You can also add an admin ui to your application by loading the plugin L<Mojolicious::Plugin::Minion::Admin>. Just make
-sure to secure access before making your application publically accessible.
-
-  # Make admin ui available under "/minion"
-  plugin 'Minion::Admin';
-
-To manage background worker processes with systemd, you can use a unit configuration file like this.
-
-  [Unit]
-  Description=My Mojolicious application workers
-  After=postgresql.service
-
-  [Service]
-  Type=simple
-  ExecStart=/home/sri/myapp/myapp.pl minion worker -m production
-  KillMode=process
-
-  [Install]
-  WantedBy=multi-user.target
-
-Every job can fail or succeed, but not get lost, the system is eventually consistent and will preserve job results for
-as long as you like, depending on L</"remove_after">. While individual workers can fail in the middle of processing a
-job, the system will detect this and ensure that no job is left in an uncertain state, depending on
-L</"missing_after">.
-
-=head1 GROWING
-
-And as your application grows, you can move tasks into application specific plugins.
-
-  package MyApp::Task::PokeMojo;
-  use Mojo::Base 'Mojolicious::Plugin', -signatures;
-
-  sub register ($self, $app, $config) {
-    $app->minion->add_task(poke_mojo => sub ($job, @args) {
-      $job->app->ua->get('mojolicious.org');
-      $job->app->log->debug('We have poked mojolicious.org for a visitor');
-    });
-  }
-
-  1;
-
-Which are loaded like any other plugin from your application.
-
-  # Mojolicious
-  $app->plugin('MyApp::Task::PokeMojo');
-
-  # Mojolicious::Lite
-  plugin 'MyApp::Task::PokeMojo';
-
-=head1 TASK CLASSES
-
-For even more flexibility you can also move tasks into dedicated classes. Allowing the use of Perl features such as
-inheritance and roles. But be aware that support for task classes is still B<EXPERIMENTAL> and might change without
-warning!
-
-  package MyApp::Task::PokeMojo;
-  use Mojo::Base 'Minion::Job', -signatures;
-
-  sub run ($self, @args) {
-    $self->app->ua->get('mojolicious.org');
-    $self->app->log->debug('We have poked mojolicious.org for a visitor');
-  }
-
-  1;
-
-Task classes are registered just like any other task with L</"add_task"> and you can even register the same class with
-multiple names.
-
-  $minion->add_task(poke_mojo => 'MyApp::Task::PokeMojo');
+Take a look at our excellent documentation in L<Minion::Guide>!
 
 =head1 EXAMPLES
 
 This distribution also contains a great example application you can use for inspiration. The L<link
-checker|https://github.com/mojolicious/minion/tree/master/examples/linkcheck> will show you how to integrate background
+checker|https://github.com/mojolicious/minion/tree/main/examples/linkcheck> will show you how to integrate background
 jobs into well-structured L<Mojolicious> applications.
 
 =head1 EVENTS
@@ -511,8 +407,7 @@ Delay job for this many seconds (from now), defaults to C<0>.
 
   expire => 300
 
-Job is valid for this many seconds (from now) before it expires. Note that this option is B<EXPERIMENTAL> and might
-change without warning!
+Job is valid for this many seconds (from now) before it expires.
 
 =item lax
 
@@ -540,7 +435,8 @@ can be processed.
 
   priority => 5
 
-Job priority, defaults to C<0>. Jobs with a higher priority get performed first.
+Job priority, defaults to C<0>. Jobs with a higher priority get performed first. Priorities can be positive or negative,
+but should be in the range between C<100> and C<-100>.
 
 =item queue
 
@@ -613,7 +509,7 @@ Get L<Minion::Job> object without making any changes to the actual job or return
   my $state = $minion->job($id)->info->{state};
 
   # Get job metadata
-  my $progress = $minion->$job($id)->info->{notes}{progress};
+  my $progress = $minion->job($id)->info->{notes}{progress};
 
   # Get job result
   my $result = $minion->job($id)->info->{result};
@@ -919,6 +815,13 @@ Reset only locks.
 
 =back
 
+=head2 perform_jobs_in_foreground
+
+  $minion->perform_jobs_in_foreground;
+  $minion->perform_jobs_in_foreground({queues => ['important']});
+
+Same as L</"perform_jobs">, but all jobs are performed in the current process, without spawning new processes.
+
 =head2 result_p
 
   my $promise = $minion->result_p($id);
@@ -1190,7 +1093,7 @@ Licensed under the CC-SA License, Version 4.0 L<http://creativecommons.org/licen
 
 =head2 Bootstrap
 
-  Copyright (C) 2011-2018 The Bootstrap Authors.
+  Copyright (C) 2011-2021 The Bootstrap Authors.
 
 Licensed under the MIT License, L<http://creativecommons.org/licenses/MIT>.
 
@@ -1225,11 +1128,13 @@ Licensed under the MIT License, L<http://creativecommons.org/licenses/MIT>.
 
 Licensed under the MIT License, L<http://creativecommons.org/licenses/MIT>.
 
-=head1 AUTHOR
+=head1 AUTHORS
+
+=head2 Project Founder
 
 Sebastian Riedel, C<sri@cpan.org>.
 
-=head1 CREDITS
+=head2 Contributors
 
 In alphabetical order:
 
@@ -1255,13 +1160,14 @@ Stefan Adams
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2014-2020, Sebastian Riedel and others.
+Copyright (C) 2014-2021, Sebastian Riedel and others.
 
 This program is free software, you can redistribute it and/or modify it under the terms of the Artistic License version
 2.0.
 
 =head1 SEE ALSO
 
-L<https://github.com/mojolicious/minion>, L<https://minion.pm>, L<Mojolicious::Guides>, L<https://mojolicious.org>.
+L<https://github.com/mojolicious/minion>, L<Minion::Guide>, L<https://minion.pm>, L<Mojolicious::Guides>,
+L<https://mojolicious.org>.
 
 =cut

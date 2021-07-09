@@ -1,0 +1,28 @@
+Revision history for Perl extension OpenMP::Environment.
+
+0.01  Thu Apr  1 11:05:09 2021
+	- original version; created by h2xs 1.23 with options
+		-X OpenMP::Environment
+        - added dist.ini for Dist::Zilla (maximum overkill!)
+
+1.0.0 Tue Apr 6 12:00:00 2021
+        - bumped version to 1.0.0
+        - added tests, preparing for intial release
+
+1.0.1 Tue Apr 6 12:15:00 2021
+        - tiny POD fi
+
+1.0.2 Wen Apr 7 12:00:00 2021
+        - POD
+
+1.0.3 Wen Apr 11 2:00:00 2021
+         - POD
+         - added more examples pertaining to programs included in
+           perl scripts via Inline::C.
+         - added example benchmark driver and public domain benchmark
+
+1.0.4 Fri Apr 16 23:12:00 2021
+         - non-impactful, updated repo for cpan
+
+1.0.5 Fri Apr 17 23:12:01 2021
+         - POD fix

@@ -18,7 +18,7 @@ CallBackery gets much of its configuration from this config file.
 
 =cut
 
-use Mojo::Base -base;
+use Mojo::Base -base,-async_await;
 use CallBackery::Exception qw(mkerror);
 use CallBackery::Translate qw(trm);
 use Config::Grammar::Dynamic;
@@ -27,6 +27,8 @@ use autodie;
 use File::Spec;
 use Locale::PO;
 use Mojo::Loader qw(load_class);
+use Mojo::JSON qw(true false);
+use Mojo::Exception;
 
 =head2 file
 
@@ -179,9 +181,9 @@ DOC
         },
         FRONTEND => {
             _doc => 'Settings for the Web FRONTEND',
-            _vars => [ qw(logo logo_small spinner title initial_plugin company_name company_url company_support
-			  hide_password hide_release hide_company max_width
-			)
+            _vars => [ qw(logo logo_small logo_noscale spinner title initial_plugin company_name company_url company_support
+                          hide_password hide_password_icon hide_release hide_company max_width
+                        )
                      ],
             logo => {
                 _doc => 'url for the logo brand the login sceen',
@@ -201,6 +203,15 @@ DOC
             logo_small => {
                 _doc => 'url for the small logo brand the UI',
             },
+            logo_noscale => {
+                _doc => "don't scale logo on login window",
+                _re => '(yes|no|true|false)',
+                _re_error => 'pick yes or no OR true or false',
+                _sub => sub {
+                    $_[0] = ($_[0] =~ /yes|true/) ? true : false;
+                    return;
+                },
+            },
             spinner => {
                 _doc => 'url for the busy animation spinner gif',
             },
@@ -211,19 +222,40 @@ DOC
                 _doc => 'which tab should be active upon login ?'
             },
             hide_password => {
-	        _doc => 'hide password field on login screen',
-	        _re => '(yes|no)',
-                _re_error => 'pick yes or no',
+                _doc => 'hide password field on login screen',
+                _re => '(yes|no|true|false)',
+                _re_error => 'pick yes or no OR true or false',
+                _sub => sub {
+                    $_[0] = ($_[0] =~ /yes|true/) ? true : false;
+                    return;
+                },
+            },
+            hide_password_icon => {
+                _doc => 'hide password icon on login screen',
+                _re => '(yes|no|true|false)',
+                _re_error => 'pick yes or no OR true or false',
+                _sub => sub {
+                    $_[0] = ($_[0] =~ /yes|true/) ? true : false;
+                    return;
+                },
             },
             hide_release => {
-	        _doc => 'hide release string on login screen',
-	        _re => '(yes|no)',
-                _re_error => 'pick yes or no',
+                _doc => 'hide release string on login screen',
+                _re => '(yes|no|true|false)',
+                _re_error => 'pick yes or no OR true or false',
+                _sub => sub {
+                    $_[0] = ($_[0] =~ /yes|true/) ? true : false;
+                    return;
+                },
             },
             hide_company => {
-	        _doc => 'hide company string on login screen',
-	        _re => '(yes|no)',
-                _re_error => 'pick yes or no',
+                _doc => 'hide company string on login screen',
+                _re => '(yes|no|true|false)',
+                _re_error => 'pick yes or no OR true or false',
+                _sub => sub {
+                    $_[0] = ($_[0] =~ /yes|true/) ? true : false;
+                    return;
+                },
             },
         },
         'FRONTEND-COLORS' => {
@@ -300,9 +332,9 @@ Load translations from po files
 
 sub getTranslations {
     my $self = shift;
-    my $cfg = shift;
+    my $cfg = shift || {};
     my %lx;
-    my $path = $self->app->home->rel_file("share");
+    my $path = $cfg->{path} // $self->app->home->rel_file("share");
     my $po = new Locale::PO();
     for my $file (glob(File::Spec->catdir($path, '*.po'))) {
         my ($volume, $localePath, $localeName) = File::Spec->splitpath($file);
@@ -320,8 +352,6 @@ sub getTranslations {
             $lx{$locale}{$id} = $str;
         }
     }
-#    use Data::Dumper;
-#    warn Dumper "lx=", \%lx;
     return \%lx;
 }
 
@@ -335,6 +365,8 @@ by the application.
 sub postProcessCfg {
     my $self = shift;
     my $cfg = $self->cfgHash;
+    # only postprocess once
+    return $cfg if $cfg->{PLUGIN}{list};        
     my %plugin;
     my @pluginOrder;
     for my $section (sort keys %$cfg){
@@ -375,7 +407,7 @@ create a new instance of this plugin prototype
 
 =cut
 
-sub instantiatePlugin {
+sub _getPluginObject {
     my $self = shift;
     my $name = shift;
 
@@ -386,19 +418,33 @@ sub instantiatePlugin {
 
     # clean the name
     $name =~ s/[^-_0-9a-z]/_/gi;
-
     die mkerror(39943,"No prototype for $name")
         if not defined $prototype;
 
-    my $obj = $prototype->new(
+    $prototype->new(
         user => $user,
         name => $prototype->name,
         config => $prototype->config,
         args => $args // {},
         app => $self->app,
     );
+}
+
+async sub instantiatePlugin_p {
+    my $self = shift;
+    my $obj = $self->_getPluginObject(@_);
+    my $name = $obj->name;
     die mkerror(39944,"No permission to access $name")
-        if not $obj->checkAccess;
+        if not await $self->promisify($obj->checkAccess);
+    return $obj;
+}
+
+sub instantiatePlugin {
+    my $self = shift;
+    my $obj = $self->_getPluginObject(@_);
+    my $name = $obj->name;
+    die mkerror(39944,"No permission to access $name")
+        if not $self->promiseDeath($obj->checkAccess);
     return $obj;
 }
 
@@ -598,6 +644,36 @@ sub unConfigure {
     unlink $cfg->{BACKEND}{log_file} if defined $cfg->{BACKEND}{log_file} and -f $cfg->{BACKEND}{log_file} ;
     unlink $self->secretFile if -f $self->secretFile;
     system "sync";
+}
+
+=head2 $cfg->promisify(xxx)
+
+always return a promise resolving to the value
+
+=cut
+
+sub promisify {
+    my $self = shift;
+    my $value = shift;
+    if (eval { blessed $value && $value->isa('Mojo::Promise') }){
+        return $value;
+    }
+    return Mojo::Promise->resolve($value,@_);
+}
+
+=head2 $cfg->promiseDeath(xxx)
+
+die when there is a promise response
+
+=cut
+
+sub promiseDeath {
+    my $self = shift;
+    my $value = shift;
+    if (eval { blessed $value && $value->isa('Mojo::Promise') }){
+        Mojo::Exception->throw("unexpected promise respone!");
+    }
+    return $value;
 }
 
 

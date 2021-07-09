@@ -3,6 +3,12 @@ use warnings;
 use utf8;
 use Test::More;
 
+BEGIN {
+    for (grep /^GETOPTEX/, keys %ENV) {
+	delete $ENV{$_};
+    }
+}
+
 use Getopt::EX::Colormap qw(colorize colorize24 ansi_code);
 
 use constant {
@@ -23,6 +29,23 @@ is(colorize("R", "text"), "\e[31m"."text".RESET, "colorize");
 is(colorize("ABCDEF", "text"), "\e[38;5;153m"."text".RESET, "colorize24");
 
 is(colorize24("ABCDEF", "text"), "\e[38;2;171;205;239m"."text".RESET, "colorize24");
+
+{
+    my $text = colorize("R", "AB") . "CD" . colorize("R", "EF");
+    my $rslt = colorize("R", "AB") . colorize("B", "CD") . colorize("R", "EF");
+    is(colorize("B", $text), $rslt, "nested");
+}
+
+{
+    my $text = "AB" . colorize("B", "CD") . "EF";
+    my $rslt = colorize("R", "AB") . colorize("B", "CD") . colorize("R", "EF");
+    is(colorize("R", $text), $rslt, "nested 2");
+}
+
+{
+    my $text = colorize("R", "ABCDEF");
+    is(colorize("B", $text), $text, "nested/unchange");
+}
 
 TODO: {
 
@@ -82,7 +105,11 @@ is(ansi_code("DK/544"), "\e[1;30;48;5;224m", "256 color");
 is(ansi_code("//DK///544"), "\e[1;30;48;5;224m", "multiple /");
 is(ansi_code("L25/L00"), "\e[38;5;231;48;5;16m", "L25/L00 == 555/000");
 is(ansi_code("L01/L24"), "\e[38;5;232;48;5;255m", "grey scale");
-is(ansi_code("CCCCCC"), "\e[38;5;251m", "hex to grey scale map");
+if ($Getopt::EX::Colormap::LINEAR_GREY) {
+    is(ansi_code("CCCCCC"), "\e[38;5;251m", "hex to grey scale map");
+} else {
+    is(ansi_code("CCCCCC"), "\e[38;5;252m", "hex to grey scale map");
+}
 is(ansi_code("FFFFFF/000000"), "\e[38;5;231;48;5;16m", "hex, all 0/1");
 
 is(ansi_code("DK/544E"), "\e[1;30;48;5;224m" . "\e[K", "E");

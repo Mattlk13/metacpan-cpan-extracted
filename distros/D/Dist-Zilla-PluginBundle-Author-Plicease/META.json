@@ -4,7 +4,7 @@
       "Graham Ollis <plicease@cpan.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Dist::Zilla version 6.015, CPAN::Meta::Converter version 2.150010",
+   "generated_by" : "Dist::Zilla version 6.019, CPAN::Meta::Converter version 2.150010",
    "license" : [
       "perl_5"
    ],
@@ -24,7 +24,8 @@
          "requires" : {
             "ExtUtils::MakeMaker" : "6.64",
             "File::ShareDir::Install" : "0.06",
-            "perl" : "5.014"
+            "File::Which" : "0",
+            "perl" : "5.020"
          }
       },
       "develop" : {
@@ -33,9 +34,9 @@
             "File::Spec" : "0",
             "FindBin" : "0",
             "Perl::Critic" : "0",
-            "Test2::Require::Module" : "0.000060",
+            "Test2::Require::Module" : "0.000121",
             "Test2::Tools::PerlCritic" : "0",
-            "Test2::V0" : "0.000060",
+            "Test2::V0" : "0.000121",
             "Test::CPAN::Changes" : "0",
             "Test::EOL" : "0",
             "Test::Fixme" : "0.07",
@@ -61,6 +62,7 @@
             "Dist::Zilla::Plugin::InstallGuide" : "1.200006",
             "Dist::Zilla::Plugin::MinimumPerl" : "1.006",
             "Dist::Zilla::Plugin::OurPkgVersion" : "0.12",
+            "Dist::Zilla::Plugin::PkgVersion::Block" : "0",
             "Dist::Zilla::Plugin::PodWeaver" : "4.006",
             "Dist::Zilla::Plugin::ReadmeAnyFromPod" : "0.150250",
             "Dist::Zilla::Plugin::Run::BeforeBuild" : "0.035",
@@ -76,6 +78,7 @@
             "Perl::Tidy" : "0",
             "PerlX::Maybe" : "0.003",
             "Pod::Markdown" : "1.400",
+            "Ref::Util" : "0",
             "Sub::Exporter::ForMethods" : "0",
             "Test::Fixme" : "0.14",
             "Test::Pod" : "1.48",
@@ -85,33 +88,32 @@
             "URI::Escape" : "0",
             "YAML" : "1.15",
             "namespace::autoclean" : "0",
-            "perl" : "5.014"
+            "perl" : "5.020"
          }
       },
       "test" : {
          "requires" : {
-            "Test2::V0" : "0.000060",
-            "Test::More" : "0.98",
+            "Test2::V0" : "0.000121",
             "Test::Script" : "1.10",
-            "perl" : "5.014"
+            "perl" : "5.020"
          }
       }
    },
    "release_status" : "stable",
    "resources" : {
       "bugtracker" : {
-         "web" : "https://github.com/plicease/Dist-Zilla-PluginBundle-Author-Plicease/issues"
+         "web" : "https://github.com/uperl/Dist-Zilla-PluginBundle-Author-Plicease/issues"
       },
       "homepage" : "https://metacpan.org/pod/Dist::Zilla::PluginBundle::Author::Plicease",
       "repository" : {
          "type" : "git",
-         "url" : "git://github.com/plicease/Dist-Zilla-PluginBundle-Author-Plicease.git",
-         "web" : "https://github.com/plicease/Dist-Zilla-PluginBundle-Author-Plicease"
+         "url" : "git://github.com/uperl/Dist-Zilla-PluginBundle-Author-Plicease.git",
+         "web" : "https://github.com/uperl/Dist-Zilla-PluginBundle-Author-Plicease"
       }
    },
-   "version" : "2.59",
-   "x_generated_by_perl" : "v5.33.3",
-   "x_serialization_backend" : "Cpanel::JSON::XS version 4.24",
+   "version" : "2.66",
+   "x_generated_by_perl" : "v5.34.0",
+   "x_serialization_backend" : "Cpanel::JSON::XS version 4.26",
    "x_spdx_expression" : "Artistic-1.0-Perl OR GPL-1.0-or-later",
    "x_use_unsafe_inc" : 0
 }

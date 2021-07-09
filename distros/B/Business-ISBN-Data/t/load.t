@@ -1,10 +1,14 @@
-BEGIN {
-	@classes = qw(Business::ISBN::Data);
-	}
+#!/usr/bin/perl
 
-use Test::More tests => scalar @classes;
-	
-foreach my $class ( @classes )
-	{
-	print "bail out! $class did not compile!" unless use_ok( $class );
-	}
+my @modules = qw(Business::ISBN::Data);
+
+use Test::More;
+
+subtest 'compile' => sub {
+	foreach my $module ( @modules ) {
+		BAIL_OUT( "Could not load $module" ) unless use_ok( $module );
+		}
+	diag( "Business::ISBN::Data " . Business::ISBN::Data->VERSION );
+	};
+
+done_testing();

@@ -4,7 +4,7 @@ StreamFinder::Blogger - Fetch actual raw streamable URLs from Blogger / Blogspot
 
 =head1 AUTHOR
 
-This module is Copyright (C) 2017-2020 by
+This module is Copyright (C) 2017-2021 by
 
 Jim Turner, C<< <turnerjw784 at yahoo.com> >>
 		
@@ -104,39 +104,65 @@ general StreamFinder module.
 
 Depends:  
 
-L<I::Escape>, L<HTML::Entities>, L<LWP::UserAgent>, 
+L<URI::Escape>, L<HTML::Entities>, L<LWP::UserAgent>, 
 and the separate application program:  youtube-dl.
 
 =head1 SUBROUTINES/METHODS
 
 =over 4
 
-=item B<new>(I<url> [, I<-youtube> => (yes)|no|only ] [, I<-keep> => "type1,type2?..." | [type1,type2?...] ] | [, "debug" [ => 0|(1)|2 ]])
+=item B<new>(I<url> [, I<-youtube> => yes|no|only ] 
+[, I<-keep> => "type1,type2?..." | [type1,type2?...] ] 
+[, I<-secure> [ => 0|1 ]] [, I<-debug> [ => 0|1|2 ]])
 
 Accepts a blogger.com video URL and creates and returns a new video object, 
 or I<undef> if the URL is not a valid Blogger video or no streams are found.  
 The URL can be the full URL, ie. https://www.blogger.com/B<video-id>, 
 or just I<video-id>.
 
-The optional I<keep> argument can be either a comma-separated string or an array 
+The optional I<-keep> argument can be either a comma-separated string or an array 
 reference ([...]) of stream types to keep (include) and returned in order specified 
 (type1, type2...).  Each "type" can be one of:  extension (ie. m4a, mp4, etc.), 
 "playlist", "stream", or ("any" or "all").
 
-DEFAULT keep list is:  'm4a,mpd,stream,all', meaning that all m4a streams 
+DEFAULT I<-keep> list is:  'm4a,mpd,stream,all', meaning that all m4a streams 
 followed by all "mpd" streams, followed by non-playlists, followed by all 
-remaining (playlists: m3u8,pls) streams.  More than one value can be specified to 
+remaining (playlists: (pls) streams.  More than one value can be specified to 
 control order of search.
 
-NOTE:  I<keep> is ignored if I<youtube> is set to "only".
+NOTE:  I<-keep> is ignored if I<-youtube> is set to "only".
 
-The optional I<youtube> argument can be set to "yes" - also include streams 
+The optional I<-youtube> argument can be set to "yes" - also include streams 
 youtube-dl finds, "no" - only include streams embedded in the video's 
 blogger.com page, or "only" - only include streams youtube-dl finds.  Default 
 is B<"yes">.  This is needed because currently the streams on the page: (mpd plays 
 best but is unseekable, and the m3u8 (HLS) stream doesn't seem to work well).  
 youtube-dl also returns a "chunky" m3u8 (HLS) stream that is seekable and seems 
 to work ok.
+
+The optional I<-secure> argument can be either 0 or 1 (I<false> or I<true>).  If 1 
+then only secure ("https://") streams will be returned.
+
+DEFAULT I<-secure> is 0 (false) - return all streams (http and https).
+
+Additional options:
+
+I<-log> => "I<logfile>"
+
+Specify path to a log file.  If a valid and writable file is specified, A line will be 
+appended to this file every time one or more streams is successfully fetched for a url.
+
+DEFAULT i<-none> (no logging).
+
+I<-logfmt> specifies a format string for lines written to the log file.
+
+DEFAULT "I<[time] [url] - [site]: [title] ([total])>".  
+
+The valid field I<[variables]> are:  [stream]: The url of the first/best stream found.  
+[site]:  The site name (Blogger).  [url]:  The url searched for streams.  
+[time]: Perl timestamp when the line was logged.  [title], [artist], [album], 
+[description], [year], [genre], [total], [albumartist]:  The corresponding field data 
+returned (or "-na", if no value).
 
 =item $video->B<get>()
 
@@ -284,7 +310,7 @@ L<http://search.cpan.org/dist/StreamFinder-Blogger/>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2017-2020 Jim Turner.
+Copyright 2017-2021 Jim Turner.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the the Artistic License (2.0). You may obtain a
@@ -331,60 +357,27 @@ use warnings;
 use URI::Escape;
 use HTML::Entities ();
 use LWP::UserAgent ();
-use vars qw(@ISA @EXPORT);
+use parent 'StreamFinder::_Class';
 
 my $DEBUG = 0;
-my $bummer = ($^O =~ /MSWin/);
-my $YOUTUBE = 'yes';
-my %uops = ();
-my @userAgentOps = ();
-
-require Exporter;
-
-@ISA = qw(Exporter);
-@EXPORT = qw(get getURL getType getID getTitle getIconURL getIconData getImageURL getImageData);
 
 sub new
 {
 	my $class = shift;
 	my $url = shift;
 
-	my $self = {};
 	return undef  unless ($url);
 
-	my $homedir = $bummer ? $ENV{'HOMEDRIVE'} . $ENV{'HOMEPATH'} : $ENV{'HOME'};
-	$homedir ||= $ENV{'LOGDIR'}  if ($ENV{'LOGDIR'});
-	$homedir =~ s#[\/\\]$##;
-	foreach my $p ("${homedir}/.config/StreamFinder/config", "${homedir}/.config/StreamFinder/Blogger/config") {
-		if (open IN, $p) {
-			my ($atr, $val);
-			while (<IN>) {
-				chomp;
-				next  if (/^\s*\#/o);
-				($atr, $val) = split(/\s*\=\>\s*/o, $_, 2);
-				eval "\$uops{$atr} = $val";
-			}
-			close IN;
-		}
-	}
-	foreach my $i (qw(agent from conn_cache default_headers local_address ssl_opts max_size
-			max_redirect parse_head protocols_allowed protocols_forbidden requests_redirectable
-			proxy no_proxy)) {
-		push @userAgentOps, $i, $uops{$i}  if (defined $uops{$i});
-	}
-	push (@userAgentOps, 'agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0')
-			unless (defined $uops{'agent'});
-	$uops{'timeout'} = 10  unless (defined $uops{'timeout'});
-	$DEBUG = $uops{'debug'}  if (defined $uops{'debug'});
-	$YOUTUBE = $uops{'youtube'}  if (defined $uops{'youtube'});
+	my $self = $class->SUPER::new('Blogger', @_);
+	$DEBUG = $self->{'debug'}  if (defined $self->{'debug'});
 
+	$self->{'youtube'} = 'yes';
 	while (@_) {
-		if ($_[0] =~ /^\-?debug$/o) {
+		if ($_[0] =~ /^\-?youtube$/o) {
 			shift;
-			$DEBUG = (defined($_[0]) && $_[0] =~/^[0-9]$/) ? shift : 1;
-		} elsif ($_[0] =~ /^\-?youtube$/o) {
+			$self->{'youtube'} = (defined $_[0]) ? shift : 'yes';
+		} else {
 			shift;
-			$YOUTUBE = (defined $_[0]) ? shift : 'yes';
 		}
 	}
 
@@ -392,19 +385,13 @@ sub new
 	$url =~ s/\?autoplay\=true$//;  #STRIP THIS OFF SO WE DON'T HAVE TO.
 	(my $url2fetch = $url);
 	print STDERR "-1 FETCHING URL=$url2fetch=\n"  if ($DEBUG);
-	$self->{'iconurl'} = '';
 	$self->{'title'} = 'untitled Blogger.com video';
-	$self->{'description'} = '';
-	$self->{'artist'} = '';
-	$self->{'albumartist'} = '';
-	$self->{'streams'} = [];
-	$self->{'cnt'} = 0;
 
 	#FIRST TRY SCANNING MANUALLY!:
 
 	my $html = '';
-	my $ua = LWP::UserAgent->new(@userAgentOps);		
-	$ua->timeout($uops{'timeout'});
+	my $ua = LWP::UserAgent->new(@{$self->{'_userAgentOps'}});		
+	$ua->timeout($self->{'timeout'});
 	$ua->cookie_jar({});
 	$ua->env_proxy;
 	my $response = $ua->get($url2fetch);
@@ -473,14 +460,18 @@ ENDHTML
 		if ($html =~ /\"streams\"\:\[([^\]]+)\]/s) {
 			$html = $1;
 			while ($html =~ s/\{\"play\_url\"\:\"([^\"]+)\"//s) {
-				push @{$self->{'streams'}}, $1;
-				$self->{'cnt'}++;
+				my $one = $1;
+				unless ($self->{'secure'} && $one !~ /^https/o) {
+					push @{$self->{'streams'}}, $one;
+					$self->{'cnt'}++;
+				}
 			}
 			$self->{'imageurl'} = $self->{'iconurl'};
 			$self->{'total'} = $self->{'cnt'};
 print "--thumbnail=".$self->{'iconurl'}."=\n";
 			if ($self->{'total'} > 0) {
 				print STDERR "\n--SUCCESS2: CNT=".$self->{'total'}."= ID=".$self->{'id'}."=\n--TITLE=".$self->{'title'}."\n--STREAMS=".join('|',@{$self->{'streams'}})."=\n"  if ($DEBUG);
+				$self->_log($url);
 
 				bless $self, $class;   #BLESS IT!
 
@@ -492,23 +483,23 @@ print "--thumbnail=".$self->{'iconurl'}."=\n";
 		print "--html in===$html===\n";
 	}
 
-	if ($self->{'cnt'} <= 0 || $YOUTUBE =~ /(?:yes|top|first|last)/i) {
+	if ($self->{'cnt'} <= 0 || $self->{'youtube'} =~ /(?:yes|top|first|last)/i) {
 		print STDERR "\n-2 NO STREAMS FOUND IN PAGE\n"  if ($DEBUG && $self->{'cnt'} <= 0);
-		print STDERR "\n-2 TRYING youtube-dl($YOUTUBE)...\n"  if ($DEBUG && $YOUTUBE =~ /(?:yes|top|first)/i);
+		print STDERR "\n-2 TRYING youtube-dl($self->{'youtube'})...\n"  if ($DEBUG && $self->{'youtube'} =~ /(?:yes|top|first)/i);
 		my $ytdlArgs = '--get-url --get-thumbnail --get-title --get-description -f "'
-				. ((defined $uops{'format'}) ? $uops{'format'} : 'mp4')
-				. '" ' . ((defined $uops{'youtube-dl-args'}) ? $uops{'youtube-dl-args'} : '');
+				. ((defined $self->{'format'}) ? $self->{'format'} : 'mp4')
+				. '" ' . ((defined $self->{'youtube-dl-args'}) ? $self->{'youtube-dl-args'} : '');
 		my $try = 0;
 		my ($more, @ytdldata, @ytStreams);
 		my $prevDescription = $self->{'description'};
 
 RETRYIT:
-		if (defined($uops{'userid'}) && defined($uops{'userpw'})) {  #USER HAS A LOGIN CONFIGURED:
-			my $uid = $uops{'userid'};
-			my $upw = $uops{'userpw'};
+		if (defined($self->{'userid'}) && defined($self->{'userpw'})) {  #USER HAS A LOGIN CONFIGURED:
+			my $uid = $self->{'userid'};
+			my $upw = $self->{'userpw'};
 			$_ = `youtube-dl --username "$uid" --password "$upw" $ytdlArgs "$url2fetch"`;
 		} else {
-			$_ = `youtube-dl --get-url $ytdlArgs "$url2fetch"`;
+			$_ = `youtube-dl $ytdlArgs "$url2fetch"`;
 		}
 		print STDERR "--TRY($try of 1): youtube-dl returned=$_= ARGS=$ytdlArgs=\n"  if ($DEBUG);
 		@ytdldata = split /\r?\n/s;
@@ -525,13 +516,13 @@ RETRYIT:
 			$_ = shift @ytdldata;
 			$more = 0  unless (m#^https?\:\/\/#o);
 			if ($more) {
-				push @ytStreams, $_;
+				push @ytStreams, $_  unless ($self->{'secure'} && $_ !~ /^https/o);
 			} else {
 				$self->{'description'} .= $_ . ' ';
 			}
 		}
 		$self->{'iconurl'} = pop(@ytStreams)  if ($#ytStreams > 0);
-		if ($YOUTUBE =~ /(?:top|first)/i) {  #PUT youtube-dl STREAMS ON TOP:
+		if ($self->{'youtube'} =~ /(?:top|first)/i) {  #PUT youtube-dl STREAMS ON TOP:
 			unshift @{$self->{'streams'}}, @ytStreams;
 		} else {
 			push @{$self->{'streams'}}, @ytStreams;
@@ -545,7 +536,6 @@ RETRYIT:
 			goto RETRYIT  if ($1);
 		}
 		print STDERR "-count=".$self->{'cnt'}."= iconurl=".$self->{'iconurl'}."=\n"  if ($DEBUG);
-		print STDERR "--SUCCESS: stream url=".$self->{'Url'}."=\n"  if ($DEBUG);
 	}
 	if ($self->{'description'} =~ /\w/) {
 		$self->{'description'} =~ s/\s+$//;
@@ -558,153 +548,15 @@ RETRYIT:
 	$self->{'title'} = uri_unescape($self->{'title'});
 	$self->{'imageurl'} = $self->{'iconurl'};
 	$self->{'total'} = $self->{'cnt'};
-	$self->{'Url'} = ($self->{'cnt'} > 0) ? $self->{'streams'}->[0] : '';
+	$self->{'Url'} = ($self->{'total'} > 0) ? $self->{'streams'}->[0] : '';
+	print STDERR "--SUCCESS: 1st stream=".$self->{'Url'}."= total=".$self->{'total'}."=\n"
+			if ($DEBUG && $self->{'cnt'} > 0);
 	print STDERR "\n--ID=".$self->{'id'}."=\n--TITLE=".$self->{'title'}."=\n--CNT=".$self->{'cnt'}."=\n--ICON=".$self->{'iconurl'}."=\n--1ST=".$self->{'Url'}."=\n--streams=".join('|',@{$self->{'streams'}})."=\n"  if ($DEBUG);
+	$self->_log($url);
 
 	bless $self, $class;   #BLESS IT!
 
 	return $self;
-}
-
-sub get
-{
-	my $self = shift;
-
-	return wantarray ? @{$self->{'streams'}} : $self->{'Url'};
-}
-
-sub getURL   #LIKE GET, BUT ONLY RETURN THE SINGLE ONE W/BEST BANDWIDTH AND RELIABILITY:
-{
-	my $self = shift;
-	my $arglist = (defined $_[0]) ? join('|',@_) : '';
-	my $idx = ($arglist =~ /\b\-?random\b/) ? int rand scalar @{$self->{'streams'}} : 0;
-	if (($arglist =~ /\b\-?nopls\b/ && ${$self->{'streams'}}[$idx] =~ /\.(pls)$/i)
-			|| ($arglist =~ /\b\-?noplaylists\b/ && ${$self->{'streams'}}[$idx] =~ /\.(pls|m3u8?)$/i)) {
-		my $plType = $1;
-		my $firstStream = ${$self->{'streams'}}[$idx];
-		print STDERR "-getURL($idx): NOPLAYLISTS and (".${$self->{'streams'}}[$idx].")\n"  if ($DEBUG);
-		my $ua = LWP::UserAgent->new(@userAgentOps);		
-		$ua->timeout($uops{'timeout'});
-		$ua->cookie_jar({});
-		$ua->env_proxy;
-		my $html = '';
-		my $response = $ua->get($firstStream);
-		if ($response->is_success) {
-			$html = $response->decoded_content;
-		} else {
-			print STDERR $response->status_line  if ($DEBUG);
-			my $no_wget = system('wget','-V');
-			unless ($no_wget) {
-				print STDERR "\n..trying wget...\n"  if ($DEBUG);
-				$html = `wget -t 2 -T 20 -O- -o /dev/null \"$firstStream\" 2>/dev/null `;
-			}
-		}
-		my @lines = split(/\r?\n/, $html);
-		my @plentries = ();
-		my $firstTitle = '';
-		my $plidx = ($arglist =~ /\b\-?random\b/) ? 1 : 0;
-		if ($plType =~ /pls/i) {  #PLS:
-			foreach my $line (@lines) {
-				if ($line =~ m#^\s*File\d+\=(.+)$#o) {
-					push (@plentries, $1);
-				} elsif ($line =~ m#^\s*Title\d+\=(.+)$#o) {
-					$firstTitle ||= $1;
-				}
-			}
-			$self->{'title'} ||= $firstTitle;
-			$self->{'title'} = HTML::Entities::decode_entities($self->{'title'});
-			$self->{'title'} = uri_unescape($self->{'title'});
-			print STDERR "-getURL(PLS): title=$firstTitle= pl_idx=$plidx=\n"  if ($DEBUG);
-		} elsif ($arglist =~ /\b\-?noplaylists\b/) {  #m3u*:
-			(my $urlpath = ${$self->{'streams'}}[$idx]) =~ s#[^\/]+$##;
-			foreach my $line (@lines) {
-				if ($line =~ m#^\s*([^\#].+)$#o) {
-					my $urlpart = $1;
-					$urlpart =~ s#^\s+##o;
-					$urlpart =~ s#^\/##o;
-					push (@plentries, ($urlpart =~ m#https?\:#) ? $urlpart : ($urlpath . '/' . $urlpart));
-					last  unless ($plidx);
-				}
-			}
-			print STDERR "-getURL(m3u?): pl_idx=$plidx=\n"  if ($DEBUG);
-		}
-		if ($plidx && $#plentries >= 0) {
-			$plidx = int rand scalar @plentries;
-		} else {
-			$plidx = 0;
-		}
-		$firstStream = (defined($plentries[$plidx]) && $plentries[$plidx]) ? $plentries[$plidx]
-				: ${$self->{'streams'}}[$idx];
-
-		return $firstStream;
-	}
-
-	return ${$self->{'streams'}}[$idx];
-}
-
-sub count
-{
-	my $self = shift;
-	return $self->{'total'};  #TOTAL NUMBER OF PLAYABLE STREAM URLS FOUND.
-}
-
-sub getType
-{
-	my $self = shift;
-	return 'Blogger';  #STATION TYPE (FOR PARENT StreamFinder MODULE).
-}
-
-sub getID
-{
-	my $self = shift;
-	return $self->{'id'};  #VIDEO'S BRIGHTEON-ID.
-}
-
-sub getTitle
-{
-	my $self = shift;
-	return $self->{'description'}  if (defined($_[0]) && $_[0] =~ /^\-?(?:long|desc)/i);
-	return $self->{'title'};  #STATION'S TITLE(DESCRIPTION), IF ANY.
-}
-
-sub getIconURL
-{
-	my $self = shift;
-	return $self->{'iconurl'};  #URL TO THE VIDEO'S THUMBNAIL ICON, IF ANY.
-}
-
-sub getIconData
-{
-	my $self = shift;
-	return ()  unless ($self->{'iconurl'});
-	my $ua = LWP::UserAgent->new(@userAgentOps);		
-	$ua->timeout($uops{'timeout'});
-	$ua->cookie_jar({});
-	$ua->env_proxy;
-	my $art_image = '';
-	my $response = $ua->get($self->{'iconurl'});
-	if ($response->is_success) {
-		$art_image = $response->decoded_content;
-	} else {
-		print STDERR $response->status_line  if ($DEBUG);
-		my $no_wget = system('wget','-V');
-		unless ($no_wget) {
-			print STDERR "\n..trying wget...\n"  if ($DEBUG);
-			my $iconUrl = $self->{'iconurl'};
-			$art_image = `wget -t 2 -T 20 -O- -o /dev/null \"$iconUrl\" 2>/dev/null `;
-		}
-	}
-	return ()  unless ($art_image);
-	(my $image_ext = $self->{'iconurl'}) =~ s/^.+\.//;
-	$image_ext =~ s/[^A-Za-z].*$//;
-
-	return ($image_ext, $art_image);
-}
-
-sub getImageURL
-{
-	my $self = shift;
-	return $self->{'imageurl'};  #URL TO THE VIDEO'S BANNER IMAGE, IF ANY.
 }
 
 sub getImageData

@@ -2,6 +2,7 @@ package mymm;
 
 use strict;
 use warnings;
+use 5.008001;
 use ExtUtils::MakeMaker;
 use FFI::CheckLib;
 
@@ -11,14 +12,26 @@ sub myWriteMakefile
 
   my $lib = check_lib(
     lib => 'uuid',
-    symbol => [ 'uuid_generate_random' ]
+    symbol => [
+      'uuid_generate_random',
+      'uuid_generate_time',
+      'uuid_unparse',
+      'uuid_parse',
+      'uuid_copy',
+      'uuid_clear',
+      'uuid_type',
+      'uuid_variant',
+      'uuid_time',
+      'uuid_is_null',
+      'uuid_compare',
+    ]
   );
 
   unless($lib)
   {
-    $args{PREREQ_PM}->{'Alien::libuuid'} = 0;
+    $args{PREREQ_PM}->{'Alien::libuuid'} = 0.05;
   }
-  
+
   WriteMakefile(%args);
 }
 

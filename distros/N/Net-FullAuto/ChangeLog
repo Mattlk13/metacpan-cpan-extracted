@@ -20,9 +20,418 @@
 #######################################################################
 
 
+2021-07-08  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000616 released
+
+        * Modified EmailServer_is.pm.
+
+2021-07-07  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000615 released
+
+        * Modified EmailServer_is.pm.
+
+2021-07-06  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000614 released
+
+        * Modified EmailServer_is.pm.
+          Added Test for Letsencrypt Cert.
+
+2021-07-05  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000613 released
+
+        * Modified EmailServer_is.pm.
+
+2021-07-05  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000612 released
+
+        * Changed unless fulloutput==0 to ending
+	  logic in FETCH in FA_Core.pm to
+	  $fulloutput!~/^.*\n0$/s.
+
+        * Modified EmailServer_is.pm.
+	  Added 2>&1 to all git clone commands.
+
+2021-07-04  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000611 released
+
+        * Added unless fulloutput==0 to ending
+	  logic in FETCH in FA_Core.pm.
+
+2021-07-04  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000610 released
+
+        * Modified EmailServer_is.pm.
+
+2021-07-03  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000609 released
+
+        * Modified EmailServer_is.pm.
+
+2021-07-02  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000608 released
+
+        * Modified EmailServer_is.pm.
+
+2021-07-01  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000607 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-30  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000606 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-28  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000605 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-27  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000604 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-24  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000603 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-24  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000602 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-23  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000601 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-22  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000600 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-22  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000599 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-21  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000598 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-20  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000597 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-19  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000596 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-19  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000595 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-18  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000594 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-17  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000593 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-16  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000592 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-15  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000591 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-14  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000590 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-14  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000589 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-12  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000588 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-08  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000587 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-07  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000586 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-06  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000585 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-05  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000584 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-04  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000583 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-03  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000582 released
+
+        * Modified EmailServer_is.pm.
+
+2021-06-02  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000581 released
+
+        * Modified EmailServer_is.pm.
+
+2021-05-03  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000580 released
+
+        * Modified EmailServer_is.pm.
+
+2021-04-27  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000579 released
+
+        * Updated CyberArk compatibility.
+
+2021-03-05  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000578 released
+
+        * Modified EmailServer_is.pm.
+
+2021-03-04  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000577 released
+
+	* Modified EmailServer_is.pm.
+
+2021-03-04  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000576 released
+
+	* Modified EmailServer_is.pm.
+
+2021-03-03  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000575 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-28  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000574 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-28  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000573 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-24  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000572 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-23  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000571 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-22  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000570 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-21  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000569 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-21  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000568 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-20  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000567 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-19  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000566 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-18  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000565 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-18  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000564 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-15  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000563 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-14  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000562 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-14  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000561 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-13  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000560 released
+
+	* Modified EmailServer_is.pm.
+
+2021-02-13  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000559 released
+
+        * Modified EmailServer_is.pm.
+
+2021-02-07  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000558 released
+
+        * Modified EmailServer_is.pm.
+
+2021-02-11  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000557 released
+
+        * Modified EmailServer_is.pm.
+
+2021-02-07  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000556 released
+
+        * Modified EmailServer_is.pm.
+
+2021-02-06  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000555 released
+
+        * Modified EmailServer_is.pm.
+
+2021-02-04  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000554 released
+
+        * Modified EmailServer_is.pm.
+
+2021-02-03  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000553 released
+
+        * Modified EmailServer_is.pm.
+
+2021-01-21  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000552 released
+
+        * Modified EmailServer_is.pm.
+
+2021-01-17  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000551 released
+
+        * Modified EmailServer_is.pm.
+
+2021-01-16  Brian M. Kelly <Brian.Kelly@fullauto.com>
+
+        * Version 1.0000550 released
+
+        * Modified EmailServer_is.pm.
+
 2021-01-10  Brian M. Kelly <Brian.Kelly@fullauto.com>
 
-        * Version 1.000059 released
+        * Version 1.0000549 released
 
         * Modified EmailServer_is.pm
 
@@ -30,7 +439,7 @@
 
 2020-12-30  Brian M. Kelly <Brian.Kelly@fullauto.com>
 
-        * Version 1.000058 released
+        * Version 1.0000548 released
 
         * Modified EmailServer_is.pm.
 

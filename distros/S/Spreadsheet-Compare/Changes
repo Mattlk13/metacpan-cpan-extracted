@@ -1,0 +1,33 @@
+0.16 2021-04-03
+  - add version check to skip for excel test
+  - avoid Mojo::IOLoop::Thread reload
+  - fix CSV error handling
+  - add option to clear defaults for csv_options
+  - better message on config file open errors
+  - add example directory
+  - fix UTF-8 characters in XLSX
+
+0.15 2021-03-29
+  - fix NAME section for spreadcomp
+
+0.14 2021-03-29
+  - raise required Mojolicious version to 8.43
+  - add NAME section to spreadcomp
+  - added documentation for report_all_rows
+
+0.13 2021-03-26
+  - fix warning in DB reader
+  - add --version to spreadcomp
+  - fix limit_rel
+  - add test_title in Spreadsheet::Reporter
+  - fix failing skip in excel test
+
+0.12 2021-03-25
+  - fix MANIFEST and bugtracker entry
+
+0.11 2021-03-24
+  - reduce hard dependencies
+  - documentation updates
+
+0.10 2021-03-23
+  - first public release

@@ -1,13 +1,7 @@
-# -*-perl-*-
-
 use strict;
 use warnings;
-use Config;
-use File::Basename qw(&basename &dirname);
 
-# how many variable types (ie PDL_Byte, ...) are there?
 require './Types.pm';
-my $ntypes = $#PDL::Types::names;
 my $PDL_DATATYPES = PDL::Types::datatypes_header();
 
 require './Config.pm';
@@ -19,9 +13,6 @@ print "Extracting $file\n";
 open OUT,">$file" or die "Can't create $file: $!";
 chmod 0644, $file;
 
-# In this section, perl variables will be expanded during extraction.
-# You can use $Config{...} to use Configure variables.
-
 print OUT <<"!GROK!THIS!";
 
 /*
@@ -30,6 +21,8 @@ print OUT <<"!GROK!THIS!";
 
 #ifndef __PDL_H
 #define __PDL_H
+
+#include <complex.h>
 
 #define PDL_DEBUGGING 1
 
@@ -40,44 +33,8 @@ extern int pdl_debugging;
 #define PDLDEBUG_f(a)
 #endif
 
-#define ANYVAL_TO_SV(outsv,inany) do { switch (inany.type) { \\
-                case PDL_B:   outsv = newSViv( (IV)(inany.value.B) ); break; \\
-                case PDL_S:   outsv = newSViv( (IV)(inany.value.S) ); break; \\
-                case PDL_US:  outsv = newSViv( (IV)(inany.value.U) ); break; \\
-                case PDL_L:   outsv = newSViv( (IV)(inany.value.L) ); break; \\
-                case PDL_IND: outsv = newSViv( (IV)(inany.value.N) ); break; \\
-                case PDL_LL:  outsv = newSViv( (IV)(inany.value.Q) ); break; \\
-                case PDL_F:   outsv = newSVnv( (NV)(inany.value.F) ); break; \\
-                case PDL_D:   outsv = newSVnv( (NV)(inany.value.D) ); break; \\
-                default:      outsv = &PL_sv_undef; \\
-            } \\
-        } while (0)
-
-#define ANYVAL_FROM_CTYPE(outany,avtype,inval) do { switch (avtype) { \\
-                case PDL_B:   outany.type = avtype; outany.value.B = (PDL_Byte)(inval);     break; \\
-                case PDL_S:   outany.type = avtype; outany.value.S = (PDL_Short)(inval);    break; \\
-                case PDL_US:  outany.type = avtype; outany.value.U = (PDL_Ushort)(inval);   break; \\
-                case PDL_L:   outany.type = avtype; outany.value.L = (PDL_Long)(inval);     break; \\
-                case PDL_IND: outany.type = avtype; outany.value.N = (PDL_Indx)(inval);     break; \\
-                case PDL_LL:  outany.type = avtype; outany.value.Q = (PDL_LongLong)(inval); break; \\
-                case PDL_F:   outany.type = avtype; outany.value.F = (PDL_Float)(inval);    break; \\
-                case PDL_D:   outany.type = avtype; outany.value.D = (PDL_Double)(inval);   break; \\
-                default:      outany.type = -1;     outany.value.B = 0; \\
-            } \\
-        } while (0)
-
-#define ANYVAL_TO_CTYPE(outval,ctype,inany) do { switch (inany.type) { \\
-                case PDL_B:   outval = (ctype)(inany.value.B); break; \\
-                case PDL_S:   outval = (ctype)(inany.value.S); break; \\
-                case PDL_US:  outval = (ctype)(inany.value.U); break; \\
-                case PDL_L:   outval = (ctype)(inany.value.L); break; \\
-                case PDL_IND: outval = (ctype)(inany.value.N); break; \\
-                case PDL_LL:  outval = (ctype)(inany.value.Q); break; \\
-                case PDL_F:   outval = (ctype)(inany.value.F); break; \\
-                case PDL_D:   outval = (ctype)(inany.value.D); break; \\
-                default:      outval = 0; \\
-            } \\
-        } while (0)
+#define ANYVAL_ISBAD(inany,pdl,badval) \\
+  (ANYVAL_ISNAN(badval) ? ANYVAL_ISNAN(inany) : ANYVAL_EQ_ANYVAL(inany, badval))
 
 /* Auto-PThreading (i.e. multi-threading) settings for PDL functions */
 /*  Target number of pthreads: Actual will be this number or less.
@@ -97,22 +54,69 @@ typedef struct pdl pdl;
 
 $PDL_DATATYPES
 
-extern int _anyval_eq_anyval(PDL_Anyval, PDL_Anyval);
+$mymalloc
 
 #define ANYVAL_EQ_ANYVAL(x,y) (_anyval_eq_anyval(x,y))
 
-$mymalloc
 !GROK!THIS!
+
+print OUT <<'EOF';
+static inline int _anyval_eq_anyval(PDL_Anyval x, PDL_Anyval y) {
+  switch (x.type) {
+EOF
+for my $o (PDL::Types::types()) { # outer
+  print OUT "    case @{[$o->sym]}:\n      switch (y.type) {\n";
+  for my $i (PDL::Types::types()) { # inner
+    print OUT "        case @{[$i->sym]}: return (x.value.".$o->ppsym." == y.value.".$i->ppsym.") ? 1 : 0;\n";
+  }
+  print OUT "        default: return 0;\n      }\n";
+}
+print OUT <<'EOF';
+    default:
+      return 0;
+  }
+}
+EOF
+
+print OUT <<'EOF';
+#define ANYVAL_FROM_CTYPE(outany,avtype,inval) do { switch (avtype) { \
+EOF
+print OUT "case @{[$_->sym]}: outany.type = avtype; outany.value.@{[$_->ppsym]} = (@{[$_->ctype]})(inval); break; \\\n"
+  for PDL::Types::types();
+print OUT <<'EOF';
+   default:      outany.type = -1;     outany.value.B = 0; \
+  } \
+ } while (0)
+EOF
+
+print OUT <<'EOF';
+#define ANYVAL_TO_CTYPE(outval,ctype,inany) do { switch (inany.type) { \
+EOF
+print OUT "case @{[$_->sym]}: outval = (ctype)(inany.value.@{[$_->ppsym]}); break; \\\n"
+  for PDL::Types::types();
+print OUT <<'EOF';
+default:      outval = 0; \
+            } \
+        } while (0)
+EOF
+
+my $isnan = join " \\\n  ",
+  map "(x).type == ".$_->sym." ? @{[$_->isnan('(x).value.'.$_->ppsym)]} :",
+  grep $_->usenan, PDL::Types::types();
+print OUT <<EOF;
+#define ANYVAL_ISNAN(x) (\\
+  (x).type < PDL_F ? 0 : \\
+  $isnan \\
+  (croak("ANYVAL_ISNAN should not get here, had type %d", (x).type), 1) \\
+)
+EOF
 
 # set up the badvalues structure
 # - for binary compatability, this is created whatever the
 #   value of $bvalflag and $usenan
 print OUT "typedef struct badvals {\n";
-foreach my $i ( reverse(0 .. $ntypes) ) {
-    my $name = $PDL::Types::names[$i];
-    my $realctype = $PDL::Types::typehash{$name}->{realctype};
-    my $cname     = $PDL::Types::typehash{$name}->{ctype};
-    $cname =~ s/^PDL_//;
+foreach my $type ( reverse PDL::Types::types() ) {
+    my ($realctype, $cname) = map $type->$_, qw(realctype shortctype);
     printf OUT "   %18s   %s;\n",$realctype,$cname;
     printf OUT "   %18s   default_%s;\n",$realctype,$cname;
 }
@@ -174,8 +178,8 @@ print OUT <<'!NO!SUBS!';
   /* Flag indicating destruction in progress                                */
 #define         PDL_DESTROYING          0x2000
   /* If this flag is set, you must not alter the data pointer nor           */
-  /* free this piddle nor use datasv (which should be null).                */
-  /* This means e.g. that the piddle is mmapped from a file                 */
+  /* free this ndarray nor use datasv (which should be null).                */
+  /* This means e.g. that the ndarray is mmapped from a file                 */
 #define         PDL_DONTTOUCHDATA       0x4000
   /* Not sure what this does, but PP uses it a lot. -- CED                  */
 #define PDL_CR_SETDIMSCOND(wtrans,pdl) (((pdl)->state & PDL_MYDIMS_TRANS) \
@@ -205,8 +209,8 @@ typedef struct pdl_trans pdl_trans;
 typedef struct pdl_transvtable {
         pdl_transtype transtype;
         int flags;
-        int nparents;
-        int npdls;
+        PDL_Indx nparents;
+        PDL_Indx npdls;
         char *per_pdl_flags;
         void (*redodims)(pdl_trans *tr);      /* Only dims and internal trans (makes phys) */
         void (*readdata)(pdl_trans *tr);      /* Only data, to "data" ptr  */
@@ -254,7 +258,7 @@ typedef struct pdl_transvtable {
 // virtual parent.
 
 #define PDL_TRANS_START_COMMON                                          \
-  int magicno;                                                          \
+  unsigned int magicno;                                                 \
   short flags;                                                          \
   pdl_transvtable *vtable;                                              \
   void (*freeproc)(struct pdl_trans *);  /* Call to free this           \
@@ -302,7 +306,7 @@ typedef struct pdl_trans_affine {
 typedef struct pdl_vaffine {
 	PDL_TRANS_START(2);
 	PDL_Indx *incs; PDL_Indx offs;
-	int ndims;
+	PDL_Indx ndims;
 	PDL_Indx def_incs[PDL_NDIMS];
 	pdl *from;
 } pdl_vaffine;
@@ -370,16 +374,16 @@ struct pdl {
    pdl_datatypes datatype; /* One of the usual suspects (PDL_L, PDL_D, etc.) */
    PDL_Indx   *dims;      /* Array of data dimensions - could point below or to an allocated array */
    PDL_Indx   *dimincs;   /* Array of data default increments, aka strides through memory for each dim (0 for dummies) */
-   short    ndims;     /* Number of data dimensions in dims and dimincs */
+   PDL_Indx    ndims;     /* Number of data dimensions in dims and dimincs */
 
-   unsigned char *threadids;  /* Starting index of the thread index set n */
-   unsigned char nthreadids;
+   PDL_Indx *threadids;  /* Starting index of the thread index set n */
+   PDL_Indx nthreadids;
 
    pdl_children children;
 
    PDL_Indx   def_dims[PDL_NDIMS];   /* Preallocated space for efficiency */
    PDL_Indx   def_dimincs[PDL_NDIMS];   /* Preallocated space for efficiency */
-   unsigned char def_threadids[PDL_NTHREADIDS];
+   PDL_Indx   def_threadids[PDL_NTHREADIDS];
 
    struct pdl_magic *magic;
 
@@ -408,6 +412,7 @@ struct pdl {
 
 
 #define PDLMAX(a,b) ((a) > (b) ? (a) : (b))
+#define PDLMIN(a,b) ((a) < (b) ? (a) : (b))
 
 /***************
  * Some macros to guard against dataflow infinite recursion.

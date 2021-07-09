@@ -1,3 +1,619 @@
+0.9009 2021-06-29
+  - Native API get_basic_type_id performance become O(1)
+  - Native API get_field_id performance become O(1)
+  - Native API get_package_var_id performance become O(1)
+  - Native API get_method_id performance become O(1)
+  
+0.9008 2021-06-28
+  - SPVM drop support OpenBSD because I can't fix OpenBSD bugs by myself
+    http://matrix.cpantesters.org/?dist=SPVM%200.9006
+  - SPVM drop support solaris because I can't fix make error by myself
+    http://www.cpantesters.org/cpan/report/6b54513a-c10b-11eb-bc66-57723b537541
+  - SPVM support only 64bit System
+  - SPVM support only Windows 10+
+  - Change The all internal subroutine word is changed to method
+  - Change The all word of Subroutine is changed to Method
+  - rename Native API call_sub to call_spvm_method
+  - rename Native PAI call_sub_by_name to call_spvm_method_by_name
+  - rename Native API get_sub_id to get_method_id
+  - rename Native API get_sub_id_by_object to get_method_id_by_object
+  - rename Native API call_poly_sub_by_name to call_callback_method_by_name
+0.9007 2021-06-17
+  - fix Mac OS warnings "ld: warning: directory not found for option" in precompile
+0.9006 2021-06-11
+  - fix array init {} bugs that {foo => SPVM::Int->new(5)} was segfault
+0.9005 2021-05-27
+  - add SPVM::Regex "." regular expression character.
+  - add SPVM::Regex single line mode option "s"
+  - add SPVM::Regex ascii mode and don't support \d, \D, \w, \W, \s, \S without ascii mode option
+  - Fix SPVM::Math->pi and SPVM::Math->e tests. Values is compared as numbers instead of strings
+0.9004 2021-05-26
+  - remove escape charcter \b of string literal
+  - add raw escape character of string literal
+    \p
+    \P
+    \X
+    \g
+    \k
+    \K
+    \v
+    \V
+    \h
+    \H
+    \R
+    \b
+    \B
+    \A
+    \Z
+    \z
+    \G
+    \N
+    \1, \2, \3, \4, \5, \6, \7, \8, \9
+
+0.9003 2021-05-21
+  - add SPVM::StringUtil->hex method
+  - rename SPVM::Regex->caps method to SPVM::Regex->captures
+0.9002 2021-05-20
+  - add SPVM::StringUtil->trim_ascii_space method
+  - fix memory blocks count internal bugs
+  - fix Windows unexpected native api memory bug about get_field_object. I don't know the reason, but it was maybe type problem.
+0.9001 2021-05-11
+  - remove SPVM::Time->strptime because this method is too complex as version 1.0 core module.
+  - remove SPVM::Time->strftime because this method is too complex as version 1.0 core module.
+  - add SPVM::Document::Benchmark. This document was on github pages and is moved to CPAN.
+  - add SPVM::Document::Tutorial. This document was on github pages and is moved to CPAN.
+  - add SPVM::Document::NativeAPI. This document was on github pages and is moved to CPAN.
+  - add SPVM::Document::LanguageSpecification. This document was on github pages and is moved to CPAN.
+0.0952 2021-05-10
+  - fix PI and E tests again. This is fix the mistake of
+    [0.0951] and
+    [0.0950] - fix PI and E tests because in long double environment is different from SPVM and Perl.
+
+0.0951 2021-05-07
+  - add dump native api
+  - add dump_raw native api
+  - add dump operator
+  - fix PI and E tests again. This is fix the mistake of
+    [0.0950] - fix PI and E tests because in long double environment is different from SPVM and Perl.
+0.0950 2021-05-06
+  - fix SPVM::Math->expm1f bug that internally call expm1 instead of expm1f
+  - fix SPVM::Math->floorf bug that internally call floor instead of floorf
+  - fix SPVM::Math->log10f bug that internally call log10 instead of log10f
+  - fix PI and E tests because in long double environment is different from SPVM and Perl 
+0.0949 2021-04-30
+  - remove SPVM::Sort. This is 0.0947 change, but I forgot to remove SPVM::Sort.
+  - rename SPVM::Hash->newa to SPVM::Hash->new. Original SPVM::Hash->new is removed.
+  - SPVM::ByteList->new can receive undef.
+  - SPVM::ShortList->new can receive undef.
+  - SPVM::IntList->new can receive undef.
+  - SPVM::LongList->new can receive undef.
+  - SPVM::FloatList->new can receive undef.
+  - SPVM::DoubleList->new can receive undef.
+  - SPVM::StringList->new can receive undef.
+  - SPVM::List->new can receive undef.
+  - SPVM::Hash->new can receive undef.
+  - remove SPVM::StringBuffer->index
+  - remove SPVM::StringBuffer->substr
+  - remove SPVM::IO::Stdout
+  - remove SPVM::IO::Stderr
+  - SPVM::StringUtil->copy_string can receive undef
+  - remove SPVM::StringBuffer->push_range
+  - remove SPVM::StringBuffer->capacity
+  - remove SPVM::StringBuffer->new_opt
+  - SPVM::ByteList->resize added elements are set to 0 always
+  - SPVM::ShortList->resize added elements are set to 0 always
+  - SPVM::IntList->resize added elements are set to 0 always
+  - SPVM::LongList->resize added elements are set to 0 always
+  - SPVM::FloatList->resize added elements are set to 0 always
+  - SPVM::DoubleList->resize added elements are set to 0 always
+  - add SPVM::StringList->resize
+  - add SPVM::StringBuffer->resize
+  - remove SPVM::StringBuffer->clear
+  - remove SPVM::StringBuffer->capacity
+  - remove SPVM::StringBuffer->new_opt
+0.0948 2021-04-28
+  - remove SPVM::StringUtil->replace
+  - remove SPVM::StringUtil->replace_all
+  - remove SPVM::StringUtil->chomp_crlf
+  - rename SPVM::StringUtil->chomp_lf to SPVM::StringUtil->chompr
+  - rename the following SPVM::StringUtil methods
+    isalnum to is_alnum
+    isalpha to is_alpha
+    isalpha to is_alpha
+    iscntrl to is_cntrl
+    isdigit to is_digit
+    isgraph to is_graph
+    islower to is_lower
+    isprint to is_print
+    isprint to is_print
+    ispunct to is_punct
+    isspace to is_space
+    isupper to is_upper
+    isxdigit to is_xdigit
+    tolower to to_lower
+    toupper to to_upper
+    strtoi to to_int_with_base
+    strtol to to_long_with_base
+    strtof to to_float
+    strtod to to_double
+  - add SPVM::StringUtil->to_int
+  - add SPVM::StringUtil->to_long
+  - remove SPVM::ByteList->new_capacity
+  - remove SPVM::ShortList->new_capacity
+  - remove SPVM::IntList->new_capacity
+  - remove SPVM::LongList->new_capacity
+  - remove SPVM::FloatList->new_capacity
+  - remove SPVM::DoubleList->new_capacity
+  - remove SPVM::StringList->new_capacity
+  - remove SPVM::List->new_capacity
+  - remove SPVM::List->splice
+  - remove SPVM::ByteList->capacity
+  - remove SPVM::ShortList->capacity
+  - remove SPVM::IntList->capacity
+  - remove SPVM::LongList->capacity
+  - remove SPVM::FloatList->capacity
+  - remove SPVM::DoubleList->capacity
+  - remove SPVM::StringList->capacity
+  - remove SPVM::List->capacity
+  - remove SPVM::ByteList->values
+  - remove SPVM::ShortList->values
+  - remove SPVM::IntList->values
+  - remove SPVM::LongList->values
+  - remove SPVM::FloatList->values
+  - remove SPVM::DoubleList->values
+  - remove SPVM::StringList->values
+  - remove SPVM::List->values
+  - revert [0.0940]add norw package variable descriptor
+  - revert [0.0940]add norw field descriptor
+  - revert [0.0940]rw become package variable declaration default
+  - revert [0.0940]rw become field declaration default
+  - add SPVM::ByteList->set_array
+  - add SPVM::ShortList->set_array
+  - add SPVM::IntList->set_array
+  - add SPVM::LongList->set_array
+  - add SPVM::FloatList->set_array
+  - add SPVM::DoubleList->set_array
+  - add SPVM::StringList->set_array
+  - add SPVM::List->set_array
+0.0947 2021-04-27
+  - array equals methods return 1 if both arrays is undef. return 0 if only one one arrays is undef.
+    equals_byte_array
+    equals_short_array
+    equals_int_array
+    equals_long_array
+    equals_float_array
+    equals_double_array
+    equals_string_array
+    equals_object_array
+  - rename SPVM::ArrayUtil->slice_byte to SPVM::ArrayUtil->copy_array_range_byte
+  - rename SPVM::ArrayUtil->slice_short to SPVM::ArrayUtil->copy_array_range_short
+  - rename SPVM::ArrayUtil->slice_int to SPVM::ArrayUtil->copy_array_range_int
+  - rename SPVM::ArrayUtil->slice_long to SPVM::ArrayUtil->copy_array_range_long
+  - rename SPVM::ArrayUtil->slice_float to SPVM::ArrayUtil->copy_array_range_float
+  - rename SPVM::ArrayUtil->slice_double to SPVM::ArrayUtil->copy_array_range_double
+  - rename SPVM::ArrayUtil->slice_string to SPVM::ArrayUtil->copy_array_range_string
+  - rename SPVM::ArrayUtil->slice_object to SPVM::ArrayUtil->copy_array_range_object
+  - fix bug that import subroutine is not checked the existance
+  - rename SPVM::Sort->sortb to SPVM::Sort->sort_byte
+  - rename SPVM::Sort->sorts to SPVM::Sort->sort_short
+  - rename SPVM::Sort->sorti to SPVM::Sort->sort_int
+  - rename SPVM::Sort->sortl to SPVM::Sort->sort_long
+  - rename SPVM::Sort->sortf to SPVM::Sort->sort_float
+  - rename SPVM::Sort->sortd to SPVM::Sort->sort_double
+  - rename SPVM::Sort->sorto to SPVM::Sort->sort_object
+  - move SPVM::Sort->sort_byte   to SPVM::ArrayUtil->sort_byte  
+  - move SPVM::Sort->sort_short  to SPVM::ArrayUtil->sort_short 
+  - move SPVM::Sort->sort_int    to SPVM::ArrayUtil->sort_int   
+  - move SPVM::Sort->sort_long   to SPVM::ArrayUtil->sort_long  
+  - move SPVM::Sort->sort_float  to SPVM::ArrayUtil->sort_float 
+  - move SPVM::Sort->sort_double to SPVM::ArrayUtil->sort_double
+  - move SPVM::Sort->sort_object to SPVM::ArrayUtil->sort_object
+  - remove SPVM::Sort
+  - add SPVM::ArrayUtil->sort_string
+  - add SPVM::Comparator::String
+  - remove SPVM::StringUtil->contains in favor of SPVM::StringUtil->index
+0.0946 2021-04-23
+  - Create SPVM::ArrayUtil module
+  - move the following SPVM::Util methods to SPVM::ArrayUtil
+    copy_object_array
+    copy_byte_array
+    copy_short_array
+    copy_int_array
+    copy_long_array
+    copy_float_array
+    copy_double_array
+    equals_object_array
+    copy_string_array
+    equals_byte_array
+    equals_short_array
+    equals_int_array
+    equals_long_array
+    equals_float_array
+    equals_double_array
+    equals_string_array
+    dump_byte_array
+    dump_short_array
+    dump_int_array
+    dump_long_array
+    dump_unsigned_byte_array
+    dump_unsigned_short_array
+    dump_unsigned_int_array
+    dump_unsigned_long_array
+    dump_float_array
+    dump_double_array
+    memcpy_byte
+    memcpy_short
+    memcpy_int
+    memcpy_long
+    memcpy_float
+    memcpy_double
+    memmove_byte
+    memmove_short
+    memmove_int
+    memmove_long
+    memmove_float
+    memmove_double
+    new_object_array_proto
+    slice_byte
+    slice_short
+    slice_int
+    slice_long
+    slice_float
+    slice_double
+  - move the following SPVM::Util methods to SPVM::StringUtil
+    split
+    chomp_lf
+    chomp_crlf
+    copy_str
+    index
+    isalnum
+    isalpha
+    isblank
+    iscntrl
+    isdigit
+    isgraph
+    islower
+    isprint
+    ispunct
+    isspace
+    isupper
+    isxdigit
+    tolower
+    toupper
+    is_perl_space
+    is_perl_word
+    join
+    lc
+    lcfirst
+    replace
+    replace_all
+    strtoi
+    strtol
+    strtof
+    strtod
+    uc
+    ucfirst
+    rindex
+    contains
+  - remove SPVM::Util->join_object in favor of SPVM::ArrayUtil->dump_object_array
+  - add SPVM::ArrayUtil->dump_object_array
+  - rename SPVM::ArrayUtil->copy_str to SPVM::ArrayUtil->copy_string
+  - rename SPVM::Util to SPVM::NumberUtil
+  - fix bug that le operator means lt.
+  - in eq, ne, gt, ge, lt, le string comparison, undef is treated as most small value
+    and these string comparison operators don't throw a exception.
+  - add SPVM::ArrayUtil->dump_array_string
+  - add SPVM::ArrayUtil->slice_array_string
+  - SPVM::ArrayUtil->copy_byte_array return undef if the argument is undef.
+  - SPVM::ArrayUtil->copy_short_array return undef if the argument is undef.
+  - SPVM::ArrayUtil->copy_int_array return undef if the argument is undef.
+  - SPVM::ArrayUtil->copy_long_array return undef if the argument is undef.
+  - SPVM::ArrayUtil->copy_float_array return undef if the argument is undef.
+  - SPVM::ArrayUtil->copy_double_array return undef if the argument is undef.
+  - SPVM::ArrayUtil->copy_string_array return undef if the argument is undef.
+  - SPVM::ArrayUtil->copy_object_array return undef if the argument is undef.
+0.0945 2021-04-22
+  - rename SPVM::Byte->val to SPVM::Byte->value
+  - rename SPVM::Short->val to SPVM::Short->value
+  - rename SPVM::Int->val to SPVM::Int->value
+  - rename SPVM::Long->val to SPVM::Long->value
+  - rename SPVM::Float->val to SPVM::Float->value
+  - rename SPVM::Double->val to SPVM::Double->value
+  - move SPVM::Util->PI to SPVM::Math->PI
+  - move SPVM::Util->E to SPVM::Math->E
+  - remove SPVM::Math->pi
+  - move SPVM::Util->abs to SPVM::Math->abs
+  - move SPVM::Util->labs to SPVM::Math->labs
+
+0.0944 2021-04-21
+  - Logical Operator become non-expression.
+  - rename SPVM::Util->copy_barray to SPVM::Util->copy_byte_array
+  - rename SPVM::Util->equals_barray to SPVM::Util->equals_byte_array
+  - rename SPVM::Util->copy_sarray to SPVM::Util->copy_short_array
+  - rename SPVM::Util->equals_sarray to SPVM::Util->equals_short_array
+  - rename SPVM::Util->copy_iarray to SPVM::Util->copy_int_array
+  - rename SPVM::Util->equals_iarray to SPVM::Util->equals_int_array
+  - rename SPVM::Util->copy_larray to SPVM::Util->copy_long_array
+  - rename SPVM::Util->equals_larray to SPVM::Util->equals_long_array
+  - rename SPVM::Util->copy_farray to SPVM::Util->copy_float_array
+  - rename SPVM::Util->equals_farray to SPVM::Util->equals_float_array
+  - rename SPVM::Util->copy_darray to SPVM::Util->copy_double_array
+  - rename SPVM::Util->equals_darray to SPVM::Util->equals_double_array
+  - rename SPVM::Util->copy_strarray to SPVM::Util->copy_string_array
+  - rename SPVM::Util->equals_strarray to SPVM::Util->equals_string_array
+  - rename SPVM::Util->copy_oarray to SPVM::Util->copy_object_array
+  - rename SPVM::Util->equals_oarray to SPVM::Util->equals_object_array
+  - rename SPVM::Util->sliceb to SPVM::Util->slice_byte
+  - rename SPVM::Util->slices to SPVM::Util->slice_short
+  - rename SPVM::Util->slicei to SPVM::Util->slice_int
+  - rename SPVM::Util->slicel to SPVM::Util->slice_long
+  - rename SPVM::Util->slicef to SPVM::Util->slice_float
+  - rename SPVM::Util->sliced to SPVM::Util->slice_double
+  - rename SPVM::Util->sliceo to SPVM::Util->slice_object
+  - remove SPVM::Util->reverseb
+  - remove SPVM::Util->reverses
+  - remove SPVM::Util->reversei
+  - remove SPVM::Util->reversel
+  - remove SPVM::Util->reversef
+  - remove SPVM::Util->reversed
+  - remove SPVM::Util->reverseo
+  - rename SPVM::Util->memcpyb to SPVM::Util->memcpy_byte
+  - rename SPVM::Util->memcpys to SPVM::Util->memcpy_short
+  - rename SPVM::Util->memcpyi to SPVM::Util->memcpy_int
+  - rename SPVM::Util->memcpyl to SPVM::Util->memcpy_long
+  - rename SPVM::Util->memcpyf to SPVM::Util->memcpy_float
+  - rename SPVM::Util->memcpyd to SPVM::Util->memcpy_double
+  - rename SPVM::Util->memmoveb to SPVM::Util->memmove_byte
+  - rename SPVM::Util->memmoves to SPVM::Util->memmove_short
+  - rename SPVM::Util->memmovei to SPVM::Util->memmove_int
+  - rename SPVM::Util->memmovel to SPVM::Util->memmove_long
+  - rename SPVM::Util->memmovef to SPVM::Util->memmove_float
+  - rename SPVM::Util->memmoved to SPVM::Util->memmove_double
+  - remove SPVM::Util->joinb
+  - remove SPVM::Util->joins
+  - remove SPVM::Util->joini
+  - remove SPVM::Util->joinl
+  - remove SPVM::Util->joinf
+  - remove SPVM::Util->joind
+  - add SPVM::Util->dump_byte_array
+  - add SPVM::Util->dump_short_array
+  - add SPVM::Util->dump_int_array
+  - add SPVM::Util->dump_long_array
+  - add SPVM::Util->dump_float_array
+  - add SPVM::Util->dump_double_array
+  - add SPVM::Util->dump_unsigned_byte_array
+  - add SPVM::Util->dump_unsigned_short_array
+  - add SPVM::Util->dump_unsigned_int_array
+  - add SPVM::Util->dump_unsigned_long_array
+  - add SPVM::Util->UINT8_MAX
+  - add SPVM::Util->UINT16_MAX
+  - add SPVM::Util->UINT32_MAX
+  - add SPVM::Util->UINT64_MAX
+  - rename SPVM::ArrayUtil->dump_byte_array to SPVM::ArrayUtil->dump_array_byte
+  - rename SPVM::ArrayUtil->dump_short_array to SPVM::ArrayUtil->dump_array_short
+  - rename SPVM::ArrayUtil->dump_int_array to SPVM::ArrayUtil->dump_array_int
+  - rename SPVM::ArrayUtil->dump_long_array to SPVM::ArrayUtil->dump_array_long
+  - rename SPVM::ArrayUtil->dump_float_array to SPVM::ArrayUtil->dump_array_float
+  - rename SPVM::ArrayUtil->dump_double_array to SPVM::ArrayUtil->dump_array_double
+  - rename SPVM::ArrayUtil->dump_object_array to SPVM::ArrayUtil->dump_array_object
+  - rename SPVM::ArrayUtil->dump_unsigned_byte_array to SPVM::ArrayUtil->dump_array_unsigned_byte
+  - rename SPVM::ArrayUtil->dump_unsigned_short_array to SPVM::ArrayUtil->dump_array_unsigned_short
+  - rename SPVM::ArrayUtil->dump_unsigned_int_array to SPVM::ArrayUtil->dump_array_unsigned_int
+  - rename SPVM::ArrayUtil->dump_unsigned_long_array to SPVM::ArrayUtil->dump_array_unsigned_long
+  - rename SPVM::ArrayUtil->copy_byte_array to SPVM::ArrayUtil->copy_array_byte
+  - rename SPVM::ArrayUtil->copy_short_array to SPVM::ArrayUtil->copy_array_short
+  - rename SPVM::ArrayUtil->copy_int_array to SPVM::ArrayUtil->copy_array_int
+  - rename SPVM::ArrayUtil->copy_long_array to SPVM::ArrayUtil->copy_array_long
+  - rename SPVM::ArrayUtil->copy_float_array to SPVM::ArrayUtil->copy_array_float
+  - rename SPVM::ArrayUtil->copy_double_array to SPVM::ArrayUtil->copy_array_double
+  - rename SPVM::ArrayUtil->copy_string_array to SPVM::ArrayUtil->copy_array_string
+  - rename SPVM::ArrayUtil->copy_object_array to SPVM::ArrayUtil->copy_array_object
+  - rename SPVM::ArrayUtil->equals_byte_array to SPVM::ArrayUtil->equals_array_byte
+  - rename SPVM::ArrayUtil->equals_short_array to SPVM::ArrayUtil->equals_array_short
+  - rename SPVM::ArrayUtil->equals_int_array to SPVM::ArrayUtil->equals_array_int
+  - rename SPVM::ArrayUtil->equals_long_array to SPVM::ArrayUtil->equals_array_long
+  - rename SPVM::ArrayUtil->equals_float_array to SPVM::ArrayUtil->equals_array_float
+  - rename SPVM::ArrayUtil->equals_double_array to SPVM::ArrayUtil->equals_array_double
+  - rename SPVM::ArrayUtil->equals_string_array to SPVM::ArrayUtil->equals_array_string
+  - rename SPVM::ArrayUtil->equals_object_array to SPVM::ArrayUtil->equals_array_object
+  - rename SPVM::ArrayUtil->new_object_array_proto to SPVM::ArrayUtil->new_array_proto
+
+0.0943 2021-04-19
+  - add <=> and cmp operator
+  - add {} array init syntax
+  - remove SPVM::Sort->sortstr
+  - change the definition of the following SPVM::Sort functions.
+    
+    [Before]
+    sub sortb : void ($nums : byte[])
+    [After]
+
+    [Before]
+    sub sorts : void ($nums : short[])
+    [After]
+    sub sorts : void ($nums : short[], $offset : int, $length : int, $comparator : SPVM::Comparator::Short)
+
+    [Before]
+    sub sorti : void ($nums : int[])
+    [After]
+    sub sorti : void ($nums : int[], $offset : int, $length : int, $comparator : SPVM::Comparator::Int)
+
+    [Before]
+    [After]
+    sub sortl : void ($nums : long[], $offset : int, $length : int, $comparator : SPVM::Comparator::Long)
+
+    [Before]
+    sub sub sortf : void ($nums : float[])
+    [After]
+    sub sub sortf : void ($nums : float[], $offset : int, $length : int, $comparator : SPVM::Comparator::Float)
+
+    [Before]
+    [After]
+    sub sortd : void ($nums : double[], $offset : int, $length : int, $comparator : SPVM::Comparator::Double)
+
+    [Before]
+    sub sorto : void ($objs : oarray, $comparator : SPVM::Comparator::Object)
+    [After]
+    sub sorto : void ($objs : oarray, $offset : int, $length : int, $comparator : SPVM::Comparator::Object)
+  - remove SPVM::Comparator
+  - add SPVM::Comparator::Byte
+  - add SPVM::Comparator::Short
+  - add SPVM::Comparator::Int
+  - add SPVM::Comparator::Long
+  - add SPVM::Comparator::Float
+  - add SPVM::Comparator::Double
+  - add SPVM::Comparator::Object
+
+0.0942 2021-04-15
+  - add ref operator to get object type name
+  - remove SPVM::Util->get_type_name. use ref operator instead of this.
+0.0941 2021-04-14
+  - add SPVM::Hash->newa again. argument become oarray type
+  
+    sub newa : SPVM::Hash ($key_values : oarray)
+    
+0.0940 2021-04-13
+  - add norw package variable descriptor
+  - add norw field descriptor
+  - rw become package variable declaration default
+  - rw become field declaration default
+0.0939 2021-04-13
+  - fix bug that oarray element can't assign undef
+  - Change SPVM::List values type from object[] to oarray.
+  - Change SPVM::List new definition
+    [before]
+    sub new : SPVM::List ($objects : object[])
+    [after]
+    sub new : SPVM::List ($objects : oarray)
+  - Change SPVM::List new_len definition
+    [before]
+    sub new_len : SPVM::List ($length : int)
+    [after]
+    sub new_len : SPVM::List ($proto_array : oarray, $length : int)
+  - Change SPVM::List new definition
+    [before]
+    sub to_array : object[] ($self : self)
+    [after]
+    sub to_array : oarray ($self : self)
+  - add any_object_basic_type_id native api
+0.0938 2021-04-09
+  - fix bug that segfault occur in SPVM::Builder->build_shared_lib_dist in syntax error
+  - add SPVM::List->resize method
+  - add SPVM::ByteList->resize method
+  - add SPVM::ShortList->resize method
+  - add SPVM::IntList->resize method
+  - add SPVM::LongList->resize method
+  - add SPVM::FloatList->resize method
+  - add SPVM::DoubleList->resize method
+0.0937 2021-04-06
+  - fix accessor get chain bug
+0.0936 2021-04-03
+  - fix bug that when variable argument is empty, compile error occur.
+0.0935 2021-04-02
+  - add the following native APIs
+    new_object_by_name,
+    new_pointer_by_name,
+    set_field_byte_by_name,
+    set_field_short_by_name,
+    set_field_int_by_name,
+    set_field_long_by_name,
+    set_field_float_by_name,
+    set_field_double_by_name,
+    set_field_object_by_name,
+    get_field_byte_by_name,
+    get_field_short_by_name,
+    get_field_int_by_name,
+    get_field_long_by_name,
+    get_field_float_by_name,
+    get_field_double_by_name,
+    get_field_object_by_name,
+    set_package_var_byte_by_name,
+    set_package_var_short_by_name,
+    set_package_var_int_by_name,
+    set_package_var_long_by_name,
+    set_package_var_float_by_name,
+    set_package_var_double_by_name,
+    set_package_var_object_by_name,
+    get_package_var_byte_by_name,
+    get_package_var_short_by_name,
+    get_package_var_int_by_name,
+    get_package_var_long_by_name,
+    get_package_var_float_by_name,
+    get_package_var_double_by_name,
+    get_package_var_object_by_name,
+    call_sub_by_name,
+    call_poly_sub_by_name,
+    get_field_string_chars_by_name,
+  - rename native api get_method_sub_id to get_sub_id_by_object
+  - remove the following native macro
+    SPVM_SUCCESS
+    SPVM_EXCEPTION
+    SPVM_NEW_OBJECT
+    SPVM_NEW_POINTER
+    SPVM_SET_PACKAGE_VAR_BYTE
+    SPVM_SET_PACKAGE_VAR_SHORT
+    SPVM_SET_PACKAGE_VAR_INT
+    SPVM_SET_PACKAGE_VAR_LONG
+    SPVM_SET_PACKAGE_VAR_FLOAT
+    SPVM_SET_PACKAGE_VAR_DOUBLE
+    SPVM_SET_PACKAGE_VAR_OBJECT
+    SPVM_GET_PACKAGE_VAR_BYTE
+    SPVM_GET_PACKAGE_VAR_SHORT
+    SPVM_GET_PACKAGE_VAR_INT
+    SPVM_GET_PACKAGE_VAR_LONG
+    SPVM_GET_PACKAGE_VAR_INT
+    SPVM_GET_PACKAGE_VAR_LONG
+    SPVM_GET_PACKAGE_VAR_FLOAT
+    SPVM_GET_PACKAGE_VAR_DOUBLE
+    SPVM_GET_PACKAGE_VAR_OBJECT
+    SPVM_SET_FIELD_BYTE
+    SPVM_SET_FIELD_SHORT
+    SPVM_SET_FIELD_INT
+    SPVM_SET_FIELD_LONG
+    SPVM_SET_FIELD_FLOAT
+    SPVM_SET_FIELD_DOUBLE
+    SPVM_SET_FIELD_OBJECT
+    SPVM_GET_FIELD_BYTE
+    SPVM_GET_FIELD_SHORT
+    SPVM_GET_FIELD_INT
+    SPVM_GET_FIELD_LONG
+    SPVM_GET_FIELD_INT
+    SPVM_GET_FIELD_LONG
+    SPVM_GET_FIELD_FLOAT
+    SPVM_GET_FIELD_DOUBLE
+    SPVM_GET_FIELD_OBJECT
+
+0.0934 2021-03-29
+  - add Add unsigned format for sprintf. %lu and %u.
+  - fix msys2 t/ext fail bug.
+  - fix spvmcc bug that if module name contain ::, compile fail.
+0.0933 2021-02-10
+  - Don't support old OpenBSD before 6.8.
+0.0932 2021-02-08
+  - spvmcc -I option module path order become top
+0.0931 2021-02-06
+  - SPVM::Config extra_compiler_flag related methods is removed
+    because I want to use extra_compiler_flag for spvmcc --ccflags option for future
+  - SPVM::Config extra_linker_flag related methods is removed
+    because I want to use extra_linker_flag for spvmcc --lddlflags option for future
+  - implement spvmcc -O option
+  - add --ccflags option to spvmcc
+  - add --lddlflags option to spvmcc
+  - add -f or --force option to spvmcc to compile and link force
+  - package part name must be start with lower case
+    (Invalid package name example) Foo::bar
+    because I want to use internal anon sub package name for this. Foo::anonsub_11_23
+  - fix bug anon sub code is not precompile if package have precompile descriptor
+  - exception message become more perlish
+    (Exception Message Example)
+    TestCase::OArray->basic called at t/default/lib/TestCase/OArray.spvm line 54
+  - add [CompileError] to compile error message
+0.0930 2021-01-28
+  - remove subroutine precompile descriptor. SPVM become only support whole package precompile.
+  - add SPVM::Builder::Exe again. This is more stable before SPVM::Builder::Exe because compiler and runtime and SPVM module sources is embeded to exe files directry.
+  - add spvmcc again
+  - remove SPVM::Byte, SPVM::Short, SPVM::Int, SPVM::Long, SPVM::Float, SPVM::Double source codes in module directry
+    because this is embded into compiler to run SPVM independent from moduel sources.
 0.0929 2020-12-23
   - remove cproj, cprojf from SPVM::Math because windows and macOS have a bug that right value don't return.
   - internal anon sub package name become unique

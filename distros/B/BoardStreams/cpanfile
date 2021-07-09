@@ -1,6 +1,20 @@
-requires 'perl', '5.008001';
+requires 'perl', '5.026';
+
+requires 'RxPerl::Mojo', 'v6.0.0';
+requires 'RxPerl', 'v6.5.0';
+requires 'Safe::Isa';
+requires 'Syntax::Keyword::Try';
+requires 'Struct::Diff';
+requires 'Mojo::Pg', '4.24';
+requires 'Moo';
+requires 'Throwable';
+requires 'autovivification';
+requires 'Future::AsyncAwait', '0.36';
+requires 'Mojolicious', '8.32';
+requires 'Data::GUID';
+requires 'Data::Dump';
+requires 'List::AllUtils';
 
 on 'test' => sub {
     requires 'Test::More', '0.98';
 };
-

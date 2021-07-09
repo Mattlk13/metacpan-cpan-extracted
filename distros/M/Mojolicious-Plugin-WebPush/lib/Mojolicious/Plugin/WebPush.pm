@@ -1,12 +1,13 @@
 package Mojolicious::Plugin::WebPush;
 use Mojo::Base 'Mojolicious::Plugin';
 use Mojo::JSON qw(decode_json encode_json);
+use Mojo::URL;
 use Crypt::PK::ECC;
 use MIME::Base64 qw(encode_base64url decode_base64url);
 use Crypt::JWT qw(encode_jwt decode_jwt);
 use Crypt::RFC8188 qw(ece_encrypt_aes128gcm);
 
-our $VERSION = '0.03';
+our $VERSION = '0.05';
 
 my @MANDATORY_CONF = qw(
   subs_session2user_p
@@ -46,8 +47,8 @@ sub _make_route_handler {
     return _error($c, $body) if !$decode_ok;
     eval { validate_subs_info($body) };
     return _error($c, $@) if $@;
-    return $subs_session2user_p->($c->session)->then(
-      sub { $subs_create_p->($_[0], $body) },
+    return $subs_session2user_p->($c, $c->session)->then(
+      sub { $subs_create_p->($c, $_[0], $body) },
     )->then(
       sub { $c->render(json => { data => { success => \1 } }) },
       sub { _error($c, @_) },
@@ -59,20 +60,16 @@ sub _make_auth_helper {
   my ($app, $conf) = @_;
   my $exp_offset = $conf->{claim_exp_offset} || 86400;
   my $key = Crypt::PK::ECC->new($conf->{ecc_private_key});
-  my $aud = $app->webpush->aud;
-  my $claims_start = { aud => $aud, sub => $conf->{claim_sub} };
+  my $claims_start = { sub => $conf->{claim_sub} };
   my $pkey = encode_base64url $key->export_key_raw('public');
   $app->helper('webpush.public_key' => sub { $pkey });
   sub {
-    my ($c) = @_;
-    my $claims = { exp => time + $exp_offset, %$claims_start };
+    my ($c, $subs_info) = @_;
+    my $aud = Mojo::URL->new($subs_info->{endpoint})->path(Mojo::Path->new->trailing_slash(0)).'';
+    my $claims = { aud => $aud, exp => time + $exp_offset, %$claims_start };
     my $token = encode_jwt key => $key, alg => 'ES256', payload => $claims;
     "vapid t=$token,k=$pkey";
   };
-}
-
-sub _aud_helper {
-  $_[0]->ua->server->url->path(Mojo::Path->new->trailing_slash(0)).'';
 }
 
 sub _verify_helper {
@@ -108,7 +105,7 @@ sub _send_helper {
       map decode_base64url($_), @{$subs_info->{keys}}{qw(p256dh auth)}
     );
     my $headers = {
-      Authorization => $c->webpush->authorization,
+      Authorization => $c->webpush->authorization($subs_info),
       'Content-Length' => length($body),
       'Content-Encoding' => 'aes128gcm',
       TTL => $ttl,
@@ -135,11 +132,10 @@ sub register {
   $app->helper('webpush.create_p' => sub {
     eval { validate_subs_info($_[2]) };
     return Mojo::Promise->reject($@) if $@;
-    $conf->{subs_create_p}->(@_[1,2]);
+    goto &{ $conf->{subs_create_p} };
   });
-  $app->helper('webpush.read_p' => sub { $conf->{subs_read_p}->($_[1]) });
-  $app->helper('webpush.delete_p' => sub { $conf->{subs_delete_p}->($_[1]) });
-  $app->helper('webpush.aud' => \&_aud_helper);
+  $app->helper('webpush.read_p' => $conf->{subs_read_p});
+  $app->helper('webpush.delete_p' => $conf->{subs_delete_p});
   $app->helper('webpush.authorization' => (grep !$conf->{$_}, @AUTH_CONF)
     ? sub { die "Must provide @AUTH_CONF\n" }
     : _make_auth_helper($app, $conf)
@@ -190,23 +186,23 @@ Mojolicious::Plugin::WebPush - plugin to aid real-time web push
   };
 
   sub subs_session2user_p {
-    my ($session) = @_;
+    my ($c, $session) = @_;
     return Mojo::Promise->reject("Session not logged in") if !$session->{user_id};
     Mojo::Promise->resolve($session->{user_id});
   }
 
   sub subs_create_p {
-    my ($session, $subs_info) = @_;
+    my ($c, $session, $subs_info) = @_;
     app->db->save_subs_p($session->{user_id}, $subs_info);
   }
 
   sub subs_read_p {
-    my ($user_id) = @_;
+    my ($c, $user_id) = @_;
     app->db->lookup_subs_p($user_id);
   }
 
   sub subs_delete_p {
-    my ($user_id) = @_;
+    my ($c, $user_id) = @_;
     app->db->delete_subs_p($user_id);
   }
 
@@ -362,19 +358,13 @@ for possibilities.
 
 =head2 webpush.authorization
 
-  my $header_value = $c->webpush->authorization;
+  my $header_value = $c->webpush->authorization($subs_info);
 
-Won't function without L</claim_sub> and L</ecc_private_key>. Returns
-a suitable C<Authorization> header value to send to a push service.
-Valid for a period defined by L</claim_exp_offset>. Not currently cached,
+Won't function without L</claim_sub> and L</ecc_private_key>, or
+C<$subs_info> having a valid URL to get the base of as the C<aud>
+claim. Returns a suitable C<Authorization> header value to send to
+a push service.  Valid for a period defined by L</claim_exp_offset>.
 but could become so to avoid unnecessary computation.
-
-=head2 webpush.aud
-
-  my $aud = $c->webpush->aud;
-
-Gives the app's value it will use for the C<aud> JWT claim, useful mostly
-for testing.
 
 =head2 webpush.public_key
 

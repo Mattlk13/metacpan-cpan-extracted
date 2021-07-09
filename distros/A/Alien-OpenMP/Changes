@@ -1,0 +1,17 @@
+0.003002 2021-05-20
+- fixed Makefile.PL (again)..
+  made sure Devel::CheckLib is added
+  to META.json by dzil
+
+0.003001 2021-05-12
+- fixed Makefile.PL
+
+0.003 2021-05-08
+- added Inline method for use with Inline::*
+  See POD for more info it's use.
+
+0.002 2021-04-20
+- support GCC on Linux
+
+0.001 2021-04-17
+- basic no-op

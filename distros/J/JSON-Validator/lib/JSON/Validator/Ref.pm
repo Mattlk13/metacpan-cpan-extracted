@@ -31,10 +31,16 @@ sub FETCH {
   return undef;
 }
 
+sub CLEAR {
+  my ($self) = @_;
+  $self->[0] = {};
+}
+
 # Make it look like there is only one key in the hash
 sub FIRSTKEY { scalar keys %{$_[0][0]}; each %{$_[0][0]} }
 sub NEXTKEY  { each %{$_[0][0]} }
 sub SCALAR   { scalar %{$_[0][0]} }
+sub STORE    { $_[0][0]{$_[1]} = $_[2] }
 
 sub TIEHASH {
   my ($class, $schema, $ref, $fqn) = @_;

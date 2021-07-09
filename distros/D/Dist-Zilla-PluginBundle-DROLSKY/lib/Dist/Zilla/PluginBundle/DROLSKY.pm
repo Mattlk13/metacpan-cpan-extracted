@@ -7,7 +7,7 @@ use warnings;
 use autodie;
 use namespace::autoclean;
 
-our $VERSION = '1.12';
+our $VERSION = '1.19';
 
 use Devel::PPPort 3.42;
 use Dist::Zilla 6.0;
@@ -30,7 +30,6 @@ use Dist::Zilla::Plugin::DROLSKY::License;
 use Dist::Zilla::Plugin::DROLSKY::MakeMaker;
 use Dist::Zilla::Plugin::DROLSKY::PerlLinterConfigFiles;
 use Dist::Zilla::Plugin::DROLSKY::Precious;
-use Dist::Zilla::Plugin::DROLSKY::RunExtraTests;
 use Dist::Zilla::Plugin::DROLSKY::Test::Precious;
 use Dist::Zilla::Plugin::DROLSKY::WeaverConfig;
 use Dist::Zilla::Plugin::EnsureChangesHasContent 0.02;
@@ -56,6 +55,7 @@ use Dist::Zilla::Plugin::PPPort;
 use Dist::Zilla::Plugin::PodSyntaxTests;
 use Dist::Zilla::Plugin::PromptIfStale 0.056;
 use Dist::Zilla::Plugin::ReadmeAnyFromPod;
+use Dist::Zilla::Plugin::RunExtraTests;
 use Dist::Zilla::Plugin::SurgicalPodWeaver;
 use Dist::Zilla::Plugin::Test::CPAN::Changes;
 use Dist::Zilla::Plugin::Test::CPAN::Meta::JSON;
@@ -202,12 +202,6 @@ has next_release_width => (
 );
 
 has use_github_homepage => (
-    is      => 'ro',
-    isa     => 'Bool',
-    default => 0,
-);
-
-has use_github_issues => (
     is      => 'ro',
     isa     => 'Bool',
     default => 0,
@@ -438,7 +432,7 @@ sub _github_plugins {
     return (
         [
             'GitHub::Meta' => {
-                bugs         => $self->use_github_issues,
+                bugs         => 1,
                 homepage     => $self->use_github_homepage,
                 require_auth => 1,
             },
@@ -458,7 +452,7 @@ sub _meta_plugins {
             MetaConfig
             MetaJSON
             MetaYAML
-            ),
+        ),
     );
 }
 
@@ -470,18 +464,6 @@ sub _meta_resources {
     unless ( $self->use_github_homepage ) {
         $resources{homepage}
             = sprintf( 'https://metacpan.org/release/%s', $self->dist );
-    }
-
-    unless ( $self->use_github_issues ) {
-        %resources = (
-            %resources,
-            'bugtracker.web' => sprintf(
-                'https://rt.cpan.org/Public/Dist/Display.html?Name=%s',
-                $self->dist
-            ),
-            'bugtracker.mailto' =>
-                sprintf( 'bug-%s@rt.cpan.org', lc $self->dist ),
-        );
     }
 
     return \%resources;
@@ -524,7 +506,7 @@ sub _explicit_prereq_plugins {
     my %shared_lint_prereqs = (
         'Perl::Critic'        => '1.138',
         'Perl::Critic::Moose' => '1.05',
-        'Perl::Tidy'          => '20201207',
+        'Perl::Tidy'          => '20210111',
     );
 
     if ( -e 'tidyall.ini' ) {
@@ -546,10 +528,9 @@ sub _explicit_prereq_plugins {
             'Prereqs' => 'Tools for use with precious' => {
                 -phase         => 'develop',
                 -type          => 'requires',
-                'Perl::Critic' => '1.126',
-                'Perl::Tidy'   => '20160302',
                 'Pod::Checker' => '1.74',
                 'Pod::Tidy'    => '0.10',
+                %shared_lint_prereqs,
             },
         );
     }
@@ -599,18 +580,17 @@ sub _prompt_if_stale_plugin {
                 check_authordeps  => 1,
                 skip              => [
                     qw(
+                        Dist::Zilla::Plugin::DROLSKY::BundleAuthordep
                         Dist::Zilla::Plugin::DROLSKY::Contributors
                         Dist::Zilla::Plugin::DROLSKY::Git::CheckFor::CorrectBranch
                         Dist::Zilla::Plugin::DROLSKY::License
                         Dist::Zilla::Plugin::DROLSKY::MakeMaker
                         Dist::Zilla::Plugin::DROLSKY::PerlLinterConfigFiles
                         Dist::Zilla::Plugin::DROLSKY::Precious
-                        Dist::Zilla::Plugin::DROLSKY::Role::CoreCounter
-                        Dist::Zilla::Plugin::DROLSKY::RunExtraTests
                         Dist::Zilla::Plugin::DROLSKY::Test::Precious
                         Dist::Zilla::Plugin::DROLSKY::WeaverConfig
                         Pod::Weaver::PluginBundle::DROLSKY
-                        )
+                    )
                 ],
             }
         ],
@@ -685,11 +665,10 @@ sub _default_stopwords {
 sub _extra_test_plugins {
     my $self = shift;
 
-    return (
+    my @plugins = (
         qw(
-            DROLSKY::RunExtraTests
-            DROLSKY::Test::Precious
             MojibakeTests
+            RunExtraTests
             Test::CleanNamespaces
             Test::CPAN::Changes
             Test::CPAN::Meta::JSON
@@ -697,11 +676,16 @@ sub _extra_test_plugins {
             Test::NoTabs
             Test::Portability
             Test::Synopsis
-            ),
+        ),
         [ 'Test::Compile'       => { xt_mode        => 1 } ],
         [ 'Test::ReportPrereqs' => { verify_prereqs => 1 } ],
         [ 'Test::Version'       => { is_strict      => 1 } ],
     );
+
+    push @plugins,
+        -f 'tidyall.ini' ? 'Test::TidyAll' : 'DROLSKY::Test::Precious';
+
+    return @plugins;
 }
 
 sub _contributors_plugins {
@@ -773,7 +757,7 @@ sub _release_check_plugins {
             DROLSKY::Git::CheckFor::CorrectBranch
             EnsureChangesHasContent
             Git::CheckFor::MergeConflicts
-            ),
+        ),
     );
 }
 
@@ -820,7 +804,7 @@ sub _git_plugins {
         qw(
             Git::Tag
             Git::Push
-            ),
+        ),
 
         # Bump all module versions.
         'BumpVersionAfterRelease',
@@ -848,7 +832,7 @@ sub _build_allow_dirty {
         qw(
             Changes
             precious.toml
-            )
+        )
     ];
 }
 
@@ -880,7 +864,7 @@ Dist::Zilla::PluginBundle::DROLSKY - DROLSKY's plugin bundle
 
 =head1 VERSION
 
-version 1.12
+version 1.19
 
 =head1 SYNOPSIS
 
@@ -915,8 +899,6 @@ version 1.12
     stopwords_file = ..
     ; Defaults to false
     use_github_homepage = 0
-    ; Defaults to false
-    use_github_issues = 0
 
 =head1 DESCRIPTION
 
@@ -976,16 +958,13 @@ This is more or less equivalent to the following F<dist.ini>:
     copy = ppport.h
 
     [GitHub::Meta]
-    ; Configured by setting use_github_issues for the bundle
-    bugs = 0
+    bugs = 1
     ; Configured by setting use_github_homepage for the bundle
     homepage = 0
 
     [MetaResources]
     homepage = https://metacpan.org/release/My-Module
-    ; RT bits are omitted if use_github_issues is true
-    bugtracker.web  = https://rt.cpan.org/Public/Dist/Display.html?Name=My-Module
-    bugtracker.mail = bug-My-Module@rt.cpan.org
+    bugtracker.web  = https://github.com/...
 
     [MetaProvides::Pckage]
     meta_noindex = 1
@@ -1014,8 +993,11 @@ This is more or less equivalent to the following F<dist.ini>:
     [Prereqs / Modules for use with precious]
     -phase = develop
     -type  = requires
-    Perl::Critic                      = 1.126
-    Perl::Tidy                        = 20160302
+    Perl::Critic        = 1.138
+    Perl::Critic::Moose = 1.05
+    Perl::Tidy          = 20210111
+    Pod::Checker        = 1.74
+    Pod::Tidy           = 0.10
 
     [Prereqs / Test::Version which fixes https://github.com/plicease/Test-Version/issues/7]
     -phase = develop
@@ -1031,14 +1013,14 @@ This is more or less equivalent to the following F<dist.ini>:
     check_all_plugins = 1
     check_all_prereqs = 1
     check_authordeps  = 1
+    skip = Dist::Zilla::Plugin::DROLSKY::BundleAuthordep
     skip = Dist::Zilla::Plugin::DROLSKY::Contributors
     skip = Dist::Zilla::Plugin::DROLSKY::Git::CheckFor::CorrectBranch
     skip = Dist::Zilla::Plugin::DROLSKY::License
     skip = Dist::Zilla::Plugin::DROLSKY::MakeMaker
     skip = Dist::Zilla::Plugin::DROLSKY::PerlLinterConfigFiles
     skip = Dist::Zilla::Plugin::DROLSKY::Precious
-    skip = Dist::Zilla::Plugin::DROLSKY::Role::CoreCounter
-    skip = Dist::Zilla::Plugin::DROLSKY::RunExtraTests
+    skip = Dist::Zilla::Plugin::DROLSKY::Test::Precious
     skip = Dist::Zilla::Plugin::DROLSKY::WeaverConfig
     skip = Pod::Weaver::PluginBundle::DROLSKY
 
@@ -1056,7 +1038,6 @@ This is more or less equivalent to the following F<dist.ini>:
 
     [PodSyntaxTests]
 
-    [DROLSKY::RunExtraTests]
     [DROLSKY::Test::Precious]
     [MojibakeTests]
     [Test::CleanNamespaces]
@@ -1195,11 +1176,21 @@ button at L<https://www.urth.org/fs-donation.html>.
 
 Dave Rolsky <autarch@urth.org>
 
-=head1 CONTRIBUTOR
+=head1 CONTRIBUTORS
 
-=for stopwords Mark Fowler
+=for stopwords Karen Etheridge Mark Fowler
+
+=over 4
+
+=item *
+
+Karen Etheridge <ether@cpan.org>
+
+=item *
 
 Mark Fowler <mark@twoshortplanks.com>
+
+=back
 
 =head1 COPYRIGHT AND LICENSE
 

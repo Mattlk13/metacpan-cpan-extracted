@@ -1,5 +1,5 @@
 package Photonic::WE::R2::OneH;
-$Photonic::WE::R2::OneH::VERSION = '0.014';
+$Photonic::WE::R2::OneH::VERSION = '0.017';
 
 =encoding UTF-8
 
@@ -8,7 +8,7 @@ $Photonic::WE::R2::OneH::VERSION = '0.014';
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -37,18 +37,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
 use namespace::autoclean;
 use PDL::Lite;
 use PDL::NiceSlice;
-use PDL::FFTW3;
-use PDL::Complex;
-use List::Util;
 use Carp;
 use Moose;
 use MooseX::StrictConstructor;
-use Photonic::Utils qw(MHProd);
+use Photonic::Utils qw(MHProd any_complex GtoR RtoG);
+use Photonic::Types;
 
 has 'metric'=>(is=>'ro', isa => 'Photonic::WE::R2::Metric',
     handles=>[qw(B ndims dims epsilon)],required=>1);
-has 'polarization' =>(is=>'ro', required=>1, isa=>'PDL::Complex');
-has 'normalizedPolarization' =>(is=>'ro', isa=>'PDL::Complex',
+has 'polarization' =>(is=>'ro', required=>1, isa=>'Photonic::Types::PDLComplex');
+has 'normalizedPolarization' =>(is=>'ro', isa=>'Photonic::Types::PDLComplex',
      init_arg=>undef, writer=>'_normalizedPolarization');
 has 'complexCoeffs'=>(is=>'ro', init_arg=>undef, default=>0,
 		      documentation=>'Haydock coefficients are real');
@@ -61,17 +59,17 @@ sub applyOperator {
     my $mask=undef;
     $mask=$self->mask if $self->use_mask;
     my $gpsi=$self->applyMetric($psi);
-    # gpsi is RorI xyz nx ny nz. Get cartesian out of the way and
-    # transform to real space. Note FFFTW3 wants real PDL's[2,...]
-    my $gpsi_r=ifftn($gpsi->real->mv(1,-1), $self->ndims);
-    #$psi_r is RorI nx ny nz  xyz, B is nx ny nz
+    # gpsi is xyz nx ny nz. Get cartesian out of the way and
+    # transform to real space. Note FFTW3 wants real PDL's[2,...]
+    my $gpsi_r=GtoR($gpsi, $self->ndims, 1)->mv(0,-1);
+    #$psi_r is nx ny nz  xyz, B is nx ny nz
     # Multiply by characteristic function
-    my $Bgpsi_r=Cscale($gpsi_r,$self->B);
-    #Bpsi_r is RorI nx ny nz  xyz
+    my $Bgpsi_r=$gpsi_r * $self->B->r2C;
+    #Bpsi_r is nx ny nz  xyz
     #Transform to reciprocal space, move xyz back and make complex,
-    my $psi_G=fftn($Bgpsi_r, $self->ndims)->mv(-1,1)->complex;
+    my $psi_G=RtoG($Bgpsi_r->mv(-1,0), $self->ndims, 1);
     #Apply mask
-    #psi_G is ri:xy:nx:ny mask is nx:ny
+    #psi_G is xy:nx:ny mask is nx:ny
     $psi_G=$psi_G*$mask->(*1) if defined $mask; #use dummy for xy
     return $psi_G;
 }
@@ -79,11 +77,11 @@ sub applyOperator {
 sub applyMetric {
     my $self=shift;
     my $psi=shift;
-    #psi is RorI xy.. nx ny..
+    #psi is xy.. nx ny..
     my $g=$self->metric->value;
     #$g is xyz xyz nx ny nz
-    my $gpsi=($g*$psi(:,:,*1))->sumover; #matrix times vector
-    #$gpsi is RorI xy.. nx ny..
+    my $gpsi=($g*$psi(:,*1))->sumover; #matrix times vector
+    #$gpsi is xy.. nx ny..
     return $gpsi;
 }
 
@@ -109,15 +107,14 @@ sub _firstState {
     my $self=shift;
     my $d=$self->ndims;
     my $v=PDL->zeroes(@{$self->dims}); #build a nx ny nz pdl
-    my $arg="(0)" . ",(0)" x ($d-1); #(0),(0),... ndims times
+    my $arg=join ',', ("(0)") x $d; #(0),(0),... ndims times
     $v->slice($arg).=1; #delta_{G0}
-    my $e=$self->polarization; #RorI xyz
-    croak "Polarization has wrong dimensions. " .
-	  " Should be $d-dimensional complex vector."
-	unless $e->isa('PDL::Complex') && $e->ndims==2 &&
-	[$e->dims]->[0]==2 && [$e->dims]->[1]==$d;
-    my $modulus2=$e->Cabs2->sumover;
-    croak "Polarization should be non null" unless
+    my $e=$self->polarization; #xyz
+    confess "Polarization has wrong dimensions. " .
+	  " Should be $d-dimensional complex vector, got ($e)."
+	unless any_complex($e) && $e->dim(0)==$d;
+    my $modulus2=$e->abs2->sumover;
+    confess "Polarization should be non null" unless
 	$modulus2 > 0;
     $e=$e/sqrt($modulus2);
     $self->_normalizedPolarization($e);
@@ -125,7 +122,6 @@ sub _firstState {
                        # RorI xyz nx ny nz
     return $phi;
 }
-
 
 __PACKAGE__->meta->make_immutable;
 
@@ -137,7 +133,7 @@ Photonic::OneH::R2
 
 =head1 VERSION
 
-version 0.014
+version 0.017
 
 =head1 SYNOPSIS
 
@@ -167,7 +163,7 @@ field along the complex direction $e and with smallness parameter  $s.
 
 =back
 
-=head1 ACCESORS (read only)
+=head1 ACCESSORS (read only)
 
 =over 4
 
@@ -177,7 +173,7 @@ A Photonic::Metric::R2 object defining the geometry of the
 system, the charateristic function, the wavenumber, wavevector and
 host dielectric function. Required in the initializer.
 
-=item * polarization PDL::Complex
+=item * polarization
 
 A non null vector defining the complex direction of the macroscopic
 field.
@@ -242,7 +238,7 @@ mask in reciprocal space.
 
 Returns the inner Hermitian product between states using the metric.
 
-=item * $s=magnitude($self, $psi)
+=item * $s=magnitude($psi)
 
 Returns the magnitude of a state as the square root of
 the inner product of the state with itself.
@@ -259,7 +255,7 @@ Returns 1 if sign change is required to ensure b^2 is positive.
 
 =item *  _firstState
 
-Returns the fisrt state $v.
+Returns the first state $v.
 
 =back
 

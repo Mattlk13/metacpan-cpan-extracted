@@ -3,7 +3,7 @@
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -31,26 +31,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
 use strict;
 use warnings;
 use PDL;
-use PDL::NiceSlice;
-use PDL::Complex;
 use Photonic::Geometry::FromEpsilon;
 use Photonic::LE::NP::OneH;
 
-use Test::More tests => 4;
-
-#my $pi=4*atan2(1,1);
-
-sub Cagree {
-    my $a=shift;
-    my $b=shift//0;
-    return (($a-$b)->Cabs2)->sum<=1e-7;
-}
+use Test::More;
+use lib 't/lib';
+use TestUtils;
 
 #Check haydock coefficients for simple 1D system
 #1D system e=1 or 2
 my ($ea, $eb)=(1+2*i, 3+4*i);
 my $f=6/11;
-my $eps=$ea*(zeroes(11)->xvals<5)+ $eb*(zeroes(11)->xvals>=5)+0*i;
+my $eps=r2C($ea*(zeroes(11)->xvals<5)+ $eb*(zeroes(11)->xvals>=5));
 my $g=Photonic::Geometry::FromEpsilon
     ->new(epsilon=>$eps, Direction0=>pdl([1]));
 my $o=Photonic::LE::NP::OneH->new(geometry=>$g);
@@ -60,3 +52,8 @@ ok(Cagree(pdl($o->next_b2), ($eb-$ea)**2*$f*(1-$f)), "1D b_1^2");
 $o->iterate;
 ok(Cagree(pdl($o->current_a), $ea*$f+$eb*(1-$f)), "1D a_1");
 ok(Cagree(pdl($o->next_b2), 0), "1D b_2^2");
+my $x = zeroes(1, 2, 11)->r2C;
+$x->slice(':,0') .= 1;
+ok approx($o->magnitude($x), 3.3166247903554), "magnitude";
+
+done_testing;

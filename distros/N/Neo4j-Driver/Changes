@@ -1,5 +1,33 @@
 Revision history for Neo4j::Driver
 
+0.25  2021-06-30
+
+ - deprecate experimental Cypher type system customisation
+ - deprecate experimental run() with array of multiple statements
+
+0.24  2021-06-21  (TRIAL RELEASE)
+
+ - Jolt is enabled by default and no longer experimental
+ - Bolt for Neo4j 4 is no longer experimental
+
+0.23  2021-04-23
+
+ - work around breaking change in Neo4j 4.2.5 Jolt implementation
+
+0.22  2021-02-11
+
+ - allow statements to begin with whitespace (fix issue #13)
+ - fix test failing in old Perls with non-English locale (issue #12)
+
+0.21  2021-02-06
+
+ - add experimental support for HTTP responses in Jolt format
+ - add experimental option for custom networking modules
+ - announce future switch from Neo4j::Driver::Type::* to Neo4j::Types::*
+ - fix Node->labels() method, which could die on nodes without labels (issue #11)
+ - declare Time::Piece 1.20 dependency (for Perl < 5.14)
+ - remove REST::Client dependency
+
 0.20  2021-01-10
 
  - track timeout of HTTP transactions

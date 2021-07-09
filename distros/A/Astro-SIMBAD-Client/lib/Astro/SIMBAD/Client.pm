@@ -21,25 +21,27 @@ VO-format queries) as of June 4 2014, I have revised the transition plan
 announced with the release of 0.027_01 on October 28 2014.
 
 What I have done as of version 0.031_01 is to add attribute
-C<emulate_soap_queries>. This is false by default. If this attribute is
+C<emulate_soap_queries>. This was false by default. If this attribute is
 true, the C<query()> method and friends, instead of issuing a SOAP
 request to the SIMBAD server, will instead construct an equivalent
 script query, and issue that. The deprecation warning will not be issued
 if C<emulate_soap_queries> is true, since the SOAP interface is not
 being used.
 
-I intend to make the default value of C<emulate_soap_queries> true in
-the first release on or after October 1 2014, assuming SOAP queries work
-for that long.
+As of March 22 2021, SOAP queries started returning 404. Because of
+this, I have made the default of C<emulate_soap_queries> true. Well,
+actually I have made it the Boolean inverse of environment variable
+L<ASTRO_SIMBAD_CLIENT_USE_SOAP|/ASTRO_SIMBAD_CLIENT_USE_SOAP>. This is
+mostly for my benefit, so I can see if SOAP has come back.
 
-When the SOAP servers go out of service (and I notice) SOAP queries will
-become fatal, and the default value of C<emulate_soap_queries> will
-become true if it is not already.
+If SOAP still has not come back after six months, SOAP queries will
+become fatal, as will setting C<emulate_soap_queries> to a false value.
 
 Eventually the SOAP code will be removed. In the meantime all tests are
-marked TODO, and support of SOAP by this module will be on a best-effort
-basis; that is, if I can make it work without a huge amount of work I
-will -- otherwise SOAP will become unsupported.
+skipped unless C<ASTRO_SIMBAD_CLIENT_USE_SOAP> is true, and are marked
+TODO. Support of SOAP by this module will be on a best-effort basis;
+that is, if I can make it work without a huge amount of work I will --
+otherwise SOAP will become unsupported.
 
 =head1 DESCRIPTION
 
@@ -116,7 +118,7 @@ BEGIN {
 	|| sub { return $_[0] };
 }
 
-our $VERSION = '0.043';
+our $VERSION = '0.045';
 
 our @CARP_NOT = qw{Astro::SIMBAD::Client::WSQueryInterfaceService};
 
@@ -185,7 +187,7 @@ my %static = (
     autoload => 1,
     debug => 0,
     delay => 3,
-    emulate_soap_queries	=> 0,
+    emulate_soap_queries	=> ! $ENV{ASTRO_SIMBAD_CLIENT_USE_SOAP},
     format => {
 	txt => FORMAT_TXT_YAML_BASIC,
 	vo => FORMAT_VO_BASIC,
@@ -321,7 +323,6 @@ sub Parse_TXT_Simple {
     }
     return @data;
 }
-
 
 =item $result = Parse_VO_Table ($data);
 
@@ -686,7 +687,6 @@ EOD
 
 }	# End local symbol block.
 
-
 =item $value = $simbad->queryObjectByBib ($bibcode, $format, $type);
 
 This method is B<deprecated>, and will cease to work on December 31
@@ -887,7 +887,6 @@ sub script {
     }
 }
 
-
 =item $value = $simbad->script_file ($filename);
 
 This method submits the given script file to SIMBAD, returning the
@@ -897,7 +896,6 @@ parser for 'script' has been specified, it will be applied to the
 output.
 
 =cut
-
 
 sub script_file {
     my ( $self, $file ) = @_;
@@ -1035,7 +1033,6 @@ it sets the default value of the attribute.
 
 }	# End local symbol block.
 
-
 =item $value = $simbad->url_query ($type => ...)
 
 This method performs a query by URL, returning the results. The type
@@ -1047,7 +1044,7 @@ is one of:
  sam = query by criteria.
 
 The arguments depend on on the type, and are documented at
-L<http://simbad.u-strasbg.fr/simbad/sim-help?Page=sim-url>. They are
+L<http://simbad.u-strasbg.fr/guide/sim-url.htx>. They are
 specified as name => value. For example:
 
  $simbad->url_query (id =>
@@ -1125,7 +1122,6 @@ eod
 
 }	# End local symbol block.
 
-
 ########################################################################
 #
 #	Utility routines
@@ -1181,7 +1177,6 @@ sub _callers_caller {
 	return ($last{$self->{server}} = time);
     }
 }
-
 
 #	$self->_deprecation_notice( $type, $name );
 #
@@ -1521,9 +1516,9 @@ Strasbourg shuts down its SOAP server.
 
 This attribute holds the default format for a given query()
 output type. It is specified as a reference to a hash. See
-L<http://simweb.u-strasbg.fr/simbad/sim-help?Page=sim-fscript> for how
-to specify formats for each output type. Output type 'script' is used to
-specify a format for the script() method.
+L<http://simbad.u-strasbg.fr/guide/sim-fscript.htx> for how to specify
+formats for each output type. Output type 'script' is used to specify a
+format for the script() method.
 
 The format can be specified either literally, or as a subroutine name or
 code reference. A string is assumed to be a subroutine name if it looks
@@ -1664,6 +1659,13 @@ default for the C<'server'> attribute. It is read when the module is
 loaded. If you want to change the default after the module has been
 loaded, make a static call to C<set()>.
 
+=head2 ASTRO_SIMBAD_CLIENT_USE_SOAP
+
+The Boolean inverse of this environment variable specifies the default
+for the C<'emulate_soap_queries'> attribute. It is read when the module
+is loaded. If you want to change the default after the module has been
+loaded, make a static call to C<set()>.
+
 =head2 L<LWP::UserAgent|LWP::UserAgent>
 
 The following environment variables control use of a proxy server. They
@@ -1692,6 +1694,7 @@ server.
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
+L<https://rt.cpan.org/Public/Dist/Display.html?Name=Astro-SIMBAD-Client>,
 L<https://github.com/trwyant/perl-Astro-SIMBAD-Client/issues>, or in
 electronic mail to the author.
 

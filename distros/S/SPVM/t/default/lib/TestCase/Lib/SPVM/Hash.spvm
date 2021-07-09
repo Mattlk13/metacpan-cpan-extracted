@@ -1,97 +1,204 @@
 package TestCase::Lib::SPVM::Hash {
   use SPVM::Int;
   use SPVM::Hash;
-  use SPVM::Comparator;
+  use SPVM::Comparator::Object;
   use SPVM::List;
-  use SPVM::Util;
-  use SPVM::Sort;
+  use SPVM::NumberUtil;
+  use SPVM::ArrayUtil;
+  use SPVM::Comparator::Object;
+  use SPVM::Comparator::Int;
 
-  sub test_set_get_numeric : int () {
+  sub new : int () {
+    # undef
+    {
+      my $hash = SPVM::Hash->new(undef);
+      my $keys = $hash->keys;
+      unless (@$keys == 0) {
+        return 0;
+      }
+    }
     
-    my $hash = SPVM::Hash->new;
+    # Empty array
+    {
+      my $hash = SPVM::Hash->new({});
+      my $keys = $hash->keys;
+      unless (@$keys == 0) {
+        return 0;
+      }
+    }
     
+    # object array
+    {
+      my $hash = SPVM::Hash->new({foo => 1, bar => 3L});
+      my $keys = $hash->keys;
+      unless (@$keys == 2) {
+        return 0;
+      }
+      
+      {
+        my $foo = (SPVM::Int)$hash->get("foo");
+        unless ($foo->value == 1) {
+          return 0;
+        }
+        my $bar = (SPVM::Long)$hash->get("bar");
+        unless ($bar->value == 3) {
+          return 0;
+        }
+      }
+
+      {
+        my $foo = (int)$hash->get("foo");
+        unless ($foo == 1) {
+          return 0;
+        }
+      }
+    }
+
+    # string array
+    {
+      my $hash = SPVM::Hash->new({foo => "4px", bar => "5px"});
+      my $keys = $hash->keys;
+      unless (@$keys == 2) {
+        return 0;
+      }
+      
+      {
+        my $foo = (string)$hash->get("foo");
+        unless ($foo && $foo eq "4px") {
+          return 0;
+        }
+        my $bar = (string)$hash->get("bar");
+        unless ($bar && $bar eq "5px") {
+          return 0;
+        }
+      }
+    }
+    
+    # Exception
+    {
+      # odd number array
+      {
+        eval { SPVM::Hash->new([foo => "4px", "bar"]); };
+        unless ($@) {
+          return 0;
+        }
+      }
+      
+      # Key must be string
+      {
+        eval { SPVM::Hash->new({1 => "4px"}); };
+        unless ($@) {
+          return 0;
+        }
+      }
+      
+    }
+    
+    $@ = undef;
+    
+    return 1;
+  }
+
+  sub set_get_numeric : int () {
+
+    my $hash = SPVM::Hash->new({});
+
     # set_byte, get_byte
     {
-      $hash->set_byte(foo => SPVM::Util->INT8_MAX());
+      $hash->set_byte(foo => SPVM::NumberUtil->INT8_MAX());
       unless ($hash->get("foo") isa SPVM::Byte) {
         return 0;
       }
       my $value = $hash->get_byte("foo");
-      
-      unless ($value == SPVM::Util->INT8_MAX()) {
+
+      unless ($value == SPVM::NumberUtil->INT8_MAX()) {
         return 0;
       }
     }
 
     # set_short, get_short
     {
-      $hash->set_short(foo => SPVM::Util->INT16_MAX());
+      $hash->set_short(foo => SPVM::NumberUtil->INT16_MAX());
       unless ($hash->get("foo") isa SPVM::Short) {
         return 0;
       }
       my $value = $hash->get_short("foo");
-      
-      unless ($value == SPVM::Util->INT16_MAX()) {
+
+      unless ($value == SPVM::NumberUtil->INT16_MAX()) {
         return 0;
       }
     }
 
     # set_int, get_int
     {
-      $hash->set_int(foo => SPVM::Util->INT32_MAX());
+      $hash->set_int(foo => SPVM::NumberUtil->INT32_MAX());
       unless ($hash->get("foo") isa SPVM::Int) {
         return 0;
       }
       my $value = $hash->get_int("foo");
-      
-      unless ($value == SPVM::Util->INT32_MAX()) {
+
+      unless ($value == SPVM::NumberUtil->INT32_MAX()) {
+        return 0;
+      }
+    }
+
+    # set_string, get_string
+    {
+      my $str = "bar";
+      $hash->set_string(foo => $str);
+      unless ($hash->get_string("foo") isa string) {
+        return 0;
+      }
+      my $value = $hash->get_string("foo");
+
+      unless ($value == $str) {
         return 0;
       }
     }
 
     # set_long, get_long
     {
-      $hash->set_long(foo => SPVM::Util->INT64_MAX());
+      $hash->set_long(foo => SPVM::NumberUtil->INT64_MAX());
       unless ($hash->get("foo") isa SPVM::Long) {
         return 0;
       }
       my $value = $hash->get_long("foo");
-      
-      unless ($value == SPVM::Util->INT64_MAX()) {
+
+      unless ($value == SPVM::NumberUtil->INT64_MAX()) {
         return 0;
       }
     }
 
     # set_float, get_float
     {
-      $hash->set_float(foo => SPVM::Util->FLT_MIN());
+      $hash->set_float(foo => SPVM::NumberUtil->FLT_MIN());
       unless ($hash->get("foo") isa SPVM::Float) {
         return 0;
       }
       my $value = $hash->get_float("foo");
-      
-      unless ($value == SPVM::Util->FLT_MIN()) {
+
+      unless ($value == SPVM::NumberUtil->FLT_MIN()) {
         return 0;
       }
     }
 
     # set_double, get_double
     {
-      $hash->set_double(foo => SPVM::Util->DBL_MIN());
+      $hash->set_double(foo => SPVM::NumberUtil->DBL_MIN());
       unless ($hash->get("foo") isa SPVM::Double) {
         return 0;
       }
       my $value = $hash->get_double("foo");
-      
-      unless ($value == SPVM::Util->DBL_MIN()) {
+
+      unless ($value == SPVM::NumberUtil->DBL_MIN()) {
         return 0;
       }
     }
-    
+
     return 1;
   }
 
-  sub test_murmur_hash : int () {
+  sub murmur_hash : int () {
     my $seed = 123456789;
     # Testcase is created from https://github.com/gcc-mirror/gcc/blob/master/libstdc++-v3/libsupc++/hash_bytes.cc#L72-L112
     # Change size_t to uint32_t to use 32bit integer.
@@ -107,10 +214,10 @@ package TestCase::Lib::SPVM::Hash {
     return 1;
   }
 
-  sub test_set : int () {
+  sub set : int () {
     my $keys = ["alice", "bob", "carol", "1234567890-="];
     my $vals = [SPVM::Int->new(1), SPVM::Int->new(2), undef, SPVM::Int->new(3)];
-    my $hash = SPVM::Hash->new;
+    my $hash = SPVM::Hash->new({});
     for (my $i = 0; $i < @$keys; ++$i) {
       $hash->set($keys->[$i], $vals->[$i]);
     }
@@ -125,8 +232,8 @@ package TestCase::Lib::SPVM::Hash {
     return 1;
   }
 
-  sub test_set_do_not_refer_caller_key : int () {
-    my $hash = SPVM::Hash->new;
+  sub set_do_not_refer_caller_key : int () {
+    my $hash = SPVM::Hash->new({});
     my $key = "a";
     $hash->set($key, SPVM::Int->new(1));
     $key = "b";
@@ -139,13 +246,13 @@ package TestCase::Lib::SPVM::Hash {
     return 1;
   }
 
-  sub test_get : int () {
-    my $hash = SPVM::Hash->new;
+  sub get : int () {
+    my $hash = SPVM::Hash->new({});
     $hash->set_int("a" => 1);
     $hash->set("b" => undef);
     $hash->set("c" => "str");
-    
-    unless (((SPVM::Int)($hash->get("a")))->val == 1) {
+
+    unless (((SPVM::Int)($hash->get("a")))->value == 1) {
       return 0;
     }
     unless ($hash->get("b") == undef) {
@@ -160,10 +267,10 @@ package TestCase::Lib::SPVM::Hash {
     return 1;
   }
 
-  sub test_exists : int () {
+  sub exists : int () {
     my $keys = ["alice", "bob"];
     my $vals = [SPVM::Int->new(1), SPVM::Int->new(2)];
-    my $hash = SPVM::Hash->new;
+    my $hash = SPVM::Hash->new({});
     for (my $i = 0; $i < @$keys; ++$i) {
       $hash->set($keys->[$i], $vals->[$i]);
     }
@@ -178,11 +285,11 @@ package TestCase::Lib::SPVM::Hash {
     return 1;
   }
 
-  sub test_delete_with_no_hash_collision : int () {
-    my $hash = SPVM::Hash->new;
+  sub delete_with_no_hash_collision : int () {
+    my $hash = SPVM::Hash->new({});
     $hash->set("alice", SPVM::Int->new(1));
     $hash->set("bob", SPVM::Int->new(2));
-    unless (((SPVM::Int)($hash->delete("alice")))->val == 1) {
+    unless (((SPVM::Int)($hash->delete("alice")))->value == 1) {
       return 0;
     }
     unless ($hash->exists("alice") == 0) {
@@ -206,11 +313,11 @@ package TestCase::Lib::SPVM::Hash {
     return 1;
   }
 
-  sub test_delete_with_hash_collision : int () {
-    my $hash = SPVM::Hash->new;
+  sub delete_with_hash_collision : int () {
+    my $hash = SPVM::Hash->new({});
     $hash->set("alice", SPVM::Int->new(1));
     $hash->set("bob", SPVM::Int->new(2));
-    unless (((SPVM::Int)$hash->delete("alice"))->val == 1) {
+    unless (((SPVM::Int)$hash->delete("alice"))->value == 1) {
       return 0;
     }
     unless ($hash->exists("alice") == 0) {
@@ -225,11 +332,11 @@ package TestCase::Lib::SPVM::Hash {
     unless ($hash->count == 1) {
       return 0;
     }
-    
+
     unless ($hash->exists("bob") == 1) {
       return 0;
     }
-    unless (((SPVM::Int)($hash->delete("bob")))->val == 2) {
+    unless (((SPVM::Int)($hash->delete("bob")))->value == 2) {
       return 0;
     }
     unless ($hash->count == 0) {
@@ -241,107 +348,111 @@ package TestCase::Lib::SPVM::Hash {
     return 1;
   }
 
-  sub test_rehash : int () {
+  sub rehash : int () {
     my $initial_capacity = 16;
-    my $hash = SPVM::Hash->new;
+    my $hash = SPVM::Hash->new({});
     for (my $i = 0; $i < 14; ++$i) {
       my $key = "key" . $i;
       $hash->set_int($key => $i);
     }
-    
+
     unless ($hash->_bucket_count == $initial_capacity * 2) {
       return 0;
     }
     unless (@{$hash->_entries} == $initial_capacity * 2) {
       return 0;
     }
-    
+
     unless ($hash->get_int("key12") == 12) {
       return 0;
     }
-    
+
     return 1;
   }
 
-  sub test_keys : int () {
-    my $hash = SPVM::Hash->new;
+  sub keys : int () {
+    my $hash = SPVM::Hash->new({});
     my $key0 = "a";
     my $key1 = "b";
     my $key2 = "c";
-    
+
     $hash->set_int($key0 => 1);
     $hash->set_int($key1 => 2);
     $hash->set_int($key2 => 3);
-    
+
     my $keys = $hash->keys;
 
     unless (@$keys == 3) {
       return 0;
     }
-    
-    SPVM::Sort->sortstr($keys);
-    
+
+    SPVM::ArrayUtil->sort_object($keys, 0, scalar @$keys, sub : int ($self : self, $a : object, $b : object) {
+      return (string)$a cmp (string)$b;
+    });
+
     unless ($keys->[0] == $key0) {
       return 0;
     }
-    
+
     unless ($keys->[1] == $key1) {
       return 0;
     }
-    
+
     unless ($keys->[2] == $key2) {
       return 0;
     }
-    
+
     return 1;
   }
 
-  sub test_values : int () {
-    my $hash = SPVM::Hash->new;
+  sub values : int () {
+    my $hash = SPVM::Hash->new({});
     my $key0 = "a";
     my $key1 = "b";
     my $key2 = "c";
-    
+
     $hash->set_int($key0 => 1);
     $hash->set_int($key1 => 2);
     $hash->set_int($key2 => 3);
-    
+
     my $values = $hash->values;
 
     unless (@$values == 3) {
       return 0;
     }
-    
+
     my $int_values = new int[3];
     $int_values->[0] = (int)$values->[0];
     $int_values->[1] = (int)$values->[1];
     $int_values->[2] = (int)$values->[2];
-    
-    SPVM::Sort->sorti($int_values);
-    
+
+    SPVM::ArrayUtil->sort_int($int_values, 0, scalar @$int_values, sub : int ($self : self, $a : int, $b : int) {
+      return $a <=> $b;
+    });
+
     unless ($int_values->[0] == 1) {
       return 0;
     }
-    
+
     unless ($int_values->[1] == 2) {
       return 0;
     }
-    
+
     unless ($int_values->[2] == 3) {
       return 0;
     }
-    
+
     return 1;
   }
 
-  sub test_copy : int () {
-    my $hash = SPVM::Hash->new;
+  sub copy : int () {
+    my $hash = SPVM::Hash->new({});
     for (my $i = 0; $i < 3; ++$i) {
       $hash->set("key$i", $i);
     }
     my $copied = $hash->copy;
     for (my $i = 0; $i < 3; ++$i) {
-      unless (((SPVM::Int)$copied->get("key$i"))->val == $i) {
+      unless (((SPVM::Int)$copied->get("key$i"))->value == $i) {
         return 0;
       }
     }

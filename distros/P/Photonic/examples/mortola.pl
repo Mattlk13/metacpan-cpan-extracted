@@ -6,7 +6,7 @@
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -39,7 +39,6 @@ use feature qw(say);
 #use DBI;
 
 use Getopt::Long;
-use List::Util;
 
 use lib qw(../../Photonic/lib);
 use Photonic::Geometry::FromEpsilon;
@@ -47,7 +46,6 @@ use Photonic::LE::S::AllH;
 use Photonic::LE::S::EpsL;
 use PDL;
 use PDL::NiceSlice;
-use PDL::Complex;
 
 set_autopthread_targ(4);;
 set_autopthread_size(4);;

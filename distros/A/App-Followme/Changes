@@ -1,5 +1,42 @@
 Revision history for Perl extension App::Followme
 
+2.02 2021-03-28T13:53:57Z
+    - only uae absolute filenames in test scripts
+    - additional tests for the existence of files in test scripts
+
+2.01 2021-03-19T21:50:49Z
+    - Replace MarkdownData with TextData, which generalizes it
+    - All tests initialize top_directory and base_directory before running
+    - Small changes to documentation
+
+2.00 2021-03-05T12:45:20Z
+    - Revised test of format_date to be locale independent
+    - Removed help directory from initial install and its tests in ZFunctional.t
+
+1.99 2021-03-01T13:06:28Z
+    - Converted Guide.pod to Guide.pm so that it is installed properly
+
+1.98 2021-02-22T21:56:55Z
+    - Rewrote code that removes site url from pod links
+    - Updated all tests to use absolute filenames to avoid problems
+    - Fixed bugs in UploadSite.pm
+    - Removed cwd and getcwd from software and tests where it was not needed
+    - Create one level of directory when writing file if not present
+
+1.97 2021-02-17T14:10:47Z
+    - Modified test for format_date to work with different locales
+    - Rewrote ConvertPage.pm to us object polymorphism when creating files 
+    - Rewrote PodData.pm to write help files to a single existing directory
+    - Made Image::Size a required package
+
+1.96 2021-02-04T13:55:26Z
+    - Rewrote sort code
+    - Added variables $extension and @related_files
+    - Rewrote gallery template to use new css
+    - Added CreateRss.pm
+    - Configuration files now use yaml format
+    - Added code to read and write yaml and xml
+
 1.95 2020-08-04T15:32:22Z
 	- more changes to tests to make them portable
 	- redid style sheets, templates, and index.html file

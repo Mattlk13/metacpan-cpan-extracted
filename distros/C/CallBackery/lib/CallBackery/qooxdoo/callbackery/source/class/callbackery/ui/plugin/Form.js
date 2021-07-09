@@ -30,8 +30,27 @@ qx.Class.define("callbackery.ui.plugin.Form", {
         this._getParentFormData = getParentFormData;
         this._populate();
         this._addValidation();
+
+        let urlCfg = callbackery.data.Config.getInstance().getUrlConfig();
+
         this.addListener('appear',function () {
             this._loadData();
+            let data = {};
+            let gotData = false;
+            for (let key in urlCfg){
+                let match = key.match(/^set_(.+)/);
+                if (match !== null){
+                    data[match[1]] = urlCfg[key];
+                    gotData = true;
+                }
+            }
+            if (gotData) {
+                this._form.setData(data,true);
+                //this._reconfForm();
+                if (urlCfg.cleanup) {
+                    window.location.hash = '';
+                }
+            }
         }, this);
         // a map of pending reconfigure requests. The keys are the
         // names of the fields for which we postponed reconfiguration.
@@ -64,7 +83,7 @@ qx.Class.define("callbackery.ui.plugin.Form", {
                     //},0);
                     break;
                 }
-                this.fireDataEvent('actionResponse',e.getData());
+                this.fireDataEvent('actionResponse', e.getData());
             },this);
         }
     },
@@ -87,9 +106,10 @@ qx.Class.define("callbackery.ui.plugin.Form", {
             var cfg = this._cfg;
             this.setLayout(new qx.ui.layout.VBox(30));
             var form = this._form = new callbackery.ui.form.Auto(
-                cfg.form,null,callbackery.ui.form.renderer.NoteForm);
+                cfg.form,null,callbackery.ui.form.renderer.NoteForm
+            );
             if (cfg['options'] && cfg.options['warnAboutUnsavedData']){
-                form.addListener('changeData',function(){
+                form.addListener('changeData',function(e){
                     if (this._loading == 0){ // only notify when update comes from human interaction
                         this.fireDataEvent('actionResponse',{action: 'dataModified'});
                     }
@@ -121,7 +141,12 @@ qx.Class.define("callbackery.ui.plugin.Form", {
             cfg.form.forEach(function(s){
                 if (s.actionSet) {
                     for (var key in s.actionSet) {
-                        buttonMap[key].set(s.actionSet[key]);
+                        if (buttonMap[key]) {
+                            buttonMap[key].set(s.actionSet[key]);
+                        }
+                        else {
+                            console.warn('No buttonMap for key=', key);
+                        }
                     }
                 }
 
@@ -174,8 +199,7 @@ qx.Class.define("callbackery.ui.plugin.Form", {
                     }
                 };
                 if (control.getSelection){
-                    control.addListener('changeSelection',callback,this);
-                }
+                    control.getSelection().addListener("change", callback, this);                }
                 else {
                     control.addListener('changeValue',callback,this);
                 }
@@ -186,7 +210,9 @@ qx.Class.define("callbackery.ui.plugin.Form", {
                 this._reconfPending.set(triggerField, 1);
                 return;
             }
-            if (!this._form) return;
+            if (!this._form) {
+                return;
+            }
 
             var that = this;
             var rpc = callbackery.data.Server.getInstance();
@@ -220,7 +246,12 @@ qx.Class.define("callbackery.ui.plugin.Form", {
             formCfg.forEach(function(s){
                 if (s.actionSet) {
                     for (var key in s.actionSet) {
-                        buttonMap[key].set(s.actionSet[key]);
+                        if (buttonMap[key]) {
+                            buttonMap[key].set(s.actionSet[key]);
+                        }
+                        else {
+                            console.warn('No buttonMap for key=', key);
+                        }
                     }
                 }
                 if (!s.key){
@@ -236,6 +267,9 @@ qx.Class.define("callbackery.ui.plugin.Form", {
                 if (s.set) {
                     if ('value' in s.set){
                         delete s.set.value; // do NOT change the value of anything.
+                    }
+                    if ('modelSelection' in s.set){
+                        delete s.set.modelSelection; // do NOT change the modelSelection of anything.
                     }
                     ['placeholder','tooltip','label'].forEach(function(key){
                          if (key in s.set){
@@ -267,7 +301,7 @@ qx.Class.define("callbackery.ui.plugin.Form", {
                     if (that._form) {
                         var statusData = {};
                         that._cfg.form.forEach(function(item){
-                            if (data[item.key]) {
+                            if (data[item.key] !== null) {
                                 if (item.reloadOnFormReset === true) {
                                     statusData[item.key] = data[item.key];
                                 }

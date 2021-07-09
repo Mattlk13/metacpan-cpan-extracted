@@ -13,7 +13,7 @@ BEGIN {
         require Win32;
     }
 }
-our $VERSION = '1.00';
+our $VERSION = '1.08';
 
 sub _ANY_PORT           { return 0 }
 sub _GETPWUID_DIR_INDEX { return 7 }
@@ -63,12 +63,32 @@ sub _read_ini_file {
     return {};
 }
 
+sub default_name {
+    my ($class)               = @_;
+    my $profile_ini_directory = $class->_profile_ini_directory();
+    my $config                = $class->_read_ini_file($profile_ini_directory);
+    foreach my $key (
+        sort { $config->{$a}->{Name} cmp $config->{$b}->{Name} }
+        grep { exists $config->{$_}->{Name} } keys %{$config}
+      )
+    {
+        if ( ( $config->{$key}->{Default} ) && ( $config->{$key}->{Name} ) ) {
+            return $config->{$key}->{Name};
+        }
+    }
+    return;
+}
+
 sub names {
     my ($class)               = @_;
     my $profile_ini_directory = $class->_profile_ini_directory();
     my $config                = $class->_read_ini_file($profile_ini_directory);
     my @names;
-    foreach my $key ( sort { $a cmp $b } keys %{$config} ) {
+    foreach my $key (
+        sort { $config->{$a}->{Name} cmp $config->{$b}->{Name} }
+        grep { exists $config->{$_}->{Name} } keys %{$config}
+      )
+    {
         if ( defined $config->{$key}->{Name} ) {
             push @names, $config->{$key}->{Name};
         }
@@ -76,7 +96,12 @@ sub names {
     return @names;
 }
 
-sub existing {
+sub path {
+    my ( $class, $name ) = @_;
+    return File::Spec->catfile( $class->directory($name), 'prefs.js' );
+}
+
+sub directory {
     my ( $class, $name ) = @_;
     my $profile_ini_directory = $class->_profile_ini_directory();
     my $config                = $class->_read_ini_file($profile_ini_directory);
@@ -99,29 +124,35 @@ sub existing {
         if ($selected) {
             if ( $config->{$key}->{IsRelative} ) {
                 $path = File::Spec->catfile( $profile_ini_directory,
-                    $config->{$key}->{Path}, 'prefs.js' );
+                    $config->{$key}->{Path} );
             }
             elsif ( $config->{$key}->{Path} ) {
                 $path =
-                  File::Spec->catfile( $config->{$key}->{Path}, 'prefs.js' );
+                  File::Spec->catfile( $config->{$key}->{Path} );
             }
             else {
                 $path =
                   File::Spec->catfile( $profile_ini_directory,
-                    $config->{$key}->{Default}, 'prefs.js' );
+                    $config->{$key}->{Default} );
             }
         }
     }
     if ( ( !$path ) && ( defined $first_key ) ) {
         if ( $config->{$first_key}->{IsRelative} ) {
             $path = File::Spec->catfile( $profile_ini_directory,
-                $config->{$first_key}->{Path}, 'prefs.js' );
+                $config->{$first_key}->{Path} );
         }
         else {
             $path =
-              File::Spec->catfile( $config->{$first_key}->{Path}, 'prefs.js' );
+              File::Spec->catfile( $config->{$first_key}->{Path} );
         }
     }
+    return $path;
+}
+
+sub existing {
+    my ( $class, $name ) = @_;
+    my $path = $class->path($name);
     if ( ($path) && ( -f $path ) ) {
         return $class->parse($path);
     }
@@ -141,6 +172,9 @@ sub new {
       ;    # the last folder specified for a download
     $profile->set_value( 'browser.places.importBookmarksHTML',  'true',  0 );
     $profile->set_value( 'browser.reader.detectedFirstArticle', 'true',  0 );
+    $profile->set_value( 'browser.region.network.scan', 'false',  0 );
+    $profile->set_value( 'browser.region.network.url', q[],  0 );
+    $profile->set_value( 'browser.region.update.enabled', 'false',  0 );
     $profile->set_value( 'browser.shell.checkDefaultBrowser',   'false', 0 );
     $profile->set_value( 'browser.showQuitWarning',             'false', 0 );
     $profile->set_value( 'browser.startup.homepage', 'about:blank',      1 );
@@ -298,8 +332,15 @@ sub new {
 'services.sync.prefs.sync.privacy.trackingprotection.pbmode.enabled',
             'false', 0
         );
-        $profile->set_value( 'signon.rememberSignons',    'false', 0 );
-        $profile->set_value( 'toolkit.telemetry.enabled', 'false', 0 );
+        $profile->set_value( 'signon.rememberSignons',            'false', 0 );
+        $profile->set_value( 'toolkit.telemetry.archive.enabled', 'false', 0 );
+        $profile->set_value( 'toolkit.telemetry.enabled',         'false', 0 );
+        $profile->set_value( 'toolkit.telemetry.rejected',        'true',  0 );
+        $profile->set_value( 'toolkit.telemetry.server',          q[],     1 );
+        $profile->set_value( 'toolkit.telemetry.unified',         'false', 0 );
+        $profile->set_value( 'toolkit.telemetry.unifiedIsOptIn',  'false', 0 );
+        $profile->set_value( 'toolkit.telemetry.prompted',        '2',     0 );
+        $profile->set_value( 'toolkit.telemetry.rejected',        'true',  0 );
         $profile->set_value( 'toolkit.telemetry.reportingpolicy.firstRun',
             'false', 0 );
         $profile->set_value( 'xpinstall.signatures.required', 'false', 0 );
@@ -343,13 +384,16 @@ sub as_string {
     my $string = q[];
     foreach my $key ( sort { $a cmp $b } keys %{ $self->{keys} } ) {
         my $value = $self->{keys}->{$key}->{value};
-        if (   ( defined $value ) && ( $value eq 'true' )
-            || ( $value eq 'false' )
-            || ( $value =~ /^\d+$/smx ) )
+        if (
+            ( defined $value )
+            && (   ( $value eq 'true' )
+                || ( $value eq 'false' )
+                || ( $value =~ /^\d{1,6}$/smx ) )
+          )
         {
             $string .= "user_pref(\"$key\", $value);\n";
         }
-        else {
+        elsif ( defined $value ) {
             $value =~ s/\\/\\\\/smxg;
             $value =~ s/"/\\"/smxg;
             $string .= "user_pref(\"$key\", \"$value\");\n";
@@ -422,7 +466,7 @@ Firefox::Marionette::Profile - Represents a prefs.js Firefox Profile
 
 =head1 VERSION
 
-Version 1.00
+Version 1.08
 
 =head1 SYNOPSIS
 
@@ -463,6 +507,14 @@ returns a new L<profile|Firefox::Marionette::Profile>.
 
 returns a list of existing profile names that this module can discover on the filesystem.
 
+=head2 default_name
+
+returns the default profile name.
+
+=head2 directory
+
+accepts a profile name and returns the directory path that contains the C<prefs.js> file.
+
 =head2 download_directory
 
 accepts a directory path that will contain downloaded files.  Returns the previous value for download directory.
@@ -474,6 +526,10 @@ accepts a profile name and returns a L<profile|Firefox::Marionette::Profile> obj
 =head2 parse
 
 accepts a path as the parameter.  This path should be to a C<prefs.js> file.  Parses the file and returns it as a L<profile|Firefox::Marionette::Profile>.
+
+=head2 path
+
+accepts a profile name and returns the corresponding path to the C<prefs.js> file.
 
 =head2 save
 

@@ -33,7 +33,7 @@ Readonly::Array our @SNAK_TYPES => qw(
 	value
 );
 
-our $VERSION = 0.05;
+our $VERSION = 0.08;
 
 has datatype => (
 	is => 'ro',
@@ -129,6 +129,22 @@ Retruns instance of object.
 Type of data.
 Parameter is required.
 
+ Possible datatypes are (datavalue instance in parenthesis):
+ - commonsMedia (Wikibase::Datatype::Value::String)
+ - external-id (Wikibase::Datatype::Value::String)
+ - geo-shape (Wikibase::Datatype::Value::String)
+ - globe-coordinate (Wikibase::Datatype::Value::Globecoordinate)
+ - math (Wikibase::Datatype::Value::String)
+ - monolingualtext (Wikibase::Datatype::Value::Monolingual)
+ - musical-notation (Wikibase::Datatype::Value::String)
+ - quantity (Wikibase::Datatype::Value::Quantity)
+ - string (Wikibase::Datatype::Value::String)
+ - tabular-data (Wikibase::Datatype::Value::String)
+ - time (Wikibase::Datatype::Value::Time)
+ - url (Wikibase::Datatype::Value::String)
+ - wikibase-item (Wikibase::Datatype::Value::Item)
+ - wikibase-property (Wikibase::Datatype::Value::Property)
+
 =item * C<datavalue>
 
 Value of data.
@@ -220,15 +236,20 @@ Returns string.
  # Get property.
  my $property = $obj->property;
 
+ # Get snak type.
+ my $snaktype = $obj->snaktype;
+
  # Print out.
  print "Property: $property\n";
  print "Type: $datatype\n";
  print "Value: $datavalue\n";
+ print "Snak type: $snaktype\n";
 
  # Output:
  # Property: P31
  # Type: wikibase-item
  # Value: Q5
+ # Snak type: value
 
 =head1 DEPENDENCIES
 
@@ -261,12 +282,12 @@ L<http://skim.cz>
 
 =head1 LICENSE AND COPYRIGHT
 
-© Michal Josef Špaček 2020
+© Michal Josef Špaček 2020-2021
 
 BSD 2-Clause License
 
 =head1 VERSION
 
-0.05
+0.08
 
 =cut

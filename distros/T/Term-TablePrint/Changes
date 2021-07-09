@@ -1,6 +1,41 @@
 Revision history for Term::TablePrint
 
 
+0.139   2021-06-30
+        - New options 'info', 'page' and 'keep'.
+        _ Renamed 'table_name' to 'footer'.
+        - Adapted the code to the updated Term::Form.
+
+0.138   2021-06-22
+        - use Carp again.
+        - Adapt the code to the updated Term::Choose.
+
+0.137   2021-06-17
+        - F3: use env var TC_POS_AT_F3 to keep table position.
+
+0.136   2021-06-11
+        - Removed options 'grid' and 'keep_header'.
+
+0.135   2021-06-10
+        - Bugfix option 'grid'.
+
+0.134   2021-06-04
+        - Code cleanup.
+
+0.133   2021-06-04
+        - Code refactoring.
+        - Removed option 'choose_columns'.
+        - Update option 'table_expand'.
+
+0.132   2021-04-25
+        - Replace 'croak' with 'die'.
+
+0.131   2021-04-06
+        - Single table row output: skip separator lines.
+
+0.130   2021-03-04
+        - Option to filter table rows.
+
 0.124   2021-01-01
         - Add bugracker info to the Makefile.PL.
         - Update year copyright.

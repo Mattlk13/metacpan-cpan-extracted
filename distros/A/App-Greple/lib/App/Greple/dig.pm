@@ -6,6 +6,8 @@ dig - Greple module for recursive search
 
 greple -Mdig [ options ] --dig directories ...
 
+greple -Mdig --git ...
+
 =head1 DESCRIPTION
 
 Option B<--dig> searches all files under directories specified after
@@ -20,10 +22,37 @@ current directory.
 
     $ greple -Mdig pattern --dig . ( -name *.c -o -name *.h )
 
+If more compilicated file filtering is required, combine with
+B<-Mselect> module.
+
 You can use B<--dig> option without module declaration by setting it
 as autoload module in your F<~/.greplerc>.
 
-    autoload -Mdig --dig
+    autoload -Mdig --dig --git
+
+=head1 OPTIONS
+
+=over 7
+
+=item B<--dig> I<directories> I<find-option>
+
+Specify at the end of B<greple> options, because all the rest is taken
+as option for L<find(1)> command.
+
+=item B<--git> I<ls-files-option>
+
+Search files under git control.  Specify at the end of B<greple>
+options, because all the rest is taken as option for
+L<git-ls-files(1)> command.
+
+
+=back
+
+=head1 SEE ALSO
+
+L<App::Greple>
+
+L<App::Greple::select>
 
 =cut
 
@@ -33,26 +62,41 @@ package App::Greple::dig;
 
 __DATA__
 
-expand (#repository)	( -name .git -o -name .svn -o -name RCS )
-expand (#no_dots)	! -name .*
-expand (#no_version)	! -name *,v
-expand (#no_backup)	! -name *~ ! -name *.swp
-expand (#no_image) 	! -iname *.jpg  ! -iname *.jpeg \
-			! -iname *.gif  ! -iname *.png  \
-			! -iname *.ico  \
-			! -iname *.heic ! -iname *.heif
-expand (#no_archive)	! -iname *.tar  ! -iname *.tbz  ! -iname *.tgz
-expand (#no_pdf)	! -iname *.pdf
+expand is_repository	( -name .git -o -name .svn -o -name RCS -o -name CVS )
+expand is_temporary	( -name .build -o -name _build )
+expand is_dots		  -name .*
+expand is_version	  -name *,v
+expand is_backup	( -name *~ -o -name *.swp )
+expand is_image 	( -iname *.jpg  -o -iname *.jpeg -o \
+			  -iname *.gif  -o -iname *.png  -o \
+			  -iname *.ico  -o \
+			  -iname *.heic -o -iname *.heif -o \
+			  -iname *.svg \
+			)
+expand is_archive	( -iname *.tar -o -iname *.tbz -o -iname *.tgz -o \
+			  -name  *.a   -o -name  *.zip \
+			)
+expand is_pdf		  -iname *.pdf
+expand is_db		( -name *.db -o -iname *.bdb )
+expand is_others	( -name *.bundle -o -name *.dylib -o -name *.o -o \
+			  -name *.fits )
 
 option --dig -Mfind \
 	$<move> \
 	( \
-		(#repository) -prune -o \
+		( is_repository -o is_temporary ) \
+		-prune -o \
 		-type f \
 	) \
-	(#no_dots) \
-	(#no_version) (#no_backup) \
-	(#no_image) \
-	(#no_archive) \
-	(#no_pdf) \
+	! is_dots \
+	! is_version \
+	! is_backup \
+	! is_image \
+	! is_archive \
+	! is_pdf \
+	! is_db \
+	! is_others \
 	-print --
+
+option --git \
+	-Mfind !git ls-files $<move> -- --warn skip=0

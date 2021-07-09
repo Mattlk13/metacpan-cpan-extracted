@@ -5,7 +5,7 @@ podcasts on podcasts.apple.com
 
 =head1 AUTHOR
 
-This module is Copyright (C) 2017-2020 by
+This module is Copyright (C) 2017-2021 by
 
 Jim Turner, C<< <turnerjw784 at yahoo.com> >>
 		
@@ -92,8 +92,7 @@ file.
 =head1 DESCRIPTION
 
 StreamFinder::Apple accepts a valid podcast or episode URL on 
-podcasts.apple.com, or an album or song (free sample clips only) from 
-music.apple.com, and returns the actual stream URL(s), title, and cover 
+podcasts.apple.com, and returns the actual stream URL(s), title, and cover 
 art icon for that podcast.  The purpose is that one needs one of these URLs 
 in order to have the option to stream the station in one's own choice of 
 media player software rather than using their web browser and accepting any / 
@@ -108,27 +107,54 @@ https://podcasts.apple.com/I<country>/podcast/idB<podcast#>
 (returns stream(s) for all "episodes" for that site, OR a specific podcast / 
 "episode" page site, format:  
 https://podcasts.apple.com/I<country>/podcast/idB<podcast#>?i=B<episode#> 
-(returns a single stream for that specific podcast).  Music samples also 
-seem to work using the format (with or without the ?i=B<song#> part):  
-https://music.apple.com/I<country>/album/I<album-description>/idB<album#>?i=B<song#>
+(returns a single stream for that specific podcast).  
 
 =head1 SUBROUTINES/METHODS
 
 =over 4
 
-=item B<new>(I<ID>|I<url> [, "debug" [ => 0|1|2 ]])
+=item B<new>(I<ID>|I<url> [I<-secure> [ => 0|1 ]] [, I<-debug> [ => 0|1|2 ]])
 
-Accepts a podcasts.apple.com ID or URL or music.apple.com URL and creates and 
+Accepts a podcasts.apple.com ID or URL and creates and 
 returns a new podcast object, or I<undef> if the URL is not a valid podcast, 
 album, etc. or no streams are found.  The URL can be the full URL, 
 ie. https://podcasts.apple.com/podcast/idI<podcast-id>, 
 https://podcasts.apple.com/podcast/idB<podcast-id>?i=B<episode-id>, or just 
-I<podcast-id>, or I<podcast-id>/I<episode-id>.  NOTE:  If the ID is an album 
-or song clip, then the full URL must be given, ie. http://music.apple.com/...
+I<podcast-id>, or I<podcast-id>/I<episode-id>.  
 
-=item $podcast->B<get>()
+The optional I<-secure> argument can be either 0 or 1 (I<false> or I<true>).  If 1 
+then only secure ("https://") streams will be returned.
+
+DEFAULT I<-secure> is 0 (false) - return all streams (http and https).
+
+Additional options:
+
+I<-log> => "I<logfile>"
+
+Specify path to a log file.  If a valid and writable file is specified, A line will be 
+appended to this file every time one or more streams is successfully fetched for a url.
+
+DEFAULT i<-none> (no logging).
+
+I<-logfmt> specifies a format string for lines written to the log file.
+
+DEFAULT "I<[time] [url] - [site]: [title] ([total])>".  
+
+The valid field I<[variables]> are:  [stream]: The url of the first/best stream found.  
+[site]:  The site name (Apple).  [url]:  The url searched for streams.  
+[time]: Perl timestamp when the line was logged.  [title], [artist], [album], 
+[description], [year], [genre], [total], [albumartist]:  The corresponding field data 
+returned (or "-na", if no value).
+
+=item $podcast->B<get>(['playlist'])
 
 Returns an array of strings representing all stream urls found.
+If I<"playlist"> is specified, then an extended m3u playlist is returned 
+instead of stream url(s).  NOTE:  If an author / channel page url is given, 
+rather than an individual podcast episode's url, get() returns the first 
+(latest?) podcast episode found, and get("playlist") returns an extended 
+m3u playlist containing the urls, titles, etc. for all the podcast 
+episodes found on that page url.
 
 =item $podcast->B<getURL>([I<options>])
 
@@ -273,7 +299,7 @@ L<http://search.cpan.org/dist/StreamFinder-Apple/>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2017-2020 Jim Turner.
+Copyright 2017-2021 Jim Turner.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the the Artistic License (2.0). You may obtain a
@@ -320,64 +346,26 @@ use warnings;
 use URI::Escape;
 use HTML::Entities ();
 use LWP::UserAgent ();
-use vars qw(@ISA @EXPORT);
+use parent 'StreamFinder::_Class';
 
 my $DEBUG = 0;
-my $bummer = ($^O =~ /MSWin/);
-my %uops = ();
-my @userAgentOps = ();
-
-require Exporter;
-
-@ISA = qw(Exporter);
-@EXPORT = qw(get getURL getType getID getTitle getIconURL getIconData getImageURL getImageData);
 
 sub new
 {
 	my $class = shift;
 	my $url = shift;
 
-	my $self = {};
 	return undef  unless ($url);
 
-	my $homedir = $bummer ? $ENV{'HOMEDRIVE'} . $ENV{'HOMEPATH'} : $ENV{'HOME'};
-	$homedir ||= $ENV{'LOGDIR'}  if ($ENV{'LOGDIR'});
-	$homedir =~ s#[\/\\]$##;
-	foreach my $p ("${homedir}/.config/StreamFinder/config", "${homedir}/.config/StreamFinder/Apple/config") {
-		if (open IN, $p) {
-			my ($atr, $val);
-			while (<IN>) {
-				chomp;
-				next  if (/^\s*\#/o);
-				($atr, $val) = split(/\s*\=\>\s*/o, $_, 2);
-				eval "\$uops{$atr} = $val";
-			}
-			close IN;
-		}
-	}
-	foreach my $i (qw(agent from conn_cache default_headers local_address ssl_opts max_size
-			max_redirect parse_head protocols_allowed protocols_forbidden requests_redirectable
-			proxy no_proxy)) {
-		push @userAgentOps, $i, $uops{$i}  if (defined $uops{$i});
-	}
-	push (@userAgentOps, 'agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0')
-			unless (defined $uops{'agent'});
-	$uops{'timeout'} = 10  unless (defined $uops{'timeout'});
-	$DEBUG = $uops{'debug'}  if (defined $uops{'debug'});
-
-	while (@_) {
-		if ($_[0] =~ /^\-?debug$/o) {
-			shift;
-			$DEBUG = (defined($_[0]) && $_[0] =~/^[0-9]$/) ? shift : 1;
-		}
-	}	
+	my $self = $class->SUPER::new('Apple', @_);
+	$DEBUG = $self->{'debug'}  if (defined $self->{'debug'});
 
 	$self->{'id'} = '';
 	(my $url2fetch = $url);
-	if ($url2fetch =~ m#^https?\:\/\/(?:podcasts|music)\.apple\.#) {
+	if ($url2fetch =~ m#^https?\:\/\/podcasts\.apple\.#) {
 #EXAMPLE1:my $url = 'https://podcasts.apple.com/us/podcast/wnbc-sec-shorts-josh-snead/id1440412195?i=1000448441439';
 #EXAMPLE2:my $url = 'https://podcasts.apple.com/us/podcast/good-bull-hunting-for-texas-a-m-fans/id1440412195';
-#EXAMPLE3:my $url = 'https://music.apple.com/us/album/big-legged-woman/723550112';
+#xxxEXAMPLE3:my $url = 'https://music.apple.com/us/album/big-legged-woman/723550112';
 		$self->{'id'} = ($url =~ m#\/(?:id)?(\d+)(?:\?i\=(\d+))?\/?#) ? $1 : '';
 		$self->{'id'} .= '/'. $2  if (defined $2);
 	} elsif ($url2fetch !~ m#^https?\:\/\/#) {
@@ -391,9 +379,9 @@ sub new
 	return undef  unless ($self->{'id'});
 
 	my $html = '';
-	print STDERR "-0(Apple): ID=".$self->{'id'}."= AGENT=".join('|',@userAgentOps)."=\n"  if ($DEBUG);
-	my $ua = LWP::UserAgent->new(@userAgentOps);
-	$ua->timeout($uops{'timeout'});
+	print STDERR "-0(Apple): ID=".$self->{'id'}."= AGENT=".join('|',@{$self->{'_userAgentOps'}})."=\n"  if ($DEBUG);
+	my $ua = LWP::UserAgent->new(@{$self->{'_userAgentOps'}});
+	$ua->timeout($self->{'timeout'});
 	$ua->cookie_jar({});
 	$ua->env_proxy;
 	print STDERR "i:FETCHING URL ($url2fetch)...\n"  if ($DEBUG);
@@ -412,13 +400,8 @@ sub new
 	print STDERR "-1: html=$html=\n"  if ($DEBUG > 1);
 	return undef  unless ($html);
 
-	$self->{'title'} = '';
-	$self->{'artist'} = '';
-	$self->{'created'} = '';
-	$self->{'year'} = '';
-	$self->{'streams'} = [];
-	$self->{'cnt'} = 0;
-	$self->{'Url'} = '';
+	$self->{'albumartist'} = $url2fetch;
+	my @epiTitles = ();
 	my ($pre, $post) = split(/\"included\"\:/, $html, 2);
 	$html = '';
 	return undef  unless ($pre && $post);
@@ -428,22 +411,33 @@ sub new
 		$self->{'iconurl'} = ($pre =~ /\s+srcset\=\"([^\"\s]+)/s) ? $1 : '';
 	}
 	$self->{'imageurl'} = $self->{'iconurl'};
-	if ($pre =~ m#\<span\s+class\=\"product\-header\_\_identity(.+)?\<\/span\>#s) {
+	if ($pre =~ m#\<span\s+class\=\"product\-header\_\_identity(.+?)\<\/span\>#s) {
 		my $span = $1;
 		#x $self->{'artist'} = $1  if ($span =~ m#\"\>\s*([^\<]+)\<\/#s);
 		$self->{'artist'} = $1  if ($span =~ m#\>\s*([^\<]+)\<\/a#s);
+		if ($self->{'artist'} !~ /\w/) {
+			$self->{'artist'} = $1  if ($span =~ m#\>\s*([^\<]+)#s);
+		}
 		$self->{'artist'} =~ s/\s+$//;
 		$self->{'albumartist'} = $1  if ($span =~ m#href\=\"([^\"]+)\"\s+class\=\"link#is);
 	}
-	if ($pre =~ m#\s+Copyright\s+([^\<]+)#s) {
+	if ($pre =~ m#\<li\s+class\=\"tracklist\-footer\_\_item\"\>([^\<]+)#) {
 		$self->{'album'} = $1;
+		$self->{'album'} =~ s/^\s+//s;
 		$self->{'album'} =~ s/\s+$//s;
 	}
 	if ($pre =~ m#\"assetUrl\"\:\"([^\"]+)\"#s) {   #INVIDUAL EPISODE:
 		print STDERR "---EPISODE---\n"  if ($DEBUG);
-		$self->{'streams'}->[0] = $1;
+		my $stream = $1;
+		$self->{'streams'}->[0] = $stream  unless ($self->{'secure'} && $stream !~ /^https/o);
 		my $rest = $2;
 		$self->{'title'} = $1  if ($pre =~ m#\"mediaKind\"\:\"[^\"]*\"\,\"name\"\:\"([^\"]+)\"#s);
+		if ($self->{'title'}) {
+			my $title = HTML::Entities::decode_entities($self->{'title'});
+			$title = uri_unescape($title);
+			$title =~ s/(?:\%|\\?u?00)([0-9A-Fa-f]{2})/chr(hex($1))/egs;
+			@epiTitles = ($title)  if ($self->{'streams'}->[0]);
+		}
 		if ($pre =~ m#episode-description\>(.+?)\<\/section\>#s) {
 			$self->{'description'} = $1;
 			$self->{'description'} =~ s#\<p[^\>]*\>(.+?)\<\/p\>#$1#s;
@@ -459,42 +453,34 @@ sub new
 			$self->{'description'} = $1  if ($json =~ m#\"description\"\:\"([^\"]+)\"#s);
 			$self->{'created'} = $1  if ($json =~ m#\"datePublished\"\:\"([^\"]+)\"#s);
 		}
-		while ($post =~ s#\"assetUrl\"\:\"([^\"]+)\"##s) {
-			push @{$self->{'streams'}}, $1;
-		}
-		if ($url2fetch =~ m#^https?\:\/\/music#) {
-			if ($self->{'id'} =~ m#(\d+)\/(\d+)$#) {
-				my ($albumID, $episodeID) = ($1, $2);
-				if (!defined($self->{'album'}) && $pre =~ m#\/${albumID}\?i\=${episodeID}\"\,\"name\"\:\"([^\"]+)\"#s) {
-					$self->{'album'} = $self->{'title'};
-					$self->{'title'} = $1;
-					$self->{'album'} = HTML::Entities::decode_entities($self->{'album'});
-					$self->{'album'} = uri_unescape($self->{'album'});
-					$self->{'album'} =~ s/(?:\%|\\?u?00)([0-9A-Fa-f]{2})/chr(hex($1))/egs;
-				}
-				while ($post =~ s#\{\"duration\"\:\d+\,\"url\"\:\"([^\"]+)\".*?salableAdamId\=${episodeID}\D##s) {  #WILL HANDLE iTUNES MUSICK *SAMPLES* FROM (https://music.apple.com/us/album/*):
-					push @{$self->{'streams'}}, $1;
-				}
-			} else {
-				while ($post =~ s#\{\"duration\"\:\d+\,\"url\"\:\"([^\"]+)\"##s) {  #WILL HANDLE iTUNES MUSICK *SAMPLES* FROM (https://music.apple.com/us/album/*):
-					push @{$self->{'streams'}}, $1;
-				}
+		while ($post =~ s#\"assetUrl\"\:\"([^\"]+)\".+?\,\"name\"\:\"([^\"]+)\"##s) {
+			my $stream = $1;
+			my $title = HTML::Entities::decode_entities($2);
+			$title = uri_unescape($title);
+			$title =~ s/(?:\%|\\?u?00)([0-9A-Fa-f]{2})/chr(hex($1))/egs;
+			unless ($self->{'secure'} && $stream !~ /^https/o) {
+				push @{$self->{'streams'}}, $stream;
+				push @epiTitles, $title;
 			}
-			$self->{'title'} .= ' (-SAMPLE-)';
 		}
 	}
 	$self->{'year'} = $1  if ($self->{'created'} =~ /(\d\d\d\d)/);
-	if ($pre =~ m#\<li\s+class\=\"product\-header\_\_list\_\_item\"\>(.*)?\<\/ul\>#s) {
+	if ($pre =~ m#\<li\s+class\=\"product\-header\_\_list\_\_item\"\>(.*?)\<\/ul\>#s) {
 		my $prodlistitemdata = $1;
-		$self->{'genre'} = $1  if ($prodlistitemdata =~ s#\"\>\s*([^\<]+)\<\/##s);
-		$self->{'genre'} =~ s/\s+$//;
-		$self->{'genre'} = HTML::Entities::decode_entities($self->{'genre'});
-		$self->{'genre'} = uri_unescape($self->{'genre'});
-		$self->{'genre'} =~ s/(?:\%|\\?u?00)([0-9A-Fa-f]{2})/chr(hex($1))/egs;
+		$self->{'genre'} = $1  if ($prodlistitemdata =~ s#genre\"?\>\s*([^\<]+)\<\/##s);
 		$self->{'year'} = $1  if ($prodlistitemdata =~ m#\>([\d]+)\D*\<\/time\>#s);
 	}
+	$self->{'genre'} ||= $1  if ($pre =~ m#\<li\s+class\=\"inline\-list\_\_item[^\>]+\>(.*?)\<\/li\>#s);
+	if ($self->{'genre'})	{
+		$self->{'genre'} =~ s/^\s+//;
+		$self->{'genre'} =~ s/\s+$//;
+		$self->{'genre'} = HTML::Entities::decode_entities($self->{'genre'})  if (defined $self->{'genre'});
+		$self->{'genre'} = uri_unescape($self->{'genre'});
+		$self->{'genre'} =~ s/(?:\%|\\?u?00)([0-9A-Fa-f]{2})/chr(hex($1))/egs;
+	} else {
+		$self->{'genre'} = 'Podcast';
+	}
 	$self->{'cnt'} = scalar @{$self->{'streams'}};
-	$self->{'Url'} = ($self->{'cnt'} > 0) ? $self->{'streams'}->[0] : '';
 	$self->{'total'} = $self->{'cnt'};
 	$self->{'imageurl'} = $self->{'iconurl'};
 	if ($self->{'description'} =~ /\w/) {
@@ -503,201 +489,28 @@ sub new
 	} else {
 		$self->{'description'} = $self->{'title'};
 	}
-	foreach my $i (qw(title artist description)) {
+	foreach my $i (qw(title artist description genre)) {
 		$self->{$i} = HTML::Entities::decode_entities($self->{$i});
 		$self->{$i} = uri_unescape($self->{$i});
 		$self->{$i} =~ s/(?:\%|\\?u?00)([0-9A-Fa-f]{2})/chr(hex($1))/egs;
 	}
-	print STDERR "-SUCCESS: 1st stream=".${$self->{'streams'}}[0]."=\n"  if ($DEBUG);
-#print STDERR "\n***** --ID=".$self->{'id'}."=\n--CNT=".$self->{'cnt'}."=\n--TITLE=".$self->{'title'}."=\n--ARTIST=".$self->{'artist'}."=\n--GENRE=".$self->{'genre'}."=\n--ALBUM=".$self->{'album'}."=\n--YEAR=".$self->{'year'}."=\n--ICON=".$self->{'iconurl'}."=\n--1ST=".$self->{'Url'}."=\n*****\n"  if ($DEBUG);
+	if ($self->{'total'} > 0) {
+		$self->{'Url'} = $self->{'streams'}->[0];
+		print STDERR "-SUCCESS: 1st stream=".$self->{'Url'}."= total=".$self->{'total'}."=\n"  if ($DEBUG);
+		$self->{'playlist'} = "#EXTM3U\n";
+		for (my $i=0;$i<$self->{'total'};$i++) {
+			last  if ($i > $#epiTitles);
+			$self->{'playlist'} .= "#EXTINF:-1, " . $epiTitles[$i]
+					. "\n#EXTART:" . $self->{'artist'} . "\n";
+			$self->{'playlist'} .= "#EXTGENRE:" . $self->{'genre'} . "\n"  if ($self->{'genre'});
+			$self->{'playlist'} .= ${$self->{'streams'}}[$i] . "\n";
+		}
+	}
+	$self->_log($url);
 
 	bless $self, $class;   #BLESS IT!
 
 	return $self;
-}
-
-sub get
-{
-	my $self = shift;
-
-	return wantarray ? @{$self->{'streams'}} : ${$self->{'streams'}}[0];
-}
-
-sub getURL   #LIKE GET, BUT ONLY RANDOMLY SELECT ONE TO RETURN:
-{
-	my $self = shift;
-	my $arglist = (defined $_[0]) ? join('|',@_) : '';
-	my $idx = ($arglist =~ /\b\-?random\b/) ? int rand scalar @{$self->{'streams'}} : 0;
-	if (($arglist =~ /\b\-?nopls\b/ && ${$self->{'streams'}}[$idx] =~ /\.(pls)$/i)
-			|| ($arglist =~ /\b\-?noplaylists\b/ && ${$self->{'streams'}}[$idx] =~ /\.(pls|m3u8?)$/i)) {
-		my $plType = $1;
-		my $firstStream = ${$self->{'streams'}}[$idx];
-		print STDERR "-getURL($idx): NOPLAYLISTS and (".${$self->{'streams'}}[$idx].")\n"  if ($DEBUG);
-		my $ua = LWP::UserAgent->new(@userAgentOps);	
-		if ($firstStream =~ /\breciva\b/ && defined $self->{'_reciva_ssl_opts'}) {
-			foreach my $i (keys %{$self->{'_reciva_ssl_opts'}}) {
-				$ua->ssl_opts($i, $self->{'_default_ssl_opts'}->{$i});
-				print STDERR "--SSL OPTS SET2 ($i) BACK TO (".$self->{'_default_ssl_opts'}->{$i}.")!\n"  if ($DEBUG);
-			}
-		}
-		$ua->timeout($uops{'timeout'});
-		$ua->cookie_jar({});
-		$ua->env_proxy;
-		my $html = '';
-		my $response = $ua->get($firstStream);
-		if ($response->is_success) {
-			$html = $response->decoded_content;
-		} else {
-			print STDERR $response->status_line  if ($DEBUG);
-			my $no_wget = system('wget','-V');
-			unless ($no_wget) {
-				print STDERR "\n..trying wget...\n"  if ($DEBUG);
-				$html = `wget -t 2 -T 20 -O- -o /dev/null \"$firstStream\" 2>/dev/null `;
-			}
-		}
-		my @lines = split(/\r?\n/, $html);
-		my @plentries = ();
-		my $firstTitle = '';
-		my $plidx = ($arglist =~ /\b\-?random\b/) ? 1 : 0;
-		if ($plType =~ /pls/i) {  #PLS:
-			foreach my $line (@lines) {
-				if ($line =~ m#^\s*File\d+\=(.+)$#o) {
-					push (@plentries, $1);
-				} elsif ($line =~ m#^\s*Title\d+\=(.+)$#o) {
-					$firstTitle ||= $1;
-				}
-			}
-			$self->{'title'} ||= $firstTitle;
-			print STDERR "-getURL(PLS): title=$firstTitle= pl_idx=$plidx=\n"  if ($DEBUG);
-		} elsif ($arglist =~ /\b\-?noplaylists\b/) {  #m3u*:
-			(my $urlpath = ${$self->{'streams'}}[$idx]) =~ s#[^\/]+$##;
-			foreach my $line (@lines) {
-				if ($line =~ m#^\s*([^\#].+)$#o) {
-					my $urlpart = $1;
-					$urlpart =~ s#^\s+##o;
-					$urlpart =~ s#^\/##o;
-					push (@plentries, ($urlpart =~ m#https?\:#) ? $urlpart : ($urlpath . '/' . $urlpart));
-					last  unless ($plidx);
-				}
-			}
-			print STDERR "-getURL(m3u?): pl_idx=$plidx=\n"  if ($DEBUG);
-		}
-		if ($plidx && $#plentries >= 0) {
-			$plidx = int rand scalar @plentries;
-		} else {
-			$plidx = 0;
-		}
-		$firstStream = (defined($plentries[$plidx]) && $plentries[$plidx]) ? $plentries[$plidx]
-				: ${$self->{'streams'}}[$idx];
-
-		return $firstStream;
-	}
-
-	return ${$self->{'streams'}}[$idx];
-}
-
-sub count
-{
-	my $self = shift;
-	return $self->{'total'};  #TOTAL NUMBER OF PLAYABLE STREAM URLS FOUND.
-}
-
-sub getType
-{
-	my $self = shift;
-	return 'Apple';  #STATION TYPE (FOR PARENT StreamFinder MODULE).
-}
-
-sub getID
-{
-	my $self = shift;
-	return $self->{'id'};  #STATION'S APPLE-ID.
-}
-
-sub getTitle
-{
-	my $self = shift;
-	return $self->{'description'}  if (defined($_[0]) && $_[0] =~ /^\-?(?:long|desc)/i);
-	return $self->{'title'};  #STATION'S TITLE(DESCRIPTION), IF ANY.
-}
-
-sub getIconURL
-{
-	my $self = shift;
-	return $self->{'iconurl'};  #URL TO THE STATION'S THUMBNAIL ICON, IF ANY.
-}
-
-sub getIconData
-{
-	my $self = shift;
-	return ()  unless ($self->{'iconurl'});
-	my $ua = LWP::UserAgent->new(@userAgentOps);		
-	$ua->timeout($uops{'timeout'});
-	$ua->cookie_jar({});
-	$ua->env_proxy;
-	if ($self->{'iconurl'} =~ /\breciva\b/ && defined $self->{'_reciva_ssl_opts'}) {
-		foreach my $i (keys %{$self->{'_reciva_ssl_opts'}}) {
-			$ua->ssl_opts($i, $self->{'_default_ssl_opts'}->{$i});
-			print STDERR "--SSL OPTS SET3 ($i) BACK TO (".$self->{'_default_ssl_opts'}->{$i}.")!\n"  if ($DEBUG);
-		}
-	}
-	my $art_image = '';
-	my $response = $ua->get($self->{'iconurl'});
-	if ($response->is_success) {
-		$art_image = $response->decoded_content;
-	} else {
-		print STDERR $response->status_line  if ($DEBUG);
-		my $no_wget = system('wget','-V');
-		unless ($no_wget) {
-			print STDERR "\n..trying wget...\n"  if ($DEBUG);
-			my $iconUrl = $self->{'iconurl'};
-			$art_image = `wget -t 2 -T 20 -O- -o /dev/null \"$iconUrl\" 2>/dev/null `;
-		}
-	}
-	return ()  unless ($art_image);
-	(my $image_ext = $self->{'iconurl'}) =~ s/^.+\.//;
-	$image_ext =~ s/[^A-Za-z].*$//;
-	return ($image_ext, $art_image);
-}
-
-sub getImageURL
-{
-	my $self = shift;
-	return $self->{'imageurl'};  #URL TO THE STATION'S BANNER IMAGE, IF ANY.
-}
-
-sub getImageData
-{
-	my $self = shift;
-	return ()  unless ($self->{'imageurl'});
-	my $ua = LWP::UserAgent->new(@userAgentOps);		
-	$ua->timeout($uops{'timeout'});
-	$ua->cookie_jar({});
-	$ua->env_proxy;
-	if ($self->{'imageurl'} =~ /\breciva\b/ && defined $self->{'_reciva_ssl_opts'}) {
-		foreach my $i (keys %{$self->{'_reciva_ssl_opts'}}) {
-			$ua->ssl_opts($i, $self->{'_default_ssl_opts'}->{$i});
-			print STDERR "--SSL OPTS SET4 ($i) BACK TO (".$self->{'_default_ssl_opts'}->{$i}.")!\n"  if ($DEBUG);
-		}
-	}
-	my $art_image = '';
-	my $response = $ua->get($self->{'imageurl'});
-	if ($response->is_success) {
-		$art_image = $response->decoded_content;
-	} else {
-		print STDERR $response->status_line  if ($DEBUG);
-		my $no_wget = system('wget','-V');
-		unless ($no_wget) {
-			print STDERR "\n..trying wget...\n"  if ($DEBUG);
-			my $iconUrl = $self->{'iconurl'};
-			$art_image = `wget -t 2 -T 20 -O- -o /dev/null \"$iconUrl\" 2>/dev/null `;
-		}
-	}
-	return ()  unless ($art_image);
-	my $image_ext = $self->{'imageurl'};
-	$image_ext = ($self->{'imageurl'} =~ /\.(\w+)$/) ? $1 : 'png';
-	$image_ext =~ s/[^A-Za-z].*$//;
-	return ($image_ext, $art_image);
 }
 
 1

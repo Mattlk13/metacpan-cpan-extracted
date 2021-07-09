@@ -25,7 +25,7 @@ app->renderer->add_handler(dead => sub { die "dead handler!\n" });
 # Custom rendering for missing "txt" template
 hook before_render => sub {
   my ($c, $args) = @_;
-  return unless ($args->{template} // '') eq 'not_found';
+  return unless ($args->{template} // '') eq 'exception.development';
   my $stash     = $c->stash;
   my $exception = $stash->{snapshot}{exception};
   $args->{text} = "Missing template, $exception." if $args->{format} eq 'txt';
@@ -51,11 +51,11 @@ get '/custom_exception' => sub { die Mojo::Base->new };
 
 get '/dead_template';
 
-get '/dead_template_too';
+get '/dead_template_too' => [format => ['xml']];
 
-get '/dead_handler' => {handler => 'dead'};
+get '/dead_handler' => [format => ['xml']] => {handler => 'dead'};
 
-get '/dead_action_epl' => {handler => 'epl'} => sub {
+get '/dead_action_epl' => [format => ['xml']] => {handler => 'epl'} => sub {
   die "dead action epl!\n";
 };
 
@@ -63,7 +63,7 @@ get '/dead_included_template';
 
 get '/dead_template_with_layout';
 
-get '/dead_action' => sub { die "dead action!\n" };
+get '/dead_action' => [format => ['xml', 'json']] => {format => undef} => sub { die "dead action!\n" };
 
 get '/double_dead_action_☃' => sub {
   eval { die 'double dead action!' };
@@ -76,11 +76,11 @@ get '/trapped' => sub {
   $c->render(text => $@->{foo} || 'failed');
 };
 
-get '/missing_template' => {exception => 'whatever'};
+get '/missing_template' => [format => ['xml', 'json', 'txt']] => {exception => 'whatever', format => undef};
 
 get '/missing_template/too' => sub {
   my $c = shift;
-  $c->render('does_not_exist') or $c->res->headers->header('X-Not-Found' => 1);
+  $c->render('does_not_exist');
 };
 
 get '/missing_helper' => sub { shift->missing_helper };
@@ -250,28 +250,28 @@ subtest 'Exception in helper' => sub {
 };
 
 subtest 'Missing template' => sub {
-  $t->get_ok('/missing_template')->status_is(404)->content_type_is('text/html;charset=UTF-8')
-    ->content_like(qr/Page Not Found/);
+  $t->get_ok('/missing_template')->status_is(500)->content_type_is('text/html;charset=UTF-8')
+    ->content_like(qr/Route without action and nothing to render/);
 };
 
 subtest 'Missing template with different format' => sub {
-  $t->get_ok('/missing_template.xml')->status_is(404)->content_type_is('application/xml')
-    ->content_is("<somewhat>bad</somewhat>\n");
+  $t->get_ok('/missing_template.xml')->status_is(500)->content_type_is('application/xml')
+    ->content_is("<very>bad</very>\n");
 };
 
 subtest 'Missing template with unsupported format' => sub {
-  $t->get_ok('/missing_template.json')->status_is(404)->content_type_is('text/html;charset=UTF-8')
-    ->content_like(qr/Page Not Found/);
+  $t->get_ok('/missing_template.json')->status_is(500)->content_type_is('text/html;charset=UTF-8')
+    ->content_like(qr/Route without action and nothing to render/);
 };
 
 subtest 'Missing template with custom rendering' => sub {
-  $t->get_ok('/missing_template.txt')->status_is(404)->content_type_is('text/plain;charset=UTF-8')
+  $t->get_ok('/missing_template.txt')->status_is(500)->content_type_is('text/plain;charset=UTF-8')
     ->content_is('Missing template, whatever.');
 };
 
 subtest 'Missing template (failed rendering)' => sub {
-  $t->get_ok('/missing_template/too')->status_is(404)->header_is('X-Not-Found' => 1)
-    ->content_type_is('text/html;charset=UTF-8')->content_like(qr/Page Not Found/);
+  $t->get_ok('/missing_template/too')->status_is(500)->content_type_is('text/html;charset=UTF-8')
+    ->content_like(qr/Could not render a response/);
 };
 
 subtest 'Missing helper (correct context)' => sub {
@@ -298,23 +298,6 @@ subtest 'Bundled static files' => sub {
 
   $t->get_ok('/mojo/bootstrap/bootstrap.js')->status_is(200)->content_type_is('application/javascript');
   $t->get_ok('/mojo/bootstrap/bootstrap.css')->status_is(200)->content_type_is('text/css');
-
-  $t->get_ok('/mojo/fontawesome/fontawesome.css')->status_is(200)->content_type_is('text/css');
-  $t->get_ok('/mojo/webfonts/fa-brands-400.eot')->status_is(200)->content_type_is('application/octet-stream');
-  $t->get_ok('/mojo/webfonts/fa-brands-400.svg')->status_is(200)->content_type_is('image/svg+xml');
-  $t->get_ok('/mojo/webfonts/fa-brands-400.ttf')->status_is(200)->content_type_is('font/ttf');
-  $t->get_ok('/mojo/webfonts/fa-brands-400.woff')->status_is(200)->content_type_is('font/woff');
-  $t->get_ok('/mojo/webfonts/fa-brands-400.woff2')->status_is(200)->content_type_is('font/woff2');
-  $t->get_ok('/mojo/webfonts/fa-regular-400.eot')->status_is(200)->content_type_is('application/octet-stream');
-  $t->get_ok('/mojo/webfonts/fa-regular-400.svg')->status_is(200)->content_type_is('image/svg+xml');
-  $t->get_ok('/mojo/webfonts/fa-regular-400.ttf')->status_is(200)->content_type_is('font/ttf');
-  $t->get_ok('/mojo/webfonts/fa-regular-400.woff')->status_is(200)->content_type_is('font/woff');
-  $t->get_ok('/mojo/webfonts/fa-regular-400.woff2')->status_is(200)->content_type_is('font/woff2');
-  $t->get_ok('/mojo/webfonts/fa-solid-900.eot')->status_is(200)->content_type_is('application/octet-stream');
-  $t->get_ok('/mojo/webfonts/fa-solid-900.svg')->status_is(200)->content_type_is('image/svg+xml');
-  $t->get_ok('/mojo/webfonts/fa-solid-900.ttf')->status_is(200)->content_type_is('font/ttf');
-  $t->get_ok('/mojo/webfonts/fa-solid-900.woff')->status_is(200)->content_type_is('font/woff');
-  $t->get_ok('/mojo/webfonts/fa-solid-900.woff2')->status_is(200)->content_type_is('font/woff2');
 
   $t->get_ok('/mojo/failraptor.png')->status_is(200)->content_type_is('image/png');
   $t->get_ok('/mojo/logo.png')->status_is(200)->content_type_is('image/png');
@@ -347,11 +330,8 @@ works!
 % layout 'green';
 % die 'dead template with layout!';
 
-@@ exception.xml.ep
+@@ exception.development.xml.ep
 <very>bad</very>
-
-@@ not_found.development.xml.ep
-<somewhat>bad</somewhat>
 
 @@ dead_helper.html.ep
 % dead_helper;

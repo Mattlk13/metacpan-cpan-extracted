@@ -3,8 +3,8 @@ NAME
     contain word list
 
 VERSION
-    This document describes version 0.7.6 of WordList (from Perl
-    distribution WordList), released on 2020-08-23.
+    This document describes version 0.7.10 of WordList (from Perl
+    distribution WordList), released on 2021-06-23.
 
 SYNOPSIS
     Use one of the "WordList::*" modules.
@@ -45,10 +45,10 @@ DESCRIPTION
     wordlist returns the same list everytime "each_word()" or "all_words()"
     is called. A non-deterministic list can return a different list for a
     different "each_word()" or "all_words()" call. See
-    WordListRole::Dynamic::FirstNextResetFromEach and
-    WordListRole::Dynamic::EachFromFirstNextReset if you want to write a
-    dynamic wordlist module. It is possible for a dynamic list to return
-    unordered or duplicate entries, but it is not encouraged.
+    WordListRole::FirstNextResetFromEach,
+    WordListRole::EachFromFirstNextReset, WordListRole::FromArray if you
+    want to write a dynamic wordlist module. It is possible for a dynamic
+    list to return unordered or duplicate entries, but it is not encouraged.
 
     Parameterized wordlist. When instantiating a wordlist class instance,
     user can pass a list of key-value pairs as parameters. Normally only a
@@ -123,6 +123,9 @@ SUBCLASSING OR CREATING ROLES
     from the filehandle. "each_word()" is implemented in terms of
     "first_word()" and "next_word()", and "word_exists()", "pick()", and
     "all_words()" are implemented in terms of "each_word()".
+
+CONTRIBUTOR
+    perlancar (on netbook-dell-xps13) <perlancar@gmail.com>
 
 METHODS
   new
@@ -221,17 +224,23 @@ BUGS
     to an existing test-file that illustrates the bug or desired feature.
 
 SEE ALSO
+    Related projects: ArrayData, HashData, TableData are newer projects
+    inspired by WordList. I plan to publish newer wordlists as
+    "ArrayData::*" modules. But WordList will still exist and stabilize its
+    API.
+
     "WordListRole::*" modules.
 
     "WordList::*" modules.
 
-    Rinci.
+    CLI's are provided in App::wordlist (wordlist), App::WordListUtils (e.g.
+    list-wordlist-modules, etc).
 
 AUTHOR
     perlancar <perlancar@cpan.org>
 
 COPYRIGHT AND LICENSE
-    This software is copyright (c) 2020, 2018, 2017, 2016 by
+    This software is copyright (c) 2021, 2020, 2018, 2017, 2016 by
     perlancar@cpan.org.
 
     This is free software; you can redistribute it and/or modify it under

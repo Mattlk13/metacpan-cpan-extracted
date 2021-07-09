@@ -45,6 +45,7 @@ sub init
 	my %profile = $self-> SUPER::init(@_);
 	$self-> $_( $profile{$_}) for qw( grayscale rotate reversed );
 	$self-> $_( @{$profile{$_}}) for qw( pageSize pageMargins resolution scale );
+	$self->{fpType} = 'F';
 	return %profile;
 }
 
@@ -57,6 +58,7 @@ sub save_state
 		color backColor fillPattern lineEnd linePattern lineWidth miterLimit
 		rop rop2 textOpaque textOutBaseline font lineJoin fillMode
 	);
+	$self->{save_state}->{fpType} = $self->{fpType};
 	$self-> {save_state}-> {$_} = [$self-> $_()] for qw(
 		translate clipRect
 	);
@@ -69,6 +71,7 @@ sub restore_state
 			rop rop2 textOpaque textOutBaseline font lineJoin fillMode)) {
 		$self-> $_( $self-> {save_state}-> {$_});
 	}
+	$self->{fpType} = $self->{save_state}->{fpType};
 	for ( qw( translate clipRect)) {
 		$self-> $_( @{$self-> {save_state}-> {$_}});
 	}
@@ -98,6 +101,73 @@ sub point2pixel
 		push @res, $y * $self-> {resolution}-> [1] / 72.27 if defined $y;
 	}
 	return @res;
+}
+
+our $PI = 3.14159265358979323846264338327950288419716939937510;
+our $RAD = 180.0 / $PI;
+
+# L.Maisonobe 2003
+# http://www.spaceroots.org/documents/ellipse/elliptical-arc.pdf
+sub arc2cubics
+{
+	my ( $self, $x, $y, $dx, $dy, $start, $end) = @_;
+
+	my ($reverse, @out);
+	($start, $end, $reverse) = ( $end, $start, 1 ) if $start > $end;
+
+	push @out, $start;
+	# see defects appearing after 45 degrees:
+	# https://pomax.github.io/bezierinfo/#circles_cubic
+	while (1) {
+		if ( $end - $start > 45 ) {
+			push @out, $start += 45;
+			$start += 45;
+		} else {
+			push @out, $end;
+			last;
+		}
+	}
+	@out = map { $_ / $RAD } @out;
+
+	my $rx = $dx / 2;
+	my $ry = $dy / 2;
+
+	my @cubics;
+	for ( my $i = 0; $i < $#out; $i++) {
+		my ( $a1, $a2 ) = @out[$i,$i+1];
+		my $b           = $a2 - $a1;
+		my ( $sin1, $cos1, $sin2, $cos2) = ( sin($a1), cos($a1), sin($a2), cos($a2) );
+		my @d1  = ( -$rx * $sin1, -$ry * $cos1 );
+		my @d2  = ( -$rx * $sin2, -$ry * $cos2 );
+		my $tan = sin( $b / 2 ) / cos( $b / 2 );
+		my $a   = sin( $b ) * (sqrt( 4 + 3 * $tan * $tan) - 1) / 3;
+		my @p1  = ( $rx * $cos1, $ry * $sin1 );
+		my @p2  = ( $rx * $cos2, $ry * $sin2 );
+		my @points = (
+			@p1,
+			$p1[0] + $a * $d1[0],
+			$p1[1] - $a * $d1[1],
+			$p2[0] - $a * $d2[0],
+			$p2[1] + $a * $d2[1],
+			@p2
+		);
+		$points[$_] += $x for 0,2,4,6;
+		$points[$_] += $y for 1,3,5,7;
+		@points[0,1,2,3,4,5,6,7] = @points[6,7,4,5,2,3,0,1] if $reverse;
+		push @cubics, \@points;
+	}
+	return \@cubics;
+}
+
+sub conic2curve
+{
+	my ($self, $x0, $y0, $x1, $y1, $x2, $y2) = @_;
+	my (@cp1, @cp2);
+	$cp1[0] = $x0 + 2 / 3 * ($x1 - $x0);
+	$cp1[1] = $y0 + 2 / 3 * ($y1 - $y0);
+	$cp2[0] = $x2 + 2 / 3 * ($x1 - $x2);
+	$cp2[1] = $y2 + 2 / 3 * ($y1 - $y2);
+	return @cp1, @cp2, $x2, $y2;
 }
 
 sub begin_paint_info
@@ -219,6 +289,7 @@ sub clipRect
 {
 	return @{$_[0]-> {clipRect}} unless $#_;
 	$_[0]-> {clipRect} = [@_[1..4]];
+	$_[0]-> {region} = undef;
 	$_[0]-> change_transform;
 }
 
@@ -318,6 +389,7 @@ sub get_nearest_color    { return $_[1] }
 sub get_physical_palette { return $_[0]-> {grayscale} ? [map { $_, $_, $_ } 0..255] : 0 }
 sub get_handle           { return 0 }
 sub alpha                { 0 }
+sub can_draw_alpha       { 0 }
 
 sub fonts
 {
@@ -437,7 +509,7 @@ sub get_font_abc
 	$last = $first if !defined ($last) || $last < $first;
 	my $canvas = $self-> glyph_canvas;
 	my $scale  = $self->{font_scale} * $self->{font_x_scale};
-	return [ map { $_ * $scale } @{ $canvas->get_font_abc($first, $last, $flags) } ];
+	return [ map { $_ * $scale } @{ $canvas->get_font_abc($first, $last, $flags // 0) } ];
 }
 
 sub get_font_def
@@ -447,7 +519,7 @@ sub get_font_def
 	$last = $first if !defined ($last) || $last < $first;
 	my $canvas = $self-> glyph_canvas;
 	my $scale  = $self->{font_scale};
-	return [ map { $_ * $scale } @{ $canvas->get_font_def($first, $last, $flags) } ];
+	return [ map { $_ * $scale } @{ $canvas->get_font_def($first, $last, $flags // 0) } ];
 }
 
 sub get_font_ranges    { shift->glyph_canvas->get_font_ranges    }
@@ -526,6 +598,30 @@ sub get_text_box
 	return \@ret;
 }
 
+sub text_wrap
+{
+	my ( $self, $text, $width, @rest ) = @_;
+	my $res;
+	my $gc = $self->glyph_canvas;
+	my $x  = $self->{font_scale};
+	if ( $rest[-1] && ((ref($rest[-1]) // '') eq 'Prima::Drawable::Glyphs') && $rest[-1]->advances ) {
+		my $s = $rest[-1];
+		my @save  = ($s->advances, $s->positions);
+		my @clone = map { Prima::array::clone($_) } @save;
+		for my $v ( @clone ) {
+			$_ /= $x for @$v;
+		}
+		$s->[ Prima::Drawable::Glyphs::ADVANCES()  ] = $clone[0];
+		$s->[ Prima::Drawable::Glyphs::POSITIONS() ] = $clone[1];
+		$res = $gc->text_wrap($text, $width / $x, @rest);
+		$s->[ Prima::Drawable::Glyphs::ADVANCES()  ] = $save[0];
+		$s->[ Prima::Drawable::Glyphs::POSITIONS() ] = $save[1];
+	} else {
+		$res = $gc->text_wrap($text, $width / $x, @rest);
+	}
+	return $res;
+}
+
 sub text_shape
 {
 	my ( $self, $text, %opt ) = @_;
@@ -543,6 +639,181 @@ sub text_shape
 }
 
 sub render_glyph {}
+
+package
+	Prima::PS::Drawable::Path;
+use base qw(Prima::Drawable::Path);
+
+sub entries
+{
+	my $self = shift;
+	unless ( $self->{entries} ) {
+		local $self->{stack} = [];
+		local $self->{curr}  = { matrix => [ $self-> identity ] };
+		my $c = $self->{commands};
+		$self-> {entries} = [];
+		for ( my $i = 0; $i < @$c; ) {
+			my ($cmd,$len) = @$c[$i,$i+1];
+			$self-> can("_$cmd")-> ( $self, @$c[$i+2..$i+$len+1] );
+			$i += $len + 2;
+		}
+		$self->{last_matrix} = $self->{curr}->{matrix};
+	}
+	return $self-> {entries};
+}
+
+sub emit { push @{shift->{entries}}, join(' ', @_) }
+
+sub last_point { @{$_[0]->{last_point} // [0,0]} }
+
+sub _open
+{
+	my $self = shift;
+	$self-> {move_is_line} = 0;
+	$self->emit('')
+}
+
+sub _close     { $_[0]->emit( $_[0]-> dict-> {closepath} ) }
+
+sub  _moveto
+{
+	my ( $self, $mx, $my, $rel) = @_;
+	($mx, $my) = $self-> canvas-> pixel2point( $mx, $my );
+	($mx, $my) = $self->matrix_apply($mx, $my);
+	my ($lx, $ly) = $rel ? $self->last_point : (0,0);
+	$lx += $mx;
+	$ly += $my;
+	@{$self-> {last_point}} = ($lx, $ly);
+	$self-> emit($lx, $ly, $self->dict->{moveto} );
+}
+
+sub _line
+{
+	my ( $self, $line ) = @_;
+	my @line = $self-> canvas-> pixel2point( @$line );
+	@line = @{ $self-> matrix_apply( \@line ) };
+	$self-> set_current_point( shift @line, shift @line );
+	@{$self-> {last_point}} = @line[-2,-1];
+	my $cmd = $self->dict->{lineto};
+	for ( my $i = 0; $i < @line; $i += 2 ) {
+		$self->emit(@line[$i,$i+1], $cmd);
+	}
+}
+
+sub _spline
+{
+	my ( $self, $points, $options ) = @_;
+	my @p = $self-> canvas-> pixel2point( @$points );
+	@p = @{ $self-> matrix_apply( \@p ) };
+
+	$options->{degree} //= 2;
+	return if $options->{degree} > 3;
+	my @p0 = @p[0,1];
+	$self-> set_current_point( @p0 );
+	my $cmd = $self->dict->{curveto};
+	if ( $options->{degree} == 2 ) {
+		for ( my $i = 2; $i < @p; $i += 4 ) {
+			my @pp = $self->canvas->conic2curve( @p0, @p[$i .. $i + 3] );
+			$self->emit(@pp, $cmd);
+			@p0 = @pp[-2,-1];
+		}
+	} else {
+		for ( my $i = 2; $i < @p; $i += 4 ) {
+			my @pp = @p[$i .. $i + 5];
+			$self->emit(@pp, $cmd);
+		}
+	}
+}
+
+sub _arc
+{
+	my ( $self, $from, $to, $rel ) = @_;
+	my $cubics = $self->canvas->arc2cubics(
+		0, 0, 2, 2,
+		$from, $to);
+
+	if ( $rel ) {
+		my ($lx,$ly) = $self->last_point;
+		my $pts = $cubics->[0];
+		my $m = $self->{curr}->{matrix};
+		my @s = $self->matrix_apply( $pts->[0], $pts->[1]);
+		$m->[4] += $lx - $s[0];
+		$m->[5] += $ly - $s[1];
+	}
+	my @p = map { $self-> matrix_apply( $_ ) } @$cubics;
+	$_ = [$self-> canvas-> pixel2point(@$_)] for @p;
+	$self-> set_current_point( @{$p[0]}[0,1] );
+	my $cmd = $self->dict->{curveto};
+	$self-> emit( @{$_}[2..7], $cmd) for @p;
+}
+
+sub stroke
+{
+	my $self = shift;
+	$self-> canvas-> stroke( join("\n", @{ $self->entries }, $self->dict->{stroke} ));
+}
+
+sub fill
+{
+	my ( $self, $fillMode ) = @_;
+	$fillMode //= $self->canvas->fillMode;
+	$fillMode = ((($fillMode & fm::Winding) == fm::Alternate) ? 'alt' : 'wind');
+	$self-> canvas-> fill( join("\n", @{ $self->entries }, $self-> dict->{"fill_$fillMode"} ));
+}
+
+package
+	Prima::PS::Drawable::Region;
+
+sub new
+{
+	my ($class, $entries) = @_;
+	bless {
+		path   => $entries,
+		offset => [0,0],
+	}, $class;
+}
+
+sub get_handle { "$_[0]" }
+sub get_boxes    { [] }
+sub point_inside { 0 }
+sub rect_inside  { 0 }
+sub box          { 0,0,0,0 }
+
+sub offset
+{
+	my ( $self, $dx, $dy ) = @_;
+	$self->{offset}->[0] += $dx;
+	$self->{offset}->[1] += $dy;
+}
+
+sub apply_offset
+{
+	my $self = shift;
+	my $path = $self->{path};
+	my @offset = @{ $self->{offset} };
+	return $path if 0 == grep { $_ != 0 } @offset;
+
+	my $n = '';
+	my $ix = 0;
+	while ( 1 ) {
+		$path =~ m/\G(\d+(?:\.\d+)?)/gcs and do {
+			$n .= $1 + $offset[$ix];
+			$ix = $ix ? 0 : 1;
+			redo;
+		};
+		$path =~ m/\G(\s+)/gcs and do {
+			$n .= $1;
+			redo;
+		};
+		$path =~ m/\G(\D+)/gcs and do {
+			$n .= $1;
+			$ix = 0;
+			redo;
+		};
+		$path =~ m/\G$/gcs and last;
+	}
+	$path = $n;
+}
 
 1;
 

@@ -1,5 +1,5 @@
 package Photonic::LE::S::EpsL;
-$Photonic::LE::S::EpsL::VERSION = '0.014';
+$Photonic::LE::S::EpsL::VERSION = '0.017';
 
 =encoding UTF-8
 
@@ -9,14 +9,14 @@ Photonic::LE::S::EpsL
 
 =head1 VERSION
 
-version 0.014
+version 0.017
 
 =head1 COPYRIGHT NOTICE
 
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -70,7 +70,7 @@ $smallE is the criteria of convergence for the continued fraction
 
 =back
 
-=head1 ACCESORS (read only)
+=head1 ACCESSORS (read only)
 
 =over 4
 
@@ -112,7 +112,6 @@ check.
 use namespace::autoclean;
 use PDL::Lite;
 use PDL::NiceSlice;
-use PDL::Complex;
 use Photonic::LE::S::AllH;
 use Photonic::Types;
 use Photonic::Utils qw(lentzCF);
@@ -122,7 +121,7 @@ use Moose;
 use MooseX::StrictConstructor;
 
 has 'nr' =>(is=>'ro', isa=>'Photonic::LE::S::AllH', required=>1);
-has 'epsL'=>(is=>'ro', isa=>'PDL::Complex', init_arg=>undef, writer=>'_epsL');
+has 'epsL'=>(is=>'ro', isa=>'Photonic::Types::PDLComplex', init_arg=>undef, writer=>'_epsL');
 has 'nhActual'=>(is=>'ro', isa=>'Num', init_arg=>undef,
                  writer=>'_nhActual');
 has 'converged'=>(is=>'ro', isa=>'Num', init_arg=>undef, writer=>'_converged');
@@ -133,10 +132,9 @@ after BUILD => sub {
     my $as=$self->nr->as;
     my $b2s=$self->nr->b2s;
     my $min= min($self->nh, $self->nr->iteration);
-    my ($fn, $n)=lentzCF($as, [map {-$_} @$b2s], $min, $self->smallE);
+    my ($fn, $n)=lentzCF($as, -$b2s, $min, $self->smallE);
     # Check this logic:
-    my $converged=$n<$min || $self->nr->iteration<=$self->nh;
-    $self->_converged($converged);
+    $self->_converged($n<$min || $self->nr->iteration<=$self->nh);
     $self->_nhActual($n);
     $self->_epsL($fn);
     return $fn;

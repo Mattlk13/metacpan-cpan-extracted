@@ -6,7 +6,7 @@ build_requires: {}
 configure_requires:
   Module::Build::Tiny: '0.034'
 dynamic_config: 0
-generated_by: 'App::ModuleBuildTiny version 0.027, CPAN::Meta::Converter version 2.150010'
+generated_by: 'App::ModuleBuildTiny version 0.029, CPAN::Meta::Converter version 2.150010'
 license: unrestricted
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -15,7 +15,7 @@ name: NewsExtractor
 provides:
   NewsExtractor:
     file: lib/NewsExtractor.pm
-    version: v0.39.0
+    version: v0.43.0
   NewsExtractor::Article:
     file: lib/NewsExtractor/Article.pm
   NewsExtractor::CSSExtractor:
@@ -72,6 +72,8 @@ provides:
     file: lib/NewsExtractor/SiteSpecificExtractor/news_pts_org_tw.pm
   NewsExtractor::SiteSpecificExtractor::news_tnn_tw:
     file: lib/NewsExtractor/SiteSpecificExtractor/news_tnn_tw.pm
+  NewsExtractor::SiteSpecificExtractor::news_ttv_com_tw:
+    file: lib/NewsExtractor/SiteSpecificExtractor/news_ttv_com_tw.pm
   NewsExtractor::SiteSpecificExtractor::news_tvbs_com_tw:
     file: lib/NewsExtractor/SiteSpecificExtractor/news_tvbs_com_tw.pm
   NewsExtractor::SiteSpecificExtractor::newtalk_tw:
@@ -132,6 +134,8 @@ provides:
     file: lib/NewsExtractor/SiteSpecificExtractor/www_ustv_com_tw.pm
   NewsExtractor::SiteSpecificExtractor::www_xinhuanet_com:
     file: lib/NewsExtractor/SiteSpecificExtractor/www_xinhuanet_com.pm
+  NewsExtractor::SiteSpecificExtractor::yimedia_com_tw:
+    file: lib/NewsExtractor/SiteSpecificExtractor/yimedia_com_tw.pm
   NewsExtractor::TXExtractor:
     file: lib/NewsExtractor/TXExtractor.pm
   NewsExtractor::TextUtil:
@@ -147,6 +151,7 @@ requires:
   JSON: '0'
   Mojolicious: '8.25'
   Moo: '0'
+  Ref::Util: '0'
   SemanticWeb::Schema: '0'
   Test2::V0: '0'
   Try::Tiny: '0'
@@ -156,7 +161,7 @@ requires:
 resources:
   bugtracker: https://github.com/perltaiwan/NewsExtractor/issues
   repository: https://github.com/perltaiwan/NewsExtractor.git
-version: v0.39.0
+version: v0.43.0
 x_serialization_backend: 'CPAN::Meta::YAML version 0.018'
 x_spdx_expression: CC0-1.0
 x_static_install: '1'

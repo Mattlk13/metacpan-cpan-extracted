@@ -1,9 +1,9 @@
 package Perinci::CmdLine::Gen;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-07-31'; # DATE
+our $DATE = '2021-06-23'; # DATE
 our $DIST = 'Perinci-CmdLine-Gen'; # DIST
-our $VERSION = '0.497'; # VERSION
+our $VERSION = '0.499'; # VERSION
 
 use 5.010001;
 use strict;
@@ -458,13 +458,14 @@ sub gen_pericmd_script {
             $extra_modules->{$_} = $res->[3]{'func.raw_result'}{req_modules}{$_};
         }
     } else {
-        $extra_modules->{'Log::ger'} = '0.037' if $args{log};
+        $extra_modules->{'Log::ger'} = '0.038' if $args{log};
         # determine minimum required version
         if ($cmdline_mod =~ /\APerinci::CmdLine::(Lite|Any)\z/) {
             if ($cmdline_mod eq 'Perinci::CmdLine::Lite') {
-                $cmdline_mod_ver = "1.827";
+                $cmdline_mod_ver = "1.905";
             } else {
-                $extra_modules->{"Perinci::CmdLine::Lite"} = "1.827";
+                $extra_modules->{"Perinci::CmdLine::Any"} = "0.152";
+                $extra_modules->{"Perinci::CmdLine::Lite"} = "1.905";
             }
         } elsif ($cmdline_mod =~ /\APerinci::CmdLine::Classic\z/) {
             $extra_modules->{"Perinci::CmdLine::Base"} = "1.827";
@@ -611,7 +612,7 @@ Perinci::CmdLine::Gen - Generate Perinci::CmdLine CLI script
 
 =head1 VERSION
 
-This document describes version 0.497 of Perinci::CmdLine::Gen (from Perl distribution Perinci-CmdLine-Gen), released on 2020-07-31.
+This document describes version 0.499 of Perinci::CmdLine::Gen (from Perl distribution Perinci-CmdLine-Gen), released on 2021-06-23.
 
 =head1 FUNCTIONS
 
@@ -620,7 +621,7 @@ This document describes version 0.497 of Perinci::CmdLine::Gen (from Perl distri
 
 Usage:
 
- gen_pericmd_script(%args) -> [status, msg, payload, meta]
+ gen_pericmd_script(%args) -> [$status_code, $reason, $payload, \%result_meta]
 
 Generate Perinci::CmdLine CLI script.
 
@@ -831,12 +832,12 @@ Will be passed to Perinci::CmdLine constructor.
 
 Returns an enveloped result (an array).
 
-First element (status) is an integer containing HTTP status code
+First element ($status_code) is an integer containing HTTP-like status code
 (200 means OK, 4xx caller error, 5xx function error). Second element
-(msg) is a string containing error message, or 'OK' if status is
-200. Third element (payload) is optional, the actual result. Fourth
-element (meta) is called result metadata and is optional, a hash
-that contains extra information.
+($reason) is a string containing error message, or something like "OK" if status is
+200. Third element ($payload) is the actual result, but usually not present when enveloped result is an error response ($status_code is not 2xx). Fourth
+element (%result_meta) is called result metadata and is optional, a hash
+that contains extra information, much like how HTTP response headers provide additional metadata.
 
 Return value:  (any)
 
@@ -846,7 +847,7 @@ Return value:  (any)
 
 Usage:
 
- gen_perinci_cmdline_script(%args) -> [status, msg, payload, meta]
+ gen_perinci_cmdline_script(%args) -> [$status_code, $reason, $payload, \%result_meta]
 
 Generate Perinci::CmdLine CLI script.
 
@@ -1057,12 +1058,12 @@ Will be passed to Perinci::CmdLine constructor.
 
 Returns an enveloped result (an array).
 
-First element (status) is an integer containing HTTP status code
+First element ($status_code) is an integer containing HTTP-like status code
 (200 means OK, 4xx caller error, 5xx function error). Second element
-(msg) is a string containing error message, or 'OK' if status is
-200. Third element (payload) is optional, the actual result. Fourth
-element (meta) is called result metadata and is optional, a hash
-that contains extra information.
+($reason) is a string containing error message, or something like "OK" if status is
+200. Third element ($payload) is the actual result, but usually not present when enveloped result is an error response ($status_code is not 2xx). Fourth
+element (%result_meta) is called result metadata and is optional, a hash
+that contains extra information, much like how HTTP response headers provide additional metadata.
 
 Return value:  (any)
 
@@ -1088,7 +1089,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2019, 2018, 2017, 2016, 2015 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2019, 2018, 2017, 2016, 2015 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

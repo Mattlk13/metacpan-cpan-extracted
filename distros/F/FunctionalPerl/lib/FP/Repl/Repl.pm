@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2004-2020 Christian Jaeger, copying@christianjaeger.ch
+# Copyright (c) 2004-2021 Christian Jaeger, copying@christianjaeger.ch
 #
 # This is free software, offered under either the same terms as perl 5
 # or the terms of the Artistic License version 2 or the terms of the
@@ -16,10 +16,11 @@ FP::Repl::Repl - read-eval-print loop
  my $repl = new FP::Repl::Repl;
  $repl->set_prompt("foo> ");
  # ^ if left undefined, "$package$perhapslevel> " is used
- $repl->set_historypath("somefile"); # default is ~/.fp-repl_history
+ $repl->set_historypath("path/to/dir"); # default is ~/.fp-repl_history
  $repl->set_env_PATH ($safe_PATH); # default in taint mode is
    # '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-   # $ENV{PATH} otherwise.
+   # $ENV{PATH} otherwise. Is only used for running tooling for the
+   # repl itself, like the pager.
  $repl->run;
  # or $repl->run($skip)  to skip $skip levels
 
@@ -116,10 +117,10 @@ sub WithRepl_eval (&;$) {
 use Chj::Class::methodnames;
 use Chj::xoutpipe();
 use Chj::xtmpfile;
-use Chj::xperlfunc qw(xexec);
+use Chj::xperlfunc qw(xexec xstat);
 use Chj::xopen qw(fh_to_fh perhaps_xopen_read);
 use POSIX;
-use Chj::xhome qw(xhome);
+use Chj::xhome qw(xsafehome);
 use Chj::singlequote 'singlequote';
 use FP::HashSet qw(hashset_union);
 use FP::Hash qw(hash_xref);
@@ -128,6 +129,7 @@ use FP::Lazy;
 use FP::Show;
 use Scalar::Util qw(blessed);
 use FP::Carp;
+use FP::Array qw(array_take array_last_upto);
 
 sub maybe_tty {
     my $path = "/dev/tty";
@@ -146,19 +148,47 @@ sub xone_nonwhitespace {
     $1
 }
 
-my $HOME = xhome;
-our $maybe_historypath        = "$HOME/.fp-repl_history";
-our $maybe_settingspath       = "$HOME/.fp-repl_settings";
-our $maxHistLen               = 100;
-our $doCatchINT               = 1;
-our $doRepeatWhenEmpty        = 1;
+sub maybe_fp_repl_home {
+    if (my $e = $ENV{FP_REPL_HOME}) {
+
+        # XX todo: properly deal with paths on Windows
+        if (my ($esafe) = $e =~ m{^(/.*)\z}s) {
+            if (-d $esafe) {
+                $esafe
+            } else {
+                warn "Note: ignoring FP_REPL_HOME (dir does not exist)";
+                undef
+            }
+        } else {
+            warn "Note: ignoring FP_REPL_HOME (is non-absolute path)";
+            undef
+        }
+    } else {
+        undef
+    }
+}
+
+# Mis-using lazyLight for impure code here; could be simply a thunk
+# (procedure with no arguments). *Not* using TransparentLazy since we
+# better control explicitly where the exposition to side effects
+# should happen!
+my $HOME = lazyLight { maybe_fp_repl_home() // xsafehome };
+our $maybe_historypath  = lazyLight { force($HOME) . "/.fp-repl_history" };
+our $maybe_settingspath = lazyLight { force($HOME) . "/.fp-repl_settings" };
+our $maxHistLen         = 500;
+our $doCatchINT         = 1;
+our $doRepeatWhenEmpty  = 1;
 our $doKeepResultsInVARX      = 1;
-our $pager                    = $ENV{PAGER} || "less";
+our $pager                    = lazyLight { $ENV{PAGER} || "less" };
 our $mode_context             = 'l';
 our $mode_formatter           = 'd';
 our $mode_viewer              = 'a';
 our $mode_lexical_persistence = 'X';
 our $maybe_env_path
+
+    # only used for running tooling for the repl itself, like the
+    # pager, and only if taint mode is on (see commit
+    # 890020b5ac502fe3fd11bf400c4cba70be5c1ac4)
     = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 
 use Chj::Class::Array -fields => -publica => (
@@ -179,18 +209,18 @@ use Chj::Class::Array -fields => -publica => (
 sub new {
     my $class = shift;
     my $self  = $class->SUPER::new;
-    $$self[Maybe_historypath]        = $maybe_historypath;
-    $$self[Maybe_settingspath]       = $maybe_settingspath;
-    $$self[MaxHistLen]               = $maxHistLen;
-    $$self[DoCatchINT]               = $doCatchINT;
-    $$self[DoRepeatWhenEmpty]        = $doRepeatWhenEmpty;
-    $$self[DoKeepResultsInVARX]      = $doKeepResultsInVARX;
-    $$self[Pager]                    = $pager;
-    $$self[Mode_context]             = $mode_context;
-    $$self[Mode_formatter]           = $mode_formatter;
-    $$self[Mode_viewer]              = $mode_viewer;
-    $$self[Mode_lexical_persistence] = $mode_lexical_persistence;
-    $$self[Maybe_env_PATH]           = $maybe_env_path if ${^TAINT};
+    $$self[Maybe_historypath]        = force $maybe_historypath;
+    $$self[Maybe_settingspath]       = force $maybe_settingspath;
+    $$self[MaxHistLen]               = force $maxHistLen;
+    $$self[DoCatchINT]               = force $doCatchINT;
+    $$self[DoRepeatWhenEmpty]        = force $doRepeatWhenEmpty;
+    $$self[DoKeepResultsInVARX]      = force $doKeepResultsInVARX;
+    $$self[Pager]                    = force $pager;
+    $$self[Mode_context]             = force $mode_context;
+    $$self[Mode_formatter]           = force $mode_formatter;
+    $$self[Mode_viewer]              = force $mode_viewer;
+    $$self[Mode_lexical_persistence] = force $mode_lexical_persistence;
+    $$self[Maybe_env_PATH]           = force($maybe_env_path) if ${^TAINT};
     $self
 }
 
@@ -378,6 +408,8 @@ Other features:
                      that *leaves* the currently selected frame
 };
 }
+
+our $history_z = 0;    # for history file numbering
 
 sub formatter {
     my $self    = shift;
@@ -929,18 +961,91 @@ sub run {
 
         # ^ this is what nested repl's will use to restore the history
         # in the $term object
+
+        # ^ TODO?: this is, now that history items are written to disk
+        # immediately, inconsistent!
         if (defined $$self[Maybe_historypath]) {
 
-            # clean history of C based object before we re-add the
+            # clean history of readline object before we re-add the
             # saved one:
             $clear_history->($term);
-            if (open my $hist, "<", $$self[Maybe_historypath]) {
-                @history = <$hist>;
-                close $hist;
+            my $copyhist = sub {
                 for (@history) {
-                    chomp;
                     $term->addhistory($_);
                 }
+            };
+            if (opendir my $dir, $$self[Maybe_historypath]) {
+
+                # new style history dirs (each entry its own file)
+                my @items = readdir $dir;
+                closedir $dir
+                    or die "reading dir '$$self[Maybe_historypath]': $!";
+                my @fstats
+                    = sort { $a->[2] <=> $b->[2] or $a->[0] cmp $b->[0] } map {
+                    if ($_ eq "." or $_ eq "..") {
+                        ()
+                    } else {
+                        my $file = "$$self[Maybe_historypath]/$_";
+                        [$_, $file, xstat($file)->mtime]
+                    }
+                    } @items;
+                my @files = map { $_->[1] } @fstats;
+
+                my @h;
+                for my $file (@{ array_last_upto \@files, $$self[MaxHistLen] })
+                {
+                    if (open my $in, "<", $file) {
+                        local $/;
+                        my $cnt = <$in>;
+                        close $in or die "reading '$file': $!";
+                        push @h, $cnt;
+                    } else {
+                        warn "can't open file '$file' for reading: $!";
+                    }
+                }
+                @history = @h;
+                $copyhist->();
+
+                # and clean up stale entries
+                if (@files > $$self[MaxHistLen]) {
+                    for my $file (
+                        @{ array_take \@files, @files - $$self[MaxHistLen] })
+                    {
+                        unlink $file
+                    }
+                }
+            } elsif (open my $hist, "<", $$self[Maybe_historypath]) {
+
+                # old style history files
+                @history = do {
+                    local $/ = "\n";
+                    my @h = <$hist>;
+                    chomp @h;
+                    @{ array_last_upto(\@h, $$self[MaxHistLen]) }
+                };
+                close $hist or die "reading '$$self[Maybe_historypath]': $!";
+                $copyhist->();
+
+                # and convert it to files
+                unlink $$self[Maybe_historypath];
+                mkdir $$self[Maybe_historypath], 0700
+                    or die "can't mkdir($$self[Maybe_historypath]): $!";
+                my $z = 0;
+                for my $entry (@history) {
+
+                    # c- for converted, also, 'c' < 'n'
+                    my $name = sprintf 'c-%06i-%06i', $$, $z++;
+                    my $path = "$$self[Maybe_historypath]/$name";
+
+                    # No need to be careful here with overwrites as
+                    # conversion happens only once, OK?
+                    open my $out, ">", $path
+                        or die "can't write to '$path': $!";
+                    print $out $entry or die "can't write to '$path': $!";
+                    close $out        or die "can't write to '$path': $!";
+                }
+            } elsif (-e $$self[Maybe_historypath]) {
+                warn "can't load history from '$$self[Maybe_historypath]': $!";
             }
         }
 
@@ -1002,10 +1107,39 @@ sub run {
                 my $input = &$myreadline // last;
 
                 if (length $input) {
+
                     my ($cmd, $rest)
                         = $input =~ /^ *[:,] *([?+-]|[a-zA-Z]+|\d+)(.*)/s
                         ? ($1, $2)
                         : (undef, $input);
+
+                    if (    defined $$self[Maybe_historypath]
+                        and not(defined $cmd and $cmd eq 'q')
+                        and not(@history and $input eq $history[-1]))
+                    {
+                        eval {
+                            TRY: {
+                                # n- for new, also 'n' > 'c'
+                                my $name = sprintf 'n-%06i-%06i', $$,
+                                    $history_z++;
+                                my $path = "$$self[Maybe_historypath]/$name";
+                                if (-e $path) {
+                                    $history_z++;
+                                    redo TRY;
+                                }
+                                mkdir $$self[Maybe_historypath], 0700;
+                                my $f = xtmpfile $path;
+                                $f->xprint($input);
+                                $f->xclose;
+                                $f->xputback(0600);
+                            }
+
+                            # cleaning of old entries happens on reading
+                        };
+                        if (ref $@ or $@) {
+                            warn "could not write history file: " . show($@)
+                        }
+                    }
 
                     if (defined $cmd) {
 
@@ -1340,6 +1474,9 @@ sub run {
                 if (length $input
                     and ((!defined $history[-1]) or $history[-1] ne $input))
                 {
+                    # XX this is, now that entries are written to disk
+                    # immediately, only used for nested repls (see
+                    # todo above)
                     push @history, $input;
                     chomp $input;
                     $term->addhistory($input);
@@ -1352,17 +1489,6 @@ sub run {
             }
         }
         print $OUTPUT "\n";
-        if (defined $$self[Maybe_historypath]) {
-            eval {
-                my $f = xtmpfile $$self[Maybe_historypath];
-                $f->xprint("$_\n") for @history;
-                $f->xclose;
-                $f->xputback(0600);
-            };
-            if (ref $@ or $@) {
-                warn "could not write history file: " . show($@)
-            }
-        }
         $SIG{INT} = defined($oldsigint) ? $oldsigint : "DEFAULT";
 
         # (Is there no other return path from sub run? should I use

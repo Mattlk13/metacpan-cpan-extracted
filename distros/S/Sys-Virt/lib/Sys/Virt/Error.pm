@@ -422,6 +422,10 @@ The TPM subsystem
 
 The BPF subsystem
 
+=item Sys::Virt::Error::FROM_CH
+
+The Cloud Hypervisor driver
+
 =back
 
 =head2 ERROR CODE CONSTANTS
@@ -871,6 +875,10 @@ No domain hostname found
 =item Sys::Virt::Error::ERR_CHECKPOINT_INCONSISTENT
 
 The checkpoint is inconsistent
+
+=item Sys::Virt::Error::ERR_MULTIPLE_DOMAINS
+
+More than one matching domain found
 
 =back
 

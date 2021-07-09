@@ -10,11 +10,13 @@ README.pod
 script/cross
 t/empty_set.t
 t/error.t
+t/labeled.t
 t/load.t
 t/named_sets.t
 t/next.t
 t/pod.t
 t/pod_coverage.t
+t/single.t
 t/test_manifest
 t/tuple.t
 xt/changes.t

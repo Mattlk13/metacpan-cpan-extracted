@@ -1,0 +1,14 @@
+Makefile.PL
+Changes
+MANIFEST
+META.json
+META.yml
+README.md
+t/load.t
+t/test.t
+t/www/bar.html
+t/www/baz.cgi
+t/www/foo.pl
+t/www/test/index.pl
+lib/Plack/App/WWW.pm
+cpanfile

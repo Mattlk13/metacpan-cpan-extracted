@@ -1,66 +1,36 @@
-package Dist::Zilla::Plugin::Author::Plicease::ReadmeAnyFromPod 2.59 {
+package Dist::Zilla::Plugin::Author::Plicease::ReadmeAnyFromPod 2.66 {
 
-  use 5.014;
+  use 5.020;
   use Moose;
   use URI::Escape ();
   use File::Which ();
+  use Ref::Util qw( is_plain_hashref );
+  use experimental qw( postderef );
 
 
   extends 'Dist::Zilla::Plugin::ReadmeAnyFromPod';
 
-  has travis_status => (
-    is => 'ro',
-  );
+  around BUILDARGS => sub {
+    my $orig = shift;
+    my $class = shift;
 
-  has travis_user => (
-    is      => 'ro',
-    default => 'plicease',
-  );
+    my %args = @_ == 1 && is_plain_hashref($_[0]) ? $_[0]->%* : @_;
+    foreach my $key (keys %args)
+    {
+      die "removed key: $key"
+        if $key =~ /^(travis_.*|appveyor_user|appveyor)$/;
+    }
 
-  has travis_com => (
-    is      => 'ro',
-    default => 0,
-  );
-
-  has travis_base => (
-    is      => 'ro',
-    lazy    => 1,
-    default => sub {
-      my($self) = @_;
-      $self->travis_com
-        ? 'https://travis-ci.com/github'
-        : 'https://travis-ci.org',
-    },
-  );
-
-  has travis_image_base => (
-    is => 'ro',
-    lazy => 1,
-    default => sub {
-      my($self) = @_;
-      $self->travis_com
-        ? 'https://api.travis-ci.com'
-        : 'https://travis-ci.org',
-    },
-  );
+    return $class->$orig(@_);
+  };
 
   has cirrus_user => (
     is      => 'ro',
     lazy    => 1,
     default => sub {
       my($self) = @_;
-      $self->travis_user;
+      $self->github_user;
     },
-  );
-
-  has appveyor_user => (
-    is      => 'ro',
-    default => 'plicease',
-  );
-
-  has appveyor => (
-    is  => 'ro',
-    isa => 'Str',
   );
 
   has github_user => (
@@ -136,10 +106,8 @@ package Dist::Zilla::Plugin::Author::Plicease::ReadmeAnyFromPod 2.59 {
 
       my $status = '';
       $status .= " [![Build Status](https://api.cirrus-ci.com/github/@{[ $self->cirrus_user ]}/$name.svg)](https://cirrus-ci.com/github/@{[ $self->cirrus_user ]}/$name)" if $cirrus_status;
-      $status .= " [![Build Status](@{[ $self->travis_image_base ]}/@{[ $self->travis_user ]}/$name.svg?branch=@{[ $self->default_branch ]})](@{[ $self->travis_base ]}/@{[ $self->travis_user ]}/$name)" if $self->travis_status;
-      $status .= " [![Build status](https://ci.appveyor.com/api/projects/status/@{[ $self->appveyor ]}/branch/@{[ $self->default_branch ]}?svg=true)](https://ci.appveyor.com/project/@{[ $self->appveyor_user ]}/$name/branch/@{[ $self->default_branch ]})" if $self->appveyor;
 
-      foreach my $workflow (@{ $self->workflow })
+      foreach my $workflow ($self->workflow->@*)
       {
         $status .= " ![$workflow](https://github.com/@{[ $self->github_user ]}/$name/workflows/$workflow/badge.svg)";
       }
@@ -168,7 +136,7 @@ Dist::Zilla::Plugin::Author::Plicease::ReadmeAnyFromPod
 
 =head1 VERSION
 
-version 2.59
+version 2.66
 
 =head1 SYNOPSIS
 
@@ -190,7 +158,7 @@ Graham Ollis <plicease@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012,2013,2014,2015,2016,2017,2018,2019,2020 by Graham Ollis.
+This software is copyright (c) 2012,2013,2014,2015,2016,2017,2018,2019,2020,2021 by Graham Ollis.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

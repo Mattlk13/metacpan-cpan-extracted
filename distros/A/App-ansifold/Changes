@@ -1,5 +1,24 @@
 Revision history for `ansifold' command.
 
+1.0801 2021-04-26T08:13:50Z
+
+    - Remove uninitialized variable error.
+    - Add test code.
+
+1.08 2021-04-07T14:18:48Z
+
+    - Option --expand, -x takes optional tabstop width.
+    - Update document a lot.
+
+1.07 2021-03-23T14:39:32Z
+
+    - Move to github actions.
+    - Update document.
+
+1.06 2021-03-15T10:29:11Z
+
+    - Use --tabstyle option to set tab style.
+
 1.05 2020-12-22T07:15:13Z
 
     - Change default width from 70 to 72.

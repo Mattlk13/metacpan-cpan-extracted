@@ -16,7 +16,6 @@ use Test::EOL;
 
 my @files = (
     'lib/Net/Statsd/Lite.pm',
-    'lib/Net/Statsd/Lite/Types.pm',
     't/00-report-prereqs.dd',
     't/00-report-prereqs.t',
     't/01-basic.t',
@@ -29,6 +28,7 @@ my @files = (
     't/author-pod-linkcheck.t',
     't/author-pod-syntax.t',
     't/author-portability.t',
+    't/author-vars.t',
     't/data/counter.dat',
     't/data/gauge.dat',
     't/data/histogram.dat',
@@ -37,6 +37,7 @@ my @files = (
     't/data/set.dat',
     't/data/timing.dat',
     't/etc/perlcritic.rc',
+    't/lib/Net/Statsd/Lite/Dog.pm',
     't/lib/Net/Statsd/Lite/Test.pm',
     't/release-check-manifest.t',
     't/release-fixme.t',

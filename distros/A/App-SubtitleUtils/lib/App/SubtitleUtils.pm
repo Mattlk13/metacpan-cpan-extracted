@@ -1,9 +1,9 @@
 package App::SubtitleUtils;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-12-12'; # DATE
+our $DATE = '2021-01-08'; # DATE
 our $DIST = 'App-SubtitleUtils'; # DIST
-our $VERSION = '0.003'; # VERSION
+our $VERSION = '0.005'; # VERSION
 
 1;
 # ABSTRACT: Utilities related to video subtitles
@@ -20,7 +20,7 @@ App::SubtitleUtils - Utilities related to video subtitles
 
 =head1 VERSION
 
-This document describes version 0.003 of App::SubtitleUtils (from Perl distribution App-SubtitleUtils), released on 2020-12-12.
+This document describes version 0.005 of App::SubtitleUtils (from Perl distribution App-SubtitleUtils), released on 2021-01-08.
 
 =head1 DESCRIPTION
 
@@ -40,9 +40,19 @@ This distributions provides the following command-line utilities:
 
 =item * L<srtsplit>
 
+=item * L<subscale>
+
+=item * L<subshift>
+
 =item * L<vtt2srt>
 
 =back
+
+=head1 HISTORY
+
+Most of them are scripts I first wrote in 2003 and first packaged as CPAN
+distribution in late 2020. They need to be rewritten to properly use
+L<Getopt::Long> etc; someday.
 
 =head1 HOMEPAGE
 
@@ -68,7 +78,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

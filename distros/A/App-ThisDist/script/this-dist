@@ -1,9 +1,9 @@
 #!perl
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-10-11'; # DATE
+our $DATE = '2021-06-22'; # DATE
 our $DIST = 'App-ThisDist'; # DIST
-our $VERSION = '0.007'; # VERSION
+our $VERSION = '0.011'; # VERSION
 
 use 5.010001;
 use strict;
@@ -49,7 +49,7 @@ this-dist - Return name of Perl distribution associated with the current directo
 
 =head1 VERSION
 
-This document describes version 0.007 of this-dist (from Perl distribution App-ThisDist), released on 2020-10-11.
+This document describes version 0.011 of this-dist (from Perl distribution App-ThisDist), released on 2021-06-22.
 
 =head1 SYNOPSIS
 
@@ -77,10 +77,10 @@ This document describes version 0.007 of this-dist (from Perl distribution App-T
  % this-dist -V
  Foo-Bar 1.23
 
-Some recipes:
+Some other examples:
 
- # Show metacpan distribution page in browser (requires L<lcpan> from L<App::lcpan>)
- % lcpan metacpan-dist `this-dist`
+ # Show MetaCPAN distribution page in browser (but see this-dist-on-metacpan script)
+ % firefox metacpan.org/release/`this-dist`
 
 =head1 DESCRIPTION
 
@@ -101,14 +101,6 @@ with current directory:
 
 =back
 
-=head1 FAQ
-
-=head2 Where is this-mod?
-
-For now you can use L<dist2mod>:
-
- % this-dist | dist2mod
-
 =head1 HOMEPAGE
 
 Please visit the project's homepage at L<https://metacpan.org/release/App-ThisDist>.
@@ -125,13 +117,19 @@ When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
 feature.
 
+=head1 SEE ALSO
+
+L<this-mod>
+
+L<this-dist-on-metacpan>
+
 =head1 AUTHOR
 
 perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

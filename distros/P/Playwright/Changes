@@ -1,4 +1,32 @@
 Revision history for Playwright
 
+0.007 2021-06-17 TEODESIAN
+    - Adjust module for changing Download returns, and api.json no longer being shipped with Playwright
+    - Fix some warnings when installing for the first time.
+
+0.006 2021-04-12 TEODESIAN
+    - Prevent $? from bubbling up in our destructor and invalidating program exit code by localizing $? in quit()
+    - Add a link to the Playwright slack in the documentation.
+
+0.005 2021-03-24 TEODESIAN
+    [BUG FIXES]
+    - Prevent double destroy in the event of quit() being called
+    - Make the destroy() process a good deal more reliable
+    - Add a timeout parameter to new() to control how long to wait for the server to spin up/down
+    - Improve documentation
+    - Adjust auto-install process to work better on windows, and not leak stderr in some contexts.
+
+0.004 2021-03-19 TEODESIAN
+    [BUG FIXES]
+    - Adjust spec parser for newer Playwright spec versions
+
+0.003 2021-03-16 TEODESIAN
+    [BUG FIXES]
+    - Fix broken testsuite
+
+0.002 2021-02-10 TEODESIAN
+    [BUG FIXES]
+    - Declare perl 5.28 to be minimum version
+
 0.001 2020-11-02 TEODESIAN
     - First release to CPAN

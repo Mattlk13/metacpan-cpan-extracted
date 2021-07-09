@@ -9,16 +9,15 @@ use strict;
 use Encode;
 use MIME::Base64;
 use Lemonldap::NG::Common::IPv6;
+use JSON::XS;
 
-#use AutoLoader qw(AUTOLOAD);
-
-our $VERSION = '2.0.7';
+our $VERSION = '2.0.11';
 
 # Set here all the names of functions that must be available in Safe objects.
 # Not that only functions, not methods, can be written here
 our $functions =
   [
-    qw(&checkLogonHours &date &checkDate &basic &unicode2iso &iso2unicode &groupMatch &isInNet6 &varIsInUri)
+    qw(&checkLogonHours &date &checkDate &basic &unicode2iso &iso2unicode &groupMatch &isInNet6 &varIsInUri &has2f)
   ];
 
 ## @function boolean checkLogonHours(string logon_hours, string syntax, string time_correction, boolean default_access)
@@ -64,8 +63,8 @@ sub checkLogonHours {
     # Use time_correction
     if ($time_correction) {
         my ( $sign, $time ) = ( $time_correction =~ /([+|-]?)(\d+)/ );
-        if ( $sign =~ /-/ ) { $hourpos -= $time; }
-        else                { $hourpos += $time; }
+        if   ( $sign =~ /-/ ) { $hourpos -= $time; }
+        else                  { $hourpos += $time; }
     }
 
     # Get the corresponding byte
@@ -194,7 +193,6 @@ sub iso2unicode {
 # @return int Number of values that match
 sub groupMatch {
     my ( $groups, $attribute, $value ) = @_;
-
     my $match = 0;
 
     foreach my $group ( keys %$groups ) {
@@ -207,6 +205,7 @@ sub groupMatch {
             $match++ if ( $groups->{$group}->{$attribute} =~ /$value/ );
         }
     }
+
     return $match;
 }
 
@@ -214,6 +213,7 @@ sub isInNet6 {
     my ( $ip, $net ) = @_;
     $net =~ s#/(\d+)##;
     my $bits = $1;
+
     return net6( $ip, $bits ) eq net6( $net, $bits ) ? 1 : 0;
 }
 
@@ -222,6 +222,27 @@ sub varIsInUri {
     return $restricted
       ? $uri =~ /$wanteduri$attribute$/o
       : $uri =~ /$wanteduri$attribute/o;
+}
+
+my $json = JSON::XS->new;
+
+sub has2f {
+    my ( $session, $type ) = @_;
+    return 0 unless $session->{_2fDevices};
+
+    my $_2fDevices = eval { $json->decode( $session->{_2fDevices} ); };
+    return 0 if ( $@ or ref($_2fDevices) ne "ARRAY" );
+
+    # Empty array
+    return 0 unless scalar @{$_2fDevices};
+
+    # Array has one value and we did not specify a type, succeed
+    if ($type) {
+        my @found = grep { lc( $_->{type} ) eq lc($type) } @{$_2fDevices};
+        return @found ? 1 : 0;
+    }
+
+    return 1;
 }
 
 1;

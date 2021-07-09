@@ -1,5 +1,18 @@
 Revision history for perl distribution CellBIS-SQL-Abstract
 
+1.5       2021-04-09 05:29:56+08:00 Asia/Makassar
+          - fix missing Mojo::SQLite on Makefile.PL
+
+1.4       2021-04-09 01:02:00+08:00 Asia/Makassar
+          - fix missing Mojo::SQLite #4 - eserte
+
+1.3       2021-01-28 07:44:33+08:00 Asia/Makassar
+          - fix error if create table with foreign key
+          - support create table PostgreSQL
+          - fix error if use sql function.
+          - Add method insert_bulk
+          - Add testing instrument in actual DBMS transactions.
+
 1.2       2018-08-21 04:48:50+08:00 Asia/Makassar
           - Allow generate SQL Query insert with empty value.
           - fixed bug "if operator" in "CellBIS::SQL::Abstract::Table"

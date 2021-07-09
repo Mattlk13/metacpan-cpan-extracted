@@ -14,5 +14,18 @@ on 'test' => sub {
     requires 'Test::Deep', '1.128';
     requires 'Test::TCP', '2.19';
     requires 'Test::SharedFork';
+    requires 'Test::Warn';
     requires 'File::Slurp', '9999.25';
+};
+
+on 'develop' => sub {
+    requires 'Minilla';
+    requires 'Version::Next';
+    requires 'CPAN::Uploader';
+    requires 'Software::License::MIT';
+    requires 'Test::CPAN::Meta';
+    requires 'Test::Pod';
+    requires 'Test::MinimumVersion::Fast';
+    requires 'Mojolicious';
+    requires 'Dancer2';
 };

@@ -65,7 +65,7 @@
 \B\.prove$
 
 # Avoid MYMETA files
-^MYMETA\.
+MYMETA\.json\.lock
 
 #########################################################################
 # My own additions                                                      #
@@ -77,7 +77,7 @@
 -[\d\.\_]+\.tar\.gz
 
 # Github files
-\.travis\.yml
+^\.github
 
 # Komodo files
 \.komodoproject

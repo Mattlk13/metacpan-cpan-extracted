@@ -5,7 +5,7 @@ use warnings;
 
 use utf8;
 
-our $VERSION = '2.004'; # VERSION
+our $VERSION = '3.002'; # VERSION
 our $AUTHORITY = 'cpan:TEAM'; # AUTHORITY
 
 =encoding utf8
@@ -42,6 +42,23 @@ use overload
 use Scalar::Util;
 use List::UtilsBy;
 
+use Ryu::Source;
+
+# Slightly odd way of applying this - we don't want to require Sentinel,
+# but the usual tricks of ->import or using *Sentinel::sentinel directly
+# only work for the pure-perl version. So, we try to load it, making the
+# syntax available, and we then use sentinel() as if it were a function...
+# providing a fallback *sentinel only when the load failed.
+BEGIN {
+    eval {
+        require Sentinel;
+        Sentinel->import;
+        1
+    } or do {
+        *sentinel = sub { die 'This requires the Sentinel module to be installed' };
+    }
+}
+
 =head1 METHODS
 
 Public API, such as it is.
@@ -56,11 +73,17 @@ sub as_string { '' . shift->{value} }
 
 =head2 as_number
 
+=head2 as_numeric
+
 Returns the numeric representation of this value.
+
+(this method is available as C<as_number> or C<as_numeric>, both operate the same way)
 
 =cut
 
 sub as_number { 0 + shift->{value} }
+
+*as_numeric = *as_number;
 
 =head2 new
 
@@ -122,10 +145,14 @@ sub value { shift->{value} }
 
 =head2 set_numeric
 
+=head2 set_number
+
 Applies a new numeric value, and notifies subscribers if the value is numerically
 different to the previous one (or if we had no previous value).
 
 Returns C<$self>.
+
+(this method is available as C<set_number> or C<set_numeric>, both operate the same way)
 
 =cut
 
@@ -136,6 +163,8 @@ sub set_numeric {
     $self->{value} = $v;
     $self->notify_all
 }
+
+*set_number = *set_numeric;
 
 =head2 set_string
 
@@ -163,17 +192,68 @@ until the observable is destroyed.
 
 sub source {
     my ($self) = @_;
-    my $src = Ryu::Source->new;
-    Scalar::Util::weaken(my $copy = $self);
-    $self->subscribe(my $code = sub {
-        return unless my $self = $copy;
-        $src->emit($self->value)
+    $self->{source} //= do {
+        my $src = Ryu::Source->new;
+        Scalar::Util::weaken(my $copy = $self);
+        $src->completed->on_ready(sub {
+            delete $copy->{source} if $copy
+        });
+        $src;
+    };
+}
+
+=head1 LVALUE METHODS
+
+B<< These require L<Sentinel> to be installed >>.
+
+=head2 lvalue_str
+
+Returns a L<Sentinel> lvalue accessor for the string value.
+
+This can be used with refaliasing or C<foreach> loops to reduce typing:
+
+    for($observable->lvalue_str) {
+      chomp;
+      s/_/-/g;
+    }
+
+Any attempt to retrieve or set the value will be redirected to L</as_string>
+or L</set_string> as appropriate.
+
+=cut
+
+sub lvalue_str : lvalue {
+    my ($self) = @_;
+    sentinel(get => sub {
+        return $self->as_string(shift);
+    }, set => sub {
+        return $self->set_string(shift);
     });
-    $src->completed->on_ready(sub {
-        $copy->unsubscribe($code) if $copy;
-        undef $code;
+}
+
+=head2 lvalue_num
+
+Returns a L<Sentinel> lvalue accessor for the numeric value.
+
+This can be used with refaliasing or C<foreach> loops to reduce typing:
+
+    for($observable->lvalue_num) {
+     ++$_;
+     $_ *= 3;
+    }
+
+Any attempt to retrieve or set the value will be redirected to L</as_number>
+or L</set_number> as appropriate.
+
+=cut
+
+sub lvalue_num : lvalue {
+    my ($self) = @_;
+    sentinel(get => sub {
+        return $self->as_number(shift);
+    }, set => sub {
+        return $self->set_number(shift);
     });
-    $src
 }
 
 =head1 METHODS - Internal
@@ -188,8 +268,10 @@ Notifies all currently-subscribed callbacks with the current value.
 
 sub notify_all {
     my $self = shift;
+    my $v = $self->{value};
+    $self->{source}->emit($v) if $self->{source};
     for my $sub (@{$self->{subscriptions}}) {
-        $sub->($_) for $self->{value}
+        $sub->($_) for $v;
     }
     $self
 }
@@ -197,7 +279,9 @@ sub notify_all {
 sub DESTROY {
     my ($self) = @_;
     return if ${^GLOBAL_PHASE} eq 'DESTRUCT';
-    $_->finish for splice @{$self->{sources} || []};
+    if(my $src = $self->{source}) {
+        $src->finish;
+    }
     delete $self->{value};
     return;
 }
@@ -208,9 +292,9 @@ __END__
 
 =head1 AUTHOR
 
-Tom Molesworth <TEAM@cpan.org>
+Tom Molesworth C<< <TEAM@cpan.org> >>.
 
 =head1 LICENSE
 
-Copyright Tom Molesworth 2011-2020. Licensed under the same terms as Perl itself.
+Copyright Tom Molesworth 2011-2021. Licensed under the same terms as Perl itself.
 

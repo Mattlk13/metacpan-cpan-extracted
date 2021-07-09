@@ -4,8 +4,8 @@
 #
 package PDL::GSLSF::FERMI_DIRAC;
 
-@EXPORT_OK  = qw( PDL::PP gsl_sf_fermi_dirac_int PDL::PP gsl_sf_fermi_dirac_mhalf PDL::PP gsl_sf_fermi_dirac_half PDL::PP gsl_sf_fermi_dirac_3half PDL::PP gsl_sf_fermi_dirac_inc_0 );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP gsl_sf_fermi_dirac_int PDL::PP gsl_sf_fermi_dirac_mhalf PDL::PP gsl_sf_fermi_dirac_half PDL::PP gsl_sf_fermi_dirac_3half PDL::PP gsl_sf_fermi_dirac_inc_0 );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::GSLSF::FERMI_DIRAC ;
 
@@ -74,7 +74,7 @@ Complete integral F_j(x) for integer j
 =for bad
 
 gsl_sf_fermi_dirac_int does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -103,7 +103,7 @@ Complete integral F_{-1/2}(x)
 =for bad
 
 gsl_sf_fermi_dirac_mhalf does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -132,7 +132,7 @@ Complete integral F_{1/2}(x)
 =for bad
 
 gsl_sf_fermi_dirac_half does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -161,7 +161,7 @@ Complete integral F_{3/2}(x)
 =for bad
 
 gsl_sf_fermi_dirac_3half does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -190,7 +190,7 @@ Incomplete integral F_0(x,b) = ln(1 + e^(b-x)) - (b-x)
 =for bad
 
 gsl_sf_fermi_dirac_inc_0 does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

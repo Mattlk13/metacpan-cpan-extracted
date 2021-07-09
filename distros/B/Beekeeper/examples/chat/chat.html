@@ -1,0 +1,136 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+<script language="Javascript" type="text/javascript" defer src="https://unpkg.com/mqtt@4.2.6/dist/mqtt.min.js"></script>
+<script language="Javascript" type="text/javascript" defer src="js/config.js"></script>
+<script language="Javascript" type="text/javascript" defer src="js/beekeeper.js"></script>
+<script language="Javascript" type="text/javascript" defer src="js/chat.js"></script>
+<style type="text/css">
+
+body {
+    padding: 10px; 
+    font-size: 11pt; 
+    font-family: sans-serif;
+}
+
+#chat {
+    overflow: auto;
+    height: 300px; 
+    width: 390px;
+    font-family: sans-serif;
+    background-color: #F0F0F0;
+    border: solid 1px #CCCCCC;
+    border-radius: 4px;
+    scroll-behavior: smooth;
+}
+
+#chat .bubble {
+    font-weight: 500;
+    border: solid 1px #CCCCCC;
+    padding: 8px;
+    padding-top: 10px;
+    margin: 8px;
+    border-radius: 10px;
+}
+
+#chat .sender {
+    position: relative;
+    font-weight: 700;
+    font-size: 8pt;
+    color: #333399;
+    top: -4px;
+}
+
+#chat .no_sender .sender {
+    display: none;
+}
+
+#chat .outgoing {
+    border-top-right-radius: 0px;
+    background-color: #CCFFCC;
+    margin-left: 30px;
+}
+
+#chat .incoming {
+    background-color: #FFFFFF;
+    border-top-left-radius: 0px;
+    margin-right: 30px;
+}
+
+#chat .public {
+    background-color: #FFFFFF;
+}
+
+#chat .private {
+    background-color: #FFD090;
+}
+
+#chat .error {
+    background-color: #E03030;
+    color: #FFFFFF;
+}
+
+#chat .info {
+    background-color: #FFFFA0;
+}
+
+#cmd {
+    font-size: 12pt; font-family: sans-serif;
+    width: 280px;
+    color: #000000;
+    padding: 6px; 
+    border: solid 1px #999999;
+    border-radius: 4px;
+}
+ 
+.send {
+    font-size: 12pt; font-family: sans-serif;
+    width: 80px;
+    color: #000000;
+    padding: 6px; 
+    margin: 6px;
+    border: solid 1px #999999;
+    background-color: #CCCCCC;
+    border-radius: 4px;
+}
+
+#help {
+    padding: 20px;
+    padding-left: 10px;
+}
+
+#help i {
+    color: #333333;
+    width: 80px;
+}
+
+#username {
+    width: 130px;
+}
+
+#password {
+    width: 130px;
+}
+
+</style>
+</head>
+
+<body>
+<div style="float:left">
+<input type="text" id="username" value="Joe" />
+<input type="password" id="password" value="12345" />
+<input type="button" class="send" value="Login" onclick="chat.login_user()" />
+<div id="chat"></div>
+<input type="text" id="cmd" value="" />
+<input type="button" class="send" value="Send" onclick="chat.exec_command()" />
+</div>
+<div id="help">
+<br/>
+<p><strong>/pm <i>username</i> <i>message</i></strong><br/>Send private message</p>
+<p><strong>/logout</strong><br/>End user session</p>
+<p><strong>/kick <i>username</i></strong><br/>End another user session</p>
+<p><strong>/ping</strong><br/>Measure response time</p>
+</div>
+</body>
+</html>

@@ -18,22 +18,22 @@ sub new {
     my $class = shift();
     my($cfgbase, @extras) = @_;
 
-    my $cfg = compile_config($cfgbase, @extras);
+    my $cfg = _compileConfig($cfgbase, @extras);
     return bless $cfg, $class;
 }
 
 
-sub compile_config {
+sub _compileConfig {
     my($cfgbase, @extras) = @_;
 
-    my $cfg = compile_config_file($cfgbase, undef, MISSING_ERROR);
+    my $cfg = _compileConfigFile($cfgbase, undef, MISSING_ERROR);
 
     my $isFirst = 1;
     while (@extras) {
 	my $extra = shift @extras;
-	my $overlay = compile_config_file($cfgbase, $extra, $isFirst ? MISSING_TENANT : MISSING_FILTER);
+	my $overlay = _compileConfigFile($cfgbase, $extra, $isFirst ? MISSING_TENANT : MISSING_FILTER);
 	$isFirst = 0;
-	merge_config($cfg, $overlay);
+	_mergeConfig($cfg, $overlay);
     }
 
     my $gqlfile = $cfg->{graphqlQuery}
@@ -53,7 +53,7 @@ sub compile_config {
 }
 
 
-sub compile_config_file {
+sub _compileConfigFile {
     my($cfgbase, $cfgsub, $missingAction) = @_;
 
     my $cfgname = $cfgbase . ($cfgsub ? ".$cfgsub" : '') . '.json';
@@ -71,36 +71,36 @@ sub compile_config_file {
     $fh->close();
 
     my $cfg = decode_json($json);
-    expand_variable_references($cfg);
+    _expandVariableReferences($cfg);
     return $cfg;
 }
 
 
-sub expand_variable_references {
+sub _expandVariableReferences {
     my($obj) = @_;
 
     foreach my $key (sort keys %$obj) {
-	$obj->{$key} = expand_single_variable_reference($key, $obj->{$key});
+	$obj->{$key} = _expandSingleVariableReference($key, $obj->{$key});
     }
 
     return $obj;
 }
 
-sub expand_single_variable_reference {
+sub _expandSingleVariableReference {
     my($key, $val) = @_;
 
     if (ref($val) eq 'HASH') {
-	return expand_variable_references($val);
+	return _expandVariableReferences($val);
     } elsif (ref($val) eq 'ARRAY') {
-	return [ map { expand_single_variable_reference($key, $_) } @$val ];
+	return [ map { _expandSingleVariableReference($key, $_) } @$val ];
     } elsif (!ref($val)) {
-	return expand_scalar_variable_reference($key, $val);
+	return _expandScalarVariableReference($key, $val);
     } else {
-	die "non-hash, non-array, non-scale configuration key '$key'";
+	die "non-hash, non-array, non-scalar configuration key '$key'";
     }
 }
 
-sub expand_scalar_variable_reference {
+sub _expandScalarVariableReference {
     my ($key, $val) = @_;
 
     my $orig = $val;
@@ -128,14 +128,14 @@ sub expand_scalar_variable_reference {
 }
 
 
-sub merge_config {
+sub _mergeConfig {
     my($base, $overlay) = @_;
 
     my @known_keys = qw(okapi login indexMap);
     foreach my $key (@known_keys) {
 	if (defined $overlay->{$key}) {
 	    if (ref $base->{$key} eq 'HASH') {
-		merge_hash($base->{$key}, $overlay->{$key});
+		_mergeHash($base->{$key}, $overlay->{$key});
 	    } else {
 		$base->{$key} = $overlay->{$key};
 	    }
@@ -150,7 +150,7 @@ sub merge_config {
 }
 
 
-sub merge_hash {
+sub _mergeHash {
     my($base, $overlay) = @_;
 
     foreach my $key (sort keys %$overlay) {
@@ -190,13 +190,31 @@ Net::Z3950::FOLIO::Config - configuration file for the FOLIO Z39.50 gateway
     "queryFilter": "source=marc",
     "graphqlQuery": "instances.graphql-query",
     "chunkSize": 5
+    "marcHoldings": {
+      "restrictToItem": 0,
+      "field": "952",
+      "indicators": [" ", " "],
+      "holdingsElements": {
+        "t": "copyNumber"
+      },
+      "itemElements": {
+        "b": "itemId",
+        "k": "_callNumberPrefix",
+        "h": "_callNumber",
+        "m": "_callNumberSuffix",
+        "v": "_volume",
+        "e": "_enumeration",
+        "y": "_yearCaption",
+        "c": "_chronology"
+      }
+    },
     "postProcessing": {
       "marc": {
-	"008": { "op": "regsub", "pattern": "([13579])", "replacement": "[$1]", "flags": "g" },
-	"245$a": [
-	  { "op": "stripDiacritics" },
-	  { "op": "regsub", "pattern": "[abc]", "replacement": "*", "flags": "g" }
-	]
+        "008": { "op": "regsub", "pattern": "([13579])", "replacement": "[$1]", "flags": "g" },
+        "245$a": [
+          { "op": "stripDiacritics" },
+          { "op": "regsub", "pattern": "[abc]", "replacement": "*", "flags": "g" }
+        ]
       }
     }
   }
@@ -273,6 +291,11 @@ The corresponding password, unless overridden by authentication information in t
 
 =back
 
+=head2 C<nologin>
+
+If specified and set to 1, then no login is performed, and the
+C<login> section need not be provided.
+
 =head2 C<indexMap>
 
 Contains any number of elements. The keys are the numbers of BIB-1 use
@@ -345,6 +368,86 @@ search. This can be tweaked to tune performance. Setting it too low
 will result in many requests with small numbers of records returned
 each time; setting it too high will result in fetching and decoding
 more records than are actually wanted.
+
+=head2 C<marcHoldings>
+
+An optional object specifying how holdings and item-level data should
+be mapped into MARC fields. It contains up to five elements:
+
+=over 4
+
+=item C<restrictToItem>
+
+If specified and set to 1, then the item-level holding information
+included in MARC records is restricted to that which pertains to the
+barcode mentioned in the search that yielded the record, if any. If
+zero (the default), then information on all holdings and items is
+included.
+
+=item C<field> (mandatory)
+
+A string specifying which MARC field should be used for holdings
+information. When a record contains multiple holdings, a separate
+instance of this MARC field is created for each holding.
+
+=item C<indicators> (mandatory)
+
+An array containing two strings, each of them specifying one of the
+two indicators to be used in the MARC field that contains
+holdings. There must be exactly two elements: blank indicators can
+be specified as a single space.
+
+information.
+
+=item C<holdingsElements>
+
+An object specifying MARC subfields that should be set from
+holdings-level data. The keys are the single-character names of the
+subfields, and the corresponding values are the names of
+holdings-level fields in the OPAC XML record structure.
+
+See C<itemElements> for detail of the structure.
+
+=item C<itemElements>
+
+An object specifying MARC subfields that should be set from item-level
+data. The keys are the single-character names of the subfields, and
+the corresponding values are the names of item-level fields in the
+OPAC XML record structure. In addition to the standard field names,
+several additional special fields are avaialable, not part of the OPAC
+Z39.50 record, assigned names that begin with underscores:
+
+=over 4
+
+=item C<_enumeration>
+
+=item C<_chronology>
+
+=item C<_callNumber>
+
+=item C<_callNumberPrefix>
+
+=item C<_callNumberSuffix>
+
+-item C<_permanentLocation>
+
+=item C<_holdingsLocation>
+
+=item C<_volume>
+
+=item C<_yearCaption>
+
+=back
+
+Since there may be multiple items in a single holding, sets of these
+fields can repeat, e.g. for a holding with two items each specifying
+data that is encoded in the C<b>, C<e> and C<h> subfields, the field
+would take the form
+
+  $b 46243154 $e 1994/95 v.1 $h
+  $b 46243072 $e 1994/95 v.2 $h TD224.I3I58b
+
+=back
 
 =head2 C<postProcessing>
 

@@ -21,9 +21,7 @@ Mojolicious::Plugin::OpenAPI - OpenAPI / Swagger plugin for Mojolicious
     }, "echo";
 
     # Load specification and start web server
-    # Use "v3" instead of "v2" for "schema" if you are using OpenAPI v3
-    # The plugin must be loaded *after* defining the routes in a Lite app
-    plugin OpenAPI => {url => "data:///spec.json", schema => "v2"};
+    plugin OpenAPI => {url => "data:///spec.json"};
     app->start;
 
     __DATA__
@@ -52,8 +50,12 @@ Mojolicious::Plugin::OpenAPI - OpenAPI / Swagger plugin for Mojolicious
     }
 
 See [Mojolicious::Plugin::OpenAPI::Guides::OpenAPIv2](https://metacpan.org/pod/Mojolicious%3A%3APlugin%3A%3AOpenAPI%3A%3AGuides%3A%3AOpenAPIv2) or
-[Mojolicious::Plugin::OpenAPI::Guides::OpenAPIv3](https://metacpan.org/pod/Mojolicious%3A%3APlugin%3A%3AOpenAPI%3A%3AGuides%3A%3AOpenAPIv3) for tutorials on how to
-write a "full" app with application class and controllers.
+[Mojolicious::Plugin::OpenAPI::Guides::OpenAPIv3](https://metacpan.org/pod/Mojolicious%3A%3APlugin%3A%3AOpenAPI%3A%3AGuides%3A%3AOpenAPIv3) for more information about.
+
+Looking at the documentation for
+["x-mojo-to" in Mojolicious::Plugin::OpenAPI::Guides::OpenAPIv2](https://metacpan.org/pod/Mojolicious%3A%3APlugin%3A%3AOpenAPI%3A%3AGuides%3A%3AOpenAPIv2#x-mojo-to) can be especially
+useful if you are using extensions (formats) such as ".json". The logic is the
+same for OpenAPIv2 and OpenAPIv3.
 
 # DESCRIPTION
 
@@ -159,7 +161,8 @@ The parent [Mojolicious::Routes::Route](https://metacpan.org/pod/Mojolicious%3A%
 
     $jv = $openapi->validator;
 
-Holds a [JSON::Validator::OpenAPI::Mojolicious](https://metacpan.org/pod/JSON%3A%3AValidator%3A%3AOpenAPI%3A%3AMojolicious) object.
+Holds either a [JSON::Validator::Schema::OpenAPIv2](https://metacpan.org/pod/JSON%3A%3AValidator%3A%3ASchema%3A%3AOpenAPIv2) or a
+[JSON::Validator::Schema::OpenAPIv3](https://metacpan.org/pod/JSON%3A%3AValidator%3A%3ASchema%3A%3AOpenAPIv3) object.
 
 # METHODS
 
@@ -191,29 +194,19 @@ Default: booleans,numbers,strings
 
 The default value will include "defaults" in the future, once that is stable enough.
 
-### default\_response\_codes
+### default\_response
 
-A list of response codes that will get a `"$ref"` pointing to
-"#/definitions/DefaultResponse", unless already defined in the spec.
-"DefaultResponse" can be altered by setting ["default\_response\_name"](#default_response_name).
+Instructions for
+["add\_default\_response\_schema" in JSON::Validator::Schema::OpenAPIv2](https://metacpan.org/pod/JSON%3A%3AValidator%3A%3ASchema%3A%3AOpenAPIv2#add_default_response_schema). (Also used
+for OpenAPIv3)
 
-The default response code list is the following:
+### format
 
-    400 | Bad Request           | Invalid input from client / user agent
-    401 | Unauthorized          | Used by Mojolicious::Plugin::OpenAPI::Security
-    404 | Not Found             | Route is not defined
-    500 | Internal Server Error | Internal error or failed output validation
-    501 | Not Implemented       | Route exists, but the action is not implemented
+Set this to a default list of file extensions that your API accepts. This value
+can be overwritten by
+["x-mojo-to" in Mojolicious::Plugin::OpenAPI::Guides::OpenAPIv2](https://metacpan.org/pod/Mojolicious%3A%3APlugin%3A%3AOpenAPI%3A%3AGuides%3A%3AOpenAPIv2#x-mojo-to).
 
-Note that more default codes might be added in the future if required by the
-plugin.
-
-### default\_response\_name
-
-The name of the "definition" in the spec that will be used for
-["default\_response\_codes"](#default_response_codes). The default value is "DefaultResponse". See
-["Default response schema" in Mojolicious::Plugin::OpenAPI::Guides::OpenAPIv2](https://metacpan.org/pod/Mojolicious%3A%3APlugin%3A%3AOpenAPI%3A%3AGuides%3A%3AOpenAPIv2#Default-response-schema)
-for more details.
+This config parameter is EXPERIMENTAL and subject for change.
 
 ### log\_level
 
@@ -247,13 +240,10 @@ See ["RENDERER"](#renderer).
       url   => $app->home->rel_file("cool.api"),
     });
 
-### schema
+### skip\_validating\_specification
 
-Can be used to set a different schema, than the default OpenAPI 2.0 spec.
-Example values: "http://swagger.io/v2/schema.json", "v2" or "v3".
-
-See also [Mojolicious::Plugin::OpenAPI::Guides::OpenAPIv2](https://metacpan.org/pod/Mojolicious%3A%3APlugin%3A%3AOpenAPI%3A%3AGuides%3A%3AOpenAPIv2) and
-[Mojolicious::Plugin::OpenAPI::Guides::OpenAPIv3](https://metacpan.org/pod/Mojolicious%3A%3APlugin%3A%3AOpenAPI%3A%3AGuides%3A%3AOpenAPIv3).
+Used to prevent calling ["errors" in JSON::Validator::Schema::OpenAPIv2](https://metacpan.org/pod/JSON%3A%3AValidator%3A%3ASchema%3A%3AOpenAPIv2#errors) for the
+specification.
 
 ### spec\_route\_name
 

@@ -27,13 +27,14 @@ lib/JSON/Validator/Schema/Draft201909.pm
 lib/JSON/Validator/Schema/Draft4.pm
 lib/JSON/Validator/Schema/Draft6.pm
 lib/JSON/Validator/Schema/Draft7.pm
+lib/JSON/Validator/Schema/OpenAPIv2.pm
+lib/JSON/Validator/Schema/OpenAPIv3.pm
 lib/JSON/Validator/Store.pm
 lib/JSON/Validator/Util.pm
 Makefile.PL
 MANIFEST			This list of files
 README.md
 t/00-basic.t
-t/backcompat.t
 t/bundle.t
 t/coerce-default.t
 t/coerce.t
@@ -50,7 +51,6 @@ t/draft6-acceptance.t
 t/draft6.t
 t/draft7-acceptance.t
 t/draft7.t
-t/formats.t
 t/get.t
 t/Helper.pm
 t/id-keyword-draft4.t
@@ -88,6 +88,21 @@ t/load-json.t
 t/load-yaml-pp.t
 t/load-yaml.t
 t/more-bundle.t
+t/newline-warnings.t
+t/openapiv2-basic.t
+t/openapiv2-collection-format.t
+t/openapiv2-default-values.t
+t/openapiv2-discriminator.t
+t/openapiv2-file.t
+t/openapiv2-headers.t
+t/openapiv2-invalid-ref.t
+t/openapiv2-readonly.t
+t/openapiv3-basic.t
+t/openapiv3-default-values.t
+t/openapiv3-discriminator.t
+t/openapiv3-nullable.t
+t/openapiv3-readonly-writeonly.t
+t/openapiv3-style-explode.t
 t/predictable-errors.t
 t/random-errors.t
 t/recursive_data_protection.t
@@ -103,7 +118,6 @@ t/spec/missing-ref.json
 t/spec/more-bundle.yaml
 t/spec/more-bundle2.yaml
 t/spec/person.json
-t/spec/petstore.json
 t/spec/remotes/baseUriChange/folderInteger.json
 t/spec/remotes/baseUriChangeFolder/folderInteger.json
 t/spec/remotes/baseUriChangeFolderInSubschema/folderInteger.json
@@ -114,6 +128,8 @@ t/spec/remotes/subSchemas-defs.json
 t/spec/remotes/subSchemas.json
 't/spec/space bundle.json'
 t/spec/test-definitions-key.json
+t/spec/v2-petstore.json
+t/spec/v3-petstore.json
 t/spec/with-deep-mixed-ref.json
 t/spec/with-relative-ref.json
 t/stack/Some.pm

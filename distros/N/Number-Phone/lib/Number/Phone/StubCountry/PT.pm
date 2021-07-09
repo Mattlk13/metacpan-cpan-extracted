@@ -22,7 +22,7 @@ use base qw(Number::Phone::StubCountry);
 use strict;
 use warnings;
 use utf8;
-our $VERSION = 1.20201204215957;
+our $VERSION = 1.20210602223300;
 
 my $formatters = [
                 {
@@ -32,7 +32,10 @@ my $formatters = [
                 },
                 {
                   'format' => '$1 $2 $3',
-                  'leading_digits' => '[236-9]',
+                  'leading_digits' => '
+            16|
+            [236-9]
+          ',
                   'pattern' => '(\\d{3})(\\d{3})(\\d{3})'
                 }
               ];
@@ -61,9 +64,15 @@ my $validators = {
           )\\d{6}
         ',
                 'mobile' => '
-          6[356]9230\\d{3}|
+          6[0356]92(?:
+            30|
+            9\\d
+          )\\d{3}|
           (?:
-            6[036]93|
+            (?:
+              16|
+              6[0356]
+            )93|
             9(?:
               [1-36]\\d\\d|
               480
@@ -100,57 +109,57 @@ my $validators = {
               };
 my %areanames = ();
 $areanames{pt} = {"35121", "Lisboa",};
-$areanames{en} = {"351236", "Pombal",
-"351291", "Funchal",
+$areanames{en} = {"351265", "Setúbal",
+"351278", "Mirandela",
+"351289", "Faro",
+"351279", "Moncorvo",
+"351241", "Abrantes",
+"351232", "Viseu",
+"351281", "Tavira",
+"351271", "Guarda",
+"351235", "Arganil",
+"351249", "Torres\ Novas",
+"351253", "Braga",
+"351262", "Caldas\ da\ Rainha",
+"351255", "Penafiel",
+"35122", "Porto",
+"351286", "Castro\ Verde",
+"351276", "Chaves",
+"351233", "Figueira\ da\ Foz",
+"351274", "Proença\-a\-Nova",
+"351292", "Horta",
+"351284", "Beja",
+"351295", "Angra\ do\ Heroísmo",
+"351244", "Leiria",
+"351263", "Vila\ Franca\ de\ Xira",
 "351252", "V\.\ N\.\ de\ Famalicão",
 "351273", "Bragança",
-"351259", "Vila\ Real",
-"351241", "Abrantes",
-"351235", "Arganil",
+"351236", "Pombal",
+"351283", "Odemira",
 "351234", "Aveiro",
-"351249", "Torres\ Novas",
-"351292", "Horta",
 "351251", "Valença",
-"351263", "Vila\ Franca\ de\ Xira",
-"351242", "Ponte\ de\ Sôr",
+"35121", "Lisbon",
+"351243", "Santarém",
 "351266", "Évora",
-"351281", "Tavira",
-"351275", "Covilhã",
-"351274", "Proença\-a\-Nova",
+"351259", "Vila\ Real",
+"351291", "Funchal",
 "351258", "Viana\ do\ Castelo",
-"351265", "Setúbal",
 "351277", "Idanha\-a\-Nova",
 "351282", "Portimão",
-"35122", "Porto",
-"351289", "Faro",
-"351233", "Figueira\ da\ Foz",
-"351276", "Chaves",
-"351283", "Odemira",
-"351268", "Estremoz",
-"351239", "Coimbra",
-"35121", "Lisbon",
-"351245", "Portalegre",
-"351244", "Leiria",
-"351295", "Angra\ do\ Heroísmo",
-"351232", "Viseu",
-"351256", "S\.\ João\ da\ Madeira",
-"351231", "Mealhada",
-"351296", "Ponta\ Delgada",
-"351278", "Mirandela",
-"351254", "Peso\ da\ Régua",
-"351255", "Penafiel",
-"351271", "Guarda",
-"351238", "Seia",
-"351269", "Santiago\ do\ Cacém",
-"351284", "Beja",
-"351285", "Moura",
-"351243", "Santarém",
-"351262", "Caldas\ da\ Rainha",
 "351272", "Castelo\ Branco",
-"351253", "Braga",
-"351286", "Castro\ Verde",
+"351296", "Ponta\ Delgada",
+"351238", "Seia",
 "351261", "Torres\ Vedras",
-"351279", "Moncorvo",};
+"351245", "Portalegre",
+"351239", "Coimbra",
+"351254", "Peso\ da\ Régua",
+"351242", "Ponte\ de\ Sôr",
+"351256", "S\.\ João\ da\ Madeira",
+"351269", "Santiago\ do\ Cacém",
+"351275", "Covilhã",
+"351231", "Mealhada",
+"351285", "Moura",
+"351268", "Estremoz",};
 
     sub new {
       my $class = shift;

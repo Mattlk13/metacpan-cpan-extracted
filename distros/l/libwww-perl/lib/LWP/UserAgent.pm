@@ -10,12 +10,13 @@ use HTTP::Response ();
 use HTTP::Date ();
 
 use LWP ();
+use HTTP::Status ();
 use LWP::Protocol ();
 
 use Scalar::Util qw(blessed);
 use Try::Tiny qw(try catch);
 
-our $VERSION = '6.52';
+our $VERSION = '6.55';
 
 sub new
 {

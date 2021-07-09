@@ -1,4 +1,11 @@
-/* vi: set ft=c inde=: */
+/* vi: set ft=c */
+
+#define HAVE_PERL_VERSION(R, V, S) \
+    (PERL_REVISION > (R) || (PERL_REVISION == (R) && (PERL_VERSION > (V) || (PERL_VERSION == (V) && (PERL_SUBVERSION >= (S))))))
+
+#ifndef SvTRUE_NN
+#  define SvTRUE_NN(sv)  SvTRUE(sv)
+#endif
 
 #if !HAVE_PERL_VERSION(5, 18, 0)
 typedef AV PADNAMELIST;
@@ -13,6 +20,7 @@ typedef SV PADNAME;
 #  define PadnamelistMAX(pnl)     AvFILLp(pnl)
 
 #  define PadARRAY(p)             AvARRAY(p)
+#  define PadMAX(pad)             AvFILLp(pad)
 #endif
 
 #ifndef av_top_index
@@ -35,12 +43,27 @@ typedef SV PADNAME;
 #  define intro_my()             Perl_intro_my(aTHX)
 #endif
 
+#ifndef CX_CUR
+#  define CX_CUR() (&cxstack[cxstack_ix])
+#endif
+
+#if HAVE_PERL_VERSION(5, 24, 0)
+#  define OLDSAVEIX(cx)  (cx->blk_oldsaveix)
+#else
+#  define OLDSAVEIX(cx)  (PL_scopestack[cx->blk_oldscopesp-1])
+#endif
+
 #ifndef OpSIBLING
 #  define OpSIBLING(op)  (op->op_sibling)
 #endif
 
 #ifndef OpMORESIB_set
 #  define OpMORESIB_set(op,sib)  ((op)->op_sibling = (sib))
+#endif
+
+#ifndef OpLASTSIB_set
+   /* older perls don't need to store this at all */
+#  define OpLASTSIB_set(op,parent)
 #endif
 
 #ifndef op_convert_list

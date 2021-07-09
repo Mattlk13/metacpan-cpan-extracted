@@ -3,35 +3,49 @@ package Net::Z3950::FOLIO::ResultSet;
 use strict;
 use warnings;
 
+use Net::Z3950::FOLIO::Record;
+
 sub new {
     my $class = shift();
-    my($setname, $cql) = @_;
+    my($session, $setname, $cql) = @_;
+
+    my $barcode = _extractBarcode($cql);
 
     return bless {
+	session => $session, # back-reference
 	setname => $setname,
 	cql => $cql,
-	total_count => undef,
+	barcode => $barcode,
+	totalCount => undef,
 	records => [],
-	marcRecords => {},
     }, $class;
 }
 
-sub total_count {
+sub session {
+    my $this = shift();
+    return $this->{session};
+}
+
+sub totalCount {
     my $this = shift();
     my($newVal) = @_;
 
-    my $old = $this->{total_count};
-    $this->{total_count} = $newVal if defined $newVal;
+    my $old = $this->{totalCount};
+    $this->{totalCount} = $newVal if defined $newVal;
     return $old;
 }
 
-sub insert_records {
+sub barcode {
+    my $this = shift();
+    return $this->{barcode};
+}
+
+sub insertRecords {
     my $this = shift();
     my($offset, $records) = @_;
 
     for (my $i = 0; $i < @$records; $i++) {
-	# The records are data structures obtained by decoding the JSON
-	$this->{records}->[$offset + $i] = $records->[$i];
+	$this->{records}->[$offset + $i] = new Net::Z3950::FOLIO::Record($this, $offset + $i, $records->[$i]);
     }
 }
 
@@ -42,22 +56,19 @@ sub record {
     return $this->{records}->[$index0];
 }
 
-sub insert_marcRecords {
-    my $this = shift();
-    my($marcRecords) = @_;
+# If the $cql query is a search for a barcode, return that barcode;
+# otherwise return undefined. We could do this the sophisticated way,
+# by parsing the CQL and examing every node, but in practice it
+# probably suffices to do a simple string check.
+#
+sub _extractBarcode {
+    my ($cql) = @_;
 
-    foreach my $instanceId (keys %$marcRecords)  {
-	# The records are passed in and stored as MARC::Record objects
-	$this->{marcRecords}->{$instanceId} = $marcRecords->{$instanceId};
+    if ($cql =~ /^item.barcode[\t ]*=+[\t ]*(.*)/) {
+	return $1;
     }
-}
 
-sub marcRecord {
-    my $this = shift();
-    my($instanceId) = @_;
-
-    my $mr = $this->{marcRecords};
-    return $mr->{$instanceId};
+    return undef;
 }
 
 1;

@@ -1,0 +1,78 @@
+0.010   2021-05-06  Released-By: PERLANCAR; Urgency: medium
+
+	- Add entry: UUID::FFI.
+
+
+0.009   2021-03-09  Released-By: PERLANCAR; Urgency: low
+
+	- Wording.
+
+
+0.008   2021-01-20  Released-By: PERLANCAR; Urgency: high
+
+        - Merge 0.005 and 0.005.2.
+
+
+0.007   2021-01-20  Released-By: PERLANCAR; Urgency: low
+
+	- No functional changes.
+
+	- Mention App::UUIDUtils.
+
+
+0.006   2021-01-20  Released-By: PERLANCAR; Urgency: medium
+
+	- Benchmark both generate() & generate_rfc() for UUID::Random &
+	  UUID::Random::Secure.
+
+
+0.005.2  2021-01-18  Released-By: PERLANCAR; Urgency: low
+
+	- No functional changes.
+
+	- Forgot to recommend Crypt::Misc (instead of UUID::Random family)
+	  in one instance.
+
+        - UPDATE 2021-02-08: Rename release to 0.005.2 due to conflict.
+
+
+0.005   2021-01-31  Released-By: PERLANCAR; Urgency: low
+
+	- No functional changes.
+
+	- Mention Data::GUID.
+
+
+0.004   2021-01-18  Released-By: PERLANCAR; Urgency: medium
+
+	- Add entry: Crypt::Misc [GH#1].
+
+	- [doc] Add information about variant & version encoding, add
+	  feature v4_rfc4122.
+
+	- [ux] For Data::UUID & UUID::Tiny benchmark code, when producing
+	  the last UUID, convert to string for nicer output in 'bencher
+	  --show-items-results'.
+
+
+0.003   2021-01-17  Released-By: PERLANCAR; Urgency: medium
+
+	- Add entries: UUID::Random::Secure, UUID::Random::PERLANCAR.
+
+	- [ux] Add 1 more generation to benchmark code so it can return
+	  result when viewed by bencher's --show-items-results option.
+
+	- Some description fixes.
+
+
+0.002   2020-12-22  Released-By: PERLANCAR; Urgency: low
+
+	- No functional changes.
+
+	- [dist] Forgot to include POD Weaver plugin to show benchmark
+	  sample results.
+
+
+0.001   2020-12-22  Released-By: PERLANCAR
+
+        - First release.

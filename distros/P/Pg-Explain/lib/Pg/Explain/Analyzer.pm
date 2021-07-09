@@ -26,11 +26,11 @@ Pg::Explain::Analyzer - Some helper methods to analyze explains
 
 =head1 VERSION
 
-Version 1.04
+Version 1.11
 
 =cut
 
-our $VERSION = '1.04';
+our $VERSION = '1.11';
 
 =head1 SYNOPSIS
 
@@ -58,7 +58,7 @@ Takes one argument - Pg::Explain object.
 sub new {
     my $class = shift;
     my $self  = bless {}, $class;
-    croak( 'You have to provide explain object.' ) if 0 == scalar @_;
+    croak( 'You have to provide explain object.' )                 if 0 == scalar @_;
     croak( 'Too many arguments to Pg::Explain::Analyzer->new().' ) if 1 < scalar @_;
     $self->explain( shift );
     croak( 'Given explain is not an object.' )   unless ref( $self->explain );
@@ -116,7 +116,7 @@ sub all_node_paths {
         my $current_path     = [ @{ $prefix }, $node_type ];
         my $current_path_str = join ' :: ', @{ $current_path };
         push @return, $current_path unless $seen{ $current_path_str }++;
-        push @nodes, map { [ $current_path, $_ ] } $node->all_subnodes;
+        push @nodes,  map { [ $current_path, $_ ] } $node->all_subnodes;
     }
     return \@return;
 }
@@ -137,7 +137,7 @@ You can find documentation for this module with the perldoc command.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2008-2015 hubert depesz lubaczewski, all rights reserved.
+Copyright 2008-2021 hubert depesz lubaczewski, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

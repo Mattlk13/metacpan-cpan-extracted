@@ -4,13 +4,14 @@ use warnings;
 use strict;
 use 5.008003;
 
-our $VERSION = '1.713';
+our $VERSION = '1.733';
 
 use Exporter qw( import );
 
 our @EXPORT_OK = qw( validate_options );
 
 use Carp qw( croak );
+
 
 sub validate_options {
     my ( $valid, $opt ) = @_;
@@ -30,6 +31,9 @@ sub validate_options {
                     /^[0-9]+\z/ or croak "$sub: option '$key' => $_ is an invalid array element";
                 }
             }
+        }
+        elsif ( $valid->{$key} =~ /^Regexp/ ) {                                                                                                # Term::TablePrint prior to 0.138 use a string instead of a compiled regex
+        #    croak "$sub: option '$key' => the passed value has to be a regex quoted with the 'qr' operator." if ref $opt->{$key} ne 'Regexp'; # 22.06.2021  uncomment this after some time
         }
         elsif ( ref $opt->{$key} ) {
             croak "$sub: option '$key' => a reference is not a valid value.";

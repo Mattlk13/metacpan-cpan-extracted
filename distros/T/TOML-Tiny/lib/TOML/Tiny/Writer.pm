@@ -1,5 +1,5 @@
 package TOML::Tiny::Writer;
-$TOML::Tiny::Writer::VERSION = '0.10';
+$TOML::Tiny::Writer::VERSION = '0.12';
 use strict;
 use warnings;
 no warnings qw(experimental);
@@ -95,9 +95,9 @@ sub to_toml {
     }
 
     when ('SCALAR') {
-      if ($$_ eq '1') {
+      if ($$data eq '1') {
         return 'true';
-      } elsif ($$_ eq '0') {
+      } elsif ($$data eq '0') {
         return 'false';
       } else {
         push @buff_assign, to_toml($$_, $param);
@@ -234,7 +234,7 @@ TOML::Tiny::Writer
 
 =head1 VERSION
 
-version 0.10
+version 0.12
 
 =head1 AUTHOR
 
@@ -242,7 +242,7 @@ Jeff Ober <sysread@fastmail.fm>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Jeff Ober.
+This software is copyright (c) 2021 by Jeff Ober.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

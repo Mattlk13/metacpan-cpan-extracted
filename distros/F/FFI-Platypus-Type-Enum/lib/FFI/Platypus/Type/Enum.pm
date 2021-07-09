@@ -5,10 +5,11 @@ use warnings;
 use constant 1.32 ();
 use 5.008001;
 use Ref::Util qw( is_plain_arrayref is_plain_hashref is_ref );
+use Scalar::Util qw( dualvar );
 use Carp qw( croak );
 
 # ABSTRACT: Custom platypus type for dealing with C enumerated types
-our $VERSION = '0.04'; # VERSION
+our $VERSION = '0.06'; # VERSION
 
 
 our @CARP_NOT = qw( FFI::Platypus );
@@ -25,7 +26,10 @@ sub ffi_custom_type_api_1
   my %int_lookup;
   my $prefix = defined $config{prefix} ? $config{prefix} : '';
   $config{rev} ||= 'str';
-  ($config{rev} =~ /^(int|str)$/) or croak("rev must be either 'int', or 'str'");
+  ($config{rev} =~ /^(int|str|dualvar)$/) or croak("rev must be either 'int', 'str', or 'dualvar'");
+
+  $config{casing} ||= 'upper';
+  ($config{casing} =~ /^(upper|keep)$/) or croak("casing must be either 'upper' or 'keep'");
 
   foreach my $value (@values)
   {
@@ -60,12 +64,15 @@ sub ffi_custom_type_api_1
       $config{type} ||= 'senum';
     }
 
-    if(my $package = $config{package})
+    if(my $packages = $config{package})
     {
-      foreach my $name ($name,@aliases)
+      foreach my $package (is_plain_arrayref $packages ? @$packages : $packages)
       {
-        my $full = join '::', $package, $prefix . uc($name);
-        constant->import($full, $index);
+        foreach my $name ($name,@aliases)
+        {
+          my $full = join '::', $package, $prefix . ( $config{casing} eq 'upper' ? uc($name) : $name );
+          constant->import($full, $index);
+        }
       }
     }
 
@@ -101,13 +108,21 @@ sub ffi_custom_type_api_1
     },
   );
 
-  unless($config{rev} eq 'int')
+  if($config{rev} eq 'str')
   {
     $type{native_to_perl} = sub {
       exists $int_lookup{$_[0]}
         ? $int_lookup{$_[0]}
         : $_[0];
     }
+  }
+  elsif($config{rev} eq 'dualvar')
+  {
+    $type{native_to_perl} = sub {
+      exists $int_lookup{$_[0]}
+        ? dualvar( $_[0], $int_lookup{$_[0]} )
+        : $_[0];
+    };
   }
 
   \%type;
@@ -127,7 +142,7 @@ FFI::Platypus::Type::Enum - Custom platypus type for dealing with C enumerated t
 
 =head1 VERSION
 
-version 0.04
+version 0.06
 
 =head1 SYNOPSIS
 
@@ -290,11 +305,18 @@ and native type for the enum.
 
 =item package
 
- $ffi->load_custom_type('::Enum', $name, { package => $package }, ... );
+ $ffi->load_custom_type('::Enum', $name, { package => $package  }, ... );
+ $ffi->load_custom_type('::Enum', $name, { package => \@package }, ... );  # version 0.05
 
 This option specifies the Perl package where constants will be defined.
-If not specified, then not constants will be generated.  As per the usual
-convention, the constants will be the upper case of the value names.
+If not specified, then no constants will be generated.  Unless otherwise
+specified (see 'casing' below), the constants will be the upper case of
+the value names as per the usual convention.
+
+[version 0.05]
+
+As of version 0.05, you can specify multiple packages to create the constants via
+an array reference.
 
 =item prefix
 
@@ -305,14 +327,20 @@ then no prefix will be used.
 
 =item rev
 
- $ffi->load_custom_type('::Enum', $name, { rev => 'int' }, ... );
- $ffi->load_custom_type('::Enum', $name, { rev => 'str' }, ... );
+ $ffi->load_custom_type('::Enum', $name, { rev => 'int'     }, ... );
+ $ffi->load_custom_type('::Enum', $name, { rev => 'str'     }, ... );
+ $ffi->load_custom_type('::Enum', $name, { rev => 'dualvar' }, ... );  # version 0.05
 
 This specifies what should be returned for C functions that return the
-enumerated type.  For strings, use C<str>, and for integer constants
-use C<int>.
+enumerated type.  For strings, use C<str>, and for integer constants use
+C<int>.
 
 (C<rev> is short for "reverse")
+
+[version 0.05]
+
+As of version 0.05, dualvar can be specified to return a string/integer
+dualvar.
 
 =item type
 
@@ -350,8 +378,21 @@ Perl:
    'better',
    [best => 12],
  );
- 
+
  $ffi->attach( f => [ 'foo_t' ] => 'void' );
+
+=item casing
+
+[version 0.06]
+
+ $ffi->load_custom_type('::Enum', $name, { casing => 'upper' }, ... );
+ $ffi->load_custom_type('::Enum', $name, { casing => 'keep'  }, ... );
+
+When in constant mode, all constant names are by default generated in
+uppercase as is conventional.  However, some libraries will on occasion
+define constant names in mixed case.  For these cases, the C<casing> option,
+added in version 0.06, can be set to C<keep> to prevent the names from being
+modified.  The only other allowed value is C<upper>, which is the default.
 
 =back
 
@@ -367,7 +408,11 @@ Perl:
 
 =head1 AUTHOR
 
-Graham Ollis <plicease@cpan.org>
+Author: Graham Ollis E<lt>plicease@cpan.orgE<gt>
+
+Contributors:
+
+José Joaquín Atria (JJATRIA)
 
 =head1 COPYRIGHT AND LICENSE
 

@@ -1,14 +1,16 @@
 package Pod::Weaver::Plugin::Acme::CPANModules;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-10-10'; # DATE
+our $DATE = '2021-05-22'; # DATE
 our $DIST = 'Pod-Weaver-Plugin-Acme-CPANModules'; # DIST
-our $VERSION = '0.005'; # VERSION
+our $VERSION = '0.009'; # VERSION
 
 use 5.010001;
 use Moose;
 with 'Pod::Weaver::Role::AddTextToSection';
 with 'Pod::Weaver::Role::Section';
+
+has entry_description_code => (is=>'rw');
 
 use Pod::From::Acme::CPANModules qw(gen_pod_from_acme_cpanmodules);
 
@@ -45,6 +47,7 @@ sub _process_module {
     my $res = gen_pod_from_acme_cpanmodules(
         module => $package,
         _raw=>1,
+        ($self->entry_description_code ? (entry_description_code => $self->entry_description_code) : ()),
     );
 
     for my $section (sort keys %{$res->{pod}}) {
@@ -71,11 +74,22 @@ sub _process_module {
     {
         my @pod;
         push @pod,
-q(=head2 What are ways to use this Acme::CPANModules module?
+q(=head2 What is an Acme::CPANModules::* module?
+
+An Acme::CPANModules::* module, like this module, contains just a list of module
+names that share a common characteristics. It is a way to categorize modules and
+document CPAN. See L<Acme::CPANModules> for more details.
+
+=head2 What are ways to use this Acme::CPANModules module?
 
 Aside from reading this Acme::CPANModules module's POD documentation, you can
-install all the listed modules (entries) using L<cpanmodules> CLI (from
-L<App::cpanmodules> distribution):
+install all the listed modules (entries) using L<cpanm-cpanmodules> script (from
+L<App::cpanm::cpanmodules> distribution):
+
+ % cpanm-cpanmodules -n ).$ac_name.q(
+
+Alternatively you can use the L<cpanmodules> CLI (from L<App::cpanmodules>
+distribution):
 
     % cpanmodules ls-entries ).$ac_name.q( | cpanm -n
 
@@ -144,13 +158,14 @@ Pod::Weaver::Plugin::Acme::CPANModules - Plugin to use when building Acme::CPANM
 
 =head1 VERSION
 
-This document describes version 0.005 of Pod::Weaver::Plugin::Acme::CPANModules (from Perl distribution Pod-Weaver-Plugin-Acme-CPANModules), released on 2020-10-10.
+This document describes version 0.009 of Pod::Weaver::Plugin::Acme::CPANModules (from Perl distribution Pod-Weaver-Plugin-Acme-CPANModules), released on 2021-05-22.
 
 =head1 SYNOPSIS
 
 In your F<weaver.ini>:
 
  [-Acme::CPANModules]
+ ;entry_description_code = "Website URL: <" . $_->{website_url} . ">\n\n";
 
 =head1 DESCRIPTION
 
@@ -170,6 +185,14 @@ tool), etc.
 
 =for Pod::Coverage weave_section
 
+=head1 CONFIGURATION
+
+=head2 entry_description_code
+
+Optional. Perl code to produce the description POD. If not specified, will use
+default template for the description POD, i.e. entry's C<description> property,
+plus C<rating>, C<alternative_modules> if available.
+
 =head1 HOMEPAGE
 
 Please visit the project's homepage at L<https://metacpan.org/release/Pod-Weaver-Plugin-Acme-CPANModules>.
@@ -180,7 +203,7 @@ Source repository is at L<https://github.com/perlancar/perl-Pod-Weaver-Plugin-Ac
 
 =head1 BUGS
 
-Please report any bugs or feature requests on the bugtracker website L<https://rt.cpan.org/Public/Dist/Display.html?Name=Pod-Weaver-Plugin-Acme-CPANModules>
+Please report any bugs or feature requests on the bugtracker website L<https://github.com/perlancar/perl-Pod-Weaver-Plugin-Acme-CPANModules/issues>
 
 When submitting a bug or request, please include a test-file or a
 patch to an existing test-file that illustrates the bug or desired
@@ -198,7 +221,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2019, 2018 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2019, 2018 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

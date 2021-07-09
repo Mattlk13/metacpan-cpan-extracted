@@ -6,7 +6,7 @@ BEGIN {
   use Exporter;
   use vars qw($VERSION @ISA @EXPORT_OK %EXPORT_TAGS);
 
-  $VERSION = '0.514';
+  $VERSION = '0.530';
   @ISA = qw(Exporter);
 
   @EXPORT_OK = qw(
@@ -18,6 +18,7 @@ BEGIN {
     can_ls_color
     ls_color_lookup
     parse_ls_colors
+    slack_code_to_ls_code
   );
 
   %EXPORT_TAGS = (
@@ -25,6 +26,7 @@ BEGIN {
       qw(
       ls_color ls_color_custom ls_color_default ls_color_internal
       get_ls_colors can_ls_color ls_color_lookup parse_ls_colors
+      slack_code_to_ls_code
       )
     ],
   );
@@ -33,6 +35,9 @@ BEGIN {
 # Skip stat:ing files for attributes like +x. This can be desired if the
 # filenames aren't real files, or for performance reasons.
 our $NO_STAT = 0;
+
+# If true, ignore case on file extensions; mp4/MP4
+our $IGNORE_CASE = 0;
 
 # alias for compatibility reasons with File::LsColor prior to 0.300
 {
@@ -332,6 +337,16 @@ sub ls_color {
     elsif(exists($extracted_ls_colors->{$ext})) {
       $file = fg($extracted_ls_colors->{$ext}, $file);
     }
+
+# We haven't found a valid extension -> color mapping yet, but if
+# IGNORE_CASE is true, check if the lowercase version of the capitalized
+# extension does in fact exist.
+# Just make sure to use the non-lc version while returning.
+# https://github.com/trapd00r/File-LsColor/issues/9
+
+    elsif($IGNORE_CASE && $extracted_ls_colors->{lc($ext)}) {
+      $file = fg($extracted_ls_colors->{lc($ext)}, $file);
+    }
     else {
 #      $file = fg(32, $file);
     }
@@ -397,6 +412,55 @@ sub can_ls_color {
   }
 }
 
+sub slack_code_to_ls_code {
+  my %slack = (
+    NORMAL                => 'no',
+    NORM                  => 'no',
+    FILE                  => 'fi',
+    RESET                 => 'rs',
+    DIR                   => 'di',
+    LNK                   => 'ln',
+    LINK                  => 'ln',
+    SYMLINK               => 'ln',
+    ORPHAN                => 'or',
+    MISSING               => 'mi',
+    FIFO                  => 'pi',
+    PIPE                  => 'pi',
+    SOCK                  => 'so',
+    BLK                   => 'bd',
+    BLOCK                 => 'bd',
+    CHR                   => 'cd',
+    CHAR                  => 'cd',
+    DOOR                  => 'do',
+    EXEC                  => 'ex',
+    LEFT                  => 'lc',
+    LEFTCODE              => 'lc',
+    RIGHT                 => 'rc',
+    RIGHTCODE             => 'rc',
+    END                   => 'ec',
+    ENDCODE               => 'ec',
+    SUID                  => 'su',
+    SETUID                => 'su',
+    SGID                  => 'sg',
+    SETGID                => 'sg',
+    STICKY                => 'st',
+    OTHER_WRITABLE        => 'ow',
+    OWR                   => 'ow',
+    STICKY_OTHER_WRITABLE => 'tw',
+    OWT                   => 'tw',
+    CAPABILITY            => 'ca',
+    MULTIHARDLINK         => 'mh',
+    CLRTOEOL              => 'cl',
+    NULL                  => 'NULL',
+  );
+
+  my $query = shift;
+  return $slack{uc($query)}
+    ? $slack{uc($query)}
+    : undef;
+}
+
+
 
 1;
 
@@ -422,6 +486,7 @@ File::LsColor - Colorize input filenames just like ls does
       can_ls_color
       ls_color_lookup
       parse_ls_colors
+      slack_code_to_ls_code
     );
 
 
@@ -526,8 +591,9 @@ Else, returns undef.
 The same as can_ls_color(), exportable because of compatibility reasons.
 
 =head2 parse_ls_colors()
-  Arguments: $string
-  Returns:   \%hash
+
+Arguments: $string
+Returns:   \%hash
 
 Returns a hashref with extension => attribute mappings, i.e:
 
@@ -537,17 +603,33 @@ Returns a hashref with extension => attribute mappings, i.e:
     'anx' => '01;35',
     'arj' => '01;31',
 
+=head2 slack_code_to_ls_code()
+
+Arguments: $string
+Returns:   $string
+
+Given a 'slack name', returns the short form of the ls code, like so:
+
+  slack_code_to_ls_code('NORMAL'); # returns 'no'
+  slack_code_to_ls_code('STICKY_OTHER_WRITABLE'); # returns 'tw'
+
+Returns undef if the slack name is not valid.
+
 =head1 NOTES
 
 If the internal C<$NO_STAT> variable is set, no stat call wil be made on
 the input filenames. This can be desired if the filenames aren't real
 files, or for performance reasons.
 
+If the internal C<$IGNORE_CASE> variable is set, case is ignored in file
+extensions.
+
 =head1 AUTHOR
 
   Magnus Woldrich
   CPAN ID: WOLDRICH
   m@japh.se
+  japh@irc.libera.chat
   http://japh.se
   https://github.com/trapd00r
 

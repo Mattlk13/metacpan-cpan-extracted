@@ -54,9 +54,12 @@ LIMITATIONS
     the filename, this module only makes a minimal attempt to find the
     filename in these cases.
 
-    This tool DOES NOT cover anything beyond files in which subs executed
-    by the test were defined. If you want sub names, lines executed, and
-    more, use Devel::Cover.
+    Originally this module only collected the filenames touched by a test.
+    Now in addition to that data it can give you seperate lists of files
+    where subs were called, and files that were touched via open().
+    Additionally the sub list includes the info about what subs were
+    called. In all of these cases it is also possible to know what
+    secgtions of your test called the subs or opened the files.
 
  REAL EXAMPLES
 
@@ -107,8 +110,9 @@ SYNOPSIS
 
         HARNESS_PERL_SWITCHES=-MTest2::Plugin::Cover prove ...
 
-    This also works for Test2::Harness aka yath, but yath may have a flag
-    to enable this for you by the time you are reading these docs.
+    For yath:
+
+        yath test --cover-files ...
 
  SUPPRESS REPORT
 
@@ -123,24 +127,114 @@ SYNOPSIS
 
         use Test2::Plugin::Cover no_event => 1;
 
+KNOWING WHAT CALLED WHAT
+
+    If you use a system like Test::Class, Test::Class::Moose, or
+    Test2::Tools::Spec then you divide your tests into subtests (or
+    similar). In these cases it would be nice to track what subtest (or
+    equivelent) touched what files.
+
+    There are 3 methods telated to this, set_from(), get_from(), and
+    clear_from() which you can use to manage this meta-data:
+
+        subtest foo => sub {
+            # Note, this is a simple string, but the 'from' data can also be a data
+            # structure.
+            Test2::Plugin::Cover->set_from("foo");
+    
+            # subroutine() from Some.pm will be recorded as having been called by 'foo'.
+            Some::subroutine();
+    
+            Test2::Plugin::Cover->clear_from();
+        };
+
+    Doing this manually for all blocks is not ideal, ideally you would hook
+    your tool, such as Test::Class to call set_from() and clear_from() for
+    you. Adding such a hook is left as an exercide to the reader, and if
+    you make one for a popular tool please upload it to cpan and add a
+    ticket or send an email for me to link to it here.
+
+    Once you have these hooks in place the data will not only show files
+    and subs that were called, but what called them.
+
+    Please see the set_from() documentation for details on values.
+
 CLASS METHODS
+
+    $val = $class->get_from()
+
+      Get the current 'from' value. The default is '*' when nothing has set
+      a from value.
+
+    $class->set_from($val)
+
+      Set a 'from' value. This can be anything, a string, a hashref, etc.
+      Be advised though that it will usually be serialized to JSON, so make
+      sure anything you put in it will be serializable as json.
+
+    $class->clear_from()
+
+      Resets the clear value to '*'
+
+    $bool = $class->was_from_modified()
+
+      This will return true if anything has called set_from() or
+      set_from_manager. This can be reset back to false using reset_from(),
+      which also clears the 'from' and 'from_manager' values.
+
+    $class->set_from_manager($module)
+
+      This should be set to a module that implements the following method:
+
+          sub test_parameters {
+              my $class = shift;
+              my ($test_file, \@from_values) = @_;
+      
+              ...
+      
+              return {
+                  # If true - run the test
+                  # If false - skip the test
+                  # If not present or undef - run the test
+                  run => $bool,
+      
+                  # The following are optional
+                  argv  => [ ... ],
+                  env   => { ... },
+                  stdin => "...",
+              };
+      
+              # OR
+              # If true - run the test
+              # If false - skip the test
+              # If undef or empty list - run the test
+              return $bool;
+          }
+
+      This will be used by Test2::Harness to determine what data needs to
+      be passed to a test given a set of 'from' values to instruct the test
+      to run the necessary parts/subtests/groups/methods/etc.
+
+      The 'argv' data will be prepended befor any other arguments provided
+      to the test.
+
+      The 'env' hashref will be merged with any other env vars needed, with
+      these taking priority.
+
+      The 'stdin' string will be used as STDIN for the test.
 
     $arrayref = $class->files()
 
-    $arrayref = $class->files(filter => \&filter, extract => \&extract)
+    $arrayref = $class->files(root => $path)
 
-      This will return an arrayref of all files touched so far. If no
-      filter or extract callbacks are provided then $class->filter() and
-      $class->extract() will be used as defaults.
+      This will return an arrayref of all files touched so far.
 
       The list of files will be sorted alphabetically, and duplicates will
       be removed.
 
-      Custom filter callbacks should match the interface for
-      $class->filter().
-
-      Custom extract callbacks should match the interface for
-      $class->extract().
+      If a root path is provided it MUST be a Path::Tiny instance. This
+      path will be used to filter out any files not under the root
+      directory.
 
     $event = $class->report(%options)
 
@@ -156,14 +250,6 @@ CLASS METHODS
 	the current directory. This MUST be a Path::Tiny instance, passing
 	a string will not work.
 
-      filter => sub { ... }
-
-	Normally $class->filter() is used.
-
-      extract => sub { ... }
-
-	Normally $class->extract() is used.
-
       verbose => $BOOL
 
 	If this is set to true then the comment stating how many source
@@ -175,9 +261,18 @@ CLASS METHODS
 	This is used ONLY when the Test2::API is doing its final
 	book-keeping. Most users will never want to use this.
 
-    $class->clear()
+    $class->reset_coverage()
 
       This will completely clear all coverage data so far.
+
+    $class->reset_from()
+
+      This will clear the 'from' value, as well as reset the
+      'was_from_modified' state to false.
+
+    $class->full_reset()
+
+      Calls both reset_coverage() and reset_from().
 
     $file_or_undef = $class->filter($file)
 

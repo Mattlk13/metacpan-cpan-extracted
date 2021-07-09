@@ -177,6 +177,10 @@ my %_error_docs = (
 # Create a global variable to cache ASP object
 my $_asp;
 
+# Create a copy of initial environment variables
+my %startup_env;
+$startup_env{$_} = $ENV{$_} for ( keys %ENV );
+
 sub psgi_app {
     my $class = shift;
 
@@ -184,9 +188,18 @@ sub psgi_app {
     return sub {
         my $env = shift;
 
-        # Create localized ENV because ASP modifies and assumes ENV being
+        # Rebuild ENV from startup because ASP modifies and assumes ENV being
         # populated with Request headers as in CGI
-        local %ENV = %ENV;
+        %ENV = ();
+        $ENV{$_} = $startup_env{$_} for ( keys %startup_env );
+
+        # Add in values from Plack env
+        for ( keys %$env ) {
+            $ENV{$_} = $env->{$_} unless ref $env->{$_};
+        }
+
+        # For backwards compatibility with Apache::ASP
+        $ENV{SCRIPT_NAME} = $ENV{PATH_INFO};
 
         # Initialize and keep compiled code in this scope;
         my ( $compiled, $error_response );
@@ -199,6 +212,7 @@ sub psgi_app {
             # Reuse cached Plasp object, else create new
             if ( $_asp ) {
                 $_asp->req( $req );
+                $_asp->_cleaned_up( 0 );
             } else {
                 $_asp = Plasp->new( %{ $class->config }, req => $req );
             }
@@ -224,7 +238,7 @@ sub psgi_app {
                             ? 'application code'
                             : 'unknown compilation',
                             $_
-                    ) );
+                    ) ) unless $_asp->has_errors;
 
                     $error_response = _error_response( undef, '500_error' );
                 }
@@ -246,7 +260,11 @@ sub psgi_app {
             return;
         };
 
-        return $error_response unless $success;
+        unless ( $success ) {
+            $_asp->cleanup;
+
+            return $error_response;
+        }
 
         # Define a callback once server is ready to write data to client. The
         # callback is called and passed subroutine called a responder.
@@ -285,7 +303,7 @@ sub psgi_app {
                             skip_frames    => 1,
                             indent         => 1,
                             ignore_package => __PACKAGE__,
-                            )->as_string
+                        )->as_string
                     );
                 };
 

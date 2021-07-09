@@ -2,6 +2,9 @@
 use strict;
 use warnings;
 
+use utf8;
+no utf8;
+
 package Smartcat::App::Command::push;
 use Smartcat::App -command;
 
@@ -19,6 +22,12 @@ use Smartcat::App::Utils;
 
 use Carp;
 use Log::Any qw($log);
+
+# How many documents to delete at a time
+# (there's a limitation on the number of the document due to
+# the fact that all document IDs are specified in a URL,
+# and URLs itself have length limitations).
+my $DELETE_BATCH_SIZE = 20;
 
 sub opt_spec {
     my ($self) = @_;
@@ -71,13 +80,10 @@ sub execute {
     );
 
     my $project = $app->project_api->get_project;
-    $app->project_api->update_project_external_tag( $project->name, "source:Serge" ) if ($#{ $project->documents } >= 0);
+    $app->project_api->update_project_external_tag( $project, "source:Serge" ) if ($#{ $project->documents } >= 0);
     my %documents;
     for ( @{ $project->documents } ) {
-        my $key =
-            $rundata->{language_file_tree}
-          ? $_->name
-          : &get_document_key( $_->name, $_->target_language );
+        my $key = &get_document_key( $_->full_path, $_->target_language );
         $documents{$key} = [] unless defined $documents{$key};
         push @{ $documents{$key} }, $_;
     }
@@ -85,18 +91,22 @@ sub execute {
     my %ts_files;
     find(
         sub {
-            if (   -f $File::Find::name
+            my $name = $File::Find::name;
+            if ($^O !~ /MSWin32/) { # assume we are on Unix if not on Windows
+                utf8::decode($name); # assume UTF8 filenames
+                utf8::decode($_);
+            }
+            if (   -f $name
                 && !m/^\.$/
                 && m/$rundata->{filetype}$/ )
             {
                 s/$rundata->{filetype}$//;
-                my $name = catfile( dirname($File::Find::name), $_ );
-                my $key =
-                  $rundata->{language_file_tree} ? $_ : &get_ts_file_key($name);
+                my $path = catfile( dirname($name), $_ );
+                my $key = &get_ts_file_key($rundata->{project_workdir}, $path);
+                utf8::decode($key);
                 $ts_files{$key} = [] unless defined $ts_files{$key};
-                push @{ $ts_files{$key} }, $File::Find::name;
+                push @{ $ts_files{$key} }, $name;
             }
-
         },
         $rundata->{project_workdir}
     );
@@ -106,7 +116,7 @@ sub execute {
 
     my ( @upload, @obsolete, @update, @skip );
     push @{
-        !$self->_check_if_files_are_empty( $ts_files{$_} )
+        exists $ts_files{$_} && !$self->_check_if_files_are_empty( $ts_files{$_} )
         ? defined $documents{$_} ? \@update : \@upload
         : defined $documents{$_} ? \@obsolete : \@skip
       },
@@ -134,7 +144,11 @@ sub execute {
         my @document_ids;
         push( @document_ids, map { $_->id } @{ $documents{$_} } ) for @obsolete;
 
-        $self->delete( \@document_ids) if @document_ids;
+        # work in batches
+        while (scalar(@document_ids) > 0) {
+            my @batch = splice(@document_ids, 0, $DELETE_BATCH_SIZE);
+            $self->delete( \@batch );
+        }
     }
 
     $log->info(
@@ -160,7 +174,7 @@ sub update {
     my $rundata = $app->{rundata};
 
     my @target_languages =
-      map { &get_language_from_ts_filepath($_) } @$ts_files;
+      map { &get_language_from_ts_filepath($rundata->{project_workdir}, $_) } @$ts_files;
     my @project_target_languages = @{ $project->target_languages };
     my %lang_pairs;
     my @files_without_documents;
@@ -169,7 +183,7 @@ sub update {
     for (@$ts_files) {
 
         #print $_."\n";
-        my $lang = get_language_from_ts_filepath($_);
+        my $lang = get_language_from_ts_filepath($rundata->{project_workdir}, $_);
         my $doc = first { $_->target_language eq $lang } @$documents;
 
         #p $doc;
@@ -194,12 +208,7 @@ sub update {
         "No documents for files:" . join( ', ', @files_without_documents ) )
       if @files_without_documents;
 
-    unless ( $rundata->{language_file_tree} ) {
-        $api->update_document( @{ $lang_pairs{$_} } ) for ( keys %lang_pairs );
-    }
-    else {
-        $self->_update_tree_document( $ts_files, $documents );
-    }
+    $api->update_document( @{ $lang_pairs{$_} } ) for ( keys %lang_pairs );
 }
 
 sub _check_if_files_are_empty {
@@ -214,79 +223,23 @@ sub _check_if_files_are_empty {
     return 0;
 }
 
-sub _upload_tree_document {
-    my ( $self, $ts_files, $target_languages ) = @_;
-
-    #my $path = $ts_files->[0];
-    my $path = shift @$ts_files;
-    my $documents =
-      $self->app->project_api->upload_file( $path, basename($path),
-        $target_languages );
-
-    $log->info( "Created documents ids:\n  "
-          . join( ', ', map { $_->id } @$documents ) );
-
-    $self->_update_tree_document( $ts_files, $documents );
-}
-
-sub _update_tree_document {
-    my ( $self, $ts_files, $documents ) = @_;
-
-    my $document_api = $self->app->document_api;
-    for (@$ts_files) {
-        sleep ITERATION_WAIT_TIMEOUT * 5;
-        my $lang    = get_language_from_ts_filepath($_);
-        my $doc     = first { $_->target_language eq $lang } @$documents;
-        my $counter = 0;
-        while ( $counter < MAX_ITERATION_WAIT_TIMEOUT ) {
-            my $d = $document_api->get_document( $doc->id );
-            last
-              if $d->document_disassembling_status eq
-              DOCUMENT_DISASSEMBLING_SUCCESS_STATUS;
-            $log->info(
-                sprintf(
-"Document '%s' is not disassembled (disassemblingStatus='%s').",
-                    $doc->id, $d->document_disassembling_status
-                )
-            );
-            $counter++;
-            sleep ITERATION_WAIT_TIMEOUT * 5 * $counter;
-        }
-        die $log->error( sprintf( "Cannot update document %s.", $doc->id ) )
-          if $counter == MAX_ITERATION_WAIT_TIMEOUT;
-        $document_api->update_document( $_, $doc->id );
-    }
-}
-
 sub upload {
     my ( $self, $project, $ts_files ) = @_;
 
     my $rundata = $self->app->{rundata};
     my @target_languages =
-      map { &get_language_from_ts_filepath($_) } @$ts_files;
+      map { &get_language_from_ts_filepath($rundata->{project_workdir}, $_) } @$ts_files;
     my @project_target_languages = @{ $project->target_languages };
 
-    if ( $rundata->{language_file_tree} ) {
-        $log->warn(
-            sprintf(
-"Project target languages do not match translation files.\n  files: %s\n  project: %s",
-                join( ', ', @target_languages ),
-                join( ', ', @project_target_languages )
-            )
-        ) unless @target_languages == @project_target_languages;
-        $self->_upload_tree_document( $ts_files, \@target_languages );
-    }
-    else {
-        croak("Conflict: one target language to one file expected.")
-          unless @$ts_files == 1 && @target_languages == 1;
-        my $path     = shift @$ts_files;
-        my $filename = prepare_document_name( $path, $rundata->{filetype},
-            $target_languages[0] );
-        my $documents = $self->app->project_api->upload_file( $path, $filename,
-            \@target_languages );
-        $log->info( "Created documents ids:\n  "
-              . join( ', ', map { $_->id } @$documents ) );
-    }
+    croak("Conflict: one target language to one file expected.")
+      unless @$ts_files == 1 && @target_languages == 1;
+    my $path     = shift @$ts_files;
+    my $filename = prepare_document_name( $rundata->{project_workdir}, $path, $rundata->{filetype},
+        $target_languages[0] );
+    my $documents = $self->app->project_api->upload_file( $path, $filename,
+        \@target_languages );
+    $log->info( "Created documents ids:\n  "
+          . join( ', ', map { $_->id } @$documents ) );
 }
 
 1;

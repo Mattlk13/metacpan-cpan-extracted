@@ -31,6 +31,7 @@ $modules{$_} = $_ for qw(
   File::ShareDir::Install
   File::Which
   File::chdir
+  Git::Wrapper
   IPC::System::Simple
   Moose
   Path::Tiny
@@ -39,11 +40,11 @@ $modules{$_} = $_ for qw(
   PerlX::Maybe
   PerlX::Maybe::XS
   Pod::Markdown
+  Ref::Util
   Sub::Exporter::ForMethods
   Term::Encoding
   Test2::V0
   Test::Fixme
-  Test::More
   Test::Pod
   Test::Pod::Coverage
   Test::Script

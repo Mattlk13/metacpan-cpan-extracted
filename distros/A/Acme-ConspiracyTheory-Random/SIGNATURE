@@ -1,0 +1,38 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.83.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It will check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+SHA256 2d3c1559586109444246152d01df842ffcae322efff8fa30fe41f90ad608b9fe COPYRIGHT
+SHA256 7977c02e031153dc91d6db9d2e803671d586e59bca2c5c3dc6211f29c04d92d6 CREDITS
+SHA256 6a80ddf89c1644d049d07cd3c01f302639063074c6e0d75d0a7d3389083bb0fe Changes
+SHA256 3c01b44e612f1e1fb22b2b2f082d045b2715c7b1fdc257aedfb859f4d983bb45 INSTALL
+SHA256 34427749499bd6d6e5d206089bc03d76c647a1350f8b5f95ea628d2b6ff56e4c LICENSE
+SHA256 77ea52901022c06cf613295a5ad7e2d2a11bb861ce0fa5e090ee11989fc11481 MANIFEST
+SHA256 4868c7ac5aa99883629e8d771d67a85dc6246f6880252b9ada0690ff09463305 META.json
+SHA256 bb8ce0ab5325cebc3fc95384c70dac39658a1f9efb5f12a30827c82bf5bfb55c META.yml
+SHA256 cb2257f310ae84d3d64d10cbffc9f3ba896056bb25619016be4bdb1f3cfe1281 Makefile.PL
+SHA256 f90bffde1c2aa93bfb89b6e078d9e27a94538a47b9d579593da314af9d33110e README
+SHA256 d45f65939f949b4e5a37de09bd54595d4e8d96ac85c0e32a1fe9e9179acea19f assets/pepe-silvia.jpeg
+SHA256 ee431f144c2a23adb8245e3ae8496d79821614d11d2f4eaafae344c7d2c1b363 bin/conspire
+SHA256 3696d499ed470b7f5fc1917b81adb1dbbbd264366d06a095c31c1ed24d5a2b2a dist.ini
+SHA256 4e67063e8ca91ded6580f20d33e1a3c8f5b140b6964b892a5b89dbf4fa9ed7ea doap.ttl
+SHA256 2d08f0dbdb32d09b877fc6dca7066a8413d1f681aa112e74a19636bb713d04ae lib/Acme/ConspiracyTheory/Random.pm
+SHA256 09d5d975aafd4fd2d2bdb1847b61bf54e3e283888b4fb6a3d3d1524289717e43 t/01basic.t
+-----BEGIN PGP SIGNATURE-----
+
+iF0EARECAB0WIQRVJKj/4+s6z4WzNujOv4Eoaip9OQUCYCZOIQAKCRDOv4Eoaip9
+Od+eAKCKg4Jxq+kHVBRZb2924u/WHYFHcQCfXQsVeGehB4EZtLah9tX1phCCspA=
+=xg7Y
+-----END PGP SIGNATURE-----

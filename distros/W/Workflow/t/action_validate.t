@@ -1,10 +1,10 @@
-# -*-perl-*-
+#!/usr/bin/env perl
 
 # Test validation of additional action attributes during parse-time.
 
 use strict;
 use warnings;
-use lib 't';
+use lib qw(../lib lib ../t t);
 use TestUtil;
 use Test::Exception;
 use Test::More tests => 13;

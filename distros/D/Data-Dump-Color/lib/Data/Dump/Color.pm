@@ -4,13 +4,16 @@
 
 package Data::Dump::Color;
 
-our $DATE = '2018-12-02'; # DATE
-our $VERSION = '0.241'; # VERSION
+our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
+our $DATE = '2021-06-24'; # DATE
+our $DIST = 'Data-Dump-Color'; # DIST
+our $VERSION = '0.248'; # VERSION
 
 use 5.010001;
-use strict;
-use vars qw(@EXPORT @EXPORT_OK $VERSION $DEBUG);
+use strict 'subs', 'vars';
 use subs qq(dump);
+use vars qw(@EXPORT @EXPORT_OK $VERSION $DEBUG);
+use warnings;
 
 require Exporter;
 *import = \&Exporter::import;
@@ -21,94 +24,73 @@ $DEBUG = $ENV{DEBUG};
 
 use overload ();
 use vars qw(%seen %refcnt @fixup @cfixup %require $TRY_BASE64 @FILTERS $INDENT);
-use vars qw(%COLOR_THEMES %COLORS $COLOR $COLOR_THEME $COLOR_DEPTH $INDEX $LENTHRESHOLD);
+use vars qw($COLOR $COLOR_THEME $INDEX $LENTHRESHOLD);
 
-use Term::ANSIColor;
 require Win32::Console::ANSI if $^O =~ /Win/;
-use Scalar::Util::LooksLikeNumber qw(looks_like_number);
+
+my $lan_available;
+eval {
+    require Scalar::Util::LooksLikeNumber;
+    *looks_like_number = \&Scalar::Util::LooksLikeNumber::looks_like_number;
+    $lan_available = 1;
+    1;
+} or do {
+    require Scalar::Util;
+    *looks_like_number = \&Scalar::Util::looks_like_number;
+};
 
 $TRY_BASE64 = 50 unless defined $TRY_BASE64;
 $INDENT = "  " unless defined $INDENT;
 $INDEX = 1 unless defined $INDEX;
 $LENTHRESHOLD = 500 unless defined $LENTHRESHOLD;
+$COLOR = (defined $ENV{NO_COLOR} ? 0 : undef) //
+    $ENV{COLOR} // (-t STDOUT) // 1;
+$COLOR_THEME = $ENV{DATA_DUMP_COLOR_THEME} //
+    (($ENV{TERM} // "") =~ /256/ ? 'Default256' : 'Default16');
+our $ct_obj;
 
-%COLOR_THEMES = (
-    default16 => {
-        colors => {
-            Regexp  => 'yellow',
-            undef   => 'bright_red',
-            number  => 'bright_blue', # floats can have different color
-            float   => 'cyan',
-            string  => 'bright_yellow',
-            object  => 'bright_green',
-            glob    => 'bright_cyan',
-            key     => 'magenta',
-            comment => 'green',
-            keyword => 'blue',
-            symbol  => 'cyan',
-            linum   => 'black on_white', # file:line number
-        },
-    },
-    default256 => {
-        color_depth => 256,
-        colors => {
-            Regexp  => 135,
-            undef   => 124,
-            number  => 27,
-            float   => 51,
-            string  => 226,
-            object  => 10,
-            glob    => 10,
-            key     => 202,
-            comment => 34,
-            keyword => 21,
-            symbol  => 51,
-            linum   => 10,
-        },
-    },
-);
+# from List::Util::PP
+sub max {
+    return undef unless @_;
+    my $max = shift;
+    $_ > $max and $max = $_
+        foreach @_;
+    return $max;
+}
 
-$COLOR_THEME = ($ENV{TERM} // "") =~ /256/ ? 'default256' : 'default16';
-$COLOR_DEPTH = $COLOR_THEMES{$COLOR_THEME}{color_depth} // 16;
-%COLORS      = %{ $COLOR_THEMES{$COLOR_THEME}{colors} };
-
-my $_colreset = color('reset');
 sub _col {
-    my ($col, $str) = @_;
-    my $colval = $COLORS{$col};
-    my $enable_color = do {
-        if (defined $COLOR) {
-            $COLOR;
-        } elsif (exists $ENV{NO_COLOR}) {
-            0;
-        } else {
-            $ENV{COLOR} // (-t STDOUT) // 0;
-        }
-    };
+    require ColorThemeUtil::ANSI;
+    my ($item, $str) = @_;
 
-    if ($enable_color) {
-        #say "D:col=$col, COLOR_DEPTH=$COLOR_DEPTH";
-        if ($COLOR_DEPTH >= 256 && $colval =~ /^\d+$/) {
-            return "\e[38;5;${colval}m" . $str . $_colreset;
-        } else {
-            return color($colval) . $str . $_colreset;
-        }
+    return $str unless $COLOR;
+
+    my $ansi = '';
+    $item = $ct_obj->get_item_color($item);
+    if (defined $item) {
+        $ansi = ColorThemeUtil::ANSI::item_color_to_ansi($item);
+    }
+    if (length $ansi) {
+        $ansi . $str . "\e[0m";
     } else {
-        return $str;
+        $str;
     }
 }
 
 sub dump
 {
+    require Module::Load::Util;
+
     local %seen;
     local %refcnt;
     local %require;
     local @fixup;
     local @cfixup;
 
+    local $ct_obj = Module::Load::Util::instantiate_class_with_optional_args(
+        {ns_prefixes=>['ColorTheme::Data::Dump::Color','ColorTheme','']}, $COLOR_THEME);
     require Data::Dump::FilterContext if @FILTERS;
 
-    my $name = "a";
+    my $name = "var";
     my @dump;
     my @cdump;
 
@@ -177,6 +159,7 @@ sub dump
 
 sub dd {
     print dump(@_), "\n";
+    @_;
 }
 
 sub ddx {
@@ -284,9 +267,10 @@ sub _dump
                 "do{my \$fix}",
                 _col(keyword=>"do")."{"._col(keyword=>"my")." "._col(symbol=>"\$fix")."}",
             ) if @$idx && $idx->[-1] eq '$';
-	    return (
-                "'fix'",
-                _col(string => "'fix'"),
+	    my $str = squote($sref);
+            return (
+                $str,
+                _col(string => $str),
             );
 	}
 	$seen{$id} = [$name, $idx];
@@ -344,10 +328,20 @@ sub _dump
 		$cout = _col('undef', "undef");
 	    }
 	    elsif (my $ntype = looks_like_number($$rval)) {
-		my $val = $ntype < 20 ? qq("$$rval") : $$rval;
-                my $col = $ntype =~ /^(5|13|8704)$/ ? "float":"number";
-                $out  = $val;
-		$cout = _col($col => $val);
+                if ($lan_available) {
+                    # ntype returns details of the nature of numeric value in
+                    # scalar, including the ability to differentiate stringy
+                    # number "123" vs 123.
+                    my $val = $ntype < 20 ? qq("$$rval") : $$rval;
+                    my $col = $ntype =~ /^(5|13|8704)$/ ? "float":"number";
+                    $out  = $val;
+                    $cout = _col($col => $val);
+                } else {
+                    my $val = $$rval;
+                    my $col = "number";
+                    $out  = $val;
+                    $cout = _col($col => $val);
+                }
 	    }
 	    else {
 		$out  = str($$rval);
@@ -522,17 +516,15 @@ sub _dump
 	    $val  =~ s/\n/\n$vpad/gm;
 	    $cval =~ s/\n/\n$vpad/gm;
 	    my $kpad = $nl ? $INDENT : " ";
-	    $key .= " " x ($klen_pad - length($key)) if $nl;
-
 	    my $pad_len = ($klen_pad - length($key));
 	    if ($pad_len < 0) { $pad_len = 0; }
 	    $key .= " " x $pad_len if $nl;
-            my $cpad = " " x ($maxkvlen - ($vmultiline ? -6+length($vpad) : length($key)) - $lenvlastline);
+            my $cpad = " " x max(0, $maxkvlen - ($vmultiline ? -6+length($vpad) : length($key)) - $lenvlastline);
             #say "DEBUG: key=<$key>, vpad=<$vpad>, val=<$val>, lenvlastline=<$lenvlastline>, cpad=<$cpad>" if $DEBUG;
             my $visaid = "";
             $visaid .= sprintf("%s{%${idxwidth}i}", "." x @$idx, $i) if $INDEX;
-            $visaid .= " klen=".length($origk) if length($origk) >= $LENTHRESHOLD;
-            $visaid .= " vlen=".length($origv) if length($origv) >= $LENTHRESHOLD;
+            $visaid .= " klen=".length($origk) if defined $origk && length($origk) >= $LENTHRESHOLD;
+            $visaid .= " vlen=".length($origv) if defined $origv && length($origv) >= $LENTHRESHOLD;
 	    $out  .= "$kpad$key => $val," . ($nl && length($visaid) ? " $cpad# $visaid" : "") . $nl;
 	    $cout .= $kpad._col(key=>$key)." => $cval,".($nl && length($visaid) ? " $cpad"._col(comment => "# $visaid") : "") . $nl;
             $i++;
@@ -612,8 +604,8 @@ sub fullname
 	    $cname .= $i->[1];
 	    $last_was_index++;
 	} else {
-	    $name  .= "->" unless $last_was_index++;
-	    $cname .= "->" unless $last_was_index++;
+	    $name  .= "->";
+	    $cname .= "->";
 	    $name  .= $i->[0];
 	    $cname .= $i->[1];
 	}
@@ -684,10 +676,10 @@ sub format_list
         my $idxwidth = length(~~@elem);
         for my $i (0..$#elem) {
             my ($vlastline) = $elem[$i] =~ /(.*)\z/;
-            my $cpad = " " x ($maxvlen - length($vlastline));
+            my $cpad = " " x max(0, $maxvlen - length($vlastline));
             my $visaid = "";
             $visaid .= sprintf("%s[%${idxwidth}i]", "." x $extra->[0], $i) if $INDEX;
-            $visaid .= " len=".length($orig[$i]) if length($orig[$i]) >= $LENTHRESHOLD;
+            $visaid .= " len=".length($orig[$i]) if defined $orig[$i] && length($orig[$i]) >= $LENTHRESHOLD;
             push @res , $elem[ $i], ",", (length($visaid) ? " $cpad# $visaid" : ""), "\n";
             push @cres, $celem[$i], ",", (length($visaid) ? " $cpad"._col(comment => "# $visaid") : ""), "\n";
         }
@@ -770,6 +762,13 @@ sub quote {
   return qq("$_");
 }
 
+# put a string value in single quotes
+sub squote {
+    local($_) = $_[0];
+    s/([\\'])/\\$1/g;
+    return qq('$_');
+}
+
 1;
 # ABSTRACT: Like Data::Dump, but with color
 
@@ -785,7 +784,7 @@ Data::Dump::Color - Like Data::Dump, but with color
 
 =head1 VERSION
 
-This document describes version 0.241 of Data::Dump::Color (from Perl distribution Data-Dump-Color), released on 2018-12-02.
+This document describes version 0.248 of Data::Dump::Color (from Perl distribution Data-Dump-Color), released on 2021-06-24.
 
 =head1 SYNOPSIS
 
@@ -795,14 +794,20 @@ Use it like you would Data::Dump, e.g.:
 
 =head1 DESCRIPTION
 
+Sample screenshot:
+
+=for Pod::Coverage ^(dumpf|pp|quote|squote|tied_str|fullname|format_list|str|looks_like_number|max)$
+
+=for html <img src="https://st.aticpan.org/source/PERLANCAR/Data-Dump-Color-0.248/share/images/Screenshot_20210624_071713.png" />
+
+=for html <img src="https://st.aticpan.org/source/PERLANCAR/Data-Dump-Color-0.248/share/images/Screenshot_20210624_071341.png" />
+
 This module aims to be a drop-in replacement for L<Data::Dump>. It adds colors
 to dumps. It also adds various visual aids in the comments, e.g. array/hash
 index, depth indicator, and so on.
 
 For more information, see Data::Dump. This documentation explains what's
 different between this module and Data::Dump.
-
-=for Pod::Coverage .+
 
 =head1 RESULTS
 
@@ -861,12 +866,14 @@ Additional variables include:
 =item $COLOR => BOOL (default: undef)
 
 Whether to force-enable or disable color. If unset, color output will be
-determined from C<$ENV{COLOR}> or when in interactive terminal (when C<-t
-STDOUT> is true).
+determined from L</NO_COLOR>, L</COLOR> environment variables, or whether
+running in interactive terminal (when C<-t STDOUT> is true).
 
-=item %COLORS => HASH (default: default colors)
+=item $COLOR_THEME => str
 
-Define colors.
+Select a color theme, which is a module under C<ColorTheme::Data::Dump::Color::>
+or C<ColorTheme::> namespace (with/without the namespace prefix). For example:
+C<Default256>, C<Bright>.
 
 =item $INDEX => BOOL (default: 1)
 
@@ -878,6 +885,16 @@ Add string length visual aid for hash key/hash value/array element if length
 is at least this value.
 
 =back
+
+=head1 FUNCTIONS
+
+Only L</dd> and L</ddx> are exported by default.
+
+=head2 dd
+
+=head2 ddx
+
+=head2 dump
 
 =head1 FAQ
 
@@ -892,25 +909,26 @@ off, you can set environment COLOR to 0, or C<$Data::Dump::Color::COLOR> to 0.
 
 =head2 How do I customize colors?
 
-Fiddle the colors in C<%Data::Dump::Color::COLORS>. There will probably be
-proper color theme support in the future (based on
-L<SHARYANTO::Role::ColorTheme>.
+Create a color theme and give it a name under
+C<ColorTheme::Data::Dump::Color::*>. See an existing color theme for example,
+e.g. L<ColorTheme::Data::Dump::Color::Default256>.
 
 =head1 ENVIRONMENT
 
-=over
+=head2 DATA_DUMP_COLOR_THEME
 
-=item * NO_COLOR
+Set color theme. Name will be searched under C<ColorTheme::Data::Dump::Color::*>
+or C<ColorTheme::*>.
+
+=head2 NO_COLOR
 
 Can be used to disable color. Takes precedence over the C<COLOR> environment.
 See L<https://no-color.org> for more details.
 
-=item * COLOR
+=head2 COLOR
 
 If set, then will force color output on or off. By default, will only output
 color when in interactive terminal. This is consulted when C<$COLOR> is not set.
-
-=back
 
 =head1 HOMEPAGE
 
@@ -936,9 +954,25 @@ L<Data::Dump>, L<JSON::Color>, L<YAML::Tiny::Color>
 
 perlancar <perlancar@cpan.org>
 
+=head1 CONTRIBUTORS
+
+=for stopwords Scott Baker Steven Haryanto
+
+=over 4
+
+=item *
+
+Scott Baker <bakerscot@cpan.org>
+
+=item *
+
+Steven Haryanto <sharyanto@cpan.org>
+
+=back
+
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2018, 2014, 2013, 2012 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2018, 2014, 2013, 2012 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

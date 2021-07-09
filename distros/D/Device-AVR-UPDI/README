@@ -5,8 +5,9 @@ NAME
 DESCRIPTION
 
     This module provides a class for interacting with an AVR
-    microcontroller in one of the newer ATmega 0-series, or ATtiny 0-series
-    or 1-series types, which uses the UPDI programming and debug interface.
+    microcontroller over the UPDI programming and debug interface. This is
+    used by chips in the newer ATmega 0-series, or ATtiny 0-series or
+    1-series, or AVR DA or AVR DB families.
 
  Hardware Interface
 
@@ -14,19 +15,19 @@ DESCRIPTION
     the microcontroller as a shared single-wire interface. Suitable
     hardware to provide this can be created using a USB-UART adapter,
     connecting the RX line directly to the MCU's UPDI pin, and connecting
-    TX via a current-limiting resistor of 4.7 kohm.
+    TX via a current-limiting resistor of 1kohm.
 
        +------------+                    +-------------------+
        |         RX-|-------------+      |                   |
        | USB-UART   |             +------|-UPDI              |
-       |         TX-|---[ 4k7 ]---+      |  ATmega or ATtiny |
+       |         TX-|---[ 1k  ]---+      |  ATmega or ATtiny |
        +------------+                    +-------------------|
 
 CONSTRUCTORS
 
  new
 
-       $updi = Device::AVR::UPDI->new( ... )
+       $updi = Device::AVR::UPDI->new( ... );
 
     Constructs and returns a new Device::AVR::UPDI instance.
 
@@ -50,6 +51,7 @@ CONSTRUCTORS
 
          part => "ATtiny814"  | "attiny814"  | "t814"
          part => "ATmega4809" | "atmega4809" | "m4809"
+         part => "AVR64DA48"  | "avr64da48"
 
     baud => INT
 
@@ -66,29 +68,29 @@ ACCESSORS
 
  partinfo
 
-       $partinfo = $updi->partinfo
+       $partinfo = $updi->partinfo;
 
     Returns the Part Info structure containing base addresses and other
     parameters which may be useful for interacting with the chip.
 
     The returned structure provides the following fields
 
-       $name = $partinfo->name
+       $name = $partinfo->name;
     
-       $sig = $partinfo->signature
+       $sig = $partinfo->signature;
     
-       $addr = $partinfo->baseaddr_nvmctrl
-       $addr = $partinfo->baseaddr_fuse
-       $addr = $partinfo->baseaddr_flash
-       $addr = $partinfo->baseaddr_eeprom
-       $addr = $partinfo->baseaddr_sigrow
+       $addr = $partinfo->baseaddr_nvmctrl;
+       $addr = $partinfo->baseaddr_fuse;
+       $addr = $partinfo->baseaddr_flash;
+       $addr = $partinfo->baseaddr_eeprom;
+       $addr = $partinfo->baseaddr_sigrow;
     
-       $bytes = $partinfo->pagesize_flash
-       $bytes = $partinfo->pagesize_eeprom
-       $bytes = $partinfo->size_flash
-       $bytes = $partinfo->size_eeprom
+       $bytes = $partinfo->pagesize_flash;
+       $bytes = $partinfo->pagesize_eeprom;
+       $bytes = $partinfo->size_flash;
+       $bytes = $partinfo->size_eeprom;
     
-       $fusenames = $partinfo->fusenames
+       $fusenames = $partinfo->fusenames;
 
  fuseinfo
 
@@ -100,9 +102,12 @@ ACCESSORS
 
 METHODS
 
+    The following methods documented in an await expression return Future
+    instances.
+
  init_link
 
-       $updi->init_link->get
+       await $updi->init_link;
 
     Initialise the UPDI link for proper communication.
 
@@ -111,7 +116,7 @@ METHODS
 
  read_updirev
 
-       $rev = $updi->read_updirev->get
+       $rev = await $updi->read_updirev;
 
     Reads the UPDIREV field of the STATUSA register.
 
@@ -121,7 +126,7 @@ METHODS
 
  read_sib
 
-       $sib = $updi->read_sib->get
+       $sib = await $updi->read_sib;
 
     Reads the System Information Block.
 
@@ -136,14 +141,14 @@ METHODS
 
  read_signature
 
-       $signature = $updi->read_signature->get
+       $signature = await $updi->read_signature;
 
     Reads the three signature bytes from the Signature Row of the device.
     This is returned as a plain byte string of length 3.
 
  request_reset
 
-       $updi->request_reset( $reset )->get
+       await $updi->request_reset( $reset );
 
     Sets or clears the system reset request. Typically used to issue a
     system reset by momentarilly toggling the request on and off again:
@@ -153,7 +158,7 @@ METHODS
 
  erase_chip
 
-       $updi->erase_chip->get
+       await $updi->erase_chip;
 
     Requests a full chip erase, waiting until the erase is complete.
 
@@ -173,33 +178,46 @@ METHODS
 
  enable_nvmprog
 
-       $updi->enable_nvmprog->get
+       await $updi->enable_nvmprog;
 
     Requests the chip to enter NVM programming mode.
 
- write_nvm_page
+ read_flash_page
 
-       $updi->write_nvm_page( $addr, $data, $wordsize )->get
+       $data = await $updi->read_flash_page( $addr, $len );
 
-    Writes a single page into NVM controller in 8- or 16-bit word
-    transfers. $addr is within the data address space. $wordsize must be
-    either 8 or 16.
+    Reads a single flash page and returns the data. $addr is within the
+    flash address space.
 
- erasewrite_nvm_page
+ write_flash_page
 
-    Identical to "write_nvm_page" but issues a combined erase-and-write
-    command. This is the method to use for EEPROM writes.
+       await $updi->write_flash_page( $addr, $data );
+
+    Writes a single flash page into the NVM controller in 16-bit word
+    transfers. $addr is within the flash address space.
+
+ read_eeprom_page
+
+       $data = await $updi->read_eeprom_page( $addr, $len );
+
+    Reads a single EEPROM page and returns the data. $addr is within the
+    EEPROM address space.
+
+ write_eeprom_page
+
+    Similar to "write_flash_page" but issues a combined erase-and-write
+    command and $addr is within the EEPROM address space.
 
  write_fuse
 
-       $updi->write_fuse( $idx, $value )->get
+       await $updi->write_fuse( $idx, $value );
 
     Writes a fuse value. $idx is the index of the fuse within the FUSES
     memory segment, from 0 onwards.
 
  read_fuse
 
-       $value = $updi->read_fuse( $idx )->get
+       $value = await $updi->read_fuse( $idx );
 
     Reads a fuse value. $idx is the index of the fuse within the FUSES
     memory segment, from 0 onwards.

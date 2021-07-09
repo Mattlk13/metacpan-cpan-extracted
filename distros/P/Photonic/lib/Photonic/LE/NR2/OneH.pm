@@ -1,5 +1,5 @@
 package Photonic::LE::NR2::OneH;
-$Photonic::LE::NR2::OneH::VERSION = '0.014';
+$Photonic::LE::NR2::OneH::VERSION = '0.017';
 
 =encoding UTF-8
 
@@ -9,14 +9,14 @@ Photonic::LE::NR2::OneH;
 
 =head1 VERSION
 
-version 0.014
+version 0.017
 
 =head1 COPYRIGHT NOTICE
 
 Photonic - A perl package for calculations on photonics and
 metamaterials.
 
-Copyright (C) 1916 by W. Luis Mochán
+Copyright (C) 2016 by W. Luis Mochán
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ smallness parameter  $s.
 
 =back
 
-=head1 ACCESORS (read only)
+=head1 ACCESSORS (read only)
 
 =over 4
 
@@ -143,23 +143,17 @@ Return 0, as there is no need to change sign.
 
 item * _firstState
 
-Returns the fisrt state $v.
+Returns the first state $v.
 
 =back
 
 =cut
 
-package Photonic::LE::NR2::OneH;
-$Photonic::LE::NR2::OneH::VERSION = '0.014';
 use namespace::autoclean;
 use PDL::Lite;
-use PDL::NiceSlice;
-use PDL::FFTW3;
-use PDL::Complex;
-use List::Util;
 use Carp;
 use Photonic::Types;
-use Photonic::Utils qw(HProd);
+use Photonic::Utils qw(HProd apply_longitudinal_projection);
 use Moose;
 use MooseX::StrictConstructor;
 
@@ -171,8 +165,8 @@ with 'Photonic::Roles::OneH', 'Photonic::Roles::UseMask';
 
 sub _firstState { #\delta_{G0}
     my $self=shift;
-    my $v=PDL->zeroes(2,@{$self->dims})->complex; #RorI, nx, ny...
-    my $arg="(0)" . ",(0)" x $self->ndims; #(0),(0),... ndims+1 times
+    my $v=PDL->zeroes(@{$self->dims})->r2C; #RorI, nx, ny...
+    my $arg=join ',', ("(0)") x ($self->ndims); #(0),(0),... ndims times
     $v->slice($arg).=1; #delta_{G0}
     return $v;
 }
@@ -180,32 +174,9 @@ sub _firstState { #\delta_{G0}
 sub applyOperator {
     my $self=shift;
     my $psi_G=shift;
-    my $mask=undef;
-    $mask=$self->mask if $self->use_mask;
-    # ri:nx:ny
-    #state is ri:nx:ny:... gnorm=i:nx:ny...
-    #Have to get cartesian out of the way, thread over it and iterate
-    #over the rest
-    my $Gpsi_G=$psi_G*$self->GNorm->mv(0,-1); #^G |psi>
-    #Gpsi_G is ri:nx:ny...:i
-    #Take inverse Fourier transform over all space dimensions,
-    #thread over cartesian indices
-    my $Gpsi_R=ifftn($Gpsi_G->real, $self->ndims)->complex; #real space ^G|psi>
-    #Gpsi_R is ri:nx:ny:...:i
-    #Multiply by characteristic function. Thread cartesian
-    my $BGpsi_R=$Gpsi_R*$self->B; #B^G|psi> in Real Space
-    #BGpsi_R is ri:nx:ny:...:i
-    #Transform to reciprocal space
-    my $BGpsi_G=fftn($BGpsi_R->real, $self->ndims)->complex; #<G|B^G|psi>
-    #BGpsi_G is ri:nx:ny:...:i
-    #Scalar product with Gnorm
-    my $GBGpsi_G=($BGpsi_G*$self->GNorm->mv(0,-1)) #^GB^G|psi>
-	# ri:nx:ny:...i
-	# Move cartesian to front and sum over
-	->mv(-1,1)->sumover; #^G.B^G|psi>
-    # Result is ri:nx:ny,...
-    #Normalization should have been taken care of by fftw3
-    $GBGpsi_G=$GBGpsi_G*$mask if defined $mask;
+    my $GBGpsi_G=apply_longitudinal_projection($psi_G, $self->GNorm, $self->ndims, $self->B->r2C);
+    my $mask = $self->mask;
+    $GBGpsi_G *= $mask if defined $mask and $self->use_mask;
     return $GBGpsi_G;
 }
 
@@ -214,7 +185,7 @@ sub innerProduct {
 }
 
 sub magnitude { #magnitude of a state
-    return  sqrt($_[1]->Cabs2->sum);
+    return  sqrt($_[1]->abs2->sum);
     #could be innerProduct($_[1], $_[1]);
 }
 

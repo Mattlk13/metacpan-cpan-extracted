@@ -5,15 +5,19 @@ use utf8;
 
 package Neo4j::Driver::Net::HTTP;
 # ABSTRACT: Networking delegate for Neo4j HTTP
-$Neo4j::Driver::Net::HTTP::VERSION = '0.20';
+$Neo4j::Driver::Net::HTTP::VERSION = '0.25';
+
+# This package is not part of the public Neo4j::Driver API.
+
 
 use Carp qw(croak);
 our @CARP_NOT = qw(Neo4j::Driver::Transaction Neo4j::Driver::Transaction::HTTP);
 
-use Time::Piece 1.17 qw();
+use Time::Piece 1.20 qw();
 use URI 1.31;
 
-use Neo4j::Driver::Net::HTTP::REST;
+use Neo4j::Driver::Net::HTTP::LWP;
+use Neo4j::Driver::Result::Jolt;
 use Neo4j::Driver::Result::JSON;
 use Neo4j::Driver::Result::Text;
 use Neo4j::Driver::ServerInfo;
@@ -22,21 +26,23 @@ use Neo4j::Driver::ServerInfo;
 my $DISCOVERY_ENDPOINT = '/';
 my $COMMIT_ENDPOINT = 'commit';
 
-my @RESULT_MODULES = qw( Neo4j::Driver::Result::JSON );
+my @RESULT_MODULES = qw( Neo4j::Driver::Result::Jolt Neo4j::Driver::Result::JSON );
 my $RESULT_FALLBACK = 'Neo4j::Driver::Result::Text';
 
 my $RFC5322_DATE = '%a, %d %b %Y %H:%M:%S %z';  # strftime(3)
 
 
 sub new {
+	# uncoverable pod
 	my ($class, $driver) = @_;
 	
-	my $net_module = $driver->{net_module} // 'Neo4j::Driver::Net::HTTP::REST';
+	my $net_module = $driver->{net_module} || 'Neo4j::Driver::Net::HTTP::LWP';
 	
 	my $self = bless {
 		die_on_error => $driver->{die_on_error},
 		cypher_types => $driver->{cypher_types},
 		http_agent => $net_module->new($driver),
+		want_jolt => $driver->{jolt},
 		active_tx => {},
 	}, $class;
 	
@@ -115,7 +121,8 @@ sub _accept_for {
 	my ($self, $method) = @_;
 	
 	# GET requests may fail if Neo4j sees clients that support Jolt, see neo4j #12644
-	my @accept = map { $_->_accept_header( $self->{want_jolt}, $method ) } @RESULT_MODULES;
+	my @modules = ( $self->{http_agent}->result_handlers, @RESULT_MODULES );
+	my @accept = map { $_->_accept_header( $self->{want_jolt}, $method ) } @modules;
 	return $self->{accept_for}->{$method} = join ', ', @accept;
 }
 
@@ -125,7 +132,8 @@ sub _accept_for {
 sub _result_module_for {
 	my ($self, $content_type) = @_;
 	
-	foreach my $module (@RESULT_MODULES) {
+	my @modules = ( $self->{http_agent}->result_handlers, @RESULT_MODULES );
+	foreach my $module (@modules) {
 		if ($module->_acceptable($content_type)) {
 			return $self->{result_module_for}->{$content_type} = $module;
 		}
@@ -212,38 +220,4 @@ sub _is_active_tx {
 }
 
 
-
 1;
-
-__END__
-
-=pod
-
-=encoding UTF-8
-
-=head1 NAME
-
-Neo4j::Driver::Net::HTTP - Networking delegate for Neo4j HTTP
-
-=head1 VERSION
-
-version 0.20
-
-=head1 DESCRIPTION
-
-The L<Neo4j::Driver::Net::HTTP> package is not part of the
-public L<Neo4j::Driver> API.
-
-=head1 AUTHOR
-
-Arne Johannessen <ajnn@cpan.org>
-
-=head1 COPYRIGHT AND LICENSE
-
-This software is Copyright (c) 2016-2021 by Arne Johannessen.
-
-This is free software, licensed under:
-
-  The Artistic License 2.0 (GPL Compatible)
-
-=cut

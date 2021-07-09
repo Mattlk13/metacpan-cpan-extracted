@@ -1,7 +1,7 @@
 #ifndef SPVM_BASIC_TYPE_H
 #define SPVM_BASIC_TYPE_H
 
-#include "spvm_base.h"
+#include "spvm_typedecl.h"
 
 
 
@@ -31,9 +31,7 @@ enum {
   SPVM_BASIC_TYPE_C_NUMERIC_OBJECT_UPGRADE_SHIFT = 9,
 };
 
-extern const char* const SPVM_BASIC_TYPE_C_ID_NAMES[];
-
-struct SPVM_basic_type {
+struct spvm_basic_type {
   const char* name;
   SPVM_PACKAGE* package;
   int32_t id;
@@ -41,5 +39,6 @@ struct SPVM_basic_type {
 };
 
 SPVM_BASIC_TYPE* SPVM_BASIC_TYPE_new(SPVM_COMPILER* compiler);
+const char* const* SPVM_BASIC_TYPE_C_ID_NAMES(void);
 
 #endif

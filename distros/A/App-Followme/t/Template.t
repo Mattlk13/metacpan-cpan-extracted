@@ -26,14 +26,19 @@ require MockData;
 
 my $test_dir = catdir(@path, 'test');
 
-rmtree($test_dir);
+rmtree($test_dir) if -e $test_dir;
 mkdir $test_dir or die $!;
 chmod 0755, $test_dir;
 
 #----------------------------------------------------------------------
 # Create object
 
-my $pp = App::Followme::Template->new();
+my %configuration = (top_directory => $test_dir,
+                     base_directory => $test_dir,
+                    );
+
+my $pp = App::Followme::Template->new(%configuration);
+
 isa_ok($pp, "App::Followme::Template"); # test 1
 can_ok($pp, qw(new compile)); # test 2
 
@@ -75,7 +80,8 @@ $item
 EOQ
 
     my $render = App::Followme::Template->compile($template);
-    my $data = {list => [qw(first second third)]};
+    my $numbers = [qw(first second third)];
+    my $data = {list => $numbers, name => $numbers};
 
     my $meta = MockData->new($data);
     my $text = $render->($meta);
@@ -88,7 +94,7 @@ EOQ
 
     is($text, $text_ok, "For loop"); # test 5
 
-    $data = {list => []};
+    $data = {list => [], name => []};
     $meta = MockData->new($data);
     $text = $render->($meta);
 

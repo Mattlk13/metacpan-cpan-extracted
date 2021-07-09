@@ -1,0 +1,26 @@
+--- #YAML:1.0
+name:               Text-Table-Read-RelationOn-Tiny
+version:            v2.1.0
+abstract:           Read binary "relation on (over) a set" from a text table.
+author:
+    - Abdul al Hazred <451@gmx.eu>
+license:            artistic_2
+distribution_type:  module
+configure_requires:
+    ExtUtils::MakeMaker:  0
+build_requires:
+    ExtUtils::MakeMaker:  0
+requires:
+    autodie:     0
+    Carp:        0
+    perl:        5.010001
+    Test::More:  0
+    version:     0.77
+no_index:
+    directory:
+        - t
+        - inc
+generated_by:       ExtUtils::MakeMaker version 6.55_02
+meta-spec:
+    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
+    version:  1.4

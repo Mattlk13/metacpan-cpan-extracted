@@ -4,8 +4,8 @@
 #
 package PDL::ImageND;
 
-@EXPORT_OK  = qw(  kernctr PDL::PP convolve  ninterpol PDL::PP rebin  circ_mean circ_mean_p PDL::PP convolveND );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw( kernctr PDL::PP convolve  ninterpol PDL::PP rebin  circ_mean circ_mean_p PDL::PP convolveND );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::ImageND ;
 
@@ -96,7 +96,7 @@ it runs faster and handles a variety of boundary conditions.
 =for bad
 
 convolve does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -213,7 +213,7 @@ instead.  PDL::Transform::map runs slower but is more flexible.
 =for bad
 
 rebin does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut
@@ -435,7 +435,7 @@ conditions and method used.
 The kernel's origin is taken to be at the kernel's center.  If your
 kernel has a dimension of even order then the origin's coordinates get
 rounded up to the next higher pixel (e.g. (1,2) for a 3x4 kernel).
-This mimics the behavior of the earlier L<convolve|convolve> and
+This mimics the behavior of the earlier L</convolve> and
 L<fftconvolve|PDL::FFT/fftconvolve()> routines, so convolveND is a drop-in
 replacement for them.
 
@@ -505,7 +505,7 @@ its own threadloops.
 =for bad
 
 convolveND does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

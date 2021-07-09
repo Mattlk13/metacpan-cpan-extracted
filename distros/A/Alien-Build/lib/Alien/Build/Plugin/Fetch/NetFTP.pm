@@ -9,7 +9,7 @@ use File::Temp ();
 use Path::Tiny qw( path );
 
 # ABSTRACT: Plugin for fetching files using Net::FTP
-our $VERSION = '2.38'; # VERSION
+our $VERSION = '2.41'; # VERSION
 
 
 has '+url' => '';
@@ -34,8 +34,10 @@ sub init
     if $self->passive;
 
   $meta->register_hook( fetch => sub {
-    my($build, $url) = @_;
+    my($build, $url, %options) = @_;
     $url ||= $self->url;
+
+    $build->log("plugin Fetch::NetFTP does not support http_headers option") if $options{http_headers};
 
     $url = URI->new($url);
 
@@ -159,7 +161,7 @@ Alien::Build::Plugin::Fetch::NetFTP - Plugin for fetching files using Net::FTP
 
 =head1 VERSION
 
-version 2.38
+version 2.41
 
 =head1 SYNOPSIS
 
@@ -256,6 +258,8 @@ Shawn Laffan (SLAFFAN)
 Paul Evans (leonerd, PEVANS)
 
 Håkon Hægland (hakonhagland, HAKONH)
+
+nick nauwelaerts (INPHOBIA)
 
 =head1 COPYRIGHT AND LICENSE
 

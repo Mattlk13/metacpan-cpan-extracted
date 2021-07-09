@@ -6208,20 +6208,20 @@ sub get_master_info
    my $addr='';
    if ($^O ne 'cygwin') {
       if ($Local_HostName!~/^localhost\.local/) {
-         $addr=gethostbyname($Local_HostName) ||
-             &handle_error(
-             "Couldn't Resolve Local Hostname $Local_HostName : ");
-         my $gip=sprintf "%vd", $addr;
-# --CONTINUE-- print "WHAT IS GIP=$gip<==\n";
-         $same_host_as_Master{$gip}='-';
-         $Local_IP_Address->{$gip}='-';
-         $Local_FullHostName=gethostbyaddr($addr,AF_INET) ||
-            handle_error(
-            "Couldn't Re-Resolve Local Hostname $Local_HostName : ");
+         my $socket = IO::Socket::INET->new(
+            Proto       => 'udp',
+            PeerAddr    => '198.41.0.4', # a.root-servers.net
+            PeerPort    => '53', # DNS
+         );
+         my $ip=$socket->sockhost ||
+            &handle_error(
+            "Couldn't Resolve Local Hostname $Local_HostName : ");
+         $same_host_as_Master{$ip}='-';
+         $Local_IP_Address->{$ip}='-';
       } else {
-         my $gip='127.0.0.1';
-         $same_host_as_Master{$gip}='-';
-         $Local_IP_Address->{$gip}='-';
+         my $ip='127.0.0.1';
+         $same_host_as_Master{$ip}='-';
+         $Local_IP_Address->{$ip}='-';
          $Local_FullHostName=$Local_HostName;
       }
    } else {
@@ -8471,22 +8471,28 @@ sub getpasswd
    my $host='';my $stdout='';my $stderr='';
    if (exists $Hosts{$hostlabel}{'cyberark'}) {
       my $capath=$Net::FullAuto::FA_Core::gbp->('clipasswordsdk');
+      $capath||='/opt/CARKaim/sdk/';
       my $app_id=$Hosts{$hostlabel}{'ca_appid'}||'';
       my $ca_das=$Hosts{$hostlabel}{'ca_das'}||'';
+      my $ca_safe=$Hosts{$hostlabel}{'ca_safe'}||'';
       $ca_das=";DualAccountStatus=$ca_das" if $ca_das;
+      $ca_safe="Safe=$ca_safe;" if $ca_safe;
       my $ca_host=$Hosts{$hostlabel}{'ca_host'}||'localhost';
       my $ca_user=$Hosts{$hostlabel}{'loginid'}||$username;
       my $cmd="${capath}clipasswordsdk GetPassword -p "
-             ."AppDescs.AppID=$app_id -p Query=\"Address="
+             ."AppDescs.AppID=$app_id -p Query=\"${ca_safe}Address="
              ."$hostname;Username=$ca_user"
              ."$ca_das\" -p RequiredProps=* -o Password";
       unless ($ca_das) {
          $cmd="${capath}clipasswordsdk GetPassword -p "
-             ."AppDescs.AppID=$app_id -p Query=\"Address="
+             ."AppDescs.AppID=$app_id -p Query=\"${ca_safe}Address="
              ."$hostname;Username=$ca_user\" "
              ."-p RequiredProps=* -o Password";
       }
       if ($ca_host=~/localhost/i or !$ca_host) {
+         unless (keys %{$localhost}) {
+            $localhost=connect_shell();
+         }
          ($stdout,$stderr)=$localhost->cmd($cmd);
       } else {
          # CODE TO ACCESS OTHER SERVERS FOR CYBERARK
@@ -13994,7 +14000,12 @@ END
    } else {
       $fullhostname=$hostname=$Hosts{"__Master_${$}__"}{'HostName'}||'';
    }
-   my $ip=inet_ntoa((gethostbyname($hostname))[4])||'';
+   my $socket = IO::Socket::INET->new(
+       Proto       => 'udp',
+       PeerAddr    => '198.41.0.4', # a.root-servers.net
+       PeerPort    => '53', # DNS
+   );
+   my $ip=$socket->sockhost||'';
    my $suroot='';
    foreach my $host (keys %same_host_as_Master) {
       next if $host eq "__Master_${$}__";
@@ -26821,7 +26832,8 @@ print $Net::FullAuto::FA_Core::LOG "WE ARE BACK FROM LOOKUP<==\n"
       $login_passwd=$Hosts{$hostlabel}->{'password'};
    } elsif (exists $Hosts{$hostlabel} &&
          exists $Hosts{$hostlabel}->{'label'} &&
-         ($Hosts{$hostlabel}->{'label'} eq 'Localhost Shell')) {
+         ($Hosts{$hostlabel}->{'label'} eq 'Localhost Shell')
+         || $_connect eq 'connect_shell') {
    } elsif ($hostlabel!~/__Master_${$}__/ && !$identityfile
          && !(exists $Hosts{$hostlabel}{'cyberark'})) {
       $determine_password->('',0,$hostlabel,$password);
@@ -27951,7 +27963,7 @@ print $Net::FullAuto::FA_Core::LOG "WHAT IS THE ERROR=$cmd_errmsg<=== and RETRYS
             ($stdout,$stderr)=&Net::FullAuto::FA_Core::kill(
                $cmd_pid,$kill_arg) if   
                &Net::FullAuto::FA_Core::testpid($cmd_pid);
-            $cmd_handle->close;
+            $cmd_handle->close if $cmd_handle;
          }
          if (!$Net::FullAuto::FA_Core::cron) {
             if ($su_login || $use_su_login) {
@@ -30736,7 +30748,7 @@ print $Net::FullAuto::FA_Core::LOG "DOIN FULLERROR2222==>$line<==\n"
 print "WE HAVE LASTLINE CMDPROMPT AND ARE GOING TO EXIT and FO=$fulloutput and MS_CMD=$ms_cmd<==\n"
    if !$Net::FullAuto::FA_Core::cron && $Net::FullAuto::FA_Core::debug;
                         $stdout=$fulloutput;
-                        $stderr=$fullerror;
+                        $stderr=$fullerror if $fulloutput!~/^.*\n0$/s;
 		        chomp $stdout if $stdout;
                         chomp $stderr if $stderr;
                         last;

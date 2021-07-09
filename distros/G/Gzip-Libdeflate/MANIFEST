@@ -1,0 +1,18 @@
+Changes
+examples/synopsis.pl
+gzip-libdeflate-perl.c
+lib/Gzip/Libdeflate.pm
+lib/Gzip/Libdeflate.pod
+libdeflate-one.c
+Libdeflate.xs
+Makefile.PL
+MANIFEST			This list of files
+MANIFEST.SKIP
+ppport.h
+README
+t/files.t
+t/gzip-libdeflate.t
+t/index.html.gz
+typemap
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)

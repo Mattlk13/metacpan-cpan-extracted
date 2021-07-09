@@ -888,6 +888,7 @@ my @tests = (
             # Array of type
             [ { arr_num => [] },             0 ],
             [ { arr_num => [ 1..5 ] },       1 ],
+            [ { arr_num => [ 1..5, 'a' ] },  0 ],
             [ { arr_num => [ qw/1 2 3/ ] },  1 ],
             [ { arr_num => 1 },              0 ],
             [ { arr_num => {} },             0 ],
@@ -985,6 +986,81 @@ my @tests = (
             [ { enum_var => [] },         0 ],
             [ { enum_var => {} },         0 ],
             [ { enum_var => sub { 3; } }, 0 ],
+        ],
+    },
+    {
+        name => 'Code',
+        specs => {
+            fun => {
+                type => 'code',
+            },
+        },
+        params => [
+            # Not a code
+            [ { fun => 1 },                          0 ],
+            [ { fun => [] },                         0 ],
+            [ { fun => {} },                         0 ],
+            [ { fun => 'print "Hello!";' },          0 ],
+            # Code
+            [ { fun => sub { 1; } }, 1 ],
+        ],
+    },
+    {
+        name => 'Subspec',
+        specs => {
+            subspec => {
+                type => 'spec',
+                of => {
+                    n => {
+                        type => 'number',
+                    },
+                    s => {
+                        type => 'string',
+                    },
+                },
+            },
+            nested => {
+                type => 'spec',
+                of => {
+                    n => {
+                        type => 'number',
+                    },
+                    subsubspec => {
+                        type => 'spec',
+                        of => {
+                            arr => {
+                                type => 'array',
+                                of => {
+                                    type => 'integer',
+                                    undef => 1,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        params => [
+            # Not a subspec
+            [ { subspec => 1 },                   0 ],
+            [ { nested => { subsubspec => 12 } }, 0 ],
+            # Not valid subspec
+            [ { subspec => { n => 'text' } },                  0 ],
+            [ { nested => { subsubspec => { n => 'text' } } }, 0 ],
+            # Valid
+            [ { subspec => { s => 1 } }, 1 ],
+            [ { nested => { n => 10 } }, 1 ],
+            [
+                {
+                    nested => {
+                        n          => 10,
+                        subsubspec => {
+                            arr => [ 1..5 ],
+                        },
+                    }
+                },
+                1
+            ],
         ],
     },
     {

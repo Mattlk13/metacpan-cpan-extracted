@@ -28,12 +28,14 @@
       },
       "runtime" : {
          "recommends" : {
-            "Log::ger" : "0.037"
+            "Log::ger" : "0.038"
          },
          "requires" : {
             "Capture::Tiny" : "0",
             "Cwd" : "0",
             "IPC::Run" : "0",
+            "Log::ger::Format" : "0.018",
+            "Log::ger::Format::MultilevelLog" : "0",
             "Proc::ChildError" : "0",
             "String::ShellQuote" : "0",
             "strict" : "0",
@@ -63,12 +65,17 @@
          "web" : "https://github.com/perlancar/perl-IPC-System-Options"
       }
    },
-   "version" : "0.338",
+   "version" : "0.340",
    "x_Dist_Zilla" : {
       "perl" : {
          "version" : "5.030002"
       },
       "plugins" : [
+         {
+            "class" : "Dist::Zilla::Plugin::PERLANCAR::CheckPendingRelease",
+            "name" : "@Filter/PERLANCAR::CheckPendingRelease",
+            "version" : "0.001"
+         },
          {
             "class" : "Dist::Zilla::Plugin::GatherDir",
             "config" : {
@@ -158,7 +165,7 @@
          {
             "class" : "Dist::Zilla::Plugin::PERLANCAR::BeforeBuild",
             "name" : "@Filter/PERLANCAR::BeforeBuild",
-            "version" : "0.600"
+            "version" : "0.603"
          },
          {
             "class" : "Dist::Zilla::Plugin::Rinci::AbstractFromMeta",
@@ -227,9 +234,9 @@
             "version" : "6.014"
          },
          {
-            "class" : "Dist::Zilla::Plugin::Authority",
-            "name" : "@Filter/Authority",
-            "version" : "1.009"
+            "class" : "Dist::Zilla::Plugin::PERLANCAR::Authority",
+            "name" : "@Filter/PERLANCAR::Authority",
+            "version" : "0.001"
          },
          {
             "class" : "Dist::Zilla::Plugin::OurDate",
@@ -414,7 +421,7 @@
          {
             "class" : "Dist::Zilla::Plugin::Rinci::EmbedValidator",
             "name" : "@Filter/Rinci::EmbedValidator",
-            "version" : "0.250"
+            "version" : "0.251"
          },
          {
             "class" : "Dist::Zilla::Plugin::SetScriptShebang",

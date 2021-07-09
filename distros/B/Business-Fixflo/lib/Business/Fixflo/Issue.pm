@@ -24,6 +24,7 @@ use Business::Fixflo::Property;
 
     Address
     AdditionalDetails
+    AgencyId
     AppointmentDate
     AttendenceDate
     AssignedAgent
@@ -56,6 +57,7 @@ use Business::Fixflo::Property;
     PropertyAddressId
     Quotes
     QuoteEndTime
+    QuoteRequests
     Salutation
     SearchStatus
     Status
@@ -75,6 +77,7 @@ use Business::Fixflo::Property;
 has [ qw/
     Address
     AdditionalDetails
+    AgencyId
     AppointmentDate
     AttendenceDate
     AssignedAgent
@@ -107,6 +110,7 @@ has [ qw/
     PropertyAddressId
     Quotes
     QuoteEndTime
+    QuoteRequests
     Salutation
     SearchStatus
     Status

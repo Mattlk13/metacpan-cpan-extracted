@@ -2,8 +2,8 @@ NAME
     App::CompleteCLIs - CLI wrappers for complete_*() functions
 
 VERSION
-    This document describes version 0.147 of App::CompleteCLIs (from Perl
-    distribution App-CompleteCLIs), released on 2020-08-02.
+    This document describes version 0.150 of App::CompleteCLIs (from Perl
+    distribution App-CompleteCLIs), released on 2021-05-09.
 
 SYNOPSIS
 DESCRIPTION
@@ -51,6 +51,8 @@ DESCRIPTION
 
     *   complete-hash-key
 
+    *   complete-idx-listed-stock-code
+
     *   complete-int
 
     *   complete-kernel
@@ -88,6 +90,8 @@ DESCRIPTION
     *   complete-proc-name
 
     *   complete-program
+
+    *   complete-rclone-remote
 
     *   complete-regexp-pattern-module
 
@@ -143,8 +147,8 @@ AUTHOR
     perlancar <perlancar@cpan.org>
 
 COPYRIGHT AND LICENSE
-    This software is copyright (c) 2020, 2019, 2017, 2016, 2015, 2014 by
-    perlancar@cpan.org.
+    This software is copyright (c) 2021, 2020, 2019, 2017, 2016, 2015, 2014
+    by perlancar@cpan.org.
 
     This is free software; you can redistribute it and/or modify it under
     the same terms as the Perl 5 programming language system itself.

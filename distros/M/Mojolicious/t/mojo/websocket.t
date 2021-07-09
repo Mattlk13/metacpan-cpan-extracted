@@ -238,10 +238,9 @@ is $code,   101,          'right status';
 is $result, 'test0test1', 'right result';
 
 # Concurrent subrequests
-my $delay = Mojo::IOLoop->delay;
 ($code, $result) = ();
 my ($code2, $result2);
-my $end = $delay->begin;
+my $promise = Mojo::Promise->new;
 $ua->websocket(
   '/subreq' => sub {
     my ($ua, $tx) = @_;
@@ -253,19 +252,19 @@ $ua->websocket(
         $tx->finish if $msg eq 'test1';
       }
     );
-    $tx->on(finish => sub { $end->() });
+    $tx->on(finish => sub { $promise->resolve });
   }
 );
-my $end2 = $delay->begin;
+my $promise2 = Mojo::Promise->new;
 $ua->websocket(
   '/subreq' => sub {
     my ($ua, $tx) = @_;
     $code2 = $tx->res->code;
     $tx->on(message => sub { $result2 .= pop });
-    $tx->on(finish  => sub { $end2->() });
+    $tx->on(finish  => sub { $promise2->resolve });
   }
 );
-$delay->wait;
+Mojo::Promise->all($promise, $promise2)->wait;
 is $code,    101,          'right status';
 is $result,  'test0test1', 'right result';
 is $code2,   101,          'right status';
@@ -389,7 +388,7 @@ $status = undef;
 $ua->websocket(
   '/close' => sub {
     my ($ua, $tx) = @_;
-    $tx->on(finish => sub { $status = pop; Mojo::IOLoop->stop });
+    $tx->on(finish => sub { (undef, $status, undef) = @_; Mojo::IOLoop->stop });
     $tx->send('test1');
   }
 );

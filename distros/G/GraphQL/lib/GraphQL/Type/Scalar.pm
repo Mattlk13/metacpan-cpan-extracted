@@ -18,8 +18,7 @@ with qw(
   GraphQL::Role::Named
   GraphQL::Role::FieldsEither
 );
-use Function::Parameters;
-use Return::Type;
+use GraphQL::MaybeTypeCheck;
 use GraphQL::Plugin::Type;
 
 our $VERSION = '0.02';
@@ -177,7 +176,7 @@ our $Boolean = GraphQL::Type::Scalar->new(
   description =>
     'The `Boolean` scalar type represents `true` or `false`.',
   serialize => _leave_undef(sub { !is_Bool($_[0]) and !is_bool($_[0]) and die "Not a Boolean.\n"; $_[0] ? JSON->true : JSON->false }),
-  parse_value => _leave_undef(sub { !is_bool($_[0]) and die "Not a Boolean.\n"; $_[0]+0 }),
+  parse_value => _leave_undef(sub { !is_Bool($_[0]) and !is_bool($_[0]) and die "Not a Boolean.\n"; $_[0]+0 }),
 );
 
 =head2 $ID

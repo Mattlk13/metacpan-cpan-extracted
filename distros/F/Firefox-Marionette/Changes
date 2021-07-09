@@ -1,11 +1,47 @@
 Revision history for Firefox-Marionette
 
+1.08  Fri Jun 18 21:00:00 2021
+       Fixes to tests after HTML changes in metacpan.org and CPAN Tester failures
+
+1.07  Sat Jun 12 21:38:00 2021
+       Adding support for the Firefox Password Manager
+       Fixes to tests for Firefox 89.
+
+1.06  Sat May 22 17:14:00 2021
+       Adding support for the Firefox certificate database
+       Fixes to loading profiles
+       Increasing default window size to allow older firefoxes to pass test suite
+       Adding perform/release methods for fine grained control of user input
+
+1.05  Thu May  6 22:15:00 2021
+       Fixing UTF-8 handling for strip/json methods.
+
+1.04  Wed May  5 06:42:00 2021
+       Fixing bugs GH#2 to GH#6.
+       Adding xvfb_display and xvfb_authority methods
+       Adding has_* methods
+       Improving documentation
+       Replacing xvfb with xvfb_pid method (xvfb method is deprecated)
+
+1.03  Sat Apr 24 10:38:00 2021
+       Cleanups to Makefile including github changes.
+       Changes for CPAN Testers in test suite
+
+1.02  Thu Apr 22 19:48:00 2021
+       Fixes to tests for Firefox 88.
+       Adjustments for github issue tracking.
+
+1.01  Wed Jan 20 18:47:00 2021
+       Fixes to Makefile.PL for Ubuntu to fix GH#1.
+       Fixes to add_header for Firefox 84.0.1
+       Improving documentation
+
 1.00  Sat Dec  5 21:00:00 2020
        Added README.md
        Added github reference
        Adding add_header and delete_header methods.
        Adding add_site_header and delete_site_header methods.
-       Adding application.ini support in attempt to fix RT#133427. 
+       Adding application.ini support to fix RT#133427.
 
 0.99  Sat Oct 10 08:22:00 2020
        Correcting searching Path for firefox on Win32/cygwin.

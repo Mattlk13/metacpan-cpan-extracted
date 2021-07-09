@@ -384,9 +384,9 @@ See L<Prima::Widget/pointerType>
 	cr::SizeSW                  down-right move action pointer
 	cr::Invalid                 invalid action pointer
 	cr::DragNone                pointer for an invalid dragging target
-	cr::DragCopy                pointer to show that a dnd::Copy action can be accepted
-	cr::DragMove                pointer to show that a dnd::Move action can be accepted
-	cr::DragLink                pointer to show that a dnd::Link action can be accepted
+	cr::DragCopy                pointer to indicate that a dnd::Copy action can be accepted
+	cr::DragMove                pointer to indicate that a dnd::Move action can be accepted
+	cr::DragLink                pointer to indicate that a dnd::Link action can be accepted
 	cr::User                    user-defined icon
 
 =head2 dbt::  - device bitmap types
@@ -755,6 +755,23 @@ See L<Prima::Image/stats>.
 	is::Sum      - sum of pixel values
 	is::Sum2     - sum of squares of pixel values
 
+=head2 ist:: - image scaling types
+
+	ist::None      - image stripped or padded with zeros
+	ist::Box       - image will be scaled using simple box transform
+	ist::BoxX      - columns behave as ist::None, rows as ist::Box
+	ist::BoxY      - rows behave as in ist::None, columns as ist::Box
+	ist::AND       - shrunken pixels AND-end together (black on white)
+	ist::OR        - shrunken pixels OR-end together (white on black) 
+	ist::Triangle  - bilinear interpolation
+	ist::Quadratic - 2rd order (quadratic) B-Spline approximation of Gaussian
+	ist::Sinc      - sine function
+	ist::Hermite   - B-Spline interpolation
+	ist::Cubic     - 3rd order (cubic) B-Spline approximation of Gaussian
+	ist::Gaussian  - Gaussian transform with gamma=0.5
+
+See L<Prima::Image/scaling>.
+
 =head2 kb::  - keyboard virtual codes
 
 See also L<Prima::Widget/KeyDown>.
@@ -1084,7 +1101,6 @@ See also L<Prima::Application/get_system_value>
 	sv::CompositeDisplay - 1 if system uses double-buffering and alpha composition for the desktop,
 	                       0 if it doesn't, -1 if unknown
 	sv::LayeredWidgets   - 1 if system supports layering
-	sv::DWM              - 1 if system supports DWM API
 	sv::FixedPointerSize - 0 if system doesn't support arbitrary sized pointers and will resize custom icons to the system size
 	sv::MenuCheckSize    - width and height of default menu check icon
 	sv::FriBidi          - 1 if Prima is compiled with libfribidi and full bidi unicode support is available

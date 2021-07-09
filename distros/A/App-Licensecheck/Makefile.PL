@@ -25,7 +25,8 @@ my $meta = {
                                 "Encode"                    => 0,
                                 "experimental"              => 0,
                                 "Fcntl"                     => 0,
-                                "Getopt::Long::Descriptive" => 0,
+                                "Getopt::Long"              => 2.24,
+                                "IO::Interactive"           => 0,
                                 "List::SomeUtils"           => 0,
                                 "Log::Any"                  => 0,
                                 "Log::Any::Adapter::Screen" => 0,
@@ -36,11 +37,11 @@ my $meta = {
                                 "Path::Tiny"                => 0.062,
                                 "perl"                      => "5.014000",
                                 "Pod::Constants"            => 0,
+                                "Pod::Usage"                => 0,
                                 "re::engine::RE2"           => 0,
                                 "Regexp::Pattern"           => "v0.2.12",
                                 "Regexp::Pattern::License"  => "v3.4.0",
                                 "Sort::Key::Multi"          => 1.25,
-                                "strictures"                => 0,
                                 "String::Copyright"         => 0.003,
                                 "String::Escape"            => 0,
                                 "Try::Tiny"                 => 0,
@@ -49,6 +50,7 @@ my $meta = {
                             test => {
                               recommends => {
                                               "File::BaseDir" => 0,
+                                              "Regexp::Pattern::License" => "v3.6.0",
                                               "Software::LicenseUtils" => 0.103014,
                                               "YAML::XS" => 0,
                                             },
@@ -56,14 +58,13 @@ my $meta = {
                                               "Encode"                => 0,
                                               "Encode::Locale"        => 0,
                                               "File::Basename"        => 0,
-                                              "strictures"            => 0,
                                               "Test2::V0"             => "0.000060",
                                               "Test::Command::Simple" => 0,
                                             },
                             },
                           },
   "provides"           => {
-                            "App::Licensecheck" => { file => "lib/App/Licensecheck.pm", version => "v3.1.1" },
+                            "App::Licensecheck" => { file => "lib/App/Licensecheck.pm", version => "v3.2.3" },
                           },
   "release_status"     => "stable",
   "resources"          => {
@@ -78,7 +79,7 @@ my $meta = {
                                             },
                             x_identifier => "http://purl.org/NET/cpan-uri/dist/App-Licensecheck/project",
                           },
-  "version"            => "v3.1.1",
+  "version"            => "v3.2.3",
   "x_contributors"     => ["Paul Wise <pabs\@debian.org>"],
   "x_help_wanted"      => ["tester", "documenter"],
   "x_provides_scripts" => { licensecheck => { file => "bin/licensecheck" } },
@@ -155,28 +156,8 @@ else
 	}
 }
 
-sub FixMakefile
-{
-	return unless -d 'inc';
-	my $file = shift;
-	
-	local *MAKEFILE;
-	open MAKEFILE, "< $file" or die "FixMakefile: Couldn't open $file: $!; bailing out";
-	my $makefile = do { local $/; <MAKEFILE> };
-	close MAKEFILE or die $!;
-	
-	$makefile =~ s/\b(test_harness\(\$\(TEST_VERBOSE\), )/$1'inc', /;
-	$makefile =~ s/( -I\$\(INST_ARCHLIB\))/ -Iinc$1/g;
-	$makefile =~ s/( "-I\$\(INST_LIB\)")/ "-Iinc"$1/g;
-	$makefile =~ s/^(FULLPERL = .*)/$1 "-Iinc"/m;
-	$makefile =~ s/^(PERL = .*)/$1 "-Iinc"/m;
-	
-	open  MAKEFILE, "> $file" or die "FixMakefile: Couldn't open $file: $!; bailing out";
-	print MAKEFILE $makefile or die $!;
-	close MAKEFILE or die $!;
-}
 
 my $mm = WriteMakefile(%WriteMakefileArgs);
-FixMakefile($mm->{FIRST_MAKEFILE} || 'Makefile');
+
 exit(0);
 

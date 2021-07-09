@@ -1,3 +1,11 @@
+### 1.20210427
+
+- Fix report sending issues with SSL/TLS
+
+### 1.20210220
+
+- Fix db connection cache
+- use Email::Sender for report sending
 
 ### 1.20200214
 

@@ -1,5 +1,5 @@
 package Yancy::Plugin::Editor;
-our $VERSION = '1.068';
+our $VERSION = '1.074';
 # ABSTRACT: Yancy content editor, admin, and management application
 
 #pod =head1 SYNOPSIS
@@ -256,6 +256,7 @@ sub register {
         default_response_name => '_Error',
         validator => json_validator(),
     } );
+    $_->to(format => 'json') for (@{$openapi->route->children});
     $app->helper( 'yancy.openapi' => sub {
         derp 'yancy.openapi helper is deprecated. Use yancy.editor.openapi instead';
         return $openapi;
@@ -696,7 +697,7 @@ Yancy::Plugin::Editor - Yancy content editor, admin, and management application
 
 =head1 VERSION
 
-version 1.068
+version 1.074
 
 =head1 SYNOPSIS
 
@@ -879,7 +880,7 @@ Doug Bell <preaction@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Doug Bell.
+This software is copyright (c) 2021 by Doug Bell.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

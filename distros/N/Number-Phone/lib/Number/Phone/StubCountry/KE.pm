@@ -22,7 +22,7 @@ use base qw(Number::Phone::StubCountry);
 use strict;
 use warnings;
 use utf8;
-our $VERSION = 1.20201204215956;
+our $VERSION = 1.20210602223300;
 
 my $formatters = [
                 {
@@ -83,7 +83,7 @@ my $validators = {
             1(?:
               0[0-6]|
               1[0-5]|
-              20
+              2[014]
             )|
             7\\d\\d
           )\\d{6}
@@ -95,33 +95,33 @@ my $validators = {
                 'voip' => ''
               };
 my %areanames = ();
-$areanames{en} = {"25460", "Muranga\/Kerugoya",
-"25451", "Nakuru\/Njoro\/Molo",
-"25459", "Homabay\/Migori",
-"25454", "Kitale\/Moi\'s\ Bridge\/Kapenguria\/Lodwar",
-"25465", "Nyahururu\/Maralal",
-"2542", "Nairobi",
-"25442", "Malindi\/Lamu\/Garsen",
-"25464", "Meru\/Maua\/Chuka",
-"25455", "Bungoma\/Busia",
-"25450", "Naivasha\/Narok\/Gilgil",
-"25446", "Garissa\/Hola\/Wajir\/Mandera",
-"25453", "Eldoret\/Turbo\/Kapsabet\/Iten\/Kabarnet",
-"25461", "Nyeri\/Karatina",
+$areanames{en} = {"25444", "Machakos\/Makueni\/Mwingi\/Kitui",
 "25469", "Marsabit\/Moyale",
-"25441", "Mombasa\/Mariakani\/Kilifi",
-"25458", "Kisii\/Kilgoris\/Oyugis\/Nyamira",
-"25466", "Thika\/Ruiru",
-"25457", "Kisumu\/Siaya\/Maseno",
-"25462", "Nanyuki",
-"25444", "Machakos\/Makueni\/Mwingi\/Kitui",
-"25445", "Kajiado\/Ngong\/Loitokitok\/Athi\ River",
-"25452", "Kericho\/Bomet",
-"25443", "Voi\/Wundanyi\/Mwatate\/Taveta",
 "25468", "Embu",
+"25467", "Kiambu\/Kikuyu",
+"25445", "Kajiado\/Ngong\/Loitokitok\/Athi\ River",
+"25451", "Nakuru\/Njoro\/Molo",
+"25462", "Nanyuki",
+"25453", "Eldoret\/Turbo\/Kapsabet\/Iten\/Kabarnet",
+"25442", "Malindi\/Lamu\/Garsen",
+"25465", "Nyahururu\/Maralal",
 "25456", "Kakamega\/Mbale\/Butere\/Mumias\/Vihiga",
+"25464", "Meru\/Maua\/Chuka",
+"25450", "Naivasha\/Narok\/Gilgil",
+"25452", "Kericho\/Bomet",
+"25457", "Kisumu\/Siaya\/Maseno",
+"25461", "Nyeri\/Karatina",
+"25458", "Kisii\/Kilgoris\/Oyugis\/Nyamira",
+"25459", "Homabay\/Migori",
+"2542", "Nairobi",
+"25446", "Garissa\/Hola\/Wajir\/Mandera",
 "25440", "Kwale\/Ukunda\/Msambweni\/Lungalunga",
-"25467", "Kiambu\/Kikuyu",};
+"25460", "Muranga\/Kerugoya",
+"25454", "Kitale\/Moi\'s\ Bridge\/Kapenguria\/Lodwar",
+"25466", "Thika\/Ruiru",
+"25455", "Bungoma\/Busia",
+"25441", "Mombasa\/Mariakani\/Kilifi",
+"25443", "Voi\/Wundanyi\/Mwatate\/Taveta",};
 
     sub new {
       my $class = shift;

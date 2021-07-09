@@ -1,3 +1,187 @@
+0.38.9 2021-06-24 14:57:11 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - fix db handler leak for user object
+ - add destruction tracking to user object
+
+0.38.8 2021-06-24 14:36:33 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - mode DESTROY handler to Qooxdoo plugin and update dependency
+
+0.38.7 2021-06-24 08:11:49 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - make sure to set the the foreign key pragma before internal migrations
+
+0.38.6 2021-06-02 22:15:24 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - fix access checker promise blocker
+
+0.38.5 2021-05-27 11:37:03 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - fix binding for confirmation popup box
+
+0.38.4 2021-05-21 08:42:39 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - allow for multiple actions to share the same plugin instance as long as they share the same config
+
+0.38.3 2021-05-17 16:12:40 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - run the mayAnonymous check as a last ditch effort ... 
+
+0.38.2 2021-05-17 15:44:51 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - even more promisification
+
+0.38.1 2021-05-17 14:42:29 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - make Config.pm also async aware ... hopefully in a backward compatible manner
+
+0.38.0 2021-05-14 16:18:59 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - allow checkAccess to return a promise. This required lots of
+   async changes in RpcService.
+ - Callbackery does require Future::AsyncAwait now. Async methods
+   can not use signatures yet to keep compatible with perl 5.22
+
+0.37.3 2021-05-11 20:27:43 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - set incrementalSearch property to false by default
+
+0.37.2 2021-05-11 18:30:25 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - make incremental search work on mobile devices
+
+0.37.1 2021-05-10 09:54:11 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - support for reconfigurePluginOnAppear to have tabs rebuilt on open
+
+0.37.0 2021-05-06 16:31:40 +0200 Tobias Oetiker <tobi@oetiker.ch>
+ New Features
+
+ - access registration app as app=registration
+ - access passwordreset app as app=passwordreset
+ - prefill form fields with set_{$key}=value
+ - cleanup hash url with cleanup=1
+
+ Bugfix
+
+ - do not close popup on showMessage 
+ - emit selection event on change selection in popup
+
+ Example:
+
+  http://127.0.0.1:3626/#app=registration;set_email=dummy@address;set_token=ebc4g90d2;cleanup=1
+
+0.36.9 2021-05-05 18:06:10 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - fix eventhandling in frontend code
+
+0.36.8 2021-05-02 13:47:46 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - add missing context to make form reload actually work
+
+0.36.7 2021-04-30 09:00:12 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - reload the readOnly fields of a form associacted with a table
+   when the table gets reloaded (contrib by Fritz)
+
+0.36.6 2021-04-29 15:55:03 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - aargh ... :) now app is fine
+
+0.36.5 2021-04-29 15:36:04 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - make app in templates actually work
+
+0.36.4 2021-04-29 15:04:03 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - provide app to template renderer
+
+0.36.3 2021-04-26 08:36:57 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - removed readonly-hack
+
+0.36.2 2021-04-22 15:26:08 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - Convert to boolean in Config.pm
+ - Add YAML default handling
+ - Add defaults
+ - Simplify Login.js check for logo_scale
+
+0.36.1 2021-04-21 08:19:06 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - Allow disabling of logo scaling
+ - Make login window a bit more compact
+ - Remove unnecessary resize callback
+ - Allow hiding of keys logo
+
+
+0.36.0 2021-04-20 09:41:01 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - allow for incremental search in selectbox dropdowns
+   thanks to fritz zaucker for the contrib
+
+0.35.15 2021-04-09 15:08:19 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - fix regression ; -> :
+
+0.35.14 2021-04-09 14:36:56 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - no double translation
+ - support dataModified in popup.js
+
+0.35.13 2021-04-09 13:31:23 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - fix msgbox regression
+
+0.35.12 2021-03-31 18:24:31 +0200 Tobias Oetiker <tobi@oetiker.ch>
+
+ - make calls to postProcessCfg idempotent
+ - provid eq overload for tra objects
+
+0.35.11 2021-03-26 11:53:10 +0100 Tobias Oetiker <tobi@oetiker.ch>
+
+ - extend cardlist plugin again ... better notifitcations
+
+0.35.10 2021-03-25 16:21:26 +0100 Tobias Oetiker <tobi@oetiker.ch>
+
+ - actually enable referential integrity
+
+0.35.9 2021-03-24 17:48:02 +0100 Tobias Oetiker <tobi@oetiker.ch>
+ - INTERNAL CHANGE! Instances of Popup Actions are now name Origin_ActionName and not just ActionName
+ - release cardlist update
+
+0.35.8 2021-03-22 16:21:48 +0100 Tobias Oetiker <tobi@oetiker.ch>
+
+ - Handle SelectBox as part of Cards
+ - Make updates work generically for every text field
+ - Add some checks for undefined data
+
+
+0.35.7 2021-03-04 15:28:49 +0100 Tobias Oetiker <tobi@oetiker.ch>
+
+ - fix popup form regresson ... some debug code had made it into the releasse
+
+0.35.6 2021-02-26 11:13:21 +0100 Tobias Oetiker <tobi@oetiker.ch>
+
+ - add path option to Config::getTranslations call ... allow to override
+   translation location
+
+0.35.5 2021-01-26 13:28:43 +0100 Tobias Oetiker <tobi@oetiker.ch>
+
+ - fix form loading (regression from 0.35.4)
+
+0.35.4 2021-01-26 12:07:42 +0100 Tobias Oetiker <tobi@oetiker.ch>
+
+ - if keys in form descriptions contained '-' this would break
+   qooxdoo singlevalue binding ... so now the keys do not get
+   used directly in the model created inside the frontend app anymore
+
+0.35.3 2021-01-21 15:12:49 +0100 Tobias Oetiker <tobi@oetiker.ch>
+
+ - provide access to the calling argument when in processData path
+   note though arguments are not consistant ... so this is all but
+   ideal ... 
+
 0.35.2 2021-01-11 17:01:27 +0100 Tobias Oetiker <tobi@oetiker.ch>
 
  - Mojolicious::Routes::Route::route is DEPRECATED in favor of Mojolicious::Routes::Route::any

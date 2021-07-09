@@ -2,7 +2,7 @@ package App::Yath::Command::test;
 use strict;
 use warnings;
 
-our $VERSION = '1.000042';
+our $VERSION = '1.000062';
 
 use App::Yath::Options;
 
@@ -178,6 +178,8 @@ sub ipc {
 sub handle_sig {
     my $self = shift;
     my ($sig) = @_;
+
+    eval { $_->signal($sig) } for grep { $_->can('signal') } @{$self->renderers};
 
     print STDERR "\nCaught SIG$sig, forwarding signal to child processes...\n";
     $self->ipc->killall($sig);
@@ -1035,7 +1037,32 @@ Can be specified multiple times
 
 =item --no-changed-only
 
-Only search for tests for changed files (Requires --coverage-from, also requires a list of changes either from the --changed option, or a plugin that implements changed_files())
+Only search for tests for changed files (Requires --coverage-from, also requires a list of changes either from the --changed option, or a plugin that implements changed_files() or changed_diff())
+
+
+=item --changes-diff path/to/diff.diff
+
+=item --no-changes-diff
+
+Path to a diff file that should be used to find changed files for use with --changed-only. This must be in the same format as `git diff -W --minimal -U1000000`
+
+
+=item --changes-filter-file path/to/file
+
+=item --no-changes-filter-file
+
+Specify one or more files to check for changes. Changes to other files will be ignored
+
+Can be specified multiple times
+
+
+=item --changes-filter-pattern '(apple|pear|orange)'
+
+=item --no-changes-filter-pattern
+
+Specify a pattern for change checking. When only running tests for changed files this will limit which files are checked for changes. Only files that match this pattern will be checked. Your pattern will be inserted unmodified into a `$file =~ m/$pattern/` check.
+
+Can be specified multiple times
 
 
 =item --changes-plugin Git
@@ -1058,11 +1085,11 @@ What plugin should be used to detect changed files.
 Where to fetch coverage data. Can be a path to a .jsonl(.bz|.gz)? log file. Can be a path or url to a json file containing a hash where source files are key, and value is a list of tests to run.
 
 
-=item --coverage-url-use-post
+=item --coverage-manager My::Coverage::Manager
 
-=item --no-coverage-url-use-post
+=item --no-coverage-manager
 
-If coverage_from is a url, use the http POST method with a list of changed files. This allows the server to tell us what tests to run instead of downloading all the coverage data and determining what tests to run from that.
+Coverage 'from' manager to use when coverage data does not provide one
 
 
 =item --default-at-search ARG
@@ -1497,6 +1524,19 @@ Specify an API endpoint for slack webhook integrations
 Add a custom text snippet to email/slack notifications
 
 
+=item --notify-text-module ARG
+
+=item --notify-text-module=ARG
+
+=item --message_module ARG
+
+=item --message_module=ARG
+
+=item --no-notify-text-module
+
+Use the specified module to generate messages for emails and/or slack.
+
+
 =back
 
 =head3 Run Options
@@ -1712,6 +1752,13 @@ The TAP format is lossy and clunky. Test2::Harness normally uses a newer streami
 
 =over 4
 
+=item --abort-on-bail
+
+=item --no-abort-on-bail
+
+Abort all testing if a bail-out is encountered (default: on)
+
+
 =item --blib
 
 =item -b
@@ -1728,6 +1775,13 @@ The TAP format is lossy and clunky. Test2::Harness normally uses a newer streami
 =item --no-cover
 
 Use Devel::Cover to calculate test coverage. This disables forking. If no args are specified the following are used: -silent,1,+ignore,^t/,+ignore,^t2/,+ignore,^xt,+ignore,^test.pl
+
+
+=item --dump-depmap
+
+=item --no-dump-depmap
+
+When using staged preload, dump the depmap for each stage as json files
 
 
 =item --event-timeout SECONDS
@@ -1969,6 +2023,13 @@ Yath-UI API key. This is not necessary if your Yath-UI instance is set to single
 Poll coverage data from Yath-UI to determine what tests should be run for changed files
 
 
+=item --yathui-db
+
+=item --no-yathui-db
+
+Add the YathUI DB renderer in addition to other renderers
+
+
 =item --yathui-durations
 
 =item --no-yathui-durations
@@ -2010,6 +2071,36 @@ Minimum duration length (seconds) before a test goes from SHORT to MEDIUM
 Set the upload mode (default 'qvfd')
 
 
+=item --yathui-only
+
+=item --no-yathui-only
+
+Only use the YathUI renderer
+
+
+=item --yathui-only-db
+
+=item --no-yathui-only-db
+
+Only use the YathUI DB renderer
+
+
+=item --yathui-port 8080
+
+=item --no-yathui-port
+
+Port to use when running a local server
+
+
+=item --yathui-port-command get_port.sh
+
+=item --yathui-port-command get_port.sh --pid $$
+
+=item --no-yathui-port-command
+
+Use a command to get a port number. "$$" will be replaced with the PID of the yath process
+
+
 =item --yathui-project ARG
 
 =item --yathui-project=ARG
@@ -2019,6 +2110,13 @@ Set the upload mode (default 'qvfd')
 The Yath-UI project for your test results
 
 
+=item --yathui-render
+
+=item --no-yathui-render
+
+Add the YathUI renderer in addition to other renderers
+
+
 =item --yathui-retry
 
 =item --no-yathui-retry
@@ -2026,6 +2124,17 @@ The Yath-UI project for your test results
 How many times to try an operation before giving up
 
 Can be specified multiple times
+
+
+=item --yathui-schema PostgreSQL
+
+=item --yathui-schema MySQL
+
+=item --yathui-schema MySQL56
+
+=item --no-yathui-schema
+
+What type of DB/schema to use when using a temporary database
 
 
 =item --yathui-upload
@@ -2042,6 +2151,143 @@ Upload the log to Yath-UI
 =item --no-yathui-url
 
 Yath-UI url
+
+
+=item --yathui-user ARG
+
+=item --yathui-user=ARG
+
+=item --no-yathui-user
+
+Username to attach to the data sent to the db
+
+
+=item --yathui-db-buffering none
+
+=item --yathui-db-buffering job
+
+=item --yathui-db-buffering diag
+
+=item --yathui-db-buffering run
+
+=item --no-yathui-db-buffering
+
+Type of buffering to use, if "none" then events are written to the db one at a time, which is SLOW
+
+
+=item --yathui-db-config ARG
+
+=item --yathui-db-config=ARG
+
+=item --no-yathui-db-config
+
+Module that implements 'MODULE->yath_ui_config(%params)' which should return a Test2::Harness::UI::Config instance.
+
+
+=item --yathui-db-coverage
+
+=item --no-yathui-db-coverage
+
+Pull coverage data directly from the database (default: off)
+
+
+=item --yathui-db-driver Pg
+
+=item --yathui-db-drivermysql
+
+=item --yathui-db-driverMariaDB
+
+=item --no-yathui-db-driver
+
+DBI Driver to use
+
+
+=item --yathui-db-dsn ARG
+
+=item --yathui-db-dsn=ARG
+
+=item --no-yathui-db-dsn
+
+DSN to use when connecting to the db
+
+
+=item --yathui-db-durations
+
+=item --no-yathui-db-durations
+
+Pull duration data directly from the database (default: off)
+
+
+=item --yathui-db-flush-interval 2
+
+=item --yathui-db-flush-interval 1.5
+
+=item --no-yathui-db-flush-interval
+
+When buffering DB writes, force a flush when an event is recieved at least N seconds after the last flush.
+
+
+=item --yathui-db-host ARG
+
+=item --yathui-db-host=ARG
+
+=item --no-yathui-db-host
+
+hostname to use when connecting to the db
+
+
+=item --yathui-db-name ARG
+
+=item --yathui-db-name=ARG
+
+=item --no-yathui-db-name
+
+Name of the database to use for yathui
+
+
+=item --yathui-db-pass ARG
+
+=item --yathui-db-pass=ARG
+
+=item --no-yathui-db-pass
+
+Password to use when connecting to the db
+
+
+=item --yathui-db-port ARG
+
+=item --yathui-db-port=ARG
+
+=item --no-yathui-db-port
+
+port to use when connecting to the db
+
+
+=item --yathui-db-publisher ARG
+
+=item --yathui-db-publisher=ARG
+
+=item --no-yathui-db-publisher
+
+When using coverage or duration data, only use data uploaded by this user
+
+
+=item --yathui-db-socket ARG
+
+=item --yathui-db-socket=ARG
+
+=item --no-yathui-db-socket
+
+socket to use when connecting to the db
+
+
+=item --yathui-db-user ARG
+
+=item --yathui-db-user=ARG
+
+=item --no-yathui-db-user
+
+Username to use when connecting to the db
 
 
 =back
@@ -2069,7 +2315,7 @@ F<http://github.com/Test-More/Test2-Harness/>.
 
 =head1 COPYRIGHT
 
-Copyright 2020 Chad Granum E<lt>exodist7@gmail.comE<gt>.
+Copyright 2021 Chad Granum E<lt>exodist7@gmail.comE<gt>.
 
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.

@@ -2,10 +2,10 @@
 # Type contains the size of arrays, which is either constant
 # or resolved (into an object) from resolveobj.
 
-package C::Type;
+package PDL::PP::CType;
 use Carp;
 
-# new C::Type(resolveobj,str)
+# new PDL::PP::CType(resolveobj,str)
 
 sub new {
 	my $this = bless {},shift;
@@ -38,7 +38,7 @@ sub stripptrs {
 			unshift @$decl,"ARR($siz)";
 			print "ARR($str): ($siz)\n" if $::PP_VERBOSE;
 		} else {
-			die("Invalid C type '$str'");
+			Carp::confess("Invalid C type '$str'");
 		}
 		return $decl;
 	}

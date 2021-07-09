@@ -1,30 +1,12 @@
 package Mojolicious::Plugin::Yancy;
-our $VERSION = '1.068';
+our $VERSION = '1.074';
 # ABSTRACT: Embed a simple admin CMS into your Mojolicious application
 
 #pod =head1 SYNOPSIS
 #pod
 #pod     use Mojolicious::Lite;
-#pod     plugin Yancy => {
-#pod         backend => 'pg://postgres@/mydb',
-#pod         schema => { ... },
-#pod     };
-#pod
-#pod     ## With custom auth routine
-#pod     use Mojo::Base 'Mojolicious';
-#pod     sub startup {
-#pod         my ( $app ) = @_;
-#pod         my $auth_route = $app->routes->under( '/yancy', sub {
-#pod             my ( $c ) = @_;
-#pod             # ... Validate user
-#pod             return 1;
-#pod         } );
-#pod         $app->plugin( 'Yancy', {
-#pod             backend => 'pg://postgres@/mydb',
-#pod             schema => { ... },
-#pod             route => $auth_route,
-#pod         });
-#pod     }
+#pod     plugin Yancy => backend => 'sqlite:myapp.db'; # mysql, pg, dbic...
+#pod     app->start;
 #pod
 #pod =head1 DESCRIPTION
 #pod
@@ -604,7 +586,6 @@ use Mojo::JSON qw( true false decode_json );
 use Mojo::File qw( path );
 use Mojo::Loader qw( load_class );
 use Yancy::Util qw( load_backend curry copy_inline_refs derp is_type json_validator );
-use JSON::Validator::OpenAPI::Mojolicious;
 use Storable qw( dclone );
 use Scalar::Util qw( blessed );
 
@@ -612,6 +593,11 @@ has _filters => sub { {} };
 
 sub register {
     my ( $self, $app, $config ) = @_;
+
+    # XXX: Move editor, auth, schema to attributes of this object.
+    # That allows for easier extending/replacing of them.
+    # XXX: Deprecate direct access to the backend. Backend should be
+    # accessed through the schema, if needed.
 
     # New default for read_schema is on, since it mostly should be
     # on. Any real-world database is going to be painstakingly tedious
@@ -637,6 +623,7 @@ sub register {
         }
         return $default_backend;
     } );
+    # XXX: Move this to Yancy::Schema
     if ( $config->{schema} || $config->{read_schema} ) {
         $config->{schema} = $config->{schema} ? dclone( $config->{schema} ) : {};
 
@@ -896,31 +883,28 @@ sub _helper_create {
 
 sub _helper_validate {
     my ( $c, $schema_name, $input_item, %opt ) = @_;
-    state $validator = {};
     my $schema = $c->yancy->schema( $schema_name );
-    my $v = $validator->{ $schema } ||= json_validator()->schema( $schema );
+    my $v = json_validator();
 
-    my @args;
     if ( $opt{ properties } ) {
         # Only validate these properties
-        @args = (
-            {
-                type => 'object',
-                required => [
-                    grep { my $f = $_; grep { $_ eq $f } @{ $schema->{required} || [] } }
-                    @{ $opt{ properties } }
-                ],
-                properties => {
-                    map { $_ => $schema->{properties}{$_} }
-                    grep { exists $schema->{properties}{$_} }
-                    @{ $opt{ properties } }
-                },
-                additionalProperties => 0, # Disallow any other properties
-            }
-        );
-        $schema = $args[0];
+        $schema = {
+            type => 'object',
+            required => [
+                grep { my $f = $_; grep { $_ eq $f } @{ $schema->{required} || [] } }
+                @{ $opt{ properties } }
+            ],
+            properties => {
+                map { $_ => $schema->{properties}{$_} }
+                grep { exists $schema->{properties}{$_} }
+                @{ $opt{ properties } }
+            },
+            additionalProperties => 0, # Disallow any other properties
+        };
     }
+    $v->schema( $schema );
 
+    my @errors;
     my %check_item = %$input_item;
     for my $prop_name ( keys %{ $schema->{properties} } ) {
         my $prop = $schema->{properties}{ $prop_name };
@@ -958,9 +942,18 @@ sub _helper_validate {
             # the item
             %check_item = ( %check_item, $prop_name => '<PASSWORD>' );
         }
+
+        # XXX: JSON::Validator 4 moved support for readOnly/writeOnly to
+        # the OpenAPI schema classes, but we use JSON Schema internally,
+        # so we need to make support ourselves for now...
+        if ( $prop->{readOnly} && exists $check_item{ $prop_name } ) {
+            push @errors, JSON::Validator::Error->new(
+                "/$prop_name", "Read-only.",
+            );
+        }
     }
 
-    my @errors = $v->validate_input( \%check_item, @args );
+    push @errors, $v->validate( \%check_item );
     return @errors;
 }
 
@@ -1057,31 +1050,13 @@ Mojolicious::Plugin::Yancy - Embed a simple admin CMS into your Mojolicious appl
 
 =head1 VERSION
 
-version 1.068
+version 1.074
 
 =head1 SYNOPSIS
 
     use Mojolicious::Lite;
-    plugin Yancy => {
-        backend => 'pg://postgres@/mydb',
-        schema => { ... },
-    };
-
-    ## With custom auth routine
-    use Mojo::Base 'Mojolicious';
-    sub startup {
-        my ( $app ) = @_;
-        my $auth_route = $app->routes->under( '/yancy', sub {
-            my ( $c ) = @_;
-            # ... Validate user
-            return 1;
-        } );
-        $app->plugin( 'Yancy', {
-            backend => 'pg://postgres@/mydb',
-            schema => { ... },
-            route => $auth_route,
-        });
-    }
+    plugin Yancy => backend => 'sqlite:myapp.db'; # mysql, pg, dbic...
+    app->start;
 
 =head1 DESCRIPTION
 
@@ -1659,7 +1634,7 @@ Doug Bell <preaction@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Doug Bell.
+This software is copyright (c) 2021 by Doug Bell.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

@@ -14,6 +14,9 @@
 			(long int)apc_get_core_version(), (long int)PRIMA_CORE_VERSION )
 
 #include "generic/config.h"
+#if defined(HAS_GLIBC) && !defined(_GNU_SOURCE)
+#	define _GNU_SOURCE
+#endif
 
 #ifdef _MSC_VER
 	#define BROKEN_COMPILER       1
@@ -396,8 +399,10 @@ typedef struct { double r,  ph; } TrigDComplex;
 #else
 #define nil       Null(void*)
 #endif
-#define nilHandle Null(Handle)
-#define nilSV     &PL_sv_undef
+#define NULL_HANDLE Null(Handle)
+#define NULL_SV     &PL_sv_undef
+#define NULL_HANDLE Null(Handle)
+#define NULL_SV     &PL_sv_undef
 
 #ifndef true
 #define true TRUE
@@ -1241,7 +1246,7 @@ extern FillPattern fillPatterns[];
 
 #define C_NUMERIC_UNDEF   -90909090
 #define C_STRING_UNDEF    "__C_CHAR_UNDEF__"
-#define C_POINTER_UNDEF   nilSV
+#define C_POINTER_UNDEF   NULL_SV
 
 /* run-time class information functions */
 
@@ -1397,7 +1402,7 @@ SvBOOL( SV *sv)
 #define pset_f( key, value)  pset_sv_noinc( key, newSVnv( value))
 #define pset_c( key, value)  pset_sv_noinc( key, newSVpv( value, 0))
 #define pset_b( key, value, len)  pset_sv_noinc( key, newSVpv( value, ( len)))
-#define pset_H( key, value)  pset_sv_noinc( key, (value) ? newSVsv((( PAnyObject) (value))-> mate) : nilSV)
+#define pset_H( key, value)  pset_sv_noinc( key, (value) ? newSVsv((( PAnyObject) (value))-> mate) : NULL_SV)
 
 #define create_instance( obj)  (                                   \
 	temporary_prf_Sv = ( SV **) Object_create( obj, profile),       \
@@ -1511,6 +1516,9 @@ prima_is_utf8_sv( SV * sv);
 
 extern SV*
 prima_svpv_utf8( const char *text, int is_utf8);
+
+extern FILE*
+prima_open_file( const char *text, Bool is_utf8, const char * mode);
 
 #if PERL_PATCHLEVEL >= 16
 #define prima_utf8_uvchr(_text, _textlen, _charlen) \
@@ -1654,6 +1662,7 @@ typedef struct _ObjectOptions_ {
 	unsigned optInDraw              : 1;   /* Drawable */
 	unsigned optInDrawInfo          : 1;
 	unsigned optTextOutBaseLine     : 1;
+	unsigned optSystemDrawable      : 1;
 	unsigned optAutoEnableChildren  : 1;   /* Widget */
 	unsigned optBriefKeys           : 1;
 	unsigned optBuffered            : 1;
@@ -1913,8 +1922,6 @@ SV(CanUTF8_Output)
 SV(CompositeDisplay)
 #define   svLayeredWidgets  33
 SV(LayeredWidgets)
-#define   svDWM             34
-SV(DWM)
 #define   svFixedPointerSize 35
 SV(FixedPointerSize)
 #define   svMenuCheckSize   36
@@ -1993,6 +2000,9 @@ apc_application_go( Handle self);
 
 extern Bool
 apc_application_lock( Handle self);
+
+extern Bool
+apc_application_stop( Handle self);
 
 extern Bool
 apc_application_sync( void);
@@ -3172,17 +3182,21 @@ IST(BoxX)
 IST(BoxY)
 #define    istBox                (istBoxX|istBoxY)
 IST(Box)
-#define    istTriangle           4
+#define    istAND                4
+IST(AND)
+#define    istOR                 5
+IST(OR)
+#define    istTriangle           6
 IST(Triangle)
-#define    istQuadratic          5
+#define    istQuadratic          7
 IST(Quadratic)
-#define    istSinc               6
+#define    istSinc               8
 IST(Sinc)
-#define    istHermite            7
+#define    istHermite            9
 IST(Hermite)
-#define    istCubic              8
+#define    istCubic              10
 IST(Cubic)
-#define    istGaussian           9
+#define    istGaussian           11
 IST(Gaussian)
 END_TABLE(ist,UV)
 #define istMax istGaussian
@@ -3277,6 +3291,8 @@ TW(ExpandTabs)
 TW(CollapseTilde)
 #define twReturnFirstLineLength 0x220
 TW(ReturnFirstLineLength)
+#define twReturnGlyphs    0x400
+TW(ReturnGlyphs)
 #define twDefault         (twNewLineBreak|twCalcTabs|twExpandTabs|twReturnLines|twWordBreak)
 TW(Default)
 END_TABLE(tw,UV)
@@ -3411,12 +3427,28 @@ typedef struct _TextWrapRec {
 	int    t_start;                     /* ~ starting point */
 	int    t_end;                       /* ~ ending point */
 	int    t_line;                      /* ~ line */
-	int    t_pos;                       /* ~ offset in t_line */
+	int    t_pos;                       /* ~ offset in t_line in characters */
+	int    t_bytepos;                   /* ~ offset in t_line in bytes */
 	char * t_char;                      /* letter next to ~ */
 
 	PFontABC * ascii;                   /* eventual abc caches, to be freed after call. */
 	PList    * unicode;                 /* NB - .ascii can be present in .unicode ! */
 } TextWrapRec, *PTextWrapRec;
+
+typedef struct {
+	uint16_t * glyphs;   /* glyphset to be wrapped */
+	uint16_t * indexes;  /* for visual ordering; also, won't break within a cluster */
+	uint16_t * advances;
+	int16_t  * positions;
+	uint16_t * fonts;
+	int        offset;   /* for from/len offsetting */
+	int        n_glyphs; /* glyphset length in words */
+	int        text_len; /* original index[-1] */
+	int        width;    /* width to wrap with */
+	int        options;  /* twXXX constants */
+	int        count;    /* count of lines returned */
+	PList    * cache;
+} GlyphWrapRec;
 
 /* regions */
 
@@ -3522,6 +3554,9 @@ apc_gp_bar( Handle self, int x1, int y1, int x2, int y2);
 
 extern Bool
 apc_gp_bars( Handle self, int nr, Rect *rr);
+
+extern Bool
+apc_gp_can_draw_alpha( Handle self);
 
 extern Bool
 apc_gp_clear( Handle self, int x1, int y1, int x2, int y2);
@@ -3970,6 +4005,94 @@ apc_get_user_name( void);
 extern PList
 apc_getdir( const char *dirname, Bool is_utf8);
 
+typedef struct {
+	uint32_t dev;
+	uint32_t ino;
+	uint32_t mode;
+	uint32_t nlink;
+	uint32_t uid;
+	uint32_t gid;
+	uint32_t rdev;
+	uint64_t size;
+	int32_t  blksize;
+	int32_t  blocks;
+	float    atim;
+	float    mtim;
+	float    ctim;
+} StatRec, *PStatRec;
+
+typedef struct {
+	Bool      is_utf8, is_active;
+	void *    handle;
+} DirHandleRec, *PDirHandleRec;
+
+extern int
+apc_fs_access(const char *name, Bool is_utf8, int mode, Bool effective);
+
+extern Bool
+apc_fs_chdir(const char *path, Bool is_utf8 );
+
+extern Bool
+apc_fs_chmod( const char *path, Bool is_utf8, int mode);
+
+extern Bool
+apc_fs_closedir( PDirHandleRec dh);
+
+extern char *
+apc_fs_from_local(const char * text, int * len);
+
+extern char*
+apc_fs_getcwd(void);
+
+extern char*
+apc_fs_getenv(const char * varname, Bool is_utf8, Bool * do_free);
+
+extern Bool
+apc_fs_link( const char* oldname, Bool is_old_utf8, const char * newname, Bool is_new_utf8 );
+
+extern Bool
+apc_fs_mkdir( const char* path, Bool is_utf8, int mode);
+
+extern Bool
+apc_fs_opendir( const char *path, PDirHandleRec dh);
+
+extern int
+apc_fs_open_file( const char* path, Bool is_utf8, int flags, int mode);
+
+#define PATH_MAX_UTF8 (PATH_MAX*6)
+extern Bool
+apc_fs_readdir( PDirHandleRec dh, char * entry);
+
+extern Bool
+apc_fs_rename( const char* oldname, Bool is_old_utf8, const char * newname, Bool is_new_utf8 );
+
+extern Bool
+apc_fs_rewinddir( PDirHandleRec dh );
+
+extern Bool
+apc_fs_rmdir( const char* path, Bool is_utf8 );
+
+extern Bool
+apc_fs_seekdir( PDirHandleRec dh, long position );
+
+extern Bool
+apc_fs_setenv(const char * varname, Bool is_name_utf8, const char * value, Bool is_value_utf8);
+
+extern Bool
+apc_fs_stat(const char *name, Bool is_utf8, Bool link, PStatRec statrec);
+
+extern char *
+apc_fs_to_local(const char * text, Bool fail_if_cannot, int * len);
+
+extern long
+apc_fs_telldir( PDirHandleRec dh );
+
+extern Bool
+apc_fs_unlink( const char* path, Bool is_utf8 );
+
+extern Bool
+apc_fs_utime( double atime, double mtime, const char* path, Bool is_utf8 );
+
 extern Bool
 apc_dl_export(char *path);
 
@@ -3990,6 +4113,26 @@ prima_omp_set_num_threads(int num);
 #define OMP_MAX_THREADS 1
 #define OMP_THREAD_NUM  0
 #endif
+
+typedef struct {
+	void *stack, *heap;
+	unsigned int elem_size, count, size;
+} semistatic_t;
+
+extern void
+semistatic_init( semistatic_t * s, void * stack, unsigned int elem_size, unsigned int static_size);
+
+extern int
+semistatic_expand( semistatic_t * s, unsigned int desired_elems);
+
+extern void
+semistatic_done( semistatic_t * s);
+
+#define semistatic_at(s,type,i) (((type*)s.heap)[i])
+
+#define semistatic_push(s,type,v) \
+	((( s.count >= s.size ) ? semistatic_expand(&s,-1) : 1) && \
+		(((((type*)s.heap)[s.count++])=v) || 1))
 
 #ifdef __cplusplus
 }

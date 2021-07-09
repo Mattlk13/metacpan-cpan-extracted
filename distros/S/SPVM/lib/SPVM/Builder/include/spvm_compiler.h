@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#include "spvm_base.h"
+#include "spvm_typedecl.h"
 #include "spvm_native.h"
 
 enum {
@@ -15,7 +15,7 @@ enum {
 };
 
 // Parser information
-struct SPVM_compiler {
+struct spvm_compiler {
   // Current parsed file name
   const char* cur_file;
   
@@ -27,6 +27,9 @@ struct SPVM_compiler {
 
   // Current parsed source
   char* cur_src;
+
+  // Current parsed source
+  int32_t cur_src_length;
 
   // Current line number
   int32_t cur_line;
@@ -43,8 +46,8 @@ struct SPVM_compiler {
   // Before buffer position
   char* befbufptr;
 
-  // Expect subroutine name
-  int8_t expect_sub_name;
+  // Expect method name
+  int8_t expect_method_name;
 
   // Expect field name
   int8_t expect_field_name;
@@ -67,8 +70,8 @@ struct SPVM_compiler {
   // Syntax error count
   int32_t error_count;
   
-  // Include pathes
-  SPVM_LIST* module_include_pathes;
+  // Module searching directories
+  SPVM_LIST* module_dirs;
 
   // OP name symtable
   SPVM_HASH* name_symtable;
@@ -95,7 +98,10 @@ struct SPVM_compiler {
   SPVM_LIST* added_packages;
 
   // module file symtable
-  SPVM_HASH* module_file_symtable;
+  SPVM_HASH* loaded_module_file_symtable;
+
+  // module source symtable
+  SPVM_HASH* module_source_symtable;
   
   // OP package symtable
   SPVM_HASH* package_symtable;
@@ -109,14 +115,17 @@ struct SPVM_compiler {
   // OP our symtable
   SPVM_LIST* package_vars;
 
-  // Subroutine ops
-  SPVM_LIST* subs;
+  // Method ops
+  SPVM_LIST* methods;
   
-  // Subroutine absolute name symbol table
-  SPVM_HASH* sub_symtable;
+  // Method absolute name symbol table
+  SPVM_HASH* method_symtable;
 
   // Field ops
   SPVM_LIST* fields;
+  
+  // No directory module search
+  int32_t no_directry_module_search;
   
   char* next_double_quote_start_bufptr;
 };
@@ -128,7 +137,7 @@ void SPVM_COMPILER_add_basic_types(SPVM_COMPILER* compiler);
 SPVM_RUNTIME* SPVM_COMPILER_new_runtime(SPVM_COMPILER* compiler);
 void SPVM_COMPILER_error(SPVM_COMPILER* compiler, const char* message, ...);
 
-const char* SPVM_COMPILER_create_sub_signature(SPVM_COMPILER* compiler, SPVM_SUB* sub);
+const char* SPVM_COMPILER_create_method_signature(SPVM_COMPILER* compiler, SPVM_METHOD* method);
 const char* SPVM_COMPILER_create_field_signature(SPVM_COMPILER* compiler, SPVM_FIELD* field);
 const char* SPVM_COMPILER_create_package_var_signature(SPVM_COMPILER* compiler, SPVM_PACKAGE_VAR* package_var);
 

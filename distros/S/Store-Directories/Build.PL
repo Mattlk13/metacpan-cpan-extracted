@@ -4,6 +4,8 @@ use warnings;
 use Module::Build;
 Module::Build->VERSION('0.4004');
 
+use Config;
+
 my $builder = Module::Build->new(
     module_name         => 'Store::Directories',
     license             => 'perl_5',
@@ -23,7 +25,8 @@ my $builder = Module::Build->new(
         'DBD::SQLite'   => '1.66',
         'Data::UUID'    => '1.226',
         'SQL::SplitStatement'   => '1.00020',
-        'IPC::System::Simple'   => '1.30'
+        'IPC::System::Simple'   => '1.30',
+        'Devel::GlobalDestruction' => '0.14'
     },
     add_to_cleanup     => [ 'Store-Directories-*' ],
     meta_merge => {
@@ -32,6 +35,11 @@ my $builder = Module::Build->new(
         }
     }
 );
+
+unless ($Config{osname} =~ /linux/i) {
+    print STDERR "Store::Directories is for Linux ONLY\n";
+    exit 1;
+}
 
 $builder->add_build_element('sql');
 $builder->create_build_script();

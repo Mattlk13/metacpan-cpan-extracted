@@ -1,9 +1,9 @@
 package Role::TinyCommons::Tree::Node;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-04-14'; # DATE
+our $DATE = '2021-07-02'; # DATE
 our $DIST = 'Role-TinyCommons-Tree'; # DIST
-our $VERSION = '0.124'; # VERSION
+our $VERSION = '0.127'; # VERSION
 
 use Role::Tiny;
 
@@ -25,7 +25,7 @@ Role::TinyCommons::Tree::Node - Role for a tree node object
 
 =head1 VERSION
 
-This document describes version 0.124 of Role::TinyCommons::Tree::Node (from Perl distribution Role-TinyCommons-Tree), released on 2020-04-14.
+This document describes version 0.127 of Role::TinyCommons::Tree::Node (from Perl distribution Role-TinyCommons-Tree), released on 2021-07-02.
 
 =head1 DESCRIPTION
 
@@ -76,7 +76,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2016 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2016 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

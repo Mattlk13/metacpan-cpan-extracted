@@ -1,11 +1,15 @@
-use strict;
+# The "experimental" below is not actually scary.  The feature went on to be
+# de-experimental-ized with no changes and is now on by default in perl v5.24
+# and later. -- rjbs, 2021-03-14
+use 5.020;
 use warnings;
+use experimental qw(postderef postderef_qq);
 
-package App::Cmd::Subdispatch;
-$App::Cmd::Subdispatch::VERSION = '0.331';
+package App::Cmd::Subdispatch 0.334;
+
 use App::Cmd;
 use App::Cmd::Command;
-BEGIN { our @ISA = qw(App::Cmd::Command App::Cmd) } 
+BEGIN { our @ISA = qw(App::Cmd::Command App::Cmd) }
 
 # ABSTRACT: an App::Cmd::Command that is also an App::Cmd
 
@@ -88,7 +92,7 @@ sub choose_parent_app {
 	if (
     $plugin->isa("App::Cmd::Command::commands")
     or $plugin->isa("App::Cmd::Command::help")
-    or scalar keys %{ $self->global_options }
+    or keys $self->global_options->%*
   ) {
 		return $self;
 	} else {
@@ -110,7 +114,17 @@ App::Cmd::Subdispatch - an App::Cmd::Command that is also an App::Cmd
 
 =head1 VERSION
 
-version 0.331
+version 0.334
+
+=head1 PERL VERSION SUPPORT
+
+This module has a long-term perl support period.  That means it will not
+require a version of perl released fewer than five years ago.
+
+Although it may work on older versions of perl, no guarantee is made that the
+minimum required version will not be increased.  The version may be increased
+for any reason, and there is no promise that patches will be accepted to lower
+the minimum required perl.
 
 =head1 METHODS
 
@@ -144,11 +158,11 @@ C<< $cmd->app >>.
 
 =head1 AUTHOR
 
-Ricardo Signes <rjbs@cpan.org>
+Ricardo Signes <rjbs@semiotic.systems>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2016 by Ricardo Signes.
+This software is copyright (c) 2021 by Ricardo Signes.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

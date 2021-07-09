@@ -3,7 +3,7 @@ package Net::Async::Redis::Commands;
 use strict;
 use warnings;
 
-our $VERSION = '3.007'; # VERSION
+our $VERSION = '3.013'; # VERSION
 
 =head1 NAME
 
@@ -56,6 +56,8 @@ our %KEY_FINDER = (
     'GEOSEARCH' => 1,
     'GET' => 1,
     'GETBIT' => 1,
+    'GETDEL' => 1,
+    'GETEX' => 1,
     'GETRANGE' => 1,
     'GETSET' => 1,
     'HDEL' => 1,
@@ -68,6 +70,7 @@ our %KEY_FINDER = (
     'HLEN' => 1,
     'HMGET' => 1,
     'HMSET' => 1,
+    'HRANDFIELD' => 1,
     'HSCAN' => 1,
     'HSET' => 1,
     'HSETNX' => 1,
@@ -99,7 +102,9 @@ our %KEY_FINDER = (
     'PFADD' => 1,
     'PFCOUNT' => 1,
     'PSETEX' => 1,
+    'PSUBSCRIBE' => 1,
     'PTTL' => 1,
+    'PUBLISH' => 1,
     'RENAME' => 1,
     'RENAMENX' => 1,
     'RESTORE' => 1,
@@ -126,6 +131,7 @@ our %KEY_FINDER = (
     'SREM' => 1,
     'SSCAN' => 1,
     'STRLEN' => 1,
+    'SUBSCRIBE' => 1,
     'SUNION' => 1,
     'SUNIONSTORE' => 2,
     'TOUCH' => 1,
@@ -135,10 +141,11 @@ our %KEY_FINDER = (
     'WATCH' => 1,
     'XACK' => 1,
     'XADD' => 1,
+    'XAUTOCLAIM' => 1,
     'XCLAIM' => 1,
     'XDEL' => 1,
-    'XGROUP' => 1,
-    'XINFO' => 1,
+    'XGROUP' => 2,
+    'XINFO' => 2,
     'XLEN' => 1,
     'XPENDING' => 1,
     'XRANGE' => 1,
@@ -158,6 +165,7 @@ our %KEY_FINDER = (
     'ZMSCORE' => 1,
     'ZPOPMAX' => 1,
     'ZPOPMIN' => 1,
+    'ZRANDMEMBER' => 1,
     'ZRANGE' => 1,
     'ZRANGEBYLEX' => 1,
     'ZRANGEBYSCORE' => 1,
@@ -698,6 +706,8 @@ Kill the connection of a client.
 
 =item * [ADDR ip:port]
 
+=item * [LADDR ip:port]
+
 =item * [SKIPME yes/no]
 
 =back
@@ -739,6 +749,8 @@ Stop processing commands from clients for some time.
 =over 4
 
 =item * timeout
+
+=item * [WRITE|ALL]
 
 =back
 
@@ -854,6 +866,19 @@ sub client_unblock : method {
     $self->execute_command(qw(CLIENT UNBLOCK) => @args)
 }
 
+=head2 client_unpause
+
+Resume processing of clients that were paused.
+
+L<https://redis.io/commands/client-unpause>
+
+=cut
+
+sub client_unpause : method {
+    my ($self, @args) = @_;
+    $self->execute_command(qw(CLIENT UNPAUSE) => @args)
+}
+
 =head2 echo
 
 Echo the given string.
@@ -875,15 +900,11 @@ sub echo : method {
 
 =head2 hello
 
-switch Redis protocol.
+Handshake with Redis.
 
 =over 4
 
-=item * protover
-
-=item * [AUTH username password]
-
-=item * [SETNAME clientname]
+=item * [protover [AUTH username password] [SETNAME clientname]]
 
 =back
 
@@ -1513,6 +1534,10 @@ Add one or more geospatial items in the geospatial index represented using a sor
 
 =item * key
 
+=item * [NX|XX]
+
+=item * [CH]
+
 =item * longitude latitude member [longitude latitude member ...]
 
 =back
@@ -1615,7 +1640,7 @@ Query a sorted set representing a geospatial index to fetch members matching a g
 
 =item * [WITHHASH]
 
-=item * [COUNT count]
+=item * [COUNT count [ANY]]
 
 =item * [ASC|DESC]
 
@@ -1654,7 +1679,7 @@ Query a sorted set representing a geospatial index to fetch members matching a g
 
 =item * [WITHHASH]
 
-=item * [COUNT count]
+=item * [COUNT count [ANY]]
 
 =item * [ASC|DESC]
 
@@ -1691,7 +1716,7 @@ Query a sorted set representing a geospatial index to fetch members inside an ar
 
 =item * [ASC|DESC]
 
-=item * [COUNT count]
+=item * [COUNT count [ANY]]
 
 =item * [WITHCOORD]
 
@@ -1730,13 +1755,7 @@ Query a sorted set representing a geospatial index to fetch members inside an ar
 
 =item * [ASC|DESC]
 
-=item * [COUNT count]
-
-=item * [WITHCOORD]
-
-=item * [WITHDIST]
-
-=item * [WITHHASH]
+=item * [COUNT count [ANY]]
 
 =item * [STOREDIST]
 
@@ -1959,6 +1978,27 @@ L<https://redis.io/commands/hmset>
 sub hmset : method {
     my ($self, @args) = @_;
     $self->execute_command(qw(HMSET) => @args)
+}
+
+=head2 hrandfield
+
+Get one or multiple random fields from a hash.
+
+=over 4
+
+=item * key
+
+=item * [count [WITHVALUES]]
+
+=back
+
+L<https://redis.io/commands/hrandfield>
+
+=cut
+
+sub hrandfield : method {
+    my ($self, @args) = @_;
+    $self->execute_command(qw(HRANDFIELD) => @args)
 }
 
 =head2 hscan
@@ -2797,6 +2837,12 @@ sub script_exists : method {
 
 Remove all the scripts from the script cache.
 
+=over 4
+
+=item * [ASYNC|SYNC]
+
+=back
+
 L<https://redis.io/commands/script-flush>
 
 =cut
@@ -3235,13 +3281,36 @@ sub debug_segfault : method {
     $self->execute_command(qw(DEBUG SEGFAULT) => @args)
 }
 
+=head2 failover
+
+Start a coordinated failover between this server and one of its replicas.
+
+=over 4
+
+=item * [TO host port [FORCE]]
+
+=item * [ABORT]
+
+=item * [TIMEOUT milliseconds]
+
+=back
+
+L<https://redis.io/commands/failover>
+
+=cut
+
+sub failover : method {
+    my ($self, @args) = @_;
+    $self->execute_command(qw(FAILOVER) => @args)
+}
+
 =head2 flushall
 
 Remove all keys from all databases.
 
 =over 4
 
-=item * [ASYNC]
+=item * [ASYNC|SYNC]
 
 =back
 
@@ -3260,7 +3329,7 @@ Remove all keys from the current database.
 
 =over 4
 
-=item * [ASYNC]
+=item * [ASYNC|SYNC]
 
 =back
 
@@ -4406,17 +4475,44 @@ sub zpopmin : method {
     $self->execute_command(qw(ZPOPMIN) => @args)
 }
 
-=head2 zrange
+=head2 zrandmember
 
-Return a range of members in a sorted set, by index.
+Get one or multiple random elements from a sorted set.
 
 =over 4
 
 =item * key
 
-=item * start
+=item * [count [WITHSCORES]]
 
-=item * stop
+=back
+
+L<https://redis.io/commands/zrandmember>
+
+=cut
+
+sub zrandmember : method {
+    my ($self, @args) = @_;
+    $self->execute_command(qw(ZRANDMEMBER) => @args)
+}
+
+=head2 zrange
+
+Return a range of members in a sorted set.
+
+=over 4
+
+=item * key
+
+=item * min
+
+=item * max
+
+=item * [BYSCORE|BYLEX]
+
+=item * [REV]
+
+=item * [LIMIT offset count]
 
 =item * [WITHSCORES]
 
@@ -4481,6 +4577,37 @@ L<https://redis.io/commands/zrangebyscore>
 sub zrangebyscore : method {
     my ($self, @args) = @_;
     $self->execute_command(qw(ZRANGEBYSCORE) => @args)
+}
+
+=head2 zrangestore
+
+Store a range of members from sorted set into another key.
+
+=over 4
+
+=item * dst
+
+=item * src
+
+=item * min
+
+=item * max
+
+=item * [BYSCORE|BYLEX]
+
+=item * [REV]
+
+=item * [LIMIT offset count]
+
+=back
+
+L<https://redis.io/commands/zrangestore>
+
+=cut
+
+sub zrangestore : method {
+    my ($self, @args) = @_;
+    $self->execute_command(qw(ZRANGESTORE) => @args)
 }
 
 =head2 zrank
@@ -4825,9 +4952,9 @@ Appends a new entry to a stream.
 
 =item * key
 
-=item * [MAXLEN [=|~] length]
-
 =item * [NOMKSTREAM]
+
+=item * [MAXLEN|MINID [=|~] threshold [LIMIT count]]
 
 =item * *|ID
 
@@ -4842,6 +4969,37 @@ L<https://redis.io/commands/xadd>
 sub xadd : method {
     my ($self, @args) = @_;
     $self->execute_command(qw(XADD) => @args)
+}
+
+=head2 xautoclaim
+
+Changes (or acquires) ownership of messages in a consumer group, as if the messages were delivered to the specified consumer.
+
+=over 4
+
+=item * key
+
+=item * group
+
+=item * consumer
+
+=item * min-idle-time
+
+=item * start
+
+=item * [COUNT count]
+
+=item * [JUSTID]
+
+=back
+
+L<https://redis.io/commands/xautoclaim>
+
+=cut
+
+sub xautoclaim : method {
+    my ($self, @args) = @_;
+    $self->execute_command(qw(XAUTOCLAIM) => @args)
 }
 
 =head2 xclaim
@@ -5112,9 +5270,7 @@ Trims the stream to (approximately if '~' is passed) a certain size.
 
 =item * key
 
-=item * MAXLEN
-
-=item * [=|~] length
+=item * MAXLEN|MINID [=|~] threshold [LIMIT count]
 
 =back
 
@@ -5326,6 +5482,46 @@ sub getbit : method {
     $self->execute_command(qw(GETBIT) => @args)
 }
 
+=head2 getdel
+
+Get the value of a key and delete the key.
+
+=over 4
+
+=item * key
+
+=back
+
+L<https://redis.io/commands/getdel>
+
+=cut
+
+sub getdel : method {
+    my ($self, @args) = @_;
+    $self->execute_command(qw(GETDEL) => @args)
+}
+
+=head2 getex
+
+Get the value of a key and optionally set its expiration.
+
+=over 4
+
+=item * key
+
+=item * [EX seconds|PX milliseconds|EXAT timestamp|PXAT milliseconds-timestamp|PERSIST]
+
+=back
+
+L<https://redis.io/commands/getex>
+
+=cut
+
+sub getex : method {
+    my ($self, @args) = @_;
+    $self->execute_command(qw(GETEX) => @args)
+}
+
 =head2 getrange
 
 Get a substring of the string stored at a key.
@@ -5521,7 +5717,7 @@ Set the string value of a key.
 
 =item * value
 
-=item * [EX seconds|PX milliseconds|KEEPTTL]
+=item * [EX seconds|PX milliseconds|EXAT timestamp|PXAT milliseconds-timestamp|KEEPTTL]
 
 =item * [NX|XX]
 
@@ -5751,5 +5947,5 @@ Tom Molesworth <TEAM@cpan.org>
 
 =head1 LICENSE
 
-Copyright Tom Molesworth 2015-2020. Licensed under the same terms as Perl itself.
+Copyright Tom Molesworth 2015-2021. Licensed under the same terms as Perl itself.
 

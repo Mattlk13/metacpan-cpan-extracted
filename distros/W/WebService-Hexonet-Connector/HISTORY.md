@@ -1,3 +1,23 @@
+## [2.10.2](https://github.com/hexonet/perl-sdk/compare/v2.10.1...v2.10.2) (2021-01-26)
+
+
+### Bug Fixes
+
+* **manifest.skip:** to not exclude MYMETA.json/.yml ([3e8c278](https://github.com/hexonet/perl-sdk/commit/3e8c278f155fc0fc46ed1e3d6e4bfcc93aee235f))
+
+## [2.10.1](https://github.com/hexonet/perl-sdk/compare/v2.10.0...v2.10.1) (2021-01-25)
+
+
+### Bug Fixes
+
+* **ci:** migrate from Travis CI to github actions ([292123f](https://github.com/hexonet/perl-sdk/commit/292123fcb51628041a95086786c13714099d0327))
+* **ci:** move POD Checks behind POD Generator ([8b99fbc](https://github.com/hexonet/perl-sdk/commit/8b99fbcd6d069d4b12080d2ba536d00f5d5bb02c))
+
+
+### Performance Improvements
+
+* **ci:** review perltidy script to a generic way ([4c3121b](https://github.com/hexonet/perl-sdk/commit/4c3121bff282225c339b82d89ecdf77491e3eab2))
+
 # [2.10.0](https://github.com/hexonet/perl-sdk/compare/v2.9.2...v2.10.0) (2020-07-16)
 
 

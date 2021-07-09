@@ -33,8 +33,8 @@ get '/params' => sub {
 };
 
 get '/proxy' => sub {
-  my $c = shift;
-  my $reverse = join ':', $c->tx->remote_address, $c->req->url->to_abs->protocol;
+  my $c       = shift;
+  my $reverse = join ':', grep {length} $c->tx->remote_address, $c->req->url->to_abs->protocol;
   $c->render(text => $reverse);
 };
 
@@ -155,18 +155,47 @@ subtest 'Parameters' => sub {
   is $res->json->{bar},    'baz', 'right value';
 };
 
+subtest 'Binding' => sub {
+  my @server;
+  app->hook(
+    before_server_start => sub {
+      my ($server, $app) = @_;
+      push @server, ref $server, $app->mode;
+    }
+  );
+
+  my $msg = '';
+  local *STDOUT;
+  open STDOUT, '>', \$msg;
+  local %ENV = (
+    PATH_INFO       => '/',
+    REQUEST_METHOD  => 'GET',
+    SCRIPT_NAME     => '/',
+    HTTP_HOST       => 'localhost:8080',
+    SERVER_PROTOCOL => 'HTTP/1.0'
+  );
+  is(Mojolicious::Command::cgi->new(app => app)->run, 200, 'right status');
+  my $res = Mojo::Message::Response->new->parse("HTTP/1.1 200 OK\x0d\x0a$msg");
+  is $res->code, 200, 'right status';
+  is $res->headers->status,         '200 OK',                  'right "Status" value';
+  is $res->headers->content_length, 21,                        'right "Content-Length" value';
+  is $res->headers->content_type,   'text/html;charset=UTF-8', 'right "Content-Type" value';
+  is $res->body, 'Your Mojo is working!', 'right content';
+  is_deeply \@server, ['Mojo::Server::CGI', 'development'], 'hook has been emitted once';
+};
+
 subtest 'Reverse proxy' => sub {
   my $msg = '';
   local *STDOUT;
   open STDOUT, '>', \$msg;
   local %ENV = (
-    PATH_INFO                => '/proxy',
-    REQUEST_METHOD           => 'GET',
-    SCRIPT_NAME              => '/',
-    HTTP_HOST                => 'localhost:8080',
-    SERVER_PROTOCOL          => 'HTTP/1.0',
-    'HTTP_X_Forwarded_For'   => '192.0.2.2, 192.0.2.1',
-    'HTTP_X_Forwarded_Proto' => 'https'
+    PATH_INFO              => '/proxy',
+    REQUEST_METHOD         => 'GET',
+    SCRIPT_NAME            => '/',
+    HTTP_HOST              => 'localhost:8080',
+    SERVER_PROTOCOL        => 'HTTP/1.0',
+    HTTP_X_FORWARDED_FOR   => '192.0.2.2, 192.0.2.1',
+    HTTP_X_FORWARDED_PROTO => 'https'
   );
   local $ENV{MOJO_REVERSE_PROXY} = 1;
   is(Mojolicious::Command::cgi->new(app => app)->run, 200, 'right status');
@@ -177,6 +206,55 @@ subtest 'Reverse proxy' => sub {
   is $res->headers->content_length, 15,                        'right "Content-Length" value';
   is $res->headers->content_type,   'text/html;charset=UTF-8', 'right "Content-Type" value';
   is $res->body, '192.0.2.1:https', 'right content';
+};
+
+subtest 'Trusted proxies' => sub {
+  my $msg = '';
+  local *STDOUT;
+  open STDOUT, '>', \$msg;
+  local %ENV = (
+    PATH_INFO              => '/proxy',
+    REQUEST_METHOD         => 'GET',
+    SCRIPT_NAME            => '/',
+    HTTP_HOST              => 'localhost:8080',
+    REMOTE_ADDR            => '127.0.0.1',
+    SERVER_PROTOCOL        => 'HTTP/1.0',
+    HTTP_X_FORWARDED_FOR   => '10.10.10.10, 192.0.2.2, 192.0.2.1',
+    HTTP_X_FORWARDED_PROTO => 'https'
+  );
+  local $ENV{MOJO_TRUSTED_PROXIES} = '127.0.0.0/8, 192.0.0.0/8';
+  is(Mojolicious::Command::cgi->new(app => app)->run, 200, 'right status');
+
+  my $res = Mojo::Message::Response->new->parse("HTTP/1.1 200 OK\x0d\x0a$msg");
+  is $res->code, 200, 'right status';
+  is $res->headers->status,         '200 OK',                  'right "Status" value';
+  is $res->headers->content_length, 17,                        'right "Content-Length" value';
+  is $res->headers->content_type,   'text/html;charset=UTF-8', 'right "Content-Type" value';
+  is $res->body, '10.10.10.10:https', 'right content';
+};
+
+subtest 'Trusted proxies (no REMOTE_ADDR)' => sub {
+  my $msg = '';
+  local *STDOUT;
+  open STDOUT, '>', \$msg;
+  local %ENV = (
+    PATH_INFO              => '/proxy',
+    REQUEST_METHOD         => 'GET',
+    SCRIPT_NAME            => '/',
+    HTTP_HOST              => 'localhost:8080',
+    SERVER_PROTOCOL        => 'HTTP/1.0',
+    HTTP_X_FORWARDED_FOR   => '10.10.10.10, 192.0.2.2, 192.0.2.1',
+    HTTP_X_FORWARDED_PROTO => 'https'
+  );
+  local $ENV{MOJO_TRUSTED_PROXIES} = '127.0.0.0/8, 192.0.0.0/8';
+  is(Mojolicious::Command::cgi->new(app => app)->run, 200, 'right status');
+
+  my $res = Mojo::Message::Response->new->parse("HTTP/1.1 200 OK\x0d\x0a$msg");
+  is $res->code, 200, 'right status';
+  is $res->headers->status,         '200 OK',                  'right "Status" value';
+  is $res->headers->content_length, 5,                         'right "Content-Length" value';
+  is $res->headers->content_type,   'text/html;charset=UTF-8', 'right "Content-Type" value';
+  is $res->body, 'https', 'right content';
 };
 
 done_testing();

@@ -1,8 +1,17 @@
 /* Type for adding whitespace. */
 
+typedef struct json_s {
+    SV * sv;
+    char * s;
+    STRLEN sl;
+}
+json_s_t;
+
 typedef struct json_ws {
     SV * news;
     SV * olds;
+    /* Length of original string. */
+    STRLEN olds_l;
     /* Length of new string. */
     unsigned int news_l;
     /* Copy point. */
@@ -166,4 +175,23 @@ static SV * strip_whitespace (json_token_t * tokens, SV * json)
     /* Set the length. */
     SvCUR_set (stripped, m);
     return stripped;
+}
+
+static SV * indent (json_token_t * tokens, SV * json)
+{
+    int i;
+    json_ws_t j = {0};
+
+    j.olds = json;
+    j.p = SvPV (j.olds, j.olds_l);
+    j.t = tokens;
+    j.next = tokens;
+    for (i = 0; i < n_json_tokens; i++) {
+	j.before[i] = "";
+	j.after[i] = "";
+    }
+    j.after[json_token_comma] = "\n";
+    j.after[json_token_object] = "\n";
+    j.after[json_token_array] = "\n";
+    return &PL_sv_undef;
 }

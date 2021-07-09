@@ -3,7 +3,7 @@ package Ryu::Node;
 use strict;
 use warnings;
 
-our $VERSION = '2.004'; # VERSION
+our $VERSION = '3.002'; # VERSION
 our $AUTHORITY = 'cpan:TEAM'; # AUTHORITY
 
 =head1 NAME
@@ -31,6 +31,45 @@ sub new {
         pause_propagation => 1,
         @_[1..$#_]
     }, $_[0]
+}
+
+=head2 describe
+
+Returns a string describing this node and any parents - typically this will result in a chain
+like C<< from->combine_latest->count >>.
+
+=cut
+
+# It'd be nice if L<Future> already provided a method for this, maybe I should suggest it
+sub describe {
+    my ($self) = @_;
+    ($self->parent ? $self->parent->describe . '=>' : '') . $self->label . '(' . $self->completed->state . ')';
+}
+
+=head2 completed
+
+Returns a L<Future> indicating completion (or failure) of this stream.
+
+=cut
+
+sub completed {
+    my ($self) = @_;
+    return $self->_completed->without_cancel;
+}
+
+# Internal use only, since it's cancellable
+sub _completed {
+    my ($self) = @_;
+    $self->{completed} //= do {
+        my $f = $self->new_future(
+            'completion'
+        );
+        $f->on_ready(
+            $self->curry::weak::cleanup
+        ) if $self->can('cleanup');
+        $self->prepare_await if $self->can('prepare_await');
+        $f
+    }
 }
 
 =head2 pause
@@ -68,7 +107,7 @@ sub resume {
     my $k = refaddr($src) // 0;
     delete $self->{is_paused}{$k} unless --$self->{is_paused}{$k} > 0;
     unless($self->{is_paused} and keys %{$self->{is_paused}}) {
-        my $f = $self->unblocked;
+        my $f = $self->_unblocked;
         $f->done unless $f->is_ready;
         if(my $parent = $self->parent) {
             $parent->resume($self) if $self->{pause_propagation};
@@ -90,10 +129,18 @@ otherwise L<ready|Future/is_ready>.
 =cut
 
 sub unblocked {
+    # Since we don't want stray callers to affect our internal state, we always return
+    # a non-cancellable version of our internal Future.
+    shift->_unblocked->without_cancel
+}
+
+sub _unblocked {
     my ($self) = @_;
+    # Since we don't want stray callers to affect our internal state, we always return
+    # a non-cancellable version of our internal Future.
     $self->{unblocked} //= do {
         $self->is_paused
-        ? $self->{new_future}->()
+        ? $self->new_future
         : Future->done
     };
 }
@@ -124,7 +171,19 @@ sub label { shift->{label} }
 
 sub parent { shift->{parent} }
 
-sub new_future { shift->{new_future}->() }
+=head2 new_future
+
+Used internally to get a L<Future>.
+
+=cut
+
+sub new_future {
+    my $self = shift;
+    (
+        $self->{new_future} //= $Ryu::Source::FUTURE_FACTORY
+    )->($self, @_)
+}
+
 
 1;
 
@@ -136,5 +195,5 @@ Tom Molesworth <TEAM@cpan.org>
 
 =head1 LICENSE
 
-Copyright Tom Molesworth 2011-2020. Licensed under the same terms as Perl itself.
+Copyright Tom Molesworth 2011-2021. Licensed under the same terms as Perl itself.
 

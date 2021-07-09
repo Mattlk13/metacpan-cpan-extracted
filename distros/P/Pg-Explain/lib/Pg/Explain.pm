@@ -32,11 +32,11 @@ Pg::Explain - Object approach at reading explain analyze output
 
 =head1 VERSION
 
-Version 1.04
+Version 1.11
 
 =cut
 
-our $VERSION = '1.04';
+our $VERSION = '1.11';
 
 =head1 SYNOPSIS
 
@@ -65,6 +65,14 @@ What is the detected format of source plan. One of: TEXT, JSON, YAML, OR XML.
 
 How much time PostgreSQL spent planning the query. In milliseconds.
 
+=head2 total_buffers
+
+All buffers used by query - for planning and execution. Mathematically: sum of planning_buffers and top_level->buffers.
+
+=head2 planning_buffers
+
+How much buffers PostgreSQL used for planning. Either undef or object of Pg::Explain::Buffers class.
+
 =head2 execution_time
 
 How much time PostgreSQL spent executing the query. In milliseconds.
@@ -87,13 +95,36 @@ Information about triggers that were called during execution of this query. Arra
 
 =back
 
+=head2 jit
+
+Contains information about JIT timings, as object of Pg::Explain::JIT class.
+
+If there was no JIT info, it will return undef.
+
+=head2 query
+
+What query this explain is for. This is available only for auto-explain plans. If not available, it will be undef.
+
 =cut
 
-sub source_format  { my $self = shift; $self->{ 'source_format' }  = $_[ 0 ] if 0 < scalar @_; return $self->{ 'source_format' }; }
-sub planning_time  { my $self = shift; $self->{ 'planning_time' }  = $_[ 0 ] if 0 < scalar @_; return $self->{ 'planning_time' }; }
-sub execution_time { my $self = shift; $self->{ 'execution_time' } = $_[ 0 ] if 0 < scalar @_; return $self->{ 'execution_time' }; }
-sub total_runtime  { my $self = shift; $self->{ 'total_runtime' }  = $_[ 0 ] if 0 < scalar @_; return $self->{ 'total_runtime' }; }
-sub trigger_times  { my $self = shift; $self->{ 'trigger_times' }  = $_[ 0 ] if 0 < scalar @_; return $self->{ 'trigger_times' }; }
+sub source_format    { my $self = shift; $self->{ 'source_format' }    = $_[ 0 ] if 0 < scalar @_; return $self->{ 'source_format' }; }
+sub planning_time    { my $self = shift; $self->{ 'planning_time' }    = $_[ 0 ] if 0 < scalar @_; return $self->{ 'planning_time' }; }
+sub planning_buffers { my $self = shift; $self->{ 'planning_buffers' } = $_[ 0 ] if 0 < scalar @_; return $self->{ 'planning_buffers' }; }
+sub execution_time   { my $self = shift; $self->{ 'execution_time' }   = $_[ 0 ] if 0 < scalar @_; return $self->{ 'execution_time' }; }
+sub total_runtime    { my $self = shift; $self->{ 'total_runtime' }    = $_[ 0 ] if 0 < scalar @_; return $self->{ 'total_runtime' }; }
+sub trigger_times    { my $self = shift; $self->{ 'trigger_times' }    = $_[ 0 ] if 0 < scalar @_; return $self->{ 'trigger_times' }; }
+sub jit              { my $self = shift; $self->{ 'jit' }              = $_[ 0 ] if 0 < scalar @_; return $self->{ 'jit' }; }
+sub query            { my $self = shift; $self->{ 'query' }            = $_[ 0 ] if 0 < scalar @_; return $self->{ 'query' }; }
+
+sub total_buffers {
+    my $self = shift;
+    if ( $self->top_node->buffers ) {
+        return $self->top_node->buffers + $self->planning_buffers if $self->planning_buffers;
+        return $self->top_node->buffers;
+    }
+    return $self->planning_buffers if $self->planning_buffers;
+    return;
+}
 
 =head2 add_trigger_time
 
@@ -172,7 +203,7 @@ sub source_filtered {
     $source =~ s/^╔(═)+╗\r?\n//gm;
 
     # Remove quotes around lines, both ' and "
-    $source =~ s/^(["'])(.*)\1\r?\n/$2\n/gm;
+    $source =~ s/^(["'])(.*)\1(\r?\n|\z)/$2\n/gm;
 
     # Remove "+" line continuations
     $source =~ s/\s*\+\r?\n/\n/g;
@@ -235,6 +266,9 @@ sub new {
     else {
         croak( 'One of (source, source_file) parameters has to be provided)' );
     }
+
+    # Initialize jit to undef
+    $self->{ 'jit' } = undef;
     return $self;
 }
 
@@ -274,6 +308,7 @@ sub parse_source {
     my $self = shift;
 
     my $source = $self->source_filtered;
+
     my $parser;
 
     if ( $source =~ m{^\s*<explain xmlns="http://www.postgresql.org/2009/explain">}m ) {
@@ -396,6 +431,13 @@ sub as_text {
 
     my $textual = $self->top_node->as_text();
 
+    if ( $self->planning_buffers ) {
+        $textual .= "Planning:\n";
+        my $buf_info = $self->planning_buffers->as_text;
+        $buf_info =~ s/^/  /gm;
+        $textual .= $buf_info . "\n";
+
+    }
     if ( $self->planning_time ) {
         $textual .= "Planning time: " . $self->planning_time . " ms\n";
     }
@@ -403,6 +445,9 @@ sub as_text {
         for my $t ( @{ $self->trigger_times } ) {
             $textual .= sprintf( "Trigger %s: time=%.3f calls=%d\n", $t->{ 'name' }, $t->{ 'time' }, $t->{ 'calls' } );
         }
+    }
+    if ( $self->jit ) {
+        $textual .= $self->jit->as_text();
     }
     if ( $self->execution_time ) {
         $textual .= "Execution time: " . $self->execution_time . " ms\n";
@@ -423,8 +468,9 @@ This can be used for debug purposes, or as a base to print information to user.
 Output looks like this:
 
  {
-     'top_node'               => {....},
+     'top_node'               => {...}
      'planning_time'          => '12.34',
+     'planning_buffers'       => {...},
      'execution_time'         => '12.34',
      'total_runtime'          => '12.34',
      'trigger_times'          => [
@@ -438,11 +484,20 @@ Output looks like this:
 sub get_struct {
     my $self  = shift;
     my $reply = {};
-    $reply->{ 'top_node' }       = $self->top_node->get_struct;
-    $reply->{ 'planning_time' }  = $self->planning_time if $self->planning_time;
-    $reply->{ 'execution_time' } = $self->execution_time if $self->execution_time;
-    $reply->{ 'total_runtime' }  = $self->total_runtime if $self->total_runtime;
-    $reply->{ 'trigger_times' }  = clone( $self->trigger_times ) if $self->trigger_times;
+    $reply->{ 'top_node' }         = $self->top_node->get_struct;
+    $reply->{ 'planning_time' }    = $self->planning_time                if $self->planning_time;
+    $reply->{ 'planning_buffers' } = $self->planning_buffers->get_struct if $self->planning_buffers;
+    $reply->{ 'execution_time' }   = $self->execution_time               if $self->execution_time;
+    $reply->{ 'total_runtime' }    = $self->total_runtime                if $self->total_runtime;
+    $reply->{ 'trigger_times' }    = clone( $self->trigger_times )       if $self->trigger_times;
+    $reply->{ 'query' }            = $self->query                        if $self->query;
+
+    if ( $self->jit ) {
+        $reply->{ 'jit' }                  = {};
+        $reply->{ 'jit' }->{ 'functions' } = $self->jit->functions;
+        $reply->{ 'jit' }->{ 'options' }   = clone( $self->jit->options );
+        $reply->{ 'jit' }->{ 'timings' }   = clone( $self->jit->timings );
+    }
     return $reply;
 }
 
@@ -488,7 +543,7 @@ You can find documentation for this module with the perldoc command.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2008-2015 hubert depesz lubaczewski, all rights reserved.
+Copyright 2008-2021 hubert depesz lubaczewski, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

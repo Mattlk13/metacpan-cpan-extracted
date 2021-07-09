@@ -10,14 +10,14 @@ SKIP: {
       unless (
         -d '.git'
         and eval {
-            $git = `git ls-tree --name-status -r HEAD | egrep -v '^\.(git|be)'`;
+            $git = `git ls-tree --name-status -r HEAD | grep -E -v '^\.git'`;
         }
       );
-    is( $git . "README\n", `cat MANIFEST`, 'MANIFEST up to date' );
+    is( $git, `cat MANIFEST`, 'MANIFEST up to date' );
 }
 
 local $INPUT_RECORD_SEPARATOR = undef;
-my $file = 'lib/Graphics/TIFF.pm';
+my $file = $INC{'Graphics/TIFF.pm'};
 open my $fh, '<:encoding(UTF8)', $file
   or die "Error: cannot open $file\n";
 my $text = <$fh>;

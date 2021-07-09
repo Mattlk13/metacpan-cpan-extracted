@@ -4,8 +4,8 @@
 #
 package PDL::GSLSF::POLY;
 
-@EXPORT_OK  = qw( PDL::PP gsl_poly_eval );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw(PDL::PP gsl_poly_eval );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::GSLSF::POLY ;
 
@@ -67,7 +67,7 @@ c[0] + c[1] x + c[2] x^2 + ... + c[m-1] x^(m-1)
 =for bad
 
 gsl_poly_eval does not process bad values.
-It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+It will set the bad-value flag of all output ndarrays if the flag is set for any of the input ndarrays.
 
 
 =cut

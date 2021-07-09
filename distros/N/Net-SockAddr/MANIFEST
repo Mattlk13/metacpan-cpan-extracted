@@ -1,4 +1,17 @@
 Changes
+clib/CMakeLists.txt
+clib/panda-net-sockaddr-config.cmake
+clib/src/panda/net/pton.impl
+clib/src/panda/net/sockaddr.cc
+clib/src/panda/net/sockaddr.h
+clib/tests/base.cc
+clib/tests/inet4.cc
+clib/tests/inet6.cc
+clib/tests/lib/test.cc
+clib/tests/lib/test.h
+clib/tests/main.cc
+clib/tests/unix.cc
+INSTALL.SKIP
 lib/Net/SockAddr.pm
 lib/Net/SockAddr.pod
 lib/Net/SockAddr/Inet4.pm
@@ -7,18 +20,6 @@ lib/Net/SockAddr/Inet6.pm
 lib/Net/SockAddr/Inet6.pod
 lib/Net/SockAddr/Unix.pm
 lib/Net/SockAddr/Unix.pod
-libnet-sockaddr/CMakeLists.txt
-libnet-sockaddr/net-sockaddrConfig.cmake
-libnet-sockaddr/src/panda/net/pton.impl
-libnet-sockaddr/src/panda/net/sockaddr.cc
-libnet-sockaddr/src/panda/net/sockaddr.h
-libnet-sockaddr/tests/base.cc
-libnet-sockaddr/tests/inet4.cc
-libnet-sockaddr/tests/inet6.cc
-libnet-sockaddr/tests/lib/test.cc
-libnet-sockaddr/tests/lib/test.h
-libnet-sockaddr/tests/main.cc
-libnet-sockaddr/tests/unix.cc
 Makefile.PL
 MANIFEST			This list of files
 MANIFEST.SKIP

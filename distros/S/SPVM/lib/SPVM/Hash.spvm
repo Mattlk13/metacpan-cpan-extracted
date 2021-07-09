@@ -1,27 +1,49 @@
 package SPVM::Hash : precompile {
   use SPVM::Hash::Entry;
-  use SPVM::Util (INT32_MAX, copy_str);
+  use SPVM::NumberUtil (INT32_MAX);
 
   has bucket_count : int;
-  has count : int;
-  has entries : SPVM::Hash::Entry [];
-  
+  has count : ro int;
+  has entries : SPVM::Hash::Entry[];
+
   private enum {
     _DEFALUT_HASH_TABLE_LENGTH = 16,
   }
   private sub _MAX_LOAD_FACTOR : double () { return 0.75; }
 
-  sub new : SPVM::Hash () {
+  sub new : SPVM::Hash ($key_values : oarray) {
     my $self = new SPVM::Hash;
+    
     my $default_capacity = 32;
     $self->{bucket_count} = _DEFALUT_HASH_TABLE_LENGTH();
     $self->{entries} = new SPVM::Hash::Entry[_DEFALUT_HASH_TABLE_LENGTH()];
     $self->{count} = 0;
+    
+    my $length : int;
+    if ($key_values) {
+      $length = @$key_values;
+    }
+    else {
+      $length = 0;
+    }
+    
+    if ($length % 2 != 0) {
+      die "Odd number array is invalid";
+    }
+    
+    if ($key_values) {
+      for (my $i = 0; $i < @$key_values; $i += 2) {
+        my $key = $key_values->[$i];
+        my $value = $key_values->[$i + 1];
+        unless ($key isa string) {
+          die "Key must be string";
+        }
+
+        $self->set((string)$key => $value);
+      }
+    }
+    
     return $self;
-  }
-  
-  sub count : int ($self : self) {
-    return $self->{count};
   }
 
   sub set : void ($self : self, $key : string, $val : object) {
@@ -57,7 +79,7 @@ package SPVM::Hash : precompile {
   sub exists : int ($self : self, $key : string) {
     my $index = _index_by_key($key, $self->{bucket_count});
     my $ref = $self->{entries}->[$index];
-    
+
     unless ($ref) {
       return 0;
     }
@@ -128,7 +150,7 @@ package SPVM::Hash : precompile {
   }
 
   sub copy : SPVM::Hash ($self : self) {
-    my $ret = SPVM::Hash->new;
+    my $ret = SPVM::Hash->new({});
     my $keys = $self->keys;
     for (my $i = 0; $i < @$keys; ++$i) {
       $ret->set($keys->[$i], $self->get($keys->[$i]));
@@ -137,7 +159,7 @@ package SPVM::Hash : precompile {
   }
 
   native sub _murmur_hash : long ($string : string, $seed : int);
-  
+
   sub set_byte : void ($self : self, $name : string, $value : byte) {
     $self->set($name => SPVM::Byte->new($value));
   }
@@ -146,6 +168,9 @@ package SPVM::Hash : precompile {
   }
   sub set_int : void ($self : self, $name : string, $value : int) {
     $self->set($name => SPVM::Int->new($value));
+  }
+  sub set_string : void ($self : self, $name : string, $value : string) {
+    $self->set($name => $value);
   }
   sub set_long : void ($self : self, $name : string, $value : long) {
     $self->set($name => SPVM::Long->new($value));
@@ -156,7 +181,7 @@ package SPVM::Hash : precompile {
   sub set_double : void ($self : self, $name : string, $value : double) {
     $self->set($name => SPVM::Double->new($value));
   }
-  
+
   sub get_byte : byte ($self : self, $name : string) {
     return (byte)$self->get($name);
   }
@@ -165,6 +190,9 @@ package SPVM::Hash : precompile {
   }
   sub get_int : int ($self : self, $name : string) {
     return (int)$self->get($name);
+  }
+  sub get_string : string ($self : self, $name : string) {
+    return (string)$self->get($name);
   }
   sub get_long : long ($self : self, $name : string) {
     return (long)$self->get($name);

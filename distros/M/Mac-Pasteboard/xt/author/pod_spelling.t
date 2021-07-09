@@ -25,14 +25,17 @@ badPasteboardIndexErr
 badPasteboardItemErr
 badPasteboardSyncErr
 callback
+Capitan
 CFStringRef
 com
 const
 coreFoundationUnknownErr
+defaultEncode
 defaultFlavor
 dualvar
 duplicatePasteboardFlavorErr
 executables
+El
 hoc
 jpeg
 JPEG

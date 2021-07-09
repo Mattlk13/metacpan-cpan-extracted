@@ -1,7 +1,7 @@
 package PICA::Parser::JSON;
 use v5.14.1;
 
-our $VERSION = '1.14';
+our $VERSION = '1.28';
 
 use JSON::PP;
 our $JSON = JSON::PP->new;
@@ -13,6 +13,8 @@ sub _next_record {
 
     if (my $line = $self->{reader}->getline) {
         return $JSON->decode($line);
+
+        # TODO: cleanup occurrence and annotation
     }
 }
 

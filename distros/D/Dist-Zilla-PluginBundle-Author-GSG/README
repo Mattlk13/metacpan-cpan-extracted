@@ -4,7 +4,7 @@ NAME
 
 VERSION
 
-    version v0.1.3
+    version v0.2.0
 
 SYNOPSIS
 
@@ -43,10 +43,15 @@ SYNOPSIS
         ; The defaults for author and license come from
         [Author::GSG]
     
+        [ FileFinder::Filter / MungeableFiles ]
+        finder => :InstallModules
+        finder => :PerlExecFiles
+        ; dont_munge = (?^:bin) # can be used multiple times. passed in as "skip"
+    
         [MetaJSON]
         [OurPkgVersion]
+        finder = :MungableFiles
         [Prereqs::FromCPANfile]
-        [ReadmeAnyFromPod]
         [$meta_provides] # defaults to MetaProvides::Package
     
         [StaticInstall]
@@ -56,11 +61,13 @@ SYNOPSIS
         [ExecDir]
         dir = script    # in addition to bin/ for StaticInstall compatibility
     
-        [Pod::Weaver]
+        [PodWeaver]
+        finder     = :MungeableFiles
         replacer = replace_with_comment
         post_code_replacer = replace_with_nothing
         config_plugin = [ @Default, Contributors ]
     
+        [ReadmeAnyFromPod]
         [ChangelogFromGit::CPAN::Changes]
         file_name    = CHANGES
         ; Support both old 0.90 versioning and new v1.2.3 semantic versioning formats
@@ -187,6 +194,18 @@ ATTRIBUTES / PARAMETERS
       All options for Dist::Zilla::Plugin::Test::Compile should be
       supported with the test_compile_ prefix.
 
+    dont_munge
+
+          [@Author::GSG]
+          dont_munge = (?^:one-off)
+          dont_munge = (?^:docs/.*.txt)
+
+      Passed to Dist::Zilla::Plugin::FileFinder::Filter as c<skip> for the
+      MungableFiles plugin.
+
+      This plugin gets passed to Dist::Zilla::Plugin::OurPkgVersion and
+      Dist::Zilla::Plugin::PodWeaver as finder to filter matches.
+
 Setting up a new dist
 
  Create your dist.ini
@@ -218,7 +237,7 @@ Setting up a new dist
             carton exec perl -Ilib -MFile::ShareDir=dist_dir -e \
                 'print eval { dist_dir("Dist-Zilla-PluginBundle-Author-GSG") } || "share"' )
     
-        include $(SHARE_DIR)/Makefile
+        include $(SHARE_DIR)/Makefile.inc
     
         # Copy the SHARE_DIR Makefile over this one:
         # Making it .PHONY will force it to copy even if this one is newer.
@@ -325,7 +344,7 @@ AUTHOR
 
 COPYRIGHT AND LICENSE
 
-    This software is Copyright (c) 2019 - 2020 by Grant Street Group.
+    This software is Copyright (c) 2019 - 2021 by Grant Street Group.
 
     This is free software, licensed under:
 

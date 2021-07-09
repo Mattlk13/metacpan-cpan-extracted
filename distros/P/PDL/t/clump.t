@@ -36,7 +36,7 @@ if(0) {
 	my $pa0 = zeroes(3,3);
 	#my $pa = $pa0->PDL::Core::new_or_inplace($a0);
 	my $pa = $pa0->copy;
-	my $pb = $pa->xchg(0,1);
+	my $pb = $pa->transpose;
 	note $pa;
 
 	# PDL::Primitive::axisvalues($pb);
@@ -66,7 +66,7 @@ if(0) {
 
 	note $pb;
 
-	ok(all(PDL::approx($pb,pdl([0,1,2,10,11,12,20,21,22]), $eps)),'clump(-1) entire piddle');
+	ok(all(PDL::approx($pb,pdl([0,1,2,10,11,12,20,21,22]), $eps)),'clump(-1) entire ndarray');
 
 	my $pc = $pa->slice('0:2:2,:');
 

@@ -6,8 +6,7 @@ use warnings;
 use Moo;
 use Types::Standard -all;
 use GraphQL::Type::Library -all;
-use Return::Type;
-use Function::Parameters;
+use GraphQL::MaybeTypeCheck;
 use GraphQL::Debug qw(_debug);
 use GraphQL::Directive;
 use GraphQL::Introspection qw($SCHEMA_META_TYPE);
@@ -123,7 +122,7 @@ fun _expand_type(
   (Map[StrNameValid, ConsumerOf['GraphQL::Role::Named']]) $map,
   (InstanceOf['GraphQL::Type']) $type,
 ) :ReturnType(ArrayRef[ConsumerOf['GraphQL::Role::Named']]) {
-  return _expand_type($map, $type->of) if $type->can('of');
+  @_ = ($map, $type->of), goto &_expand_type if $type->can('of'); # avoid blowing out the stack
   my $name = $type->name if $type->can('name');
   return [] if $name and $map->{$name} and $map->{$name} == $type; # seen
   die "Duplicate type $name" if $map->{$name};
@@ -275,7 +274,7 @@ method from_ast(
   $schema;
 }
 
-=head2 from_doc($doc)
+=head2 from_doc($doc[, \%kind2class])
 
 Class method. Takes text that is a Schema Definition Language (SDL) (aka
 Interface Definition Language) document and returns a schema object. Will
@@ -284,12 +283,18 @@ not be a complete schema since it will have only default resolvers.
 As of v0.32, this accepts both old-style "meaningful comments" and
 new-style string values, as field or type descriptions.
 
+If C<\%kind2class> is given, it will override the default
+mapping of SDL keywords to Perl classes. This is probably most
+useful for L<GraphQL::Type::Object>. The default is available as
+C<%GraphQL::Schema::KIND2CLASS>.
+
 =cut
 
 method from_doc(
   Str $doc,
+  HashRef $kind2class = \%KIND2CLASS,
 ) :ReturnType(InstanceOf[__PACKAGE__]) {
-  $self->from_ast(parse($doc));
+  $self->from_ast(parse($doc), $kind2class);
 }
 
 =head2 to_doc($doc)

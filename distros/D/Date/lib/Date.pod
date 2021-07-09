@@ -152,6 +152,8 @@ Date - extremely fast Date framework with timezones, microseconds, relative date
         $d += "1X"; # throws
     }
 
+    # like strptime(3)
+    $date4 = Date::strptime('2019-02-03 04:05:06 Europe/Moscow', '%Y-%m-%d %H:%M:%S %Z');
 
 
 =head1 DESCRIPTION
@@ -705,11 +707,13 @@ Converts C<$arg> to relative date and adds it to existing date object.
 
 =head4 '-', difference($arg)
 
-If second operand is a date object, then returns L<Date::Rel> object representing exact interval from left operand till right operand.
+If second operand is a date object, then returns L<Date::Rel> object representing exact interval from right operand till left operand.
 
-    $date - $date
+    $date_till - $date_from; # same as Date::Rel->new($date_from, $date_till)
     
     (date("2019-02-01") - date("2019-01-01"))->to_days == 31;
+    
+see L<Date::Rel>.
 
 Otherwise converts right operand to relative date, subtracts it from the date object and returns new date as a result. Reverse is not allowed.
 
@@ -811,7 +815,7 @@ The name of localzone. Note that in some cases the real name of localzone is not
 (for example when localzone is retrieved from /etc/localtime file, tzname() will return ':/etc/localtime')
 
 
-=head4 use_system_zones()
+=head4 use_system_timezones()
 
 Use your OS's timezones dir. This is default behaviour if your OS has /usr/share/zoneinfo DB. Otherwise embedded zones
 are used by default (for example, on MS Windows).
@@ -819,7 +823,7 @@ are used by default (for example, on MS Windows).
 If your OS doesn't have /usr/share/zoneinfo DB, this function warns and does nothing.
 
 
-=head4 use_embed_zones()
+=head4 use_embed_timezones()
 
 Use timezone files which come with this module (they may be newer or older than system ones).
 
@@ -835,7 +839,7 @@ If there was an error (!exists, !readable, etc) returns false and leaves tzdir u
     tzset('Europe/Moscow'); # set /home/frank/myzones/Europe/Moscow as localzone
 
 
-=head4 available_zones()
+=head4 available_timezones()
 
 Returns list of all available timezones in tzdir().
 
@@ -880,7 +884,9 @@ Like C<timelocal()> but runs calculations in timezone C<$timezone> instead of lo
 
 =head4 timeanyn($sec, $min, $hour, $day, $mon, $year, [$isdst], [$timezone])
 
+=head4 strptime($string, $format)
 
+Parses date in C<$string> by the pattern defined in C<$format>. Works similar to strptime(3).
 
 =head1 CONSTANTS
 

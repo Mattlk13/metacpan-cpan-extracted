@@ -1,6 +1,40 @@
 CHANGE LOG
 ==========
 
+2021-03-23 - v0.107.3
+---------------------
+
+### Fixed
+  - Respect 'undefined' behaviour when already closed and running out of scope.
+    Autoscope is meant for simple convenience, use GlobalTracer if you want more
+
+2021-03-10 - v0.107.2
+---------------------
+
+### Fixed
+  - AutoScope close when using a NoOp implementation
+
+
+2021-03-08 - v0.107.1
+---------------------
+
+### Fixed
+  - bug with prototype parsing picking up leftover match variables
+
+
+
+2021-03-05 - v0.107.0
+---------------------
+
+### Added
+  - Support for tracing subroutine arguments
+
+### Fixed
+  - WrapScope files can now contain empty lines
+  - AutoScope no longer crashes when a scope was closed before scope end
+
+
+
 2020-10-08 - v0.106.6
 ---------------------
 

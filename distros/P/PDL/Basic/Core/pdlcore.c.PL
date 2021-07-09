@@ -7,17 +7,8 @@ use Config;
 use File::Basename qw(&basename &dirname);
 
 require './Dev.pm'; PDL::Core::Dev->import;
-use vars qw( %PDL_DATATYPES );
-
-# check for bad value support
-require './Config.pm'; # to load the PDL not the Perl one
-die "No PDL::Config found" unless %PDL::Config;
-my $bvalflag = $PDL::Config{WITH_BADVAL};
-my $usenan = $PDL::Config{BADVAL_USENAN};
-require './Types.pm';
+PDL::Core::Dev::loadmod_Types();
 PDL::Types->import(':All');
-
-
 
 # This forces PL files to create target in same directory as PL file.
 # This is so that make depend always knows where to find PL derivatives.
@@ -28,197 +19,36 @@ $file =~ s/\.pl$//
     if ($Config{'osname'} eq 'VMS' or
         $Config{'osname'} eq 'OS2');  # "case-forgiving"
 
-if ( $bvalflag ) {
-    print "Extracting $file (WITH bad value support)\n";
-} else {
-    print "Extracting $file (NO bad value support)\n";
-}
-
+print "Extracting $file\n";
 
 open OUT,">$file" or die "Can't create $file: $!";
 chmod 0644, $file;
 
-
-
 print OUT <<"!WITH!SUBS!";
 
 /* pdlcore.c - generated automatically by pdlcore.c.PL */
-/*           - bad value support = $bvalflag */
-
 
 !WITH!SUBS!
 
 
 print OUT <<'!HEADER!';
 #undef FOODEB
-#define PDL_CORE      /* For certain ifdefs */
 #include "pdl.h"      /* Data structure declarations */
+#define PDL_IN_CORE /* access funcs directly not through PDL-> */
 #include "pdlcore.h"  /* Core declarations */
 
 
 /* Needed to get badvals from the Core structure (in pdl_avref_<type>) */
 extern Core PDL; 
 
-/***************
- * So many ways to be undefined...
- */
-#define sv_undef(sv)  ( (!(sv) || ((sv)==&PL_sv_undef)) || !(SvNIOK(sv) || (SvTYPE(sv)==SVt_PVMG) || SvPOK(sv) || SvROK(sv)))
+#include <math.h> /* for isfinite */
 !HEADER!
-
-
-##############################
-# Figure out the best definition for the 'finite()' call or call-like macro
-# We short-circuit the process for the cl compiler; for other compilers we search 
-# for 'isfinite' or 'finite', with a preference for 'isfinite' (IEEE recommends this).
-
-if($Config{cc} eq 'cl') {
-  # _finite in VC++ 4.0
-  print OUT <<'FOO';
-#define finite _finite
-#include <float.h>
-FOO
-} else {
-    my $finite_inc;
-    my $use_isfinite = 0;
-    foreach my $inc ( qw/ math.h ieeefp.h / )
-    {
-        if ( trylink ("finite: $inc", "#include <$inc>", 'isfinite(3.2);', '' ) ) {
-            $finite_inc = $inc;
-            $use_isfinite = 1;
-            last;
-        }
-        if ( (!defined($finite_inc))  and  trylink ("finite: $inc", "#include <$inc>", 'finite(3.2);','') ) {
-            $finite_inc = $inc;
-        }
-    }
-
-    if ( defined $finite_inc ) {
-        print OUT "#include <$finite_inc>\n";
-        print OUT "#define finite(a) (isfinite(a))\n";
-    }
-    else
-    {
-        print OUT <<'!NO!SUBS!';
-            /* Kludgy finite/isfinite because pdlcore.c.PL was unable to find one in your math library */
-#ifndef finite
-#ifdef isfinite
-#define finite isfinite
-#else
-#define finite(a) (((a) * 0) == (0))
-#endif
-#endif
-!NO!SUBS!
-    }
-}
 
 
 ##############################
 # PDL handling stuff starts here
 #
 print OUT <<'!NO!SUBS!'
-int _anyval_eq_anyval(PDL_Anyval x, PDL_Anyval y) {
-    switch (x.type) {
-        case PDL_B:
-            switch (y.type) {
-                case PDL_B:   return (x.value.B                 == y.value.B) ? 1 : 0;
-                case PDL_S:   return ((PDL_Short)(x.value.B)    == y.value.S) ? 1 : 0;
-                case PDL_US:  return ((PDL_Ushort)(x.value.B)   == y.value.U) ? 1 : 0;
-                case PDL_L:   return ((PDL_Long)(x.value.B)     == y.value.L) ? 1 : 0;
-                case PDL_IND: return ((PDL_Indx)(x.value.B)     == y.value.N) ? 1 : 0;
-                case PDL_LL:  return ((PDL_LongLong)(x.value.B) == y.value.Q) ? 1 : 0;
-                case PDL_F:   return ((PDL_Float)(x.value.B)    == y.value.F) ? 1 : 0;
-                case PDL_D:   return ((PDL_Double)(x.value.B)   == y.value.D) ? 1 : 0;
-                default:      return 0;
-            }
-        case PDL_S:
-            switch (y.type) {
-                case PDL_B:   return (x.value.S                 == (PDL_Short)(y.value.B)) ? 1 : 0;
-                case PDL_S:   return (x.value.S                 == y.value.S) ? 1 : 0;
-                case PDL_US:  return ((PDL_Long)(x.value.S)     == (PDL_Long)(y.value.U)) ? 1 : 0;
-                case PDL_L:   return ((PDL_Long)(x.value.S)     == y.value.L) ? 1 : 0;
-                case PDL_IND: return ((PDL_Indx)(x.value.S)     == y.value.N) ? 1 : 0;
-                case PDL_LL:  return ((PDL_LongLong)(x.value.S) == y.value.Q) ? 1 : 0;
-                case PDL_F:   return ((PDL_Float)(x.value.S)    == y.value.F) ? 1 : 0;
-                case PDL_D:   return ((PDL_Double)(x.value.S)   == y.value.D) ? 1 : 0;
-                default:      return 0;
-            }
-        case PDL_US:
-            switch (y.type) {
-                case PDL_B:   return (x.value.U                 == (PDL_Ushort)(y.value.B)) ? 1 : 0;
-                case PDL_S:   return ((PDL_Long)(x.value.U)     == (PDL_Long)(y.value.S)) ? 1 : 0;
-                case PDL_US:  return (x.value.U                 == y.value.U) ? 1 : 0;
-                case PDL_L:   return ((PDL_Long)(x.value.U)     == y.value.L) ? 1 : 0;
-                case PDL_IND: return ((PDL_Indx)(x.value.U)     == y.value.N) ? 1 : 0;
-                case PDL_LL:  return ((PDL_LongLong)(x.value.U) == y.value.Q) ? 1 : 0;
-                case PDL_F:   return ((PDL_Float)(x.value.U)    == y.value.F) ? 1 : 0;
-                case PDL_D:   return ((PDL_Double)(x.value.U)   == y.value.D) ? 1 : 0;
-                default:      return 0;
-            }
-        case PDL_L:
-            switch (y.type) {
-                case PDL_B:   return (x.value.L                 == (PDL_Long)(y.value.B)) ? 1 : 0;
-                case PDL_S:   return (x.value.L                 == (PDL_Long)(y.value.S)) ? 1 : 0;
-                case PDL_US:  return (x.value.L                 == (PDL_Long)(y.value.U)) ? 1 : 0;
-                case PDL_L:   return (x.value.L                 == y.value.L) ? 1 : 0;
-                case PDL_IND: return ((PDL_Indx)(x.value.L)     == y.value.N) ? 1 : 0;
-                case PDL_LL:  return ((PDL_LongLong)(x.value.L) == y.value.Q) ? 1 : 0;
-                case PDL_F:   return ((PDL_Float)(x.value.L)    == y.value.F) ? 1 : 0;
-                case PDL_D:   return ((PDL_Double)(x.value.L)   == y.value.D) ? 1 : 0;
-                default:      return 0;
-            }
-        case PDL_IND:
-            switch (y.type) {
-                case PDL_B:   return (x.value.N                 == (PDL_Indx)(y.value.B)) ? 1 : 0;
-                case PDL_S:   return (x.value.N                 == (PDL_Indx)(y.value.S)) ? 1 : 0;
-                case PDL_US:  return (x.value.N                 == (PDL_Indx)(y.value.U)) ? 1 : 0;
-                case PDL_L:   return (x.value.N                 == (PDL_Indx)(y.value.L)) ? 1 : 0;
-                case PDL_IND: return (x.value.N                 == y.value.N) ? 1 : 0;
-                case PDL_LL:  return ((PDL_LongLong)(x.value.N) == y.value.Q) ? 1 : 0;
-                case PDL_F:   return ((PDL_Float)(x.value.N)    == y.value.F) ? 1 : 0;
-                case PDL_D:   return ((PDL_Double)(x.value.N)   == y.value.D) ? 1 : 0;
-                default:      return 0;
-            }
-        case PDL_LL:
-            switch (y.type) {
-                case PDL_B:   return (x.value.Q                 == (PDL_LongLong)(y.value.B)) ? 1 : 0;
-                case PDL_S:   return (x.value.Q                 == (PDL_LongLong)(y.value.S)) ? 1 : 0;
-                case PDL_US:  return (x.value.Q                 == (PDL_LongLong)(y.value.U)) ? 1 : 0;
-                case PDL_L:   return (x.value.Q                 == (PDL_LongLong)(y.value.L)) ? 1 : 0;
-                case PDL_IND: return (x.value.Q                 == (PDL_LongLong)(y.value.N)) ? 1 : 0;
-                case PDL_LL:  return (x.value.Q                 == y.value.Q) ? 1 : 0;
-                case PDL_F:   return ((PDL_Float)(x.value.Q)    == y.value.F) ? 1 : 0;
-                case PDL_D:   return ((PDL_Double)(x.value.Q)   == y.value.D) ? 1 : 0;
-                default:      return 0;
-            }
-        case PDL_F:
-            switch (y.type) {
-                case PDL_B:   return (x.value.F                 == (PDL_Float)(y.value.B)) ? 1 : 0;
-                case PDL_S:   return (x.value.F                 == (PDL_Float)(y.value.S)) ? 1 : 0;
-                case PDL_US:  return (x.value.F                 == (PDL_Float)(y.value.U)) ? 1 : 0;
-                case PDL_L:   return (x.value.F                 == (PDL_Float)(y.value.L)) ? 1 : 0;
-                case PDL_IND: return (x.value.F                 == (PDL_Float)(y.value.N)) ? 1 : 0;
-                case PDL_LL:  return (x.value.F                 == (PDL_Float)(y.value.Q)) ? 1 : 0;
-                case PDL_F:   return (x.value.F                 == y.value.F) ? 1 : 0;
-                case PDL_D:   return ((PDL_Double)(x.value.F)   == y.value.D) ? 1 : 0;
-                default:      return 0;
-            }
-        case PDL_D:
-            switch (y.type) {
-                case PDL_B:   return (x.value.D                 == (PDL_Double)(y.value.B)) ? 1 : 0;
-                case PDL_S:   return (x.value.D                 == (PDL_Double)(y.value.S)) ? 1 : 0;
-                case PDL_US:  return (x.value.D                 == (PDL_Double)(y.value.U)) ? 1 : 0;
-                case PDL_L:   return (x.value.D                 == (PDL_Double)(y.value.L)) ? 1 : 0;
-                case PDL_IND: return (x.value.D                 == (PDL_Double)(y.value.N)) ? 1 : 0;
-                case PDL_LL:  return (x.value.D                 == (PDL_Double)(y.value.Q)) ? 1 : 0;
-                case PDL_F:   return (x.value.D                 == (PDL_Double)(y.value.F)) ? 1 : 0;
-                case PDL_D:   return (x.value.D                 == y.value.D) ? 1 : 0;
-                default:      return 0;
-            }
-        default:
-            return 0;
-    }
-}
-
 static SV *getref_pdl(pdl *it) {
         SV *newref;
         if(!it->sv) {
@@ -235,7 +65,7 @@ static SV *getref_pdl(pdl *it) {
         return newref;
 }
 
-void SetSV_PDL ( SV *sv, pdl *it ) {
+void pdl_SetSV_PDL ( SV *sv, pdl *it ) {
         SV *newref = getref_pdl(it); /* YUCK!!!! */
         sv_setsv(sv,newref);
         SvREFCNT_dec(newref);
@@ -244,76 +74,28 @@ void SetSV_PDL ( SV *sv, pdl *it ) {
 
 /* Size of data type information */
 
-int pdl_howbig (int datatype) {
+size_t pdl_howbig (int datatype) {
     switch (datatype) {
 
 !NO!SUBS!
   ;
 # generate the cases for the various types
 
-for my $type (typesrtkeys()) {
-   my ($sym,$ctype) = map {typefld($type,$_)} qw/sym ctype/;
+for my $type (types()) {
+   my ($sym,$ctype) = map $type->$_, qw/sym ctype/;
    print OUT << "!WITH!SUBS!";
     case $sym:
       return sizeof($ctype);
 !WITH!SUBS!
 }
 
+print OUT sprintf qq{#line %d "%s"\n}, __LINE__ + 2,  __FILE__;
 print OUT <<'!NO!SUBS!';
 
     default:
       croak("Unknown datatype code = %d",datatype);
     }
 }
-
-
-
-
-/* Check minimum datatype required to represent number */
-/* Microsoft compilers do some unbelievable things - hence
-   some #ifdef's inserted by Sisyphus */
-#if defined _MSC_VER && _MSC_VER < 1400
-#define TESTTYPE(b,a) {a foo = nv; a bar = foo; foo += 0; if(nv == bar) return b;}
-#else
-#define TESTTYPE(b,a) {a foo = nv; if(nv == foo) return b;}
-#endif
-#if defined _MSC_VER && _MSC_VER < 1400
-#pragma optimize("", off)
-#endif
-int pdl_whichdatatype (IV nv) {
-!NO!SUBS!
-
-# generate the cases for the various types
-
-for my $type (typesrtkeys()) {
-   my ($sym,$ctype) = map {typefld($type,$_)} qw/sym ctype/;
-   print OUT << "!WITH!SUBS!";
-        TESTTYPE($sym,$ctype)
-!WITH!SUBS!
-}
-
-print OUT <<'!NO!SUBS!';
-
-        croak("Something's gone wrong: %ld cannot be converted by whichdatatype", nv);
-}
-
-/* Check minimum, at least float, datatype required to represent number */
-
-int pdl_whichdatatype_double (NV nv) {
-        TESTTYPE(PDL_F,PDL_Float)
-        TESTTYPE(PDL_D,PDL_Double)
-
-        /* Default return type PDL_Double */
-        return PDL_D;
-}
-
-
-#if defined _MSC_VER && _MSC_VER < 1400
-#pragma optimize("", on)
-#endif
-
-
-
 
 /* Make a scratch dataspace for a scalar pdl */
 
@@ -353,97 +135,67 @@ void pdl_makescratchhash(pdl *ret, PDL_Anyval data) {
    of a single scalar) scalars are automatically converted to PDLs.
 */
 
-pdl* SvPDLV ( SV* sv ) {
+pdl* pdl_SvPDLV ( SV* sv ) {
 
    pdl* ret;
    PDL_Indx fake[1];
    SV *sv2;
 
-   if ( !SvROK(sv) ) {  
+   if ( !SvROK(sv) ) {
       /* The scalar is not a ref, so we can use direct conversion. */
-
-      SV *dat;
       PDL_Anyval data;
-      int datatype;
-      NV tmp_NV;
-      IV tmp_IV;
-
-      ret = pdl_new();  /* Scratch pdl */
-
+      ret = pdl_create(PDL_PERM);  /* Scratch pdl */
       /* Scratch hash for the pdl :( - slow but safest. */
-
-      /* handle undefined values */
-      if( sv_undef(sv) ) {
-          sv = get_sv("PDL::undefval",1);
-          if(SvIV(get_sv("PDL::debug",1))){
-            fprintf(stderr,"Warning: SvPDLV converted undef to $PDL::undefval (%g).\n",SvNV(sv));
-          }
-      }
-
-      /* Figure datatype to use */
-      if ( !SvIOK(sv) )  { /* Perl Double (e.g. 2.0) */
-         tmp_NV = SvNV(sv);
-
-!NO!SUBS!
-
-##########
-# If badvals and usenan are true, we default NaNs to type double. 
-if ( $bvalflag and $usenan ) {
-    print OUT q{
-      /*
-       * default NaN/Infs to double
-       *
-       */
-      if ( finite(tmp_NV) == 0 ) {
-        datatype = PDL_D;
-      } else {
-        datatype = pdl_whichdatatype_double(tmp_NV);
-      }
-   }
-} else {
-   print OUT q{
-        datatype = pdl_whichdatatype_double(tmp_NV);
-
-   }
-} # if: $bvalflag
-
-print OUT <<'!NO!SUBS!';
-        ANYVAL_FROM_CTYPE(data, datatype, tmp_NV);
-     } /* end of Perl Double case for data type */
-     else { /* Perl Int (e.g. 2) */
-        tmp_IV = SvIV(sv);
-        datatype = pdl_whichdatatype(tmp_IV);
-        ANYVAL_FROM_CTYPE(data, datatype, tmp_IV);
-     }
-
-     pdl_makescratchhash(ret, data);
-
-     return ret;
-
+      ANYVAL_FROM_SV(data, sv, TRUE, -1);
+      pdl_makescratchhash(ret, data);
+      return ret;
    } /* End of scalar case */
+
+   if(sv_derived_from(sv, "Math::Complex")) {
+      dSP;
+      int count, i;
+      NV retval;
+      double vals[2];
+      char *meths[] = { "Re", "Im" };
+      PDL_Anyval data;
+      ENTER; SAVETMPS;
+      for (i = 0; i < 2; i++) {
+        PUSHMARK(sp); XPUSHs(sv); PUTBACK;
+        count = perl_call_method(meths[i], G_SCALAR);
+        SPAGAIN;
+        if (count != 1) croak("Failed Math::Complex method '%s'", meths[i]);
+        retval = POPn;
+        vals[i] = (double)retval;
+        PUTBACK;
+      }
+      FREETMPS; LEAVE;
+      ret = pdl_create(PDL_PERM);  /* Scratch pdl */
+      data.type = PDL_CD;
+      data.value.C = (PDL_CDouble)(vals[0] + I * vals[1]);
+      pdl_makescratchhash(ret, data);
+      return ret;
+   }
 
    /* If execution reaches here, then sv is NOT a scalar
     * (i.e. it is a ref).
     */
 
-
-
    if(SvTYPE(SvRV(sv)) == SVt_PVHV) {
         HV *hash = (HV*)SvRV(sv);
-        SV **svp = hv_fetch(hash,"PDL",3,0);
+        SV **svp = hv_fetchs(hash,"PDL",0);
         if(svp == NULL) {
-                croak("Hash given as a pdl - but not {PDL} key!");
+                croak("Hash given as a pdl (%s) - but not {PDL} key!", sv_reftype(SvRV(sv), TRUE));
         }
         if(*svp == NULL) {
-                croak("Hash given as a pdl - but not {PDL} key (*svp)!");
+                croak("Hash given as a pdl (%s) - but not {PDL} key (*svp)!", sv_reftype(SvRV(sv), TRUE));
         }
 
         /* This is the magic hook which checks to see if {PDL}
         is a code ref, and if so executes it. It should
-        return a standard piddle. This allows
+        return a standard ndarray. This allows
         all kinds of funky objects to be derived from PDL,
         and allow normal PDL functions to still work so long
-        as the {PDL} code returns a standard piddle on
+        as the {PDL} code returns a standard ndarray on
         demand - KGB */
 
         if (SvROK(*svp) && SvTYPE(SvRV(*svp)) == SVt_PVCV) {
@@ -509,7 +261,7 @@ print OUT <<'!NO!SUBS!';
 
     /* Final check -- make sure it has the right magic number */
     if(ret->magicno != PDL_MAGICNO) {
-        croak("Fatal error: argument is probably not a piddle, or\
+        croak("Fatal error: argument is probably not an ndarray, or\
  magic no overwritten. You're in trouble, guv: %p %p %lu\n",sv2,ret,ret->magicno);
    }
 
@@ -565,13 +317,13 @@ SV* pdl_copy( pdl* a, char* option ) {
 
 
 
-/* Pack dims array - returns dims[] (pdl_malloced) and ndims */
+/* Pack dims array - returns dims[] (pdl_smalloced) and ndims */
 
-PDL_Indx* pdl_packdims ( SV* sv, int *ndims ) {
+PDL_Indx* pdl_packdims ( SV* sv, PDL_Indx *ndims ) {
 
    SV*  bar;
    AV*  array;
-   int i;
+   PDL_Indx i;
    PDL_Indx *dims;
 
    if (!(SvROK(sv) && SvTYPE(SvRV(sv))==SVt_PVAV))  /* Test */
@@ -579,9 +331,9 @@ PDL_Indx* pdl_packdims ( SV* sv, int *ndims ) {
 
    array = (AV *) SvRV(sv);   /* dereference */
 
-   *ndims = (int) av_len(array) + 1;  /* Number of dimensions */
+   *ndims = (PDL_Indx) av_len(array) + 1;  /* Number of dimensions */
 
-   dims = (PDL_Indx *) pdl_malloc( (*ndims) * sizeof(*dims) ); /* Array space */
+   dims = (PDL_Indx *) pdl_smalloc( (*ndims) * sizeof(*dims) ); /* Array space */
    if (dims == NULL)
       croak("Out of memory");
 
@@ -594,11 +346,11 @@ PDL_Indx* pdl_packdims ( SV* sv, int *ndims ) {
 
 /* unpack dims array into PDL SV* */
 
-void pdl_unpackdims ( SV* sv, PDL_Indx *dims, int ndims ) {
+void pdl_unpackdims ( SV* sv, PDL_Indx *dims, PDL_Indx ndims ) {
 
    AV*  array;
    HV* hash;
-   int i;
+   PDL_Indx i;
 
    hash = (HV*) SvRV( sv );
    array = newAV();
@@ -613,21 +365,21 @@ void pdl_unpackdims ( SV* sv, PDL_Indx *dims, int ndims ) {
 
 PDL_Indx pdl_safe_indterm( PDL_Indx dsz, PDL_Indx at, char *file, int lineno)
 {
-  if (at >= 0 && at < dsz) return at;
-  pdl_barf("access [%d] out of range [0..%d] (inclusive) at %s line %d",
+  if (!(at >= 0 && at < dsz))
+    pdl_pdl_barf("access [%d] out of range [0..%d] (inclusive) at %s line %d",
           at, dsz-1, file?file:"?", lineno);
-  return at; // This can never happen - placed to avoid a compiler warning.
+  return at;
 }
 
 /*
-   pdl_malloc - utility to get temporary memory space. Uses
+   pdl_smalloc - utility to get temporary memory space. Uses
    a mortal *SV for this so it is automatically freed when the current
    context is terminated without having to call free(). Naughty but
    nice!
 */
 
 
-void* pdl_malloc ( STRLEN nbytes ) {
+void* pdl_smalloc ( STRLEN nbytes ) {
     STRLEN n_a;
    SV* work;
 
@@ -643,6 +395,7 @@ void* pdl_malloc ( STRLEN nbytes ) {
    This routine barfs/warns in a thread-safe manner. If we're in the main thread,
    this calls the perl-level barf/warn. If in a worker thread, we save the
    message to barf/warn in the main thread later
+   For greppability: this is where pdl_pdl_barf and pdl_pdl_warn are defined
 */
 
 static void pdl_barf_or_warn(const char* pat, int iswarn, va_list* args)
@@ -674,8 +427,7 @@ static void pdl_barf_or_warn(const char* pat, int iswarn, va_list* args)
 
         PUTBACK;
 
-        if(iswarn) call_pv("PDL::cluck", G_DISCARD);
-        else       call_pv("PDL::barf",  G_DISCARD);
+        call_pv(iswarn ? "PDL::cluck" : "PDL::barf", G_DISCARD);
 
         FREETMPS;
         LEAVE;
@@ -683,30 +435,15 @@ static void pdl_barf_or_warn(const char* pat, int iswarn, va_list* args)
 }
 
 #define GEN_PDL_BARF_OR_WARN_I_STDARG(type, iswarn)     \
-    void pdl_##type(const char* pat, ...)               \
+    void pdl_pdl_##type(const char* pat, ...)           \
     {                                                   \
         va_list args;                                   \
         va_start(args, pat);                            \
         pdl_barf_or_warn(pat, iswarn, &args);           \
     }
 
-#define GEN_PDL_BARF_OR_WARN_LEGACY(type, iswarn)       \
-    void pdl_##type(pat, va_alist)                      \
-        char *pat;                                      \
-        va_dcl                                          \
-    {                                                   \
-        va_list args;                                   \
-        va_start(args);                                 \
-        pdl_barf_or_warn(pat, iswarn, &args);           \
-    }
-
-#ifdef I_STDARG
 GEN_PDL_BARF_OR_WARN_I_STDARG(barf, 0)
 GEN_PDL_BARF_OR_WARN_I_STDARG(warn, 1)
-#else
-GEN_PDL_BARF_OR_WARN_LEGACY(barf, 0)
-GEN_PDL_BARF_OR_WARN_LEGACY(warn, 1)
-#endif
 
 
 /**********************************************************************
@@ -732,11 +469,11 @@ GEN_PDL_BARF_OR_WARN_LEGACY(warn, 1)
  *  Scalars, array refs, and PDLs may be mixed in the incoming AV.
  *
  *  The routine works out the dimensions of a corresponding
- *  piddle (in the AV dims) in reverse notation (vs PDL conventions).
+ *  ndarray (in the AV dims) in reverse notation (vs PDL conventions).
  *
  *  It does not enforce a rectangular array on the input, the idea being that
- *  omitted values will be set to zero or the undefval in the resulting piddle,
- *  i.e. we can make piddles from 'sparse' array refs.
+ *  omitted values will be set to zero or the undefval in the resulting ndarray,
+ *  i.e. we can make ndarrays from 'sparse' array refs.
  *
  *  Empty PDLs are treated like any other dimension -- i.e. their 
  *  0-length dimensions are thrown into the mix just like nonzero 
@@ -759,7 +496,7 @@ PDL_Indx av_ndcheck(AV* av, AV* dims, int level, int *datalevel)
   pdl *dest_pdl;           /* Stores PDL argument */
 
   if(dims==NULL) {
-    pdl_barf("av_ndcheck - got a null dim array! This is a bug in PDL.");
+    pdl_pdl_barf("av_ndcheck - got a null dim array! This is a bug in PDL.");
   }
 
   /* Start with a clean slate */
@@ -780,7 +517,7 @@ PDL_Indx av_ndcheck(AV* av, AV* dims, int level, int *datalevel)
         /* Recurse to find depth inside the array reference */
         newdepth = 1 + av_ndcheck((AV *) SvRV(el), dims, level+1, datalevel);
         
-      } else if ( (dest_pdl = SvPDLV(el)) ) {
+      } else if ( (dest_pdl = pdl_SvPDLV(el)) ) {
         /* It is a PDL - walk down its dimension list, exactly as if it
          * were a bunch of nested array refs.  We pull the ndims and dims
          * fields out to local variables so that nulls can be treated specially.
@@ -927,13 +664,13 @@ pdl* pdl_from_array(AV* av, AV* dims, int type, pdl* p)
   PDL_Anyval undefval = { -1, 0 };
 
   ndims = av_len(dims)+1;
-  pdims = (PDL_Indx *) pdl_malloc( (ndims) * sizeof(*pdims) );
+  pdims = (PDL_Indx *) pdl_smalloc( (ndims) * sizeof(*pdims) );
   for (i=0; i<ndims; i++) {
      pdims[i] = SvIV(*(av_fetch(dims, ndims-1-i, 0))); /* reverse order */
   }
 
   if (p == NULL)
-     p = pdl_new();
+     p = pdl_create(PDL_PERM);
   pdl_setdims (p, pdims, ndims);
   if (type == -1) {
     type = _detect_datatype(av);
@@ -942,27 +679,10 @@ pdl* pdl_from_array(AV* av, AV* dims, int type, pdl* p)
   pdl_allocdata (p);
   pdl_make_physical(p);
 
-  {
-    /******
-     * Copy the undefval to fill empty spots in the piddle...
-     */
-    SV *sv = get_sv("PDL::undefval",0);
-    if ((!sv) || (sv==&PL_sv_undef)) {
-       ANYVAL_FROM_CTYPE(undefval, type, 0);
-    }
-    else {
-       /* Need to set undefvalue from the perl scalar */
-       if (SvIOK(sv)) {
-         ANYVAL_FROM_CTYPE(undefval, type, SvIV(sv));
-       }
-       else if (SvNOK(sv)) {
-         ANYVAL_FROM_CTYPE(undefval, type, SvNV(sv));
-       }
-       else {
-         ANYVAL_FROM_CTYPE(undefval, type, 0); /* this should not happen */
-       }
-    }
-  }
+  /******
+   * Copy the undefval to fill empty spots in the ndarray...
+   */
+  ANYVAL_FROM_SV(undefval, NULL, TRUE, type);
 
   switch (type) {
 !NO!SUBS!
@@ -971,12 +691,12 @@ pdl* pdl_from_array(AV* av, AV* dims, int type, pdl* p)
 # Perl snippet autogenerates switch statement to distribute
 # pdl_setav calls...
 #
-  for my $type(typesrtkeys()){
-    my $t2 = $PDL_DATATYPES{$type};
-    $t2 =~ s/PDL_//;
+  for my $t (types()) {
+    my ($type, $t2, $ppsym) = map $t->$_, qw(sym shortctype ppsym);
+    print OUT sprintf qq{#line %d "%s"\n}, __LINE__ + 2,  __FILE__;
     print OUT <<"!WITH!SUBS!";
   case $type:
-    pdl_setav_$t2(p->data,av,pdims,ndims,level, undefval.value.$PDL::Types::typehash{$type}->{ppsym}, p);
+    pdl_setav_$t2(p->data,av,pdims,ndims,level, undefval.value.$ppsym, p);
     break;
 
 !WITH!SUBS!
@@ -986,6 +706,7 @@ pdl* pdl_from_array(AV* av, AV* dims, int type, pdl* p)
 # Back to your regularly scheduled C code emission...
 ########
 
+  print OUT sprintf qq{#line %d "%s"\n}, __LINE__ + 2,  __FILE__;
   print OUT <<'!NO!SUBS!';
   default:
     croak("pdl_from_array: internal error: got type %d",type);
@@ -1032,10 +753,9 @@ pdl* pdl_from_array(AV* av, AV* dims, int type, pdl* p)
  */
 !NO!SUBS!
 
-for my $in ( typesrtkeys() ) {
+for my $type ( map $_->shortctype, types() ) {
 
-  (my $type = $PDL_DATATYPES{$in}) =~ s/^PDL_//;
-
+print OUT sprintf qq{#line %d "%s"\n}, __LINE__ + 2,  __FILE__;
 print OUT <<"!WITH!SUBS!";
 
 PDL_Indx pdl_kludge_copy_$type(PDL_Indx poff, // Offset into the dest data array
@@ -1077,10 +797,8 @@ PDL_Indx pdl_kludge_copy_$type(PDL_Indx poff, // Offset into the dest data array
       pdlsiz = source_pdl->dims[pdldim];
     }
 
-#if BADVAL
     /* This is used inside the switch in order to detect badvalues. */
     PDL_Anyval source_badval = PDL.get_pdl_badvalue(source_pdl);
-#endif /* BADVAL */
 
     /* This is the actual data-copying code. It is generated with a Perl loop, to
      * ensure that all current PDL types get treated. */
@@ -1092,21 +810,20 @@ PDL_Indx pdl_kludge_copy_$type(PDL_Indx poff, // Offset into the dest data array
         # the source PDL, switch_type gets the Perl name, ppsym gets
         # the symbol need to retrieve from a PDL_Anyval, and type_usenan is a
         # boolean indicating whether this type handles NaNs.
-        foreach my $switch_type ( typesrtkeys() ) {
-
-	    my $ctype = $PDL::Types::typehash{$switch_type}{ctype};
-	    my $stype = $PDL::Types::typehash{$switch_type}{ctype};
-	    $stype =~ s/PDL_//;
-	    my $ppsym = $PDL::Types::typehash{$switch_type}{ppsym};
-	    my $type_usenan = $PDL::Types::typehash{$switch_type}{usenan};
+        foreach my $inner_type ( types() ) {
+	    my $switch_type = $inner_type->sym;
+	    my $ctype = $inner_type->ctype;
+	    my $stype = $inner_type->shortctype;
+	    my $ppsym = $inner_type->ppsym;
 
 	    my $comp_for_nan =
-	          $type_usenan
+	          $inner_type->usenan
 	          # if not equal, check if both are NaN
-	        ? "( !finite( (($ctype *)pptr)[i] ) && !finite(source_badval.value.$ppsym) )"
+	        ? '('.$inner_type->isnan("(($ctype *)pptr)[i]") .' && '.$inner_type->isnan("source_badval.value.$ppsym").')'
 	          # otherwise it must be false
 	        : '0';
 
+        print OUT sprintf qq{#line %d "%s"\n}, __LINE__ + 2,  __FILE__;
         print OUT <<"!WITH!SUBS!";
 
       case ${switch_type}:
@@ -1114,7 +831,6 @@ PDL_Indx pdl_kludge_copy_$type(PDL_Indx poff, // Offset into the dest data array
       i=0;
       if(pptr && pdata && pdlsiz) {
         for(; i<pdlsiz; i++) {
-#if BADVAL
           if(source_pdl->has_badvalue || (source_pdl->state & PDL_BADVAL)) {
               /* Retrieve directly from .value.* instead of using ANYVAL_EQ_ANYVAL */
               if( (($ctype *)pptr)[i] == source_badval.value.$ppsym || $comp_for_nan ) {
@@ -1127,9 +843,6 @@ PDL_Indx pdl_kludge_copy_$type(PDL_Indx poff, // Offset into the dest data array
           } else {
             pdata[i] = (PDL_$type) ((${ctype} *)pptr)[i];
           }
-#else
-          pdata[i] = (PDL_$type) ((${ctype} *)pptr)[i];
-#endif
         } // end of loop over pdlsiz
       } else { 
         // pptr or pdata or pdlsiz are 0
@@ -1149,6 +862,7 @@ PDL_Indx pdl_kludge_copy_$type(PDL_Indx poff, // Offset into the dest data array
 
         } # end of foreach in the perl generator code
 
+      print OUT sprintf qq{#line %d "%s"\n}, __LINE__ + 2,  __FILE__;
       print OUT <<"!WITH!SUBS!";
     default:
       croak("Internal error - please submit a bug report at https://github.com/PDLPorters/pdl/issues:\\n  pdl_kludge_copy: unknown datatype of %d.",(int)(source_pdl->datatype));
@@ -1254,7 +968,7 @@ PDL_Indx pdl_setav_$type(PDL_$type* pdata, AV* av,
 
       /* If the element was a ref but not an AV, then it should be a PDL */
       pdl *pdl;
-      if( (pdl = SvPDLV(el)) ) {
+      if( (pdl = pdl_SvPDLV(el)) ) {
           /* The element was a PDL - use pdl_kludge_copy to copy it into the destination */
           PDL_Indx pd;
           int pddex;
@@ -1265,14 +979,14 @@ PDL_Indx pdl_setav_$type(PDL_$type* pdata, AV* av,
           pd = (pddex >= 0 && pddex < ndims ? pdims[ pddex ] : 0);
           if(!pd)
               pd = 1;
-          undef_count += pdl_kludge_copy_$type(0, pdata,pdims,ndims, level+1, stride / pd , pdl, 0, pdl->data,undefval, p);
+          undef_count += pdl_kludge_copy_$type(0, pdata,pdims,ndims, level+1, stride / pd , pdl, 0, pdl->data, undefval, p);
 
       } else {
         /* The element is a non-PDL, non-AV ref.  Not allowed. */
         croak("Non-array, non-PDL element in list");
       }
     } else { /* el==0 || SvROK(el)==0: this is a scalar or undef element */
-      if( sv_undef(el) ) {  /* undef case */
+      if( PDL_SV_IS_UNDEF(el) ) {  /* undef case */
         *pdata = (PDL_$type) undefval; 
         undef_count++;
 
@@ -1317,11 +1031,11 @@ PDL_Indx pdl_setav_$type(PDL_$type* pdata, AV* av,
     char debug_flag;
     SV *sv;
     sv = get_sv("PDL::debug",0);
-    debug_flag = (sv_undef(sv)) ? 0 : (char)SvIV(sv);
+    debug_flag = (PDL_SV_IS_UNDEF(sv)) ? 0 : (char)SvIV(sv);
 
     if(debug_flag) {
       fflush(stdout);
-      fprintf(stderr,"Warning: pdl_setav_$type converted undef to $PDL::undefval (%g) %ld time%s\\n",(double)undefval,undef_count,undef_count==1?"":"s");
+      fprintf(stderr,"Warning: pdl_setav_$type converted undef to \$PDL::undefval (%g) %ld time%s\\n",(double)undefval,undef_count,undef_count==1?"":"s");
       fflush(stderr);
     }
   }

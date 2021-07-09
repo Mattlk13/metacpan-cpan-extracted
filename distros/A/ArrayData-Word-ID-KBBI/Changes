@@ -1,0 +1,31 @@
+0.004   2021-05-20  Released-By: PERLANCAR; Urgency: medium
+
+	- [ux] Pre-mix the appropriate useful roles for the user instead of
+	  returning a 'barebones' object.
+
+
+0.003   2021-05-18  Released-By: PERLANCAR; Urgency: low
+
+        - No functional changes.
+
+        - [build] Build with updated Pod::Weaver::Plugin::ArrayData to show the
+          use of apply_roles() in Synopsis.
+
+
+0.002   2021-05-11  Released-By: PERLANCAR; Urgency: high
+
+        - Merge releases 0.001 & 0.001.1.
+
+        - [dist] Build with Pod::Weaver::Plugin::ArrayData.
+
+
+0.001.1 2021-05-11  Released-By: PERLANCAR
+
+        - First release.
+
+        - UPDATE: rename release from 0.001 to 0.001.1 due to conflict.
+
+
+0.001   2021-05-07  Released-By: PERLANCAR
+
+        - First release, converted from WordList-ID-KBBI.

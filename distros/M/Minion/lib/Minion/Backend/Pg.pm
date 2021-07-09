@@ -269,13 +269,14 @@ sub _try {
           SELECT 1 FROM minion_jobs WHERE id = ANY (j.parents) AND (
             state = 'active' OR (state = 'failed' AND NOT j.lax)
             OR (state = 'inactive' AND (expires IS NULL OR expires > NOW())))
-        )) AND queue = ANY (?) AND state = 'inactive' AND task = ANY (?) AND (EXPIRES IS NULL OR expires > NOW())
+        )) AND priority >= COALESCE(?, priority) AND queue = ANY (?) AND state = 'inactive' AND task = ANY (?)
+          AND (EXPIRES IS NULL OR expires > NOW())
         ORDER BY priority DESC, id
         LIMIT 1
         FOR UPDATE SKIP LOCKED
       )
-      RETURNING id, args, retries, task}, $id, $options->{id}, $options->{queues} || ['default'],
-    [keys %{$self->minion->tasks}]
+      RETURNING id, args, retries, task}, $id, $options->{id}, $options->{min_priority},
+    $options->{queues} || ['default'], [keys %{$self->minion->tasks}]
   )->expand->hash;
 }
 
@@ -352,6 +353,12 @@ These options are currently available:
 
 Dequeue a specific job.
 
+=item min_priority
+
+  min_priority => 3
+
+Do not dequeue jobs with a lower priority.
+
 =item queues
 
   queues => ['important']
@@ -419,8 +426,7 @@ Delay job for this many seconds (from now), defaults to C<0>.
 
   expire => 300
 
-Job is valid for this many seconds (from now) before it expires. Note that this option is B<EXPERIMENTAL> and might
-change without warning!
+Job is valid for this many seconds (from now) before it expires.
 
 =item lax
 
@@ -446,7 +452,8 @@ can be processed.
 
   priority => 5
 
-Job priority, defaults to C<0>. Jobs with a higher priority get performed first.
+Job priority, defaults to C<0>. Jobs with a higher priority get performed first. Priorities can be positive or negative,
+but should be in the range between C<100> and C<-100>.
 
 =item queue
 
@@ -932,8 +939,7 @@ Delay job for this many seconds (from now), defaults to C<0>.
 
   expire => 300
 
-Job is valid for this many seconds (from now) before it expires. Note that this option is B<EXPERIMENTAL> and might
-change without warning!
+Job is valid for this many seconds (from now) before it expires.
 
 =item lax
 
@@ -1048,6 +1054,6 @@ Unregister worker.
 
 =head1 SEE ALSO
 
-L<Minion>, L<https://minion.pm>, L<Mojolicious::Guides>, L<https://mojolicious.org>.
+L<Minion>, L<Minion::Guide>, L<https://minion.pm>, L<Mojolicious::Guides>, L<https://mojolicious.org>.
 
 =cut

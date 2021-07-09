@@ -1,7 +1,8 @@
-package Dist::Zilla::Plugin::Author::Plicease::Thanks 2.59 {
+package Dist::Zilla::Plugin::Author::Plicease::Thanks 2.66 {
 
-  use 5.014;
+  use 5.020;
   use Moose;
+  use experimental qw( postderef );
 
   with 'Dist::Zilla::Role::MetaProvider';
   with 'Dist::Zilla::Role::FileMunger';
@@ -33,7 +34,7 @@ package Dist::Zilla::Plugin::Author::Plicease::Thanks 2.59 {
   sub munge_files
   {
     my($self) = @_;
-    $self->munge_file($_) for @{ $self->found_files };
+    $self->munge_file($_) for $self->found_files->@*;
   }
 
   sub _escape ($)
@@ -69,9 +70,9 @@ package Dist::Zilla::Plugin::Author::Plicease::Thanks 2.59 {
         push @list, 'Author: ' . _escape $self->current,
                     '';
       }
-      if(@{ $self->contributor } > 0)
+      if($self->contributor->@* > 0)
       {
-        push @list, 'Contributors:', '', map { (_escape $_, '') } @{ $self->contributor };
+        push @list, 'Contributors:', '', map { (_escape $_, '') } $self->contributor->@*;
       }
       return join "\n", @list, '';
     };
@@ -90,7 +91,7 @@ package Dist::Zilla::Plugin::Author::Plicease::Thanks 2.59 {
   {
     my ($self) = @_;
 
-    my @contributors = @{$self->contributor};
+    my @contributors = $self->contributor->@*;
     unshift @contributors, $self->current  if $self->current;
     unshift @contributors, $self->original if $self->original;
 
@@ -115,7 +116,7 @@ Dist::Zilla::Plugin::Author::Plicease::Thanks - munge the AUTHOR section
 
 =head1 VERSION
 
-version 2.59
+version 2.66
 
 =head1 SYNOPSIS
 
@@ -141,7 +142,7 @@ Graham Ollis <plicease@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012,2013,2014,2015,2016,2017,2018,2019,2020 by Graham Ollis.
+This software is copyright (c) 2012,2013,2014,2015,2016,2017,2018,2019,2020,2021 by Graham Ollis.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

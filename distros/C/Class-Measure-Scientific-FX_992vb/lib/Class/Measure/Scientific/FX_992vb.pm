@@ -1,6 +1,6 @@
 # -*- cperl; cperl-indent-level: 4 -*-
-# Copyright (C) 2020, Roland van Ipenburg
-package Class::Measure::Scientific::FX_992vb v0.0.5;
+# Copyright (C) 2020-2021, Roland van Ipenburg
+package Class::Measure::Scientific::FX_992vb v0.0.7;
 use Moose;
 use MooseX::NonMoose;
 use List::MoreUtils qw(uniq);
@@ -8,7 +8,7 @@ extends
   'Class::Measure' => { '-version' => 0.08 },
   'Moose::Object';
 
-use Log::Log4perl qw(:easy get_logger);
+#use Log::Log4perl qw(:resurrect :easy get_logger);
 
 use utf8;
 use 5.016000;
@@ -297,8 +297,10 @@ Readonly::Hash my %LOG   => (
 );
 ## use critic
 
-Log::Log4perl->easy_init($ERROR);
-my $log = get_logger();
+## no critic qw(ProhibitCommentedOutCode)
+###l4p Log::Log4perl->easy_init($ERROR);
+###l4p my $log = get_logger();
+## use critic
 
 for my $type ( keys %TYPES ) {
 
@@ -347,7 +349,7 @@ sub CONST {
         return $CONST[$idx][ $IDX{'multiplier'} ];
     }
     else {
-        $log->error( sprintf $LOG{'CONST'}, $idx + 1 );
+        ###l4p $log->error( sprintf $LOG{'CONST'}, $idx + 1 );
         return;
     }
 }
@@ -359,7 +361,7 @@ sub new {
 
     # Register in the constructor because Class::Measure doesn't allow
     # inheritance of registered data:
-    $log->debug( sprintf $LOG{'UNITS'}, join $SEP, @units );
+    ###l4p $log->debug( sprintf $LOG{'UNITS'}, join $SEP, @units );
     if ( 0 == $class->units() ) {
         $class->reg_units(@units);
         $class->reg_convs(@convs);
@@ -382,7 +384,7 @@ __END__
 
 Ipenburg JIS merchantability fx gradian poundal torr pdl inHg thermo ps BTUlbR
 BTUlb muB magneton gammap gyromagnetic Rinf weber wavenumber luminance lambert
-footlambert candela mol Vm polarizability Ds Neper thermochemical
+footlambert candela mol Vm polarizability Ds Neper thermochemical Bitbucket
 
 =end stopwords
 
@@ -392,7 +394,7 @@ Class::Measure::Scientific::FX_992vb - units of measurement like the CASIO fx-99
 
 =head1 VERSION
 
-This document describes Class::Measure::Scientific::FX_992vb v0.0.5.
+This document describes Class::Measure::Scientific::FX_992vb C<v0.0.7>.
 
 =head1 SYNOPSIS
 
@@ -768,8 +770,6 @@ None.
 
 =item * L<List::MoreUtils>
 
-=item * L<Log::Log4perl>
-
 =back
 
 =head1 INCOMPATIBILITIES
@@ -778,7 +778,7 @@ This module has the same incompatibilities as L<Class::Measure>.
 
 =head1 DIAGNOSTICS
 
-This module uses L<Log::Log4perl> for logging.
+This module uses L<Log::Log4perl> for logging when resurrected.
 
 =head1 BUGS AND LIMITATIONS
 
@@ -834,8 +834,9 @@ C<Class::Measure::Scientific::FX_992vb::a()> as I<7.2973506e-3>
 
 =back
 
-Please report any bugs or feature requests at L<RT for
-rt.cpan.org|https://rt.cpan.org/Public/Dist/Display.html?Name=Class-Measure-Scientific-FX_992vb>.
+Please report any bugs or feature requests at
+L<Bitbucket|
+https://bitbucket.org/rolandvanipenburg/class-measure-scientific-fx_992vb/issues>.
 
 =head1 AUTHOR
 
@@ -843,7 +844,7 @@ Roland van Ipenburg, E<lt>roland@rolandvanipenburg.comE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2020 by Roland van Ipenburg
+Copyright 2020-2021 by Roland van Ipenburg
 This program is free software; you can redistribute it and/or modify
 it under the GNU General Public License v3.0.
 

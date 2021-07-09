@@ -2,7 +2,7 @@ package Dist::Zilla::PluginBundle::Author::GSG;
 
 # ABSTRACT: Grant Street Group CPAN dists
 use version;
-our $VERSION = 'v0.1.3'; # VERSION
+our $VERSION = 'v0.2.0'; # VERSION
 
 use Carp;
 use Git::Wrapper;
@@ -21,6 +21,7 @@ sub mvp_multivalue_args { qw(
     test_compile_module_finder
     test_compile_script_finder
     test_compile_switch
+    dont_munge
 ) }
 
 sub configure {
@@ -46,15 +47,22 @@ sub configure {
 
     $mm->[2]->{eumm_version} = '7.1101';
 
+    my $name = $self->name;
+
     $self->add_plugins(
         'Author::GSG',
 
+        [ 'FileFinder::Filter' => 'MungeableFiles' => {
+            finder => [ ':InstallModules', ':PerlExecFiles' ],
+            %{ $self->config_slice({ dont_munge => 'skip' }) }
+        }],
+
         'MetaJSON',
         [ 'OurPkgVersion' => {
+            finder           => [ "$name/MungeableFiles" ],
             semantic_version => 1,
         } ],
         'Prereqs::FromCPANfile',
-        'ReadmeAnyFromPod',
         $meta_provides,
 
         [ 'StaticInstall' => $self->config_slice( {
@@ -66,11 +74,13 @@ sub configure {
         [ 'ExecDir' => { dir => 'script' } ],
 
         [ 'PodWeaver' => {
+            finder             => [ "$name/MungeableFiles" ],
             replacer           => 'replace_with_comment',
             post_code_replacer => 'replace_with_nothing',
             config_plugin      => [ '@Default', 'Contributors' ]
         } ],
 
+        'ReadmeAnyFromPod',
         [ 'ChangelogFromGit::CPAN::Changes' => {
             file_name    => 'CHANGES',
             # Support both old 0.90 versioning and new v1.2.3 semantic versioning formats
@@ -78,7 +88,7 @@ sub configure {
             copy_to_root => 0,
         } ],
 
-        [ 'GSG::Git::NextVersion' => {
+        [ 'Author::GSG::Git::NextVersion' => {
             first_version  => 'v0.0.1',
             version_regexp => '\b(v\d+\.\d+\.\d+)\b',
         } ],
@@ -235,7 +245,7 @@ sub _get_credentials {
 __PACKAGE__->meta->make_immutable;
 
 package # hide from the CPAN
-    Dist::Zilla::Plugin::GSG::Git::NextVersion;
+    Dist::Zilla::Plugin::Author::GSG::Git::NextVersion;
 use Moose;
 BEGIN { extends 'Dist::Zilla::Plugin::Git::NextVersion' }
 
@@ -247,11 +257,13 @@ before 'provide_version' => sub {
         Carp::croak "Invalid version '$ENV{V}' in \$ENV{V}"
             if @v > 3 or grep /\D/, @v;
 
-        $ENV{V} = sprintf "v%d.%d.%d", @v, 0, 0, 0;
+        # perl v5.22+ complain about too many arguments to printf
+        $ENV{V} = sprintf "v%d.%d.%d", (@v, 0, 0, 0)[0..2];
     }
 };
 
 __PACKAGE__->meta->make_immutable;
+
 1;
 
 __END__
@@ -266,7 +278,7 @@ Dist::Zilla::PluginBundle::Author::GSG - Grant Street Group CPAN dists
 
 =head1 VERSION
 
-version v0.1.3
+version v0.2.0
 
 =head1 SYNOPSIS
 
@@ -305,10 +317,15 @@ Some of which comes from L<Dist::Zilla::Plugin::Author::GSG>.
     ; The defaults for author and license come from
     [Author::GSG]
 
+    [ FileFinder::Filter / MungeableFiles ]
+    finder => :InstallModules
+    finder => :PerlExecFiles
+    ; dont_munge = (?^:bin) # can be used multiple times. passed in as "skip"
+
     [MetaJSON]
     [OurPkgVersion]
+    finder = :MungableFiles
     [Prereqs::FromCPANfile]
-    [ReadmeAnyFromPod]
     [$meta_provides] # defaults to MetaProvides::Package
 
     [StaticInstall]
@@ -318,11 +335,13 @@ Some of which comes from L<Dist::Zilla::Plugin::Author::GSG>.
     [ExecDir]
     dir = script    # in addition to bin/ for StaticInstall compatibility
 
-    [Pod::Weaver]
+    [PodWeaver]
+    finder     = :MungeableFiles
     replacer = replace_with_comment
     post_code_replacer = replace_with_nothing
     config_plugin = [ @Default, Contributors ]
 
+    [ReadmeAnyFromPod]
     [ChangelogFromGit::CPAN::Changes]
     file_name    = CHANGES
     ; Support both old 0.90 versioning and new v1.2.3 semantic versioning formats
@@ -453,6 +472,18 @@ Passed to L<Dist::Zilla::Plugin::Git::GatherDir/exclude_match>.
 All options for L<Dist::Zilla::Plugin::Test::Compile> should be supported
 with the C<test_compile_> prefix.
 
+=item dont_munge
+
+    [@Author::GSG]
+    dont_munge = (?^:one-off)
+    dont_munge = (?^:docs/.*.txt)
+
+Passed to L<Dist::Zilla::Plugin::FileFinder::Filter> as c<skip> for the
+C<MungableFiles> plugin.
+
+This plugin gets passed to L<Dist::Zilla::Plugin::OurPkgVersion> and
+L<Dist::Zilla::Plugin::PodWeaver> as C<finder> to filter matches.
+
 =back
 
 =head1 Setting up a new dist
@@ -486,7 +517,7 @@ might look like this:
         carton exec perl -Ilib -MFile::ShareDir=dist_dir -e \
             'print eval { dist_dir("Dist-Zilla-PluginBundle-Author-GSG") } || "share"' )
 
-    include $(SHARE_DIR)/Makefile
+    include $(SHARE_DIR)/Makefile.inc
 
     # Copy the SHARE_DIR Makefile over this one:
     # Making it .PHONY will force it to copy even if this one is newer.
@@ -607,7 +638,7 @@ Grant Street Group <developers@grantstreet.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2019 - 2020 by Grant Street Group.
+This software is Copyright (c) 2019 - 2021 by Grant Street Group.
 
 This is free software, licensed under:
 

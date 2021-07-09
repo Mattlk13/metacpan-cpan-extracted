@@ -1,7 +1,7 @@
 package App::CompleteCLIs;
 
-our $DATE = '2020-08-02'; # DATE
-our $VERSION = '0.147'; # VERSION
+our $DATE = '2021-05-09'; # DATE
+our $VERSION = '0.150'; # VERSION
 
 use 5.010001;
 use strict;
@@ -22,7 +22,7 @@ App::CompleteCLIs - CLI wrappers for complete_*() functions
 
 =head1 VERSION
 
-This document describes version 0.147 of App::CompleteCLIs (from Perl distribution App-CompleteCLIs), released on 2020-08-02.
+This document describes version 0.150 of App::CompleteCLIs (from Perl distribution App-CompleteCLIs), released on 2021-05-09.
 
 =head1 SYNOPSIS
 
@@ -74,6 +74,8 @@ functions on the command-line.
 
 =item * L<complete-hash-key>
 
+=item * L<complete-idx-listed-stock-code>
+
 =item * L<complete-int>
 
 =item * L<complete-kernel>
@@ -111,6 +113,8 @@ functions on the command-line.
 =item * L<complete-proc-name>
 
 =item * L<complete-program>
+
+=item * L<complete-rclone-remote>
 
 =item * L<complete-regexp-pattern-module>
 
@@ -172,7 +176,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2019, 2017, 2016, 2015, 2014 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2019, 2017, 2016, 2015, 2014 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

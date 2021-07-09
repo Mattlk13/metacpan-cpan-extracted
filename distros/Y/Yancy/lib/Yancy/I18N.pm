@@ -1,5 +1,5 @@
 package Yancy::I18N;
-our $VERSION = '1.068';
+our $VERSION = '1.074';
 # ABSTRACT: Internationalization (i18n) for Yancy
 
 #pod =head1 SYNOPSIS
@@ -62,7 +62,7 @@ Yancy::I18N - Internationalization (i18n) for Yancy
 
 =head1 VERSION
 
-version 1.068
+version 1.074
 
 =head1 SYNOPSIS
 
@@ -113,7 +113,7 @@ Doug Bell <preaction@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Doug Bell.
+This software is copyright (c) 2021 by Doug Bell.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

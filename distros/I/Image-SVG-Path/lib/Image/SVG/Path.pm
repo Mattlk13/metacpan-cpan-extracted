@@ -4,25 +4,26 @@ use strict;
 require Exporter;
 our @ISA = qw(Exporter);
 our @SVG_REGEX = qw/
-		       $closepath
-		       $curveto
-		       $smooth_curveto
-		       $drawto_command
-		       $drawto_commands
-		       $elliptical_arc
-		       $horizontal_lineto
-		       $lineto
-		       $moveto
-		       $quadratic_bezier_curveto
-		       $smooth_quadratic_bezier_curveto
-		       $svg_path
-		       $vertical_lineto
-		   /;
+    $closepath
+    $curveto
+    $smooth_curveto
+    $drawto_command
+    $drawto_commands
+    $elliptical_arc
+    $horizontal_lineto
+    $lineto
+    $moveto
+    $quadratic_bezier_curveto
+    $smooth_quadratic_bezier_curveto
+    $svg_path
+    $vertical_lineto
+/;
 
 our @FUNCTIONS = qw/extract_path_info reverse_path create_path_string/;
 our @EXPORT_OK = (@FUNCTIONS, @SVG_REGEX);
 our %EXPORT_TAGS = (all => \@FUNCTIONS, regex => \@SVG_REGEX);
-our $VERSION = '0.34';
+
+our $VERSION = '0.36';
 
 use Carp;
 
@@ -175,22 +176,21 @@ my $exponent = qr/$e$sign?$ds/x;
 # Floating point constant
 
 my $fpc = qr/
-		$fc 
-		$exponent?
-	    |
-		$ds
-		$exponent
-	    /x;
-
+    $fc 
+    $exponent?
+|
+    $ds
+    $exponent
+/x;
 
 # Non-negative number. $floating_point_constant needs to go before
 # $ds, otherwise it matches the shorter $ds every time.
 
 my $nnn = qr/
-		$fpc
-	    |
-		$ds
-	    /x;
+    $fpc
+|
+    $ds
+/x;
 
 my $number = qr/$sign?$nnn/;
 
@@ -204,68 +204,71 @@ my $numbers = qr/(?:$number$wsp)*$number/;
 
 my $qarg = qr/$pair$comma_wsp?$pair/;
 
-our $quadratic_bezier_curveto = 
-qr/
-      ([Qq])
-      $wsp*
-      (
-	  (?:$qarg $comma_wsp?)*
-	  $qarg
-      )
-  /x;
+our $quadratic_bezier_curveto = qr/
+    ([Qq])
+    $wsp*
+    (
+	(?:$qarg $comma_wsp?)*
+	$qarg
+    )
+/x;
 
 our $smooth_quadratic_bezier_curveto =
 qr/
-      ([Tt])
-      $wsp*
-      (
-	  (?:$pair $comma_wsp?)*
-	  $pair
-      )
-  /x;
+    ([Tt])
+    $wsp*
+    (
+	(?:$pair $comma_wsp?)*
+	$pair
+    )
+/x;
 
 # Cubic bezier curve
 
 my $sarg = qr/$pair$comma_wsp?$pair/;
 
 our $smooth_curveto = qr/
-			    ([Ss])
-			    $wsp*
-			    (
-				(?:
-				    $sarg
-				    $comma_wsp
-				)*
-				$sarg
-			    )
-			/x;
+    ([Ss])
+    $wsp*
+    (
+	(?:
+	    $sarg
+	    $comma_wsp
+	)*
+	$sarg
+    )
+/x;
 
 my $carg = qr/(?:$pair $comma_wsp?){2} $pair/x;
 
 our $curveto = qr/
-		     ([Cc]) 
-		     $wsp*
-		     (
-			 (?:$carg $comma_wsp)*
-			 $carg
-		     )
-		 /x;
+    ([Cc]) 
+    $wsp*
+    (
+	(?:$carg $comma_wsp)*
+	$carg
+    )
+/x;
 
 my $flag = qr/[01]/;
 
+my $cpair = qr/($number)$comma_wsp?($number)/;
+
+# Elliptical arc arguments.
+
 my $eaa = qr/
-		$nnn
-		$comma_wsp?
-		$nnn
-		$comma_wsp?
-		$number
-		$comma_wsp
-		$flag
-		$comma_wsp?
-		$flag
-		$comma_wsp?
-		$pair
-	    /x;
+    ($nnn)
+    $comma_wsp?
+    ($nnn)
+    $comma_wsp?
+    ($number)
+    $comma_wsp
+    ($flag)
+    $comma_wsp?
+    ($flag)
+    $comma_wsp?
+    $cpair
+/x;
 
 our $elliptical_arc = qr/([Aa]) $wsp* ((?:$eaa $comma_wsp?)* $eaa)/x;
 
@@ -278,52 +281,53 @@ our $lineto = qr/([Ll]) $wsp* ($pairs)/x;
 our $closepath = qr/([Zz])/;
 
 our $moveto = qr/
-		    ([Mm]) $wsp* ($pairs)
-		/x;
+    ([Mm]) $wsp* ($pairs)
+/x;
 
 our $drawto_command = qr/
-			    (
-				$closepath
-			    |
-				$lineto
-			    |
-				$horizontal_lineto
-			    |
-				$vertical_lineto
-			    |
-				$curveto
-			    |
-				$smooth_curveto
-			    |
-				$quadratic_bezier_curveto
-			    |
-				$smooth_quadratic_bezier_curveto
-			    |
-				$elliptical_arc
-			    )
-			/x;
+    (
+	$closepath
+    |
+	$lineto
+    |
+	$horizontal_lineto
+    |
+	$vertical_lineto
+    |
+	$curveto
+    |
+	$smooth_curveto
+    |
+	$quadratic_bezier_curveto
+    |
+	$smooth_quadratic_bezier_curveto
+    |
+	$elliptical_arc
+    )
+/x;
 
 our $drawto_commands = qr/
-			     (?:$drawto_command $wsp)*
-			     $drawto_command
-			 /x;
+    (?:$drawto_command $wsp)*
+    $drawto_command
+/x;
+
 our $mdc_group = qr/
-		      $moveto
-		      $wsp*
-		      $drawto_commands
-		  /x;
+    $moveto
+    $wsp*
+    $drawto_commands
+/x;
 
 my $mdc_groups = qr/
-		       $mdc_group+
-		   /x;
+    $mdc_group+
+/x;
 
 our $moveto_drawto_command_groups = $mdc_groups;
 
 our $svg_path = qr/
-		      $wsp*
-		      $mdc_groups?
-		      $wsp*
-		  /x;
+    $wsp*
+    $mdc_groups?
+    $wsp*
+/x;
 
 # Old regex.
 
@@ -367,7 +371,7 @@ sub extract_path_info
     shift @path;
     my $path_pos=0;
     my @curves;
-    while ( $path_pos < scalar @path ) {
+    while ($path_pos < scalar @path) {
         my $command = $path[$path_pos];
         my $values = $path[$path_pos+1];
 	if (! defined $values) {
@@ -383,17 +387,22 @@ sub extract_path_info
     }
     for my $curve_data (@curves) {
         my ($command, $values) = @$curve_data;
-#	print "$curve\n";
-        my @numbers = ($values =~ /($number)/g);
+	my $ucc = uc $command;
+        my @numbers;
+	if ($ucc eq 'A') {
+	    @numbers = ($values =~ /$eaa/g);
+	}
+	else {
+	    @numbers = ($values =~ /($number)/g);
+	}
 	# Remove leading plus signs to keep the same behaviour as
 	# before.
 	@numbers = map {s/^\+//; $_} @numbers;
-#	print "@numbers\n";
         if ($verbose) {
             printf "$me: Extracted %d numbers: %s\n", scalar (@numbers),
 	    join (" ! ", @numbers);
         }
-        if (uc $command eq 'C') {
+        if ($ucc eq 'C') {
             my $expect_numbers = 6;
             if (@numbers % $expect_numbers != 0) {
                 croak "$me: Wrong number of values for a C curve " .
@@ -418,7 +427,7 @@ sub extract_path_info
                 };
             }
         }
-        elsif (uc $command eq 'S') {
+        elsif ($ucc eq 'S') {
             my $expect_numbers = 4;
             if (@numbers % $expect_numbers != 0) {
                 croak "$me: Wrong number of values for an S curve " .
@@ -439,7 +448,7 @@ sub extract_path_info
                 };
             }
         }
-        elsif (uc $command eq 'L') {
+        elsif ($ucc eq 'L') {
             my $expect_numbers = 2;
 	    # Maintain this check here, even though it's duplicated
 	    # inside build_lineto, because it's specific to the lineto
@@ -450,7 +459,7 @@ sub extract_path_info
             my $position = position_type ($command);
 	    push @path_info, build_lineto ($position, @numbers);
         }
-        elsif (uc $command eq 'Z') {
+        elsif ($ucc eq 'Z') {
             if (@numbers > 0) {
                 croak "Wrong number of values for a Z command " .
                     scalar @numbers . " in '$path'";
@@ -463,7 +472,7 @@ sub extract_path_info
 		svg_key => $command,
             }
         }
-        elsif (uc $command eq 'Q') {
+        elsif ($ucc eq 'Q') {
             my $expect_numbers = 4;
             if (@numbers % $expect_numbers != 0) {
                 croak "Wrong number of values for a Q command " .
@@ -482,7 +491,7 @@ sub extract_path_info
                 }
             }
         }
-        elsif (uc $command eq 'T') {
+        elsif ($ucc eq 'T') {
             my $expect_numbers = 2;
             if (@numbers % $expect_numbers != 0) {
                 croak "$me: Wrong number of values for an T command " .
@@ -500,7 +509,7 @@ sub extract_path_info
                 }
             }
         }
-        elsif (uc $command eq 'H') {
+        elsif ($ucc eq 'H') {
             my $position = position_type ($command);
             for (my $i = 0; $i < @numbers; $i++) {
                 push @path_info, {
@@ -512,7 +521,7 @@ sub extract_path_info
                 };
             }
         }
-        elsif (uc $command eq 'V') {
+        elsif ($ucc eq 'V') {
             my $position = position_type ($command);
             for (my $i = 0; $i < @numbers; $i++) {
                 push @path_info, {
@@ -524,11 +533,12 @@ sub extract_path_info
                 };
             }
         }
-        elsif (uc $command eq 'A') {
+        elsif ($ucc eq 'A') {
             my $position = position_type ($command);
             my $expect_numbers = 7;
 	    if (@numbers % $expect_numbers != 0) {
-		croak "$me: Need 7 parameters for arc";
+		my $n = scalar (@numbers);
+		croak "$me: Need multiple of 7 parameters for arc, got $n (@numbers)";
 	    }
             for (my $i = 0; $i < @numbers / $expect_numbers; $i++) {
                 my $o = $expect_numbers * $i;
@@ -541,7 +551,7 @@ sub extract_path_info
                 push @path_info, \%arc;
             }
         }
-	elsif (uc $command eq 'M') {
+	elsif ($ucc eq 'M') {
             my $expect_numbers = 2;
 	    my $position = position_type ($command);
 	    if (@numbers < $expect_numbers) {
@@ -555,7 +565,7 @@ sub extract_path_info
 		type => 'moveto',
 		name => 'moveto',
 		position => $position,
-		point => [@numbers[0,1]],
+		point => [@numbers[0, 1]],
 		svg_key => $command,
 	    };
 	    # M can be followed by implicit line-to commands, so
@@ -600,6 +610,15 @@ sub extract_path_info
                     }
                 }
                 @abs_pos = @{$element->{point}};
+		# It's possible to have a z, followed by an m,
+		# followed by a z.  This occurred with
+		# https://github.com/edent/SuperTinyIcons/blob/master/images/svg/mailchimp.svg
+		# as of commit
+		# https://github.com/edent/SuperTinyIcons/commit/fd79fb48365ee14ace58e8aed5bad046e5b8136c
+		# So we should always have a valid value in
+		# @start_drawing, in case someone makes a useless
+		# "move".
+		@start_drawing = @abs_pos;
             }
             elsif ($element->{type} eq 'line-to') {
                 if ($element->{position} eq 'relative') {

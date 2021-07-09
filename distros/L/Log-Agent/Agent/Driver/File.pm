@@ -258,8 +258,10 @@ sub open_channel {
     # No channel defined, use 'error', or revert to STDERR
     #
 
-    $filename = $self->channels->{'error'} unless
-            defined $filename && length $filename;
+    unless (defined $filename && length $filename) {
+        $filename = $self->channels->{'error'};
+        ($filename, $rotate) = @$filename if ref $filename eq 'ARRAY';
+    }
 
     unless (defined $filename && length $filename) {
         require Log::Agent::Channel::Handle;
@@ -358,6 +360,19 @@ sub logerr {
     my ($str) = @_;
     $self->emit_output('error', "ERROR", $str) if $self->duperr;
     $self->SUPER::logerr($str);
+}
+
+#
+# ->logcluck
+#
+# When `duperr' is true, emit message on the 'output' channel prefixed
+# with WARNING.
+#
+sub logconfess {
+    my $self = shift;
+    my ($str) = @_;
+    $self->emit_output('warning', "WARNING", $str) if $self->duperr;
+    $self->SUPER::logcluck($str);    # Carp strips calls within hierarchy
 }
 
 #

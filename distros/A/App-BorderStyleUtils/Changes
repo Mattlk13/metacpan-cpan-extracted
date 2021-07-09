@@ -1,3 +1,59 @@
+0.012   2021-04-24  Released-By: PERLANCAR; Urgency: low
+
+	- No functional changes.
+
+	- [ux] Add an example for each CLI.
+
+
+0.011   2021-02-04  Released-By: PERLANCAR; Urgency: medium
+
+	- [cli show-border-style][ux] Add legends for each row of border
+	  characters.
+
+
+0.010   2021-01-31  Released-By: PERLANCAR; Urgency: medium
+
+	- [cli show-border-style] Update to BorderStyle 2.0.6, show table with
+	  no header row and another without data row.
+
+
+0.009   2021-01-28  Released-By: PERLANCAR; Urgency: medium
+
+	- [cli show-border-style] Show position/indexes of each border
+	  character.
+
+
+0.008   2021-01-23  Released-By: PERLANCAR; Urgency: medium
+
+	- Fix another typo.
+
+
+0.007   2021-01-23  Released-By: PERLANCAR; Urgency: medium
+
+	- Box chars actually are already supported through BorderStyleBase.
+
+
+0.006   2021-01-23  Released-By: PERLANCAR; Urgency: medium
+
+	- Fix typo.
+
+
+0.005   2021-01-23  Released-By: PERLANCAR; Urgency: medium
+
+	- [ux] [cli show-border-style] Tweak table output to test
+	  alignment, show table without row/column spans as well.
+
+
+0.004   2021-01-23  Released-By: PERLANCAR; Urgency: medium
+
+	- Avoid perl undef warning.
+
+
+0.003   2021-01-23  Released-By: PERLANCAR; Urgency: medium
+
+	- Add CLI: show-border-style.
+
+
 0.002   2020-06-19  Released-By: PERLANCAR; Urgency: medium
 
 	- [cli list-border-style-modules] Now only show BorderStyle::*

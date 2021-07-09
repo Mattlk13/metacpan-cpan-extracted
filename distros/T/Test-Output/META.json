@@ -4,18 +4,18 @@
       "brian d foy <bdfoy@cpan.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 7.04, CPAN::Meta::Converter version 2.140640",
+   "generated_by" : "ExtUtils::MakeMaker version 7.44, CPAN::Meta::Converter version 2.150010",
    "keywords" : [
       "testing",
       "STDOUT",
       "STDERR"
    ],
    "license" : [
-      "perl_5"
+      "artistic_2"
    ],
    "meta-spec" : {
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
-      "version" : "2"
+      "version" : 2
    },
    "name" : "Test-Output",
    "no_index" : {
@@ -43,7 +43,7 @@
       },
       "test" : {
          "requires" : {
-            "Test::More" : "0",
+            "Test::More" : "1",
             "Test::Tester" : "0.107"
          }
       }
@@ -60,5 +60,6 @@
          "web" : "https://github.com/briandfoy/test-output"
       }
    },
-   "version" : "1.031"
+   "version" : "1.033",
+   "x_serialization_backend" : "JSON::PP version 4.04"
 }

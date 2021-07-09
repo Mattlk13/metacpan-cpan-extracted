@@ -1,9 +1,9 @@
 package Data::CSel;
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2020-04-09'; # DATE
+our $DATE = '2021-07-03'; # DATE
 our $DIST = 'Data-CSel'; # DIST
-our $VERSION = '0.123'; # VERSION
+our $VERSION = '0.126'; # VERSION
 
 use 5.020000;
 use strict;
@@ -24,6 +24,8 @@ our @CLASS_PREFIXES;
 
 our $_i1;
 
+sub _fail { die __PACKAGE__.": $_[0] at offset ".pos()."\n" }
+
 our $RE =
     qr{
           (?&SELECTORS) (?{ $_ = $^R->[1] })
@@ -42,7 +44,7 @@ our $RE =
                       })
                   )*
                   \s*
-              )
+              ) # SELECTORS
 
               (?<SELECTOR>
                   (?{ [$^R, []] })
@@ -64,7 +66,7 @@ our $RE =
                           $^R->[0];
                       })
                   )*
-              )
+              ) # SELECTOR
 
               (?<SIMPLE_SELECTOR>
                   (?:
@@ -112,7 +114,7 @@ our $RE =
                           )*
                       )
                   )
-              )
+              ) # SIMPLE_SELECTOR
 
               (?<TYPE_NAME>
                   [A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z0-9_]+)*|\*
@@ -152,7 +154,7 @@ our $RE =
                           $^R->[0];
                       })
                   )
-              )
+              ) # FILTER
 
               (?<ATTR_SELECTOR>
                   \[\s*
@@ -169,7 +171,7 @@ our $RE =
                           \s*(?:=~|!~)\s* |
                           \s*(?:!=|<>|>=?|<=?|==?)\s* |
                           \s++(?:eq|ne|lt|gt|le|ge)\s++ |
-                          \s+(?:isnt|is)\s+
+                          \s+(?:isnt|is|has|hasnt|in|notin)\s+
                       )
                       (?{
                           my $op = $^N;
@@ -193,7 +195,7 @@ our $RE =
                       )
                   )?
                   \s*\]
-              )
+              ) # ATTR_SELECTOR
 
               (?<ATTR_NAME>
                   [A-Za-z_][A-Za-z0-9_]*
@@ -233,7 +235,7 @@ our $RE =
                       )?
                       \s*\)\s*
                   )?
-              )
+              ) # ATTR_SUBJECT
 
               (?<ATTR_SUBJECTS>
                   (?{ $_i1 = 0; [$^R, []] })
@@ -265,9 +267,11 @@ our $RE =
                           $^R->[0];
                       })
                   )*
-              )
+              ) # ATTR_SUBJECTS
 
               (?<LITERAL>
+                  (?&LITERAL_ARRAY)
+              |
                   (?&LITERAL_NUMBER)
               |
                   (?&LITERAL_STRING_DQUOTE)
@@ -281,7 +285,31 @@ our $RE =
                   false (?{ [$^R, 0] })
               |
                   null (?{ [$^R, undef] })
-              )
+              ) # LITERAL
+
+              (?<LITERAL_ARRAY>
+                  \[\s*
+                  (?{ [$^R, []] })
+                  (?:
+                      (?&LITERAL) # [[$^R, []], $val]
+                      (?{ [$^R->[0][0], [$^R->[1]]] })
+                      \s*
+                      (?:
+                          (?:
+                              ,\s* (?&LITERAL)
+                              (?{ push @{$^R->[0][1]}, $^R->[1]; $^R->[0] })
+                          )*
+                      |
+                          (?: [^,\]]|\z ) (?{ _fail "Expected ',' or '\x5d'" })
+                      )
+                  )?
+                  \s*
+                  (?:
+                      \]
+                  |
+                      (?:.|\z) (?{ _fail "Expected closing of array" })
+                  )
+              ) # LITERAL_ARRAY
 
               (?<LITERAL_NUMBER>
                   (
@@ -386,7 +414,7 @@ our $RE =
                           )?
                       )
                   )
-              )
+              ) # PSEUDOCLASS
           ) # DEFINE
   }x;
 
@@ -546,6 +574,38 @@ sub _simpsel {
                     } else {
                         next ITEM unless $val;
                     }
+                } elsif ($op eq 'has') {
+                    next ITEM unless defined $val && ref($val) eq 'ARRAY'
+                        && defined $opv;
+                    if (looks_like_number($opv)) {
+                        next ITEM unless grep { $_ == $opv } @$val;
+                    } else {
+                        next ITEM unless grep { $_ eq $opv } @$val;
+                    }
+                } elsif ($op eq 'hasnt') {
+                    next ITEM unless defined $val && ref($val) eq 'ARRAY'
+                        && defined $opv;
+                    if (looks_like_number($opv)) {
+                        next ITEM if grep { $_ == $opv } @$val;
+                    } else {
+                        next ITEM if grep { $_ eq $opv } @$val;
+                    }
+                } elsif ($op eq 'in') {
+                    next ITEM unless defined $val && defined $opv &&
+                        ref($opv) eq 'ARRAY';
+                    if (looks_like_number($val)) {
+                        next ITEM unless grep { $_ == $val } @$opv;
+                    } else {
+                        next ITEM unless grep { $_ eq $val } @$opv;
+                    }
+                } elsif ($op eq 'notin') {
+                    next ITEM unless defined $val && defined $opv &&
+                        ref($opv) eq 'ARRAY';
+                    if (looks_like_number($val)) {
+                        next ITEM if grep { $_ == $val } @$opv;
+                    } else {
+                        next ITEM if grep { $_ eq $val } @$opv;
+                    }
                 } elsif ($op eq '=~') {
                     next ITEM unless $val =~ $opv;
                 } elsif ($op eq '!~') {
@@ -618,7 +678,13 @@ sub _simpsel {
             } elsif ($pc eq 'nth-last-of-type') {
                 @res = grep { Code::Includable::Tree::NodeMethods::is_nth_last_child_of_type($_, $f->{args}[0]) } @res;
             } elsif ($pc eq 'root') {
-                @res = grep { !$_->parent } @res;
+                @res = grep { Code::Includable::Tree::NodeMethods::is_root($_) } @res;
+            } elsif ($pc eq 'has-min-children') {
+                @res = grep { Code::Includable::Tree::NodeMethods::has_min_children($_, $f->{args}[0]) } @res;
+            } elsif ($pc eq 'has-max-children') {
+                @res = grep { Code::Includable::Tree::NodeMethods::has_max_children($_, $f->{args}[0]) } @res;
+            } elsif ($pc eq 'has-children-between') {
+                @res = grep { Code::Includable::Tree::NodeMethods::has_children_between($_, $f->{args}[0], $f->{args}[1]) } @res;
             } elsif ($pc eq 'empty') {
                 @res = grep { my @c = Code::Includable::Tree::NodeMethods::_children_as_list($_); !@c } @res;
             } elsif ($pc eq 'has') {
@@ -633,6 +699,8 @@ sub _simpsel {
                 my %matches_refaddrs;
                 for (@matches) { $matches_refaddrs{refaddr($_)}++ }
                 @res = grep { !$matches_refaddrs{refaddr($_)} } @res;
+            } elsif ($pc eq 'parent') {
+                @res = _uniq_objects(map { Code::Includable::Tree::NodeMethods::retrieve_parent($_) } @res);
             } else {
                 die "Unsupported pseudo-class '$pc'";
             }
@@ -734,7 +802,7 @@ Data::CSel - Select tree node objects using CSS Selector-like syntax
 
 =head1 VERSION
 
-This document describes version 0.123 of Data::CSel (from Perl distribution Data-CSel), released on 2020-04-09.
+This document describes version 0.126 of Data::CSel (from Perl distribution Data-CSel), released on 2021-07-03.
 
 =head1 SYNOPSIS
 
@@ -860,6 +928,8 @@ example:
 
 will select only objects that has an attribute C<date>, and the value of C<date>
 is an object that has an attribute C<month>, and the value of C<month> is 12.
+When there is a failure in the chain somewhere (e.g. the C<date> object does not
+have the C<month> attribute), the whole expression evaluates to false.
 
 =head3 Literal
 
@@ -908,6 +978,12 @@ more regex modifier characters m, s, i):
 
  //
  /ab(c|d)/i
+
+B<Array>. Examples:
+
+ []
+ [1,2,3]
+ ["foo", "bar","baz"]
 
 =head3 Operators
 
@@ -1140,6 +1216,26 @@ value.
 
 will select all Person objects where age is defined.
 
+=item * C<has> and C<hasnt>
+
+Attribute value must be array. Will evaluate to true if one of the elements
+matches the operand.
+
+Examples:
+
+ Headline[tags has "tag1"]
+ Headline[tags has "tag2"][tags has "tag3"][tags hasnt "tag4"]
+
+=item * C<in> and C<notin>
+
+Operand must be array. Will evaluate to true if one of the elements of array
+matches the attribute value.
+
+Examples:
+
+ Headline[level in [1,2,3]]
+ Headline[level not in [1,2]][tags notin ["old","deprecated"]]
+
 =back
 
 =head2 Class selector
@@ -1253,9 +1349,27 @@ type.
 
 Select only root node(s).
 
+=item * C<:has-min-children(m)>
+
+Select only objects that have at least I<m> direct children.
+
+=item * C<:has-max-children(n)>
+
+Select only objects that have at most I<n> direct children.
+
+=item * C<:has-children-between(m,n)>
+
+Select only objects that have between I<m> and I<n> direct children.
+
+=item * C<:parent>
+
+Select the node's parent.
+
 =item * C<:empty>
 
 Select only leaf node(s).
+
+See also C<:has>.
 
 =item * C<:not(S)>
 
@@ -1281,6 +1395,8 @@ Example:
 
 will select all objects that have a descendant of type C<T>.
 
+See also: C<:parent>.
+
 =back
 
 =head2 Differences with CSS selector
@@ -1304,6 +1420,8 @@ C<[attr =~ /re/]>.
 
 Some CSS pseudo-classes only make sense for a DOM or a visual browser, e.g.
 C<:link>, C<:visited>, C<:hover>, so they are not supported.
+
+CSS selector does not sport C<:parent>.
 
 =head3 There is no concept of CSS namespaces
 
@@ -1527,7 +1645,7 @@ perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020, 2019, 2016 by perlancar@cpan.org.
+This software is copyright (c) 2021, 2020, 2019, 2016 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

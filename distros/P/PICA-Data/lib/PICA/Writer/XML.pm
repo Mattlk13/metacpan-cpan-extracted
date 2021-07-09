@@ -1,7 +1,7 @@
 package PICA::Writer::XML;
 use v5.14.1;
 
-our $VERSION = '1.14';
+our $VERSION = '1.28';
 
 use Scalar::Util qw(reftype);
 use XML::Writer;
@@ -35,7 +35,7 @@ sub write_record {
     foreach my $field (@$record) {
         my $id = $field->[0];
         my @attr = (tag => $field->[0]);
-        if (defined $field->[1] && $field->[1] ne '') {
+        if ($field->[1] > 0) {
             push @attr, occurrence => $field->[1];
             $id = "$id/" . $field->[1];
         }
@@ -50,9 +50,9 @@ sub write_record {
             $sfdef = $fielddef->{subfields};
         }
         $writer->startTag('datafield', @attr);
-        for (my $i = 2; $i < scalar @$field; $i += 2) {
-            my $code  = $field->[$i];
-            my $value = $field->[$i + 1];
+        for (my $i = 3; $i < scalar @$field; $i += 2) {
+            my $code  = $field->[$i - 1];
+            my $value = $field->[$i];
             my @attr  = (code => $code);
             if ($sfdef && $sfdef->{$code}) {
                 foreach (qw(label url pica3)) {

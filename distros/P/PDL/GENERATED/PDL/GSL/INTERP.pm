@@ -4,8 +4,8 @@
 #
 package PDL::GSL::INTERP;
 
-@EXPORT_OK  = qw(  );
-%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+our @EXPORT_OK = qw( );
+our %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
 use PDL::Exporter;
@@ -14,7 +14,7 @@ use DynaLoader;
 
 
    
-   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   our @ISA = ( 'PDL::Exporter','DynaLoader' );
    push @PDL::Core::PP, __PACKAGE__;
    bootstrap PDL::GSL::INTERP ;
 
@@ -63,7 +63,7 @@ integration) as C<$la> and C<$lb>.
 =for ref
 
 The init method initializes a new instance of INTERP. It needs as
-input an interpolation type and two piddles holding the x and y
+input an interpolation type and two ndarrays holding the x and y
 values to be interpolated. The GSL routines require that x be
 monotonically increasing and a quicksort is performed by default to
 ensure that. You can skip the quicksort by passing the option
@@ -229,7 +229,7 @@ sub init{
   else{ $opt = {Sort => 1}; }
   my ($class,$type,$x,$y) = @_;
   if( (ref($x) ne 'PDL') || (ref($y) ne 'PDL') ){
-    barf("Have to pass piddles as arguments to init method\n");
+    barf("Have to pass ndarrays as arguments to init method\n");
   }
   if($$opt{Sort} != 0){
     my $idx = PDL::Ufunc::qsorti($x);

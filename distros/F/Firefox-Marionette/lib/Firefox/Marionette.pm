@@ -8,7 +8,9 @@ use Firefox::Marionette::Cookie();
 use Firefox::Marionette::Window::Rect();
 use Firefox::Marionette::Element::Rect();
 use Firefox::Marionette::Timeouts();
+use Firefox::Marionette::Login();
 use Firefox::Marionette::Capabilities();
+use Firefox::Marionette::Certificate();
 use Firefox::Marionette::Profile();
 use Firefox::Marionette::Proxy();
 use Firefox::Marionette::Exception();
@@ -49,11 +51,12 @@ our @EXPORT_OK =
   qw(BY_XPATH BY_ID BY_NAME BY_TAG BY_CLASS BY_SELECTOR BY_LINK BY_PARTIAL);
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
-our $VERSION = '1.00';
+our $VERSION = '1.08';
 
 sub _ANYPROCESS                     { return -1 }
 sub _COMMAND                        { return 0 }
 sub _DEFAULT_HOST                   { return 'localhost' }
+sub _DEFAULT_PORT                   { return 2828 }
 sub _MARIONETTE_PROTOCOL_VERSION_3  { return 3 }
 sub _WIN32_ERROR_SHARING_VIOLATION  { return 0x20 }
 sub _NUMBER_OF_MCOOKIE_BYTES        { return 16 }
@@ -79,11 +82,12 @@ sub _OLD_PROTOCOL_NAME_INDEX        { return 2 }
 sub _OLD_PROTOCOL_PARAMETERS_INDEX  { return 3 }
 sub _OLD_INITIAL_PACKET_SIZE        { return 66 }
 sub _READ_LENGTH_OF_OPEN3_OUTPUT    { return 50 }
-sub _DEFAULT_WINDOW_WIDTH           { return 1024 }
-sub _DEFAULT_WINDOW_HEIGHT          { return 768 }
+sub _DEFAULT_WINDOW_WIDTH           { return 1920 }
+sub _DEFAULT_WINDOW_HEIGHT          { return 1080 }
 sub _DEFAULT_DEPTH                  { return 24 }
 sub _LOCAL_READ_BUFFER_SIZE         { return 8192 }
 sub _WIN32_PROCESS_INHERIT_FLAGS    { return 0 }
+sub _DEFAULT_CERT_TRUST             { return 'C,,' }
 
 sub _WATERFOX_CURRENT_VERSION_EQUIV {
     return 68;
@@ -96,6 +100,8 @@ sub _WATERFOX_CLASSIC_VERSION_EQUIV {
 my $proxy_name_regex = qr/perl_ff_m_\w+/smx;
 my $local_name_regex = qr/firefox_marionette_local_\w+/smx;
 my $tmp_name_regex   = qr/firefox_marionette_(?:remote|local)_\w+/smx;
+my @sig_nums         = split q[ ], $Config{sig_num};
+my @sig_names        = split q[ ], $Config{sig_name};
 
 sub BY_XPATH {
     Carp::carp(
@@ -157,13 +163,12 @@ sub _download_directory {
     my ($self) = @_;
     my $directory;
     eval {
-        my $context = $self->context();
-        $self->context('chrome');
+        my $context = $self->_context('chrome');
         $directory =
-          $self->script( 'var branch = Components.classes["' . q[@]
+          $self->script( 'let branch = Components.classes["' . q[@]
               . 'mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getBranch(""); return branch.getStringPref ? branch.getStringPref("browser.download.downloadDir") : branch.getComplexValue("browser.download.downloadDir", Components.interfaces.nsISupportsString).data;'
           );
-        $self->context($context);
+        $self->_context($context);
     } or do {
         chomp $EVAL_ERROR;
         Carp::carp(
@@ -526,6 +531,9 @@ sub _init {
     elsif ( $parameters{firefox} ) {
         $self->{firefox_binary} = $parameters{firefox};
     }
+    if ( $parameters{console} ) {
+        $self->{console} = 1;
+    }
 
     if ( defined $parameters{adb} ) {
         $self->_setup_adb( $parameters{adb} );
@@ -791,23 +799,520 @@ sub _compatibility_checks_for_older_marionette {
     return;
 }
 
-sub new {
-    my ( $class, %parameters ) = @_;
-    my $self = $class->_init(%parameters);
-    my @arguments;
+sub profile_directory {
+    my ($self) = @_;
+    return $self->{_profile_directory};
+}
+
+sub _pk11_tokendb_interface_preamble {
+    my ($self) = @_;
+    return <<'_JS_';    # security/manager/ssl/nsIPK11Token.idl
+let pk11db = Components.classes["@mozilla.org/security/pk11tokendb;1"].getService(Components.interfaces.nsIPK11TokenDB);
+let token = pk11db.getInternalKeyToken();
+_JS_
+}
+
+sub pwd_mgr_needs_login {
+    my ($self) = @_;
+    my $script = <<'_JS_';
+if (('hasPassword' in token) && (!token.hasPassword)) {
+  return false;
+} else if (('needsLogin' in token) && (!token.needsLogin())) {
+  return false;
+} else if (token.isLoggedIn()) {
+  return false;
+} else {
+  return true;
+}
+_JS_
+    $self->chrome();
+    my $result = $self->script(
+        $self->_compress_script(
+            $self->_pk11_tokendb_interface_preamble() . $script
+        )
+    );
+    $self->content();
+    return $result;
+}
+
+sub pwd_mgr_logout {
+    my ($self) = @_;
+    my $script = <<'_JS_';
+token.logoutAndDropAuthenticatedResources();
+_JS_
+    $self->chrome();
+    $self->script(
+        $self->_compress_script(
+            $self->_pk11_tokendb_interface_preamble() . $script
+        )
+    );
+    $self->content();
+    return $self;
+}
+
+sub pwd_mgr_lock {
+    my ( $self, $password ) = @_;
+    if ( !defined $password ) {
+        Firefox::Marionette::Exception->throw(
+            'Primary Password has not been provided');
+    }
+    my $script = <<'_JS_';
+if (token.needsUserInit) {
+  token.initPassword(arguments[0]);
+} else {
+  token.changePassword("",arguments[0]);
+}
+_JS_
+    $self->chrome();
+    $self->script(
+        $self->_compress_script(
+            $self->_pk11_tokendb_interface_preamble() . $script
+        ),
+        args => [$password]
+    );
+    $self->content();
+    return $self;
+}
+
+sub pwd_mgr_login {
+    my ( $self, $password ) = @_;
+    if ( !defined $password ) {
+        Firefox::Marionette::Exception->throw(
+            'Primary Password has not been provided');
+    }
+    my $script = <<'_JS_';
+if (token.checkPassword(arguments[0])) {
+  return true;
+} else {
+  return false;
+}
+_JS_
+    $self->chrome();
+    if (
+        $self->script(
+            $self->_compress_script(
+                $self->_pk11_tokendb_interface_preamble() . $script
+            ),
+            args => [$password]
+        )
+      )
+    {
+        $self->content();
+    }
+    else {
+        $self->content();
+        Firefox::Marionette::Exception->throw('Incorrect Primary Password');
+    }
+    return $self;
+}
+
+sub _import_profile_paths {
+    my ( $self, %parameters ) = @_;
+    if ( $parameters{import_profile_paths} ) {
+        foreach my $path ( @{ $parameters{import_profile_paths} } ) {
+            my ( $volume, $directories, $name ) = File::Spec->splitpath($path);
+            my $read_handle = FileHandle->new( $path, Fcntl::O_RDONLY() )
+              or Firefox::Marionette::Exception->throw(
+                "Failed to open '$path' for reading:$EXTENDED_OS_ERROR");
+            my $write_path =
+              File::Spec->catfile( $self->{_profile_directory}, $name );
+            my $write_handle = FileHandle->new(
+                $write_path,
+                Fcntl::O_WRONLY() | Fcntl::O_CREAT() | Fcntl::O_EXCL(),
+                Fcntl::S_IRUSR() | Fcntl::S_IWUSR()
+              )
+              or Firefox::Marionette::Exception->throw(
+                "Failed to open '$write_path' for writing:$EXTENDED_OS_ERROR");
+            my $result;
+            while ( $result =
+                $read_handle->read( my $buffer, _LOCAL_READ_BUFFER_SIZE() ) )
+            {
+                $write_handle->print($buffer)
+                  or Firefox::Marionette::Exception->throw(
+                    "Failed to write to '$write_path':$EXTENDED_OS_ERROR");
+            }
+            defined $result
+              or Firefox::Marionette::Exception->throw(
+                "Failed to read from '$path':$EXTENDED_OS_ERROR");
+            $read_handle->close()
+              or Firefox::Marionette::Exception->throw(
+                "Failed to close '$path':$EXTENDED_OS_ERROR");
+            $write_handle->close()
+              or Firefox::Marionette::Exception->throw(
+                "Failed to close '$write_path':$EXTENDED_OS_ERROR");
+        }
+    }
+    return;
+}
+
+sub _login_interface_preamble {
+    my ($self) = @_;
+
+    return <<'_JS_';    # toolkit/components/passwordmgr/nsILoginManager.idl
+let loginManager = Components.classes["@mozilla.org/login-manager;1"].getService(Components.interfaces.nsILoginManager);
+_JS_
+}
+
+sub fill_login {
+    my ($self) = @_;
+
+    my $found;
+    my $browser_uri = URI->new( $self->uri() );
+  FORM: foreach my $form ( $self->find_tag('form') ) {
+        my $action     = $form->attribute('action');
+        my $action_uri = URI->new_abs( $action, $browser_uri );
+        my $old        = $self->_context('chrome');
+        my @logins     = $self->_translate_firefox_logins(
+            @{
+                $self->script(
+                    $self->_compress_script(
+                        $self->_login_interface_preamble()
+                          . <<"_JS_"), args => [ $browser_uri->scheme() . '://' . $browser_uri->host(), $action_uri->scheme() . '://' . $action_uri->host() ] ) } );
+try {
+    return loginManager.findLogins(arguments[0], arguments[1], null);
+} catch (e) {
+    console.log("Unable to use modern loginManager.findLogins methods:" + e);
+    return loginManager.findLogins({}, arguments[0], arguments[1], null);
+}
+_JS_
+        $self->_context($old);
+        foreach my $login (@logins) {
+            if (
+                ( my $user_field = $form->has_name( $login->user_field ) )
+                && ( my $password_field =
+                    $form->has_name( $login->password_field ) )
+              )
+            {
+                $user_field->type( $login->user() );
+                $password_field->type( $login->password() );
+                $found = 1;
+                last FORM;
+            }
+        }
+    }
+    if ( !$found ) {
+        Firefox::Marionette::Exception->throw(
+            "Unable to fill in form on $browser_uri");
+    }
+    return $self;
+}
+
+sub delete_login {
+    my ( $self, $login ) = @_;
+    my $old = $self->_context('chrome');
+    $self->script(
+        $self->_compress_script(
+            $self->_login_interface_preamble()
+              . $self->_define_login_info_from_blessed_user(
+                'loginInfo', $login
+              )
+              . <<"_JS_"), args => [$login] );
+loginManager.removeLogin(loginInfo);
+_JS_
+    $self->_context($old);
+    return $self;
+}
+
+sub delete_logins {
+    my ($self) = @_;
+    my $old = $self->_context('chrome');
+    $self->script(
+        $self->_compress_script(
+            $self->_login_interface_preamble() . <<"_JS_") );
+loginManager.removeAllLogins();
+_JS_
+    $self->_context($old);
+    return $self;
+}
+
+sub _define_login_info_from_blessed_user {
+    my ( $self, $variable_name, $login ) = @_;
+    return <<"_JS_";
+let $variable_name = Components.classes["\@mozilla.org/login-manager/loginInfo;1"].createInstance(Components.interfaces.nsILoginInfo);
+$variable_name.init(arguments[0].host, ("realm" in arguments[0] && arguments[0].realm !== null ? null : arguments[0].origin || ""), arguments[0].realm, arguments[0].user, arguments[0].password, "user_field" in arguments[0] && arguments[0].user_field !== null ? arguments[0].user_field : "", "password_field" in arguments[0] && arguments[0].password_field !== null ? arguments[0].password_field : "");
+_JS_
+}
+
+sub add_login {
+    my ( $self, @parameters ) = @_;
+    my $login;
+    if ( scalar @parameters == 1 ) {
+        $login = $parameters[0];
+    }
+    else {
+        $login = Firefox::Marionette::Login->new(@parameters);
+    }
+    my $old = $self->_context('chrome');
+    $self->script(
+        $self->_compress_script(
+            $self->_login_interface_preamble()
+              . $self->_define_login_info_from_blessed_user(
+                'loginInfo', $login
+              )
+              . <<"_JS_"), args => [$login] ); # xpcom/ds/nsIWritablePropertyBag2.idl
+loginManager.addLogin(loginInfo);
+let loginMetaInfo = Components.classes["\@mozilla.org/hash-property-bag;1"].createInstance(Components.interfaces.nsIWritablePropertyBag2);
+if ("guid" in arguments[0] && arguments[0].guid !== null) {
+	loginMetaInfo.setPropertyAsAUTF8String("guid", arguments[0].guid);
+}
+if ("creation_in_ms" in arguments[0] && arguments[0].creation_in_ms !== null) {
+	loginMetaInfo.setPropertyAsUint64("timeCreated", arguments[0].creation_in_ms);
+}
+if ("last_used_in_ms" in arguments[0] && arguments[0].last_used_in_ms !== null) {
+	loginMetaInfo.setPropertyAsUint64("timeLastUsed", arguments[0].last_used_in_ms);
+}
+if ("password_changed_in_ms" in arguments[0] && arguments[0].password_changed_in_ms !== null) {
+	loginMetaInfo.setPropertyAsUint64("timePasswordChanged", arguments[0].password_changed_in_ms);
+}
+if ("times_used" in arguments[0] && arguments[0].times_used !== null) {
+	loginMetaInfo.setPropertyAsUint64("timesUsed", arguments[0].times_used);
+}
+loginManager.modifyLogin(loginInfo, loginMetaInfo);
+_JS_
+    $self->_context($old);
+    return $self;
+}
+
+sub _translate_firefox_logins {
+    my ( $self, @results ) = @_;
+    return map {
+        Firefox::Marionette::Login->new(
+            host       => $_->{hostname},
+            user       => $_->{username},
+            password   => $_->{password},
+            user_field => $_->{usernameField} eq q[]
+            ? undef
+            : $_->{usernameField},
+            password_field => $_->{passwordField} eq q[] ? undef
+            : $_->{passwordField},
+            realm  => $_->{httpRealm},
+            origin => exists $_->{formActionOrigin}
+            ? (
+                defined $_->{formActionOrigin} && $_->{formActionOrigin} ne q[]
+                ? $_->{formActionOrigin}
+                : undef
+              )
+            : ( defined $_->{formSubmitURL}
+                  && $_->{formSubmitURL} ne q[] ? $_->{formSubmitURL} : undef ),
+            guid                   => $_->{guid},
+            times_used             => $_->{timesUsed},
+            creation_in_ms         => $_->{timeCreated},
+            last_used_in_ms        => $_->{timeLastUsed},
+            password_changed_in_ms => $_->{timePasswordChanged}
+        )
+    } @results;
+}
+
+sub logins {
+    my ($self) = @_;
+    my $old    = $self->_context('chrome');
+    my $result = $self->script(
+        $self->_compress_script(
+            $self->_login_interface_preamble() . <<"_JS_") );
+return loginManager.getAllLogins({});
+_JS_
+    $self->_context($old);
+    return $self->_translate_firefox_logins( @{$result} );
+}
+
+sub _strip_pem_prefix_whitespace_and_postfix {
+    my ( $self, $pem_encoded_string ) = @_;
+    my $stripped_certificate;
+    if (   ( $pem_encoded_string =~ s/^\-{5}BEGIN[ ]CERTIFICATE\-{5}\s*//smx )
+        && ( $pem_encoded_string =~ s/\s*\-{5}END[ ]CERTIFICATE\-{5}\s*//smx ) )
+    {
+        $stripped_certificate = join q[], split /\s+/smx, $pem_encoded_string;
+    }
+    else {
+        Firefox::Marionette::Exception->throw(
+            'Certificate must be PEM encoded');
+    }
+    return $stripped_certificate;
+}
+
+sub add_certificate {
+    my ( $self, %parameters ) = @_;
+    my $trust = $parameters{trust} ? $parameters{trust} : _DEFAULT_CERT_TRUST();
+    my $import_certificate;
+    if ( $parameters{string} ) {
+        $import_certificate = $self->_strip_pem_prefix_whitespace_and_postfix(
+            $parameters{string} );
+    }
+    elsif ( $parameters{path} ) {
+        my $pem_encoded_certificate =
+          $self->_read_certificate_from_disk( $parameters{path} );
+        $import_certificate = $self->_strip_pem_prefix_whitespace_and_postfix(
+            $pem_encoded_certificate);
+    }
+    else {
+        Firefox::Marionette::Exception->throw(
+'No certificate has been supplied.  Please use the string or path parameters'
+        );
+    }
+    $self->_import_certificate( $import_certificate, $trust );
+    return $self;
+}
+
+sub _certificate_interface_preamble {
+    my ($self) = @_;
+
+    return <<'_JS_';
+let certificateNew = Components.classes["@mozilla.org/security/x509certdb;1"].getService(Components.interfaces.nsIX509CertDB);
+let certificateDatabase = certificateNew;
+try {
+    certificateDatabase = Components.classes["@mozilla.org/security/x509certdb;1"].getService(Components.interfaces.nsIX509CertDB2);
+} catch (e) {
+}
+_JS_
+}
+
+sub _import_certificate {
+    my ( $self, $certificate, $trust ) = @_;
+
+    # security/manager/ssl/nsIX509CertDB.idl
+    my $old    = $self->_context('chrome');
+    my $result = $self->script(
+        $self->_compress_script(
+            $self->_certificate_interface_preamble() . <<"_JS_") );
+certificateDatabase.addCertFromBase64("$certificate", "$trust", "");
+_JS_
+    $self->_context($old);
+    return $result;
+}
+
+sub certificate_as_pem {
+    my ( $self, $certificate ) = @_;
+
+    # security/manager/ssl/nsIX509CertDB.idl
+    # security/manager/ssl/nsIX509Cert.idl
+    my $encoded_db_key = URI::Escape::uri_escape( $certificate->db_key() );
+    my $old            = $self->_context('chrome');
+    my $certificate_base64_string = MIME::Base64::encode_base64(
+        (
+            pack 'C*',
+            @{
+                $self->script(
+                    $self->_compress_script(
+                        $self->_certificate_interface_preamble()
+                          . <<"_JS_") ) } ), q[] );
+return certificateDatabase.findCertByDBKey(decodeURIComponent("$encoded_db_key"), {}).getRawDER({});
+_JS_
+    $self->_context($old);
+
+    my $certificate_in_pem_form =
+        "-----BEGIN CERTIFICATE-----\n"
+      . ( join "\n", unpack '(A64)*', $certificate_base64_string )
+      . "\n-----END CERTIFICATE-----\n";
+    return $certificate_in_pem_form;
+}
+
+sub delete_certificate {
+    my ( $self, $certificate ) = @_;
+
+    # security/manager/ssl/nsIX509CertDB.idl
+    my $encoded_db_key = URI::Escape::uri_escape( $certificate->db_key() );
+    my $old            = $self->_context('chrome');
+    my $certificate_base64_string = $self->script(
+        $self->_compress_script(
+            $self->_certificate_interface_preamble() . <<"_JS_") );
+let certificate = certificateDatabase.findCertByDBKey(decodeURIComponent("$encoded_db_key"), {});
+return certificateDatabase.deleteCertificate(certificate);
+_JS_
+    $self->_context($old);
+    return $self;
+}
+
+sub certificates {
+    my ($self)       = @_;
+    my $old          = $self->_context('chrome');
+    my $certificates = $self->script(
+        $self->_compress_script(
+            $self->_certificate_interface_preamble() . <<'_JS_') );
+let result = certificateDatabase.getCerts();
+if (Array.isArray(result)) {
+    return result;
+} else {
+    let certEnum = result.getEnumerator();
+    let certificates = new Array();
+    while(certEnum.hasMoreElements()) {
+        certificates.push(certEnum.getNext().QueryInterface(Components.interfaces.nsIX509Cert));
+    }
+    return certificates;
+}
+_JS_
+    $self->_context($old);
+    my @certificates;
+    foreach my $certificate ( @{$certificates} ) {
+        push @certificates, Firefox::Marionette::Certificate->new($certificate);
+    }
+    return @certificates;
+}
+
+sub _read_certificate_from_disk {
+    my ( $self, $path ) = @_;
+    my $handle = FileHandle->new( $path, Fcntl::O_RDONLY() )
+      or Firefox::Marionette::Exception->throw(
+        "Failed to open certificate '$path' for reading:$EXTENDED_OS_ERROR");
+    my $certificate = q[];
+    my $result;
+    while ( $result = $handle->read( my $buffer, _LOCAL_READ_BUFFER_SIZE() ) ) {
+        $certificate .= $buffer;
+    }
+    defined $result
+      or Firefox::Marionette::Exception->throw(
+        "Failed to read from '$path':$EXTENDED_OS_ERROR");
+    $handle->close()
+      or Firefox::Marionette::Exception->throw(
+        "Failed to close '$path':$EXTENDED_OS_ERROR");
+    return $certificate;
+}
+
+sub _read_certificates_from_disk {
+    my ( $self, $trust ) = @_;
+    my @certificates;
+    if ($trust) {
+        if ( ref $trust ) {
+            foreach my $path ( @{$trust} ) {
+                my $certificate = $self->_read_certificate_from_disk($path);
+                push @certificates, $certificate;
+            }
+        }
+        else {
+            my $certificate = $self->_read_certificate_from_disk($trust);
+            push @certificates, $certificate;
+        }
+    }
+    return @certificates;
+}
+
+sub _launch_and_connect {
+    my ( $self, %parameters ) = @_;
     my ( $session_id, $capabilities );
     if ( $parameters{reconnect} ) {
 
         ( $session_id, $capabilities ) = $self->_reconnect(%parameters);
     }
     else {
-        @arguments = $self->_setup_arguments(%parameters);
+        my @certificates =
+          $self->_read_certificates_from_disk( $parameters{trust} );
+        my @arguments = $self->_setup_arguments(%parameters);
+        $self->_import_profile_paths(%parameters);
         $self->_launch(@arguments);
         my $socket = $self->_setup_local_connection_to_firefox(@arguments);
         ( $session_id, $capabilities ) =
           $self->_initial_socket_setup( $socket, $parameters{capabilities} );
+        foreach my $certificate (@certificates) {
+            $self->add_certificate(
+                string => $certificate,
+                trust  => _DEFAULT_CERT_TRUST()
+            );
+        }
     }
+    return ( $session_id, $capabilities );
+}
 
+sub _check_protocol_version_and_pid {
+    my ( $self, $session_id, $capabilities ) = @_;
     if ( ($session_id) && ($capabilities) && ( ref $capabilities ) ) {
     }
     elsif (( $self->marionette_protocol() <= _MARIONETTE_PROTOCOL_VERSION_3() )
@@ -824,6 +1329,11 @@ sub new {
     else {
         $self->_check_initial_firefox_pid($capabilities);
     }
+    return;
+}
+
+sub _post_launch_checks_and_setup {
+    my ( $self, %parameters ) = @_;
     $self->_write_local_proxy( $self->_ssh() );
     $self->_check_timeout_parameters(%parameters);
     if ( $self->{_har} ) {
@@ -852,6 +1362,16 @@ sub new {
             "Failed to close '$path':$EXTENDED_OS_ERROR");
         $self->install( $path, 0 );
     }
+    return;
+}
+
+sub new {
+    my ( $class, %parameters ) = @_;
+    my $self = $class->_init(%parameters);
+    my ( $session_id, $capabilities ) = $self->_launch_and_connect(%parameters);
+    $self->_check_protocol_version_and_pid( $session_id, $capabilities );
+    $self->_post_launch_checks_and_setup(%parameters);
+
     return $self;
 }
 
@@ -926,10 +1446,11 @@ sub _clean_local_extension_directory {
 
 sub har {
     my ($self)  = @_;
-    my $context = $self->context('content');
-    my $log     = $self->script(
-        'return (async function() { return await HAR.triggerExport() })();');
-    $self->context($context);
+    my $context = $self->_context('content');
+    my $log     = $self->script(<<'_JS_');
+return (async function() { return await HAR.triggerExport() })();
+_JS_
+    $self->_context($context);
     return { log => $log };
 }
 
@@ -1056,10 +1577,17 @@ sub _setup_arguments {
     if ( defined $self->{window_height} ) {
         push @arguments, '-height', $self->{window_height};
     }
+    if ( defined $self->{console} ) {
+        push @arguments, '--jsconsole';
+    }
     push @arguments, $self->_check_addons(%parameters);
     push @arguments, $self->_check_visible(%parameters);
     if ( $parameters{profile_name} ) {
         $self->{profile_name} = $parameters{profile_name};
+        $self->{_profile_directory} =
+          Firefox::Marionette::Profile->directory( $parameters{profile_name} );
+        $self->{profile_path} =
+          File::Spec->catfile( $self->{_profile_directory}, 'prefs.js' );
         push @arguments, ( '-P', $self->{profile_name} );
     }
     else {
@@ -1135,49 +1663,8 @@ _RDF_
         if ( $self->{_har} ) {
             push @arguments, '--devtools';
         }
-        if ( $parameters{trust} ) {
-            $self->_add_certificates( $profile_directory, %parameters );
-        }
     }
     return @arguments;
-}
-
-sub _add_certificates {
-    my ( $self, $profile_directory, %parameters ) = @_;
-    my @paths;
-    if ( ref $parameters{trust} ) {
-        @paths = @{ $parameters{trust} };
-    }
-    else {
-        @paths = ( $parameters{trust} );
-    }
-    $self->{_trust_count} ||= 0;
-    foreach my $path (@paths) {
-        $self->{_trust_count} += 1;
-        if ( $self->_ssh() ) {
-            $self->{_cert_directory} = $self->_make_remote_directory(
-                $self->_remote_catfile( $self->{_root_directory}, 'certs' ) );
-            my $remote_path = $self->_remote_catfile( $self->{_cert_directory},
-                'root_ca_' . $self->{_trust_count} . '.cer' );
-            my $handle = FileHandle->new( $path, Fcntl::O_RDONLY() )
-              or Firefox::Marionette::Exception->throw(
-                "Failed to open '$path' for reading:$EXTENDED_OS_ERROR");
-            $self->_put_file_via_scp( $handle, $remote_path, $path );
-            $path = $remote_path;
-        }
-        foreach my $type (qw(dbm sql)) {
-            my $binary    = 'certutil';
-            my @arguments = (
-                '-A',
-                '-d' => $type . q[:] . $profile_directory,
-                '-i' => $path,
-                '-n' => 'Firefox::Marionette Root CA ' . $self->{_trust_count},
-                '-t' => 'TC,,',
-            );
-            $self->execute( $binary, @arguments );
-        }
-    }
-    return;
 }
 
 sub _write_mime_types_via_ssh {
@@ -1409,6 +1896,11 @@ sub _search_for_version_in_application_ini {
             my $config =
               Config::INI::Reader->read_handle($application_ini_handle);
             if ( my $app = $config->{App} ) {
+                if ( $app->{SourceRepository} eq
+                    'https://hg.mozilla.org/releases/mozilla-beta' )
+                {
+                    $self->{developer_edition} = 1;
+                }
                 return join q[ ], $app->{Vendor}, $app->{Name}, $app->{Version};
             }
         }
@@ -1763,14 +2255,14 @@ sub _launch {
         && ( $self->_xvfb_exists() )
         && ( $self->_launch_xvfb_if_not_present() ) )
     { # if not MacOS or Win32 and no DISPLAY variable, launch Xvfb if at all possible
-        local $ENV{DISPLAY}    = $self->_xvfb_display();
-        local $ENV{XAUTHORITY} = $self->_xvfb_xauthority();
+        local $ENV{DISPLAY}    = $self->xvfb_display();
+        local $ENV{XAUTHORITY} = $self->xvfb_xauthority();
         local $ENV{TMPDIR}     = $self->_local_firefox_tmp_directory();
         $self->{_firefox_pid} = $self->_launch_unix(@arguments);
     }
     elsif ( $self->{_launched_xvfb_anyway} ) {
-        local $ENV{DISPLAY}    = $self->_xvfb_display();
-        local $ENV{XAUTHORITY} = $self->_xvfb_xauthority();
+        local $ENV{DISPLAY}    = $self->xvfb_display();
+        local $ENV{XAUTHORITY} = $self->xvfb_xauthority();
         local $ENV{TMPDIR}     = $self->_local_firefox_tmp_directory();
         $self->{_firefox_pid} = $self->_launch_unix(@arguments);
     }
@@ -1860,7 +2352,10 @@ sub _xvfb_exists {
 
 sub xvfb {
     my ($self) = @_;
-    return $self->{_xvfb_pid};
+    Carp::carp(
+'**** DEPRECATED METHOD - using xvfb() HAS BEEN REPLACED BY xvfb_pid ****'
+    );
+    return $self->xvfb_pid();
 }
 
 sub _launch_xauth {
@@ -1934,12 +2429,17 @@ sub _launch_xauth {
     return;
 }
 
-sub _xvfb_display {
+sub xvfb_pid {
+    my ($self) = @_;
+    return $self->{_xvfb_pid};
+}
+
+sub xvfb_display {
     my ($self) = @_;
     return ":$self->{_xvfb_display_number}";
 }
 
-sub _xvfb_xauthority {
+sub xvfb_xauthority {
     my ($self) = @_;
     return File::Spec->catfile( $self->{_xvfb_authority_directory},
         'Xauthority' );
@@ -2014,8 +2514,8 @@ sub _launch_xvfb {
           or Firefox::Marionette::Exception->throw(
 "Failed to create directory $self->{_xvfb_authority_directory}:$EXTENDED_OS_ERROR"
           );
-        local $ENV{DISPLAY}    = $self->_xvfb_display();
-        local $ENV{XAUTHORITY} = $self->_xvfb_xauthority();
+        local $ENV{DISPLAY}    = $self->xvfb_display();
+        local $ENV{XAUTHORITY} = $self->xvfb_xauthority();
         if ( $self->_launch_xauth($display_number) ) {
             return 1;
         }
@@ -2635,7 +3135,6 @@ sub child_error {
 
 sub _signal_name {
     my ( $proto, $number ) = @_;
-    my @sig_names = split q[ ], $Config{sig_name};
     return $sig_names[$number];
 }
 
@@ -2705,7 +3204,7 @@ sub _reap {
             if ( ( $ssh->{pid} ) && ( $pid == $ssh->{pid} ) ) {
                 $self->{_child_error} = $CHILD_ERROR;
             }
-            elsif ( ( $self->xvfb() ) && ( $pid == $self->xvfb() ) ) {
+            elsif ( ( $self->xvfb_pid() ) && ( $pid == $self->xvfb_pid() ) ) {
                 $self->{_xvfb_child_error} = $CHILD_ERROR;
                 delete $self->{xvfb_pid};
                 delete $self->{_xvfb_display_number};
@@ -2724,7 +3223,7 @@ sub _reap {
             {
                 $self->{_child_error} = $CHILD_ERROR;
             }
-            elsif ( ( $self->xvfb() ) && ( $pid == $self->xvfb() ) ) {
+            elsif ( ( $self->xvfb_pid() ) && ( $pid == $self->xvfb_pid() ) ) {
                 $self->{_xvfb_child_error} = $CHILD_ERROR;
                 delete $self->{xvfb_pid};
                 delete $self->{_xvfb_display_number};
@@ -3904,7 +4403,8 @@ sub _get_marionette_port {
     }
     else {
         my $profile_handle =
-          FileHandle->new( $self->{profile_path}, Fcntl::O_RDONLY() )
+             FileHandle->new( $self->{profile_path}, Fcntl::O_RDONLY() )
+          or ( $OS_ERROR == POSIX::ENOENT() )
           or ( ( $OSNAME eq 'MSWin32' )
             && ( $EXTENDED_OS_ERROR == _WIN32_ERROR_SHARING_VIOLATION() ) )
           or Firefox::Marionette::Exception->throw(
@@ -3922,6 +4422,11 @@ sub _get_marionette_port {
               or Firefox::Marionette::Exception->throw(
                 "Failed to close '$self->{profile_path}':$EXTENDED_OS_ERROR");
         }
+    }
+    if ( defined $port ) {
+    }
+    else {
+        $port = _DEFAULT_PORT();
     }
     return $port;
 }
@@ -4459,31 +4964,33 @@ sub _validate_request_header_merge {
 
 sub _set_headers {
     my ($self) = @_;
-    $self->context('chrome');
+    my $old    = $self->_context('chrome');
     my $script = <<'_JS_';
-if (typeof PerlFirefoxMarionette == "undefined" ) {
-    PerlFirefoxMarionette = {};
-} else {
-    PerlFirefoxMarionette.headers.unregister();
-}
-PerlFirefoxMarionette.headers =
-{ 
+(function() {
+    let observerService = Components.classes["@mozilla.org/observer-service;1"].getService(Components.interfaces.nsIObserverService);
+    let iterator = observerService.enumerateObservers("http-on-modify-request");
+    while (iterator.hasMoreElements()) {
+        observerService.removeObserver(iterator.getNext(), "http-on-modify-request");
+    }
+})();
+
+({
   observe: function(subject, topic, data) {
     this.onHeaderChanged(subject.QueryInterface(Components.interfaces.nsIHttpChannel), topic, data);
   },
 
   register: function() {
-    var observerService = Components.classes["@mozilla.org/observer-service;1"].getService(Components.interfaces.nsIObserverService);
+    let observerService = Components.classes["@mozilla.org/observer-service;1"].getService(Components.interfaces.nsIObserverService);
     observerService.addObserver(this, "http-on-modify-request", false);
   },
 
   unregister: function() {
-    var observerService = Components.classes["@mozilla.org/observer-service;1"].getService(Components.interfaces.nsIObserverService);
+    let observerService = Components.classes["@mozilla.org/observer-service;1"].getService(Components.interfaces.nsIObserverService);
     observerService.removeObserver(this, "http-on-modify-request");
   },
 
   onHeaderChanged: function(channel, topic, data) {
-    var host = channel.URI.host;
+    let host = channel.URI.host;
 _JS_
     foreach my $name ( sort { $a cmp $b } keys %{ $self->{_headers} } ) {
         my @headers      = @{ $self->{_headers}->{$name} };
@@ -4541,15 +5048,20 @@ _JS_
     }
     $script .= <<'_JS_';
   }
-};
-
-PerlFirefoxMarionette.headers.register();
+}).register();
 _JS_
+    $self->script( $self->_compress_script($script) );
+    $self->_context($old);
+    return;
+}
+
+sub _compress_script {
+    my ( $self, $script ) = @_;
+    $script =~ s/\/[*].*?[*]\///smxg;
+    $script =~ s/\/\/.*$//smxg;
     $script =~ s/[\r\n\t]+/ /smxg;
     $script =~ s/[ ]+/ /smxg;
-    $self->script($script);
-    $self->context('content');
-    return;
+    return $script;
 }
 
 sub is_selected {
@@ -5420,8 +5932,8 @@ sub pdf {
         return MIME::Base64::decode_base64($content);
     }
     else {
-        my $handle = File::Temp::tempfile(
-            File::Spec->catfile(
+        my $handle = File::Temp->new(
+            TEMPLATE => File::Spec->catfile(
                 File::Spec->tmpdir(), 'firefox_marionette_print_XXXXXXXXXXX'
             )
           )
@@ -5483,8 +5995,8 @@ sub selfie {
         return MIME::Base64::decode_base64($content);
     }
     else {
-        my $handle = File::Temp::tempfile(
-            File::Spec->catfile(
+        my $handle = File::Temp->new(
+            TEMPLATE => File::Spec->catfile(
                 File::Spec->tmpdir(), 'firefox_marionette_selfie_XXXXXXXXXXX'
             )
           )
@@ -5532,6 +6044,137 @@ sub chrome_window_handle {
     );
     my $response = $self->_get_response($message_id);
     return $self->_response_result_value($response);
+}
+
+sub key_down {
+    my ( $self, $key ) = @_;
+    return { type => 'keyDown', value => $key };
+}
+
+sub key_up {
+    my ( $self, $key ) = @_;
+    return { type => 'keyUp', value => $key };
+}
+
+sub pause {
+    my ( $self, $duration ) = @_;
+    return { type => 'pause', duration => $duration };
+}
+
+sub mouse_move {
+    my ( $self, @parameters ) = @_;
+    my %arguments;
+    if ( $parameters[0]->isa('Firefox::Marionette::Element') ) {
+        my $rect = $parameters[0]->rect();
+        $arguments{x} = $rect->pos_x() + ( $rect->width() / 2 );
+        if ( $arguments{x} != int $arguments{x} ) {
+            $arguments{x} = int $arguments{x} + 1;
+        }
+        $arguments{y} = $rect->pos_y() + ( $rect->height() / 2 );
+        if ( $arguments{y} != int $arguments{y} ) {
+            $arguments{y} = int $arguments{y} + 1;
+        }
+    }
+    else {
+        %arguments = @parameters;
+    }
+    return { type => 'pointerMove', pointerType => 'mouse', %arguments };
+}
+
+sub mouse_down {
+    my ( $self, $button ) = @_;
+    return {
+        type        => 'pointerDown',
+        pointerType => 'mouse',
+        button      => ( $button || 0 )
+    };
+}
+
+sub mouse_up {
+    my ( $self, $button ) = @_;
+    return {
+        type        => 'pointerUp',
+        pointerType => 'mouse',
+        button      => ( $button || 0 )
+    };
+}
+
+sub perform {
+    my ( $self, @actions ) = @_;
+    my $message_id = $self->_new_message_id();
+    my $previous_type;
+    my @action_sequence;
+    foreach my $parameter_action (@actions) {
+        my $marionette_action = {};
+        foreach my $key ( sort { $a cmp $b } keys %{$parameter_action} ) {
+            $marionette_action->{$key} = $parameter_action->{$key};
+        }
+        my $type;
+        my %arguments;
+        if (   ( $marionette_action->{type} eq 'keyUp' )
+            || ( $marionette_action->{type} eq 'keyDown' ) )
+        {
+            $type = 'key';
+        }
+        elsif (( $marionette_action->{type} eq 'pointerMove' )
+            || ( $marionette_action->{type} eq 'pointerDown' )
+            || ( $marionette_action->{type} eq 'pointerUp' ) )
+        {
+            $type = 'pointer';
+            %arguments =
+              ( pointerType => delete $marionette_action->{pointerType} );
+        }
+        elsif ( $marionette_action->{type} eq 'pause' ) {
+            if ( defined $previous_type ) {
+                $type = $previous_type;
+            }
+            else {
+                $type = 'none';
+            }
+        }
+        else {
+            Firefox::Marionette::Exception->throw(
+'Unknown action type in sequence.  keyUp, keyDown, pointerMove, pointerDown, pointerUp or pause are the only known types'
+            );
+        }
+        $self->{next_action_sequence_id}++;
+        my $id = $self->{next_action_sequence_id};
+        if ( ( defined $previous_type ) && ( $type eq $previous_type ) ) {
+            push @{ $action_sequence[-1]{actions} }, $marionette_action;
+        }
+        else {
+            push @action_sequence,
+              {
+                type => $type,
+                id   => 'seq' . $id,
+                %arguments, actions => [$marionette_action]
+              };
+        }
+        $previous_type = $type;
+    }
+    $self->_send_request(
+        [
+            _COMMAND(), $message_id,
+            $self->_command('WebDriver:PerformActions'),
+            { actions => \@action_sequence },
+
+        ]
+    );
+    my $response = $self->_get_response($message_id);
+    return $self;
+}
+
+sub release {
+    my ( $self, @actions ) = @_;
+    my $message_id = $self->_new_message_id();
+    $self->_send_request(
+        [
+            _COMMAND(), $message_id, $self->_command('WebDriver:ReleaseActions')
+        ]
+    );
+    my $response = $self->_get_response($message_id);
+    $self->{next_action_sequence_id} = 0;
+    return $self;
 }
 
 sub chrome_window_handles {
@@ -5678,6 +6321,54 @@ sub attribute {
     return $self->_response_result_value($response);
 }
 
+sub has {
+    my ( $self, $value, $using, $from ) = @_;
+    return $self->_find( $value, $using, $from,
+        { return_undef_if_no_such_element => 1 } );
+}
+
+sub has_id {
+    my ( $self, $value, $from ) = @_;
+    return $self->_find( $value, 'id', $from,
+        { return_undef_if_no_such_element => 1 } );
+}
+
+sub has_name {
+    my ( $self, $value, $from ) = @_;
+    return $self->_find( $value, 'name', $from,
+        { return_undef_if_no_such_element => 1 } );
+}
+
+sub has_tag {
+    my ( $self, $value, $from ) = @_;
+    return $self->_find( $value, 'tag name', $from,
+        { return_undef_if_no_such_element => 1 } );
+}
+
+sub has_class {
+    my ( $self, $value, $from ) = @_;
+    return $self->_find( $value, 'class name', $from,
+        { return_undef_if_no_such_element => 1 } );
+}
+
+sub has_selector {
+    my ( $self, $value, $from ) = @_;
+    return $self->_find( $value, 'css selector', $from,
+        { return_undef_if_no_such_element => 1 } );
+}
+
+sub has_link {
+    my ( $self, $value, $from ) = @_;
+    return $self->_find( $value, 'link text', $from,
+        { return_undef_if_no_such_element => 1 } );
+}
+
+sub has_partial {
+    my ( $self, $value, $from ) = @_;
+    return $self->_find( $value, 'partial link text',
+        $from, { return_undef_if_no_such_element => 1 } );
+}
+
 sub find_element {
     my ( $self, $value, $using ) = @_;
     Carp::carp(
@@ -5782,7 +6473,7 @@ sub find_by_partial {
 }
 
 sub _find {
-    my ( $self, $value, $using, $from ) = @_;
+    my ( $self, $value, $using, $from, $options ) = @_;
     $using ||= 'xpath';
     my $message_id = $self->_new_message_id();
     my $parameters = { using => $using, value => $value };
@@ -5800,8 +6491,12 @@ sub _find {
     $self->_send_request(
         [ _COMMAND(), $message_id, $self->_command($command), $parameters, ] );
     my $response =
-      $self->_get_response( $message_id, { using => $using, value => $value } );
+      $self->_get_response( $message_id, { using => $using, value => $value },
+        $options );
     if (wantarray) {
+        if ( $response->ignored_exception() ) {
+            return ();
+        }
         if ( $self->marionette_protocol() == _MARIONETTE_PROTOCOL_VERSION_3() )
         {
             return
@@ -5825,6 +6520,9 @@ sub _find {
         }
     }
     else {
+        if ( $response->ignored_exception() ) {
+            return;
+        }
         if (
             (
                 $self->marionette_protocol() == _MARIONETTE_PROTOCOL_VERSION_3()
@@ -6236,7 +6934,7 @@ sub _terminate_process {
 
 sub _terminate_xvfb {
     my ($self) = @_;
-    if ( my $pid = $self->xvfb() ) {
+    if ( my $pid = $self->xvfb_pid() ) {
         my $int_signal = $self->_signal_number('INT');
         while ( kill 0, $pid ) {
             kill $int_signal, $pid;
@@ -6247,7 +6945,24 @@ sub _terminate_xvfb {
     return;
 }
 
+sub content {
+    my ($self) = @_;
+    $self->_context('content');
+    return $self;
+}
+
+sub chrome {
+    my ($self) = @_;
+    $self->_context('chrome');
+    return $self;
+}
+
 sub context {
+    my ( $self, $new ) = @_;
+    return $self->_context($new);
+}
+
+sub _context {
     my ( $self, $new ) = @_;
     my $message_id = $self->_new_message_id();
     $self->_send_request(
@@ -6333,6 +7048,9 @@ sub _script_parameters {
     my ( $self, %parameters ) = @_;
     delete $parameters{script};
     $parameters{args} ||= [];
+    if ( ( !ref $parameters{args} ) or ( ref $parameters{args} ne 'ARRAY' ) ) {
+        $parameters{args} = [ $parameters{args} ];
+    }
     my %mapping = (
         timeout => 'scriptTimeout',
         new     => 'newSandbox',
@@ -6373,9 +7091,10 @@ sub script {
 }
 
 sub json {
-    my ($self) = @_;
+    my ($self)  = @_;
     my $content = $self->strip();
-    return JSON::decode_json($content);
+    my $json    = JSON->new()->decode($content);
+    return $json;
 }
 
 sub strip {
@@ -6551,7 +7270,7 @@ sub sleep_time_in_ms {
 sub bye {
     my ( $self, $code ) = @_;
     my $found = 1;
-    while ( !$found ) {
+    while ($found) {
         eval { &{$code} } and do {
             Time::HiRes::sleep(
                 $self->sleep_time_in_ms() / _MILLISECONDS_IN_ONE_SECOND() );
@@ -6617,7 +7336,10 @@ sub await {
 sub developer {
     my ($self) = @_;
     $self->_initialise_version();
-    if (   ( defined $self->{_initial_version} )
+    if ( $self->{developer_edition} ) {
+        return 1;
+    }
+    elsif (( defined $self->{_initial_version} )
         && ( $self->{_initial_version}->{minor} )
         && ( $self->{_initial_version}->{minor} =~ /b\d+$/smx ) )
     {
@@ -6826,8 +7548,9 @@ sub _convert_request_to_old_protocols {
 sub _send_request {
     my ( $self, $object ) = @_;
     $object = $self->_convert_request_to_old_protocols($object);
-    my $json   = JSON::encode_json($object);
-    my $length = length $json;
+    my $encoder = JSON->new()->convert_blessed()->ascii();
+    my $json    = $encoder->encode($object);
+    my $length  = length $json;
     if ( $self->_debug() ) {
         warn ">> $length:$json\n";
     }
@@ -6936,10 +7659,11 @@ sub _socket {
 }
 
 sub _get_response {
-    my ( $self, $message_id, $parameters ) = @_;
+    my ( $self, $message_id, $parameters, $options ) = @_;
     my $next_message = $self->_read_from_socket();
     my $response =
-      Firefox::Marionette::Response->new( $next_message, $parameters );
+      Firefox::Marionette::Response->new( $next_message, $parameters,
+        $options );
     if ( $self->marionette_protocol() == _MARIONETTE_PROTOCOL_VERSION_3() ) {
         while ( $response->message_id() < $message_id ) {
             $next_message = $self->_read_from_socket();
@@ -6952,8 +7676,6 @@ sub _get_response {
 
 sub _signal_number {
     my ( $proto, $name ) = @_;
-    my @sig_nums  = split q[ ], $Config{sig_num};
-    my @sig_names = split q[ ], $Config{sig_name};
     my %signals_by_name;
     my $idx = 0;
     foreach my $sig_name (@sig_names) {
@@ -7014,7 +7736,7 @@ Firefox::Marionette - Automate the Firefox browser with the Marionette protocol
 
 =head1 VERSION
 
-Version 1.00
+Version 1.08
 
 =head1 SYNOPSIS
 
@@ -7028,6 +7750,8 @@ Version 1.00
     say $firefox->html();
 
     $firefox->find_class('container-fluid')->find_id('search-input')->type('Test::More');
+
+    say "Height of search box is " . $firefox->find_class('container-fluid')->css('height');
 
     my $file_handle = $firefox->selfie();
 
@@ -7055,9 +7779,36 @@ Please note that when closing the connection via the client you can end-up in a 
 
 returns the active element of the current browsing context's document element, if the document element is non-null.
 
+=head2 add_certificate
+
+accepts a hash as a parameter and adds the specified certificate to the Firefox database with the supplied or default trust.  Allowed keys are below;
+
+=over 4
+
+=item * path - a file system path to a single L<PEM encoded X.509 certificate|https://datatracker.ietf.org/doc/html/rfc7468#section-5>.
+
+=item * string - a string containg a single L<PEM encoded X.509 certificate|https://datatracker.ietf.org/doc/html/rfc7468#section-5>
+
+=item * trust - This is the L<trustargs|https://www.mankier.com/1/certutil#-t> value for L<NSS|https://wiki.mozilla.org/NSS>.  If defaults to 'C,,';
+
+=back
+
+This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
+
+    use Firefox::Marionette();
+
+    my $pem_encoded_string = <<'_PEM_';
+    -----BEGIN CERTIFICATE-----
+    MII..
+    -----END CERTIFICATE-----
+    _PEM_
+    my $firefox = Firefox::Marionette->new()->add_certificate(string => $pem_encoded_string);
+
 =head2 add_cookie
 
 accepts a single L<cookie|Firefox::Marionette::Cookie> object as the first parameter and adds it to the current cookie jar.  This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
+
+This method throws an exception if you try to L<add a cookie for a different domain than the current document|https://developer.mozilla.org/en-US/docs/Web/WebDriver/Errors/InvalidCookieDomain>.
 
 =head2 add_header
 
@@ -7084,6 +7835,52 @@ will only send out an L<Accept|https://developer.mozilla.org/en-US/docs/Web/HTTP
     my $firefox = Firefox::Marionette->new()->add_header( 'Accept' => 'text/perl' )->go('https://metacpan.org/');
 
 by itself, will send out an L<Accept|https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept> header that may resemble C<Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8, text/perl>. This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
+
+=head2 add_login
+
+accepts a hash of the following keys;
+
+=over 4
+
+=item * host - The scheme + hostname of the page where the login applies, for example 'https://www.example.org'.
+
+=item * user - The username for the login.
+
+=item * password - The password for the login.
+
+=item * origin - The scheme + hostname that the form-based login L<was submitted to|https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-action>.  Forms with no L<action attribute|https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-action> default to submitting to the URL of the page containing the login form, so that is stored here. This field should be omitted (it will be set to undef) for http auth type authentications and "" means to match against any form action.
+
+=item * realm - The HTTP Realm for which the login was requested. When an HTTP server sends a 401 result, the WWW-Authenticate header includes a realm. See L<RFC 2617|https://datatracker.ietf.org/doc/html/rfc2617>.  If the realm is not specified, or it was blank, the hostname is used instead. For HTML form logins, this field should not be specified.
+
+=item * user_field - The name attribute for the username input in a form. Non-form logins should not specify this field.
+
+=item * password_field - The name attribute for the password input in a form. Non-form logins should not specify this field.
+
+=back
+
+or a L<Firefox::Marionette::Login|Firefox::Marionette::Login> object as the first parameter and adds the login to the Firefox login database.
+
+    use Firefox::Marionette();
+    use UUID();
+
+    my $firefox = Firefox::Marionette->new();
+
+    # for http auth logins
+
+    my $http_auth_login = Firefox::Marionette::Login->new(host => 'https://pause.perl.org', user => 'AUSER', password => 'qwerty', realm => 'PAUSE');
+    $firefox->add_login($http_auth_login);
+    $firefox->go('https://pause.perl.org/pause/authenquery')->accept_alert(); # this goes to the page and submits the http auth popup
+
+    # for form based login
+
+    $firefox->add_login(host => 'https://github.com', origin => 'https://github.com', user => 'me@example.org', password => 'qwerty', user_field => 'login', password_field => 'password');
+    my $form_login = Firefox::Marionette::Login(host => 'https://github.com', user => 'me2@example.org', password => 'uiop[]', user_field => 'login', password_field => 'password');
+
+    # or just directly
+
+    $firefox->add_login(host => 'https://github.com', user => 'me2@example.org', password => 'uiop[]', user_field => 'login', password_field => 'password');
+
+This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
 
 =head2 add_site_header
 
@@ -7153,7 +7950,7 @@ causes the browser to traverse one step backward in the joint history of the cur
 
 =head2 browser_version
 
-This method returns version of firefox.
+This method returns the current version of firefox.
 
 =head2 bye
 
@@ -7173,9 +7970,56 @@ accepts a subroutine reference as a parameter and then executes the subroutine. 
 
 returns the L<capabilities|Firefox::Marionette::Capabilities> of the current firefox binary.  You can retrieve L<timeouts|Firefox::Marionette::Timeouts> or a L<proxy|Firefox::Marionette::Proxy> with this method.
 
+=head2 certificate_as_pem
+
+accepts a L<certificate stored in the Firefox database|Firefox::Marionette::Certificate> as a parameter and returns a L<PEM encoded X.509 certificate|https://datatracker.ietf.org/doc/html/rfc7468#section-5> as a string.
+
+    use Firefox::Marionette();
+
+    my $firefox = Firefox::Marionette->new();
+
+    # Generating a ca-bundle.crt to STDOUT from the current firefox instance
+
+    foreach my $certificate (sort { $a->display_name() cmp $b->display_name } $firefox->certificates()) {
+        if ($certificate->is_ca_cert()) {
+            print '# ' . $certificate->display_name() . "\n" . $firefox->certificate_as_pem($certificate) . "\n";
+        }
+    }
+
+The L<ca-bundle-for-firefox|ca-bundle-for-firefox> command that is provided as part of this distribution does this.
+
+=head2 certificates
+
+returns a list of all known L<certificates in the Firefox database|Firefox::Marionette::Certificate>.
+
+    use Firefox::Marionette();
+    use v5.10;
+
+    # Sometimes firefox can neglect old certificates.  See https://bugzilla.mozilla.org/show_bug.cgi?id=1710716
+
+    my $firefox = Firefox::Marionette->new();
+    foreach my $certificate (grep { $_->is_ca_cert() && $_->not_valid_after() < time } $firefox->certificates()) {
+        say "The " . $certificate->display_name() " . certificate has expired and should be removed";
+    }
+
+This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
+
 =head2 child_error
 
 This method returns the $? (CHILD_ERROR) for the Firefox process, or undefined if the process has not yet exited.
+
+=head2 chrome
+
+changes the scope of subsequent commands to chrome context.  This allows things like interacting with firefox menu's and buttons outside of the browser window.
+
+    use Firefox::Marionette();
+    use v5.10;
+
+    my $firefox = Firefox::Marionette->new()->chrome();
+    $firefox->script(...); # running script in chrome context
+    $firefox->content();
+
+See the L<context|Firefox::Marionette#context> method for an alternative methods for changing the context.
 
 =head2 chrome_window_handle
 
@@ -7211,6 +8055,19 @@ closes the current chrome window (that is the entire window, not just the tabs).
 
 closes the current window/tab.  It returns a list of still available window/tab handles.
 
+=head2 content
+
+changes the scope of subsequent commands to browsing context.  This is the default for when firefox starts and restricts commands to operating in the browser window only.
+
+    use Firefox::Marionette();
+    use v5.10;
+
+    my $firefox = Firefox::Marionette->new()->chrome();
+    $firefox->script(...); # running script in chrome context
+    $firefox->content();
+
+See the L<context|Firefox::Marionette#context> method for an alternative methods for changing the context.
+
 =head2 context
 
 accepts a string as the first parameter, which may be either 'content' or 'chrome'.  It returns the context type that is Marionette's current target for browsing context scoped commands.
@@ -7219,9 +8076,14 @@ accepts a string as the first parameter, which may be either 'content' or 'chrom
     use v5.10;
 
     my $firefox = Firefox::Marionette->new();
+    if ($firefox->context() eq 'content') {
+       say "I knew that was going to happen";
+    }
     my $old_context = $firefox->context('chrome');
     $firefox->script(...); # running script in chrome context
     $firefox->context($old_context);
+
+See the L<content|Firefox::Marionette#content> and L<chrome|Firefox::Marionette#chrome> methods for alternative methods for changing the context.
 
 =head2 cookies
 
@@ -7243,9 +8105,34 @@ returns the L<contents|Firefox::Marionette::Cookie> of the cookie jar in scalar 
 
 accepts an L<element|Firefox::Marionette::Element> as the first parameter and a scalar CSS property name as the second parameter.  It returns the value of the computed style for that property.
 
+    use Firefox::Marionette();
+    use v5.10;
+
+    my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+    say $firefox->find_id('search-input')->css('height');
+
 =head2 current_chrome_window_handle 
 
 see L<chrome_window_handle|Firefox::Marionette#chrome_window_handle>.
+
+=head2 delete_certificate
+
+accepts a L<certificate stored in the Firefox database|Firefox::Marionette::Certificate> as a parameter and deletes/distrusts the certificate from the Firefox database.
+
+    use Firefox::Marionette();
+    use v5.10;
+
+    my $firefox = Firefox::Marionette->new();
+    foreach my $certificate ($firefox->certificates()) {
+        if ($certificate->is_ca_cert()) {
+            $firefox->delete_certificate($certificate);
+        } else {
+            say "This " . $certificate->display_name() " certificate is NOT a certificate authority, therefore it is not being deleted";
+        }
+    }
+    say "Good luck visiting a HTTPS website!";
+
+This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
 
 =head2 delete_cookie
 
@@ -7279,6 +8166,34 @@ will remove the L<User-Agent|https://developer.mozilla.org/en-US/docs/Web/HTTP/H
 
 This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
 
+=head2 delete_login
+
+accepts a L<login|Firefox::Marionette::Login> as a parameter.
+
+    use Firefox::Marionette();
+
+    my $firefox = Firefox::Marionette->new();
+    foreach my $login ($firefox->logins()) {
+        if ($login->user() eq 'me@example.org') {
+            $firefox->delete_login($login);
+        }
+    }
+
+will remove the logins with the username matching 'me@example.org'.
+
+This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
+
+=head2 delete_logins
+
+This method empties the password database.
+
+    use Firefox::Marionette();
+
+    my $firefox = Firefox::Marionette->new();
+    $firefox->delete_logins();
+
+This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
+
 =head2 delete_session
 
 deletes the current WebDriver session.
@@ -7298,7 +8213,7 @@ This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
 
 =head2 developer
 
-returns true if the current version of firefox is a L<developer edition|https://www.mozilla.org/en-US/firefox/developer/> (does the minor version number end with an 'b\d+'?) version.
+returns true if the L<current version|Firefox::Marionette#browser_version> of firefox is a L<developer edition|https://www.mozilla.org/en-US/firefox/developer/> (does the minor version number end with an 'b\d+'?) version.
 
 =head2 dismiss_alert
 
@@ -7381,6 +8296,29 @@ This method returns a human readable error message describing how the Firefox pr
 
 This utility method executes a command with arguments and returns STDOUT as a chomped string.  It is a simple method only intended for the Firefox::Marionette::* modules.
 
+=head2 fill_login
+
+This method searchs the L<Password Manager|https://support.mozilla.org/en-US/kb/password-manager-remember-delete-edit-logins> for an appropriate login for any form on the current page.  The form must match the host, the action attribute and the user and password field names.
+
+    use Firefox::Marionette();
+    use IO::Prompt();
+
+    my $firefox = Firefox::Marionette->new();
+
+    my $firefox = Firefox::Marionette->new();
+
+    my $url = 'https://github.com';
+
+    my $user = 'me@example.org';
+
+    my $password = IO::Prompt::prompt(-echo => q[*], "Please enter the password for the $user account when logging into $url:");
+
+    $firefox->add_login(host => $url, user => $user, password => 'qwerty', user_field => 'login', password_field => 'password');
+
+    $firefox->go("$url/login");
+
+    $firefox->fill_login();
+
 =head2 find
 
 accepts an L<xpath expression|https://en.wikipedia.org/wiki/XPath> as the first parameter and returns the first L<element|Firefox::Marionette::Element> that matches this expression.
@@ -7399,7 +8337,7 @@ This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit>
         $element->type('Test::More');
     }
 
-If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown. 
+If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown.  For the same functionality that returns undef if no elements are found, see the L<has|Firefox::Marionette#has> method.
 
 =head2 find_id
 
@@ -7419,7 +8357,7 @@ This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit>
         $element->type('Test::More');
     }
 
-If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown. 
+If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown.  For the same functionality that returns undef if no elements are found, see the L<has_id|Firefox::Marionette#has_id> method.
 
 =head2 find_name
 
@@ -7438,7 +8376,7 @@ This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit>
         $element->type('Test::More');
     }
 
-If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown. 
+If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown.  For the same functionality that returns undef if no elements are found, see the L<has_name|Firefox::Marionette#has_name> method.
 
 =head2 find_class
 
@@ -7457,7 +8395,7 @@ This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit>
         $element->type('Test::More');
     }
 
-If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown. 
+If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown.  For the same functionality that returns undef if no elements are found, see the L<has_class|Firefox::Marionette#has_class> method.
 
 =head2 find_selector
 
@@ -7476,7 +8414,7 @@ This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit>
         $element->type('Test::More');
     }
 
-If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown. 
+If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown.  For the same functionality that returns undef if no elements are found, see the L<has_selector|Firefox::Marionette#has_selector> method.
 
 =head2 find_tag
 
@@ -7495,7 +8433,7 @@ This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit>
         # do something
     }
 
-If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown. 
+If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown. For the same functionality that returns undef if no elements are found, see the L<has_tag|Firefox::Marionette#has_tag> method.
 
 =head2 find_link
 
@@ -7514,7 +8452,7 @@ This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit>
         $element->click();
     }
 
-If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown. 
+If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown.  For the same functionality that returns undef if no elements are found, see the L<has_link|Firefox::Marionette#has_link> method.
 
 =head2 find_partial
 
@@ -7533,7 +8471,7 @@ This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit>
         $element->click();
     }
 
-If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown. 
+If no elements are found, a L<not found|Firefox::Marionette::Exception::NotFound> exception will be thrown.  For the same functionality that returns undef if no elements are found, see the L<has_partial|Firefox::Marionette#has_partial> method.
 
 =head2 forward
 
@@ -7582,6 +8520,128 @@ returns a hashref representing the L<http archive|https://en.wikipedia.org/wiki/
     foreach my $entry ($har->entries()) {
         say $entry->request()->url() . " spent " . $entry->timings()->connect() . " ms establishing a TCP connection";
     }
+
+=head2 has
+
+accepts an L<xpath expression|https://en.wikipedia.org/wiki/XPath> as the first parameter and returns the first L<element|Firefox::Marionette::Element> that matches this expression.
+
+This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit> timeout, which, by default is 0 seconds.
+
+    use Firefox::Marionette();
+
+    my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+
+    if (my $element = $firefox->has('//input[@id="search-input"]')) {
+        $element->type('Test::More');
+    }
+
+If no elements are found, this method will return undef.  For the same functionality that throws a L<not found|Firefox::Marionette::Exception::NotFound> exception, see the L<find|Firefox::Marionette#find> method.
+
+=head2 has_id
+
+accepts an L<id|https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/id> as the first parameter and returns the first L<element|Firefox::Marionette::Element> with a matching 'id' property.
+
+This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit> timeout, which, by default is 0 seconds.
+
+    use Firefox::Marionette();
+
+    my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+
+    if (my $element = $firefox->has_id('search-input')) {
+        $element->type('Test::More');
+    }
+
+If no elements are found, this method will return undef.  For the same functionality that throws a L<not found|Firefox::Marionette::Exception::NotFound> exception, see the L<find_id|Firefox::Marionette#find_id> method.
+
+=head2 has_name
+
+This method returns the first L<element|Firefox::Marionette::Element> with a matching 'name' property.
+
+This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit> timeout, which, by default is 0 seconds.
+
+    use Firefox::Marionette();
+
+    my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+    if (my $element = $firefox->has_name('q')) {
+        $element->type('Test::More');
+    }
+
+If no elements are found, this method will return undef.  For the same functionality that throws a L<not found|Firefox::Marionette::Exception::NotFound> exception, see the L<find_name|Firefox::Marionette#find_name> method.
+
+=head2 has_class
+
+accepts a L<class name|https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/class> as the first parameter and returns the first L<element|Firefox::Marionette::Element> with a matching 'class' property.
+
+This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit> timeout, which, by default is 0 seconds.
+
+    use Firefox::Marionette();
+
+    my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+    if (my $element = $firefox->has_class('form-control home-search-input')) {
+        $element->type('Test::More');
+    }
+
+If no elements are found, this method will return undef.  For the same functionality that throws a L<not found|Firefox::Marionette::Exception::NotFound> exception, see the L<find_class|Firefox::Marionette#find_class> method.
+
+=head2 has_selector
+
+accepts a L<CSS Selector|https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors> as the first parameter and returns the first L<element|Firefox::Marionette::Element> that matches that selector.
+
+This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit> timeout, which, by default is 0 seconds.
+
+    use Firefox::Marionette();
+
+    my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+    if (my $element = $firefox->has_selector('input.home-search-input')) {
+        $element->type('Test::More');
+    }
+
+If no elements are found, this method will return undef.  For the same functionality that throws a L<not found|Firefox::Marionette::Exception::NotFound> exception, see the L<find_selector|Firefox::Marionette#find_selector> method.
+
+=head2 has_tag
+
+accepts a L<tag name|https://developer.mozilla.org/en-US/docs/Web/API/Element/tagName> as the first parameter and returns the first L<element|Firefox::Marionette::Element> with this tag name.
+
+This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit> timeout, which, by default is 0 seconds.
+
+    use Firefox::Marionette();
+
+    my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+    if (my $element = $firefox->has_tag('input')) {
+        # do something
+    }
+
+If no elements are found, this method will return undef.  For the same functionality that throws a L<not found|Firefox::Marionette::Exception::NotFound> exception, see the L<find_tag|Firefox::Marionette#find_tag> method.
+
+=head2 has_link
+
+accepts a text string as the first parameter and returns the first link L<element|Firefox::Marionette::Element> that has a matching link text.
+
+This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit> timeout, which, by default is 0 seconds.
+
+    use Firefox::Marionette();
+
+    my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+    if (my $element = $firefox->has_link('API')) {
+        $element->click();
+    }
+
+If no elements are found, this method will return undef.  For the same functionality that throws a L<not found|Firefox::Marionette::Exception::NotFound> exception, see the L<find_link|Firefox::Marionette#find_link> method.
+
+=head2 has_partial
+
+accepts a text string as the first parameter and returns the first link L<element|Firefox::Marionette::Element> that has a partially matching link text.
+
+This method is subject to the L<implicit|Firefox::Marionette::Timeouts#implicit> timeout, which, by default is 0 seconds.
+
+    use Firefox::Marionette();
+
+    my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
+    if (my $element = $firefox->find_partial('AP')) {
+        $element->click();
+    }
+
+If no elements are found, this method will return undef.  For the same functionality that throws a L<not found|Firefox::Marionette::Exception::NotFound> exception, see the L<find_partial|Firefox::Marionette#find_partial> method.
 
 =head2 html
 
@@ -7643,15 +8703,15 @@ returns true if C<document.readyState === "interactive"> or if L<loaded|Firefox:
 
 =head2 is_displayed
 
-accepts an L<element|Firefox::Marionette::Element> as the first parameter.  This method returns true or false depending on if the element is displayed.
+accepts an L<element|Firefox::Marionette::Element> as the first parameter.  This method returns true or false depending on if the element L<is displayed|https://firefox-source-docs.mozilla.org/testing/marionette/internals/interaction.html#interaction.isElementDisplayed>.
 
 =head2 is_enabled
 
-accepts an L<element|Firefox::Marionette::Element> as the first parameter.  This method returns true or false depending on if the element is enabled.
+accepts an L<element|Firefox::Marionette::Element> as the first parameter.  This method returns true or false depending on if the element L<is enabled|https://w3c.github.io/webdriver/#is-element-enabled>.
 
 =head2 is_selected
 
-accepts an L<element|Firefox::Marionette::Element> as the first parameter.  This method returns true or false depending on if the element is selected.
+accepts an L<element|Firefox::Marionette::Element> as the first parameter.  This method returns true or false depending on if the element L<is selected|https://w3c.github.io/webdriver/#dfn-is-element-selected>.  Note that this method only makes sense for L<checkbox|https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/checkbox> or L<radio|https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/radio> inputs or L<option|https://developer.mozilla.org/en-US/docs/Web/HTML/Element/option> elements in a L<select|https://developer.mozilla.org/en-US/docs/Web/HTML/Element/select> dropdown.
 
 =head2 json
 
@@ -7661,6 +8721,37 @@ returns a L<JSON|JSON> object that has been parsed from the page source of the c
     use v5.10;
 
     say Firefox::Marionette->new()->go('https://fastapi.metacpan.org/v1/download_url/Firefox::Marionette")->json()->{version};
+
+=head2 key_down
+
+accepts a parameter describing a key and returns an action for use in the L<perform|Firefox::Marionette#perform> method that corresponding with that key being depressed.
+
+    use Firefox::Marionette();
+    use Firefox::Marionette::Keys qw(:all);
+
+    my $firefox = Firefox::Marionette->new();
+
+    $firefox->chrome()->perform(
+                                 $firefox->key_down(CONTROL()),
+                                 $firefox->key_down('l'),
+                               )->release()->content();
+
+=head2 key_up
+
+accepts a parameter describing a key and returns an action for use in the L<perform|Firefox::Marionette#perform> method that corresponding with that key being released.
+
+    use Firefox::Marionette();
+    use Firefox::Marionette::Keys qw(:all);
+
+    my $firefox = Firefox::Marionette->new();
+
+    $firefox->chrome()->perform(
+                                 $firefox->key_down(CONTROL()),
+                                 $firefox->key_down('l'),
+                                 $firefox->pause(20),
+                                 $firefox->key_up('l'),
+                                 $firefox->key_up(CONTROL())
+                               )->content();
 
 =head2 loaded
 
@@ -7700,6 +8791,18 @@ returns a list of MIME types that will be downloaded by firefox and made availab
 
 minimises the firefox window. This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
 
+=head2 mouse_down
+
+accepts a parameter describing which mouse button the method should apply to (L<left|Firefox::Marionette::Buttons#LEFT>, L<middle|Firefox::Marionette::Buttons#MIDDLE> or L<right|Firefox::Marionette::Buttons#RIGHT>) and returns an action for use in the L<perform|Firefox::Marionette#perform> method that corresponding with a mouse button being depressed.
+
+=head2 mouse_move
+
+accepts a L<element|Firefox::Marionette::Element> parameter, or a C<( x =E<gt> 0, y =E<gt> 0 )> type hash manually describing exactly where to move the mouse to and returns an action for use in the L<perform|Firefox::Marionette#perform> method that corresponding with such a mouse movement, either to the specified co-ordinates or to the middle of the supplied L<element|Firefox::Marionette::Element> parameter.
+
+=head2 mouse_up
+
+accepts a parameter describing which mouse button the method should apply to (L<left|Firefox::Marionette::Buttons#LEFT>, L<middle|Firefox::Marionette::Buttons#MIDDLE> or L<right|Firefox::Marionette::Buttons#RIGHT>) and returns an action for use in the L<perform|Firefox::Marionette#perform> method that corresponding with a mouse button being released.
+
 =head2 new
  
 accepts an optional hash as a parameter.  Allowed keys are below;
@@ -7710,11 +8813,13 @@ accepts an optional hash as a parameter.  Allowed keys are below;
 
 =item * capabilities - use the supplied L<capabilities|Firefox::Marionette::Capabilities> object, for example to set whether the browser should L<accept insecure certs|Firefox::Marionette::Capabilities#accept_insecure_certs> or whether the browser should use a L<proxy|Firefox::Marionette::Proxy>.
 
-=item * chatty - Firefox is extremely chatty on the network, including checking for the lastest malware/phishing sites, updates to firefox/etc.  This option is therefore off ("0") by default, however, it can be switched on ("1") if required.  Even with chatty switched off, connections to firefox.settings.services.mozilla.com may still be made.  The only way to prevent this seems to be to set firefox.settings.services.mozilla.com to 127.0.0.1 via L</etc/hosts|https://en.wikipedia.org/wiki//etc/hosts>.  NOTE: that this option only works when profile_name/profile is not specified.
+=item * chatty - Firefox is extremely chatty on the network, including checking for the lastest malware/phishing sites, updates to firefox/etc.  This option is therefore off ("0") by default, however, it can be switched on ("1") if required.  Even with chatty switched off, L<connections to firefox.settings.services.mozilla.com will still be made|https://bugzilla.mozilla.org/show_bug.cgi?id=1598562#c13>.  The only way to prevent this seems to be to set firefox.settings.services.mozilla.com to 127.0.0.1 via L</etc/hosts|https://en.wikipedia.org/wiki//etc/hosts>.  NOTE: that this option only works when profile_name/profile is not specified.
 
-=item * debug - should firefox's debug to be available via STDERR. This defaults to "0". Any ssh connections will also be printed to STDERR.
+=item * console - show the L<browser console|https://developer.mozilla.org/en-US/docs/Tools/Browser_Console/> when the browser is launched.  This defaults to "0" (off).
 
-=item * developer - only allow a L<developer edition|https://www.mozilla.org/en-US/firefox/developer/> to be launched.
+=item * debug - should firefox's debug to be available via STDERR. This defaults to "0". Any ssh connections will also be printed to STDERR.  This defaults to "0" (off).
+
+=item * developer - only allow a L<developer edition|https://www.mozilla.org/en-US/firefox/developer/> to be launched. This defaults to "0" (off).
 
 =item * firefox - use the specified path to the L<Firefox|https://firefox.org/> binary, rather than the default path.
 
@@ -7728,7 +8833,7 @@ accepts an optional hash as a parameter.  Allowed keys are below;
 
 =item * mime_types - any MIME types that Firefox will encounter during this session.  MIME types that are not specified will result in a hung browser (the File Download popup will appear).
 
-=item * nightly - only allow a L<nightly release|https://www.mozilla.org/en-US/firefox/channel/desktop/#nightly> to be launched.
+=item * nightly - only allow a L<nightly release|https://www.mozilla.org/en-US/firefox/channel/desktop/#nightly> to be launched.  This defaults to "0" (off).
 
 =item * port - if the "host" parameter is also set, use L<ssh|https://man.openbsd.org/ssh.1> to create and automate firefox via the specified port.  See L<REMOTE AUTOMATION OF FIREFOX VIA SSH|Firefox::Marionette#REMOTE-AUTOMATION-OF-FIREFOX-VIA-SSH>.
 
@@ -7748,11 +8853,11 @@ accepts an optional hash as a parameter.  Allowed keys are below;
 
 =item * survive - if this is set to a true value, firefox will not automatically exit when the object goes out of scope.  See the reconnect parameter for an experimental technique for reconnecting.
 
-=item * trust - give a path to a L<root certificate|https://en.wikipedia.org/wiki/Root_certificate> that will be trusted for this session.  The certificate will be imported by the L<NSS certutil|https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/tools/NSS_Tools_certutil> binary.  If this binary does not exist in the L<PATH|https://en.wikipedia.org/wiki/PATH_(variable)>, an exception will be thrown.  For Linux/BSD systems, L<NSS certutil|https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/tools/NSS_Tools_certutil> should be available via your package manager.  For OS X and Windows based platforms, it will be more difficult.
+=item * trust - give a path to a L<root certificate|https://en.wikipedia.org/wiki/Root_certificate> encoded as a L<PEM encoded X.509 certificate|https://datatracker.ietf.org/doc/html/rfc7468#section-5> that will be trusted for this session.
 
 =item * timeouts - a shortcut to allow directly providing a L<timeout|Firefox::Marionette::Timeout> object, instead of needing to use timeouts from the capabilities parameter.  Overrides the timeouts provided (if any) in the capabilities parameter.
 
-=item * port - if the "host" parameter is also set, use L<ssh|https://man.openbsd.org/ssh.1> to create and automate firefox with the specified user.  See L<REMOTE AUTOMATION OF FIREFOX VIA SSH|Firefox::Marionette#REMOTE-AUTOMATION-OF-FIREFOX-VIA-SSH>.
+=item * user - if the "host" parameter is also set, use L<ssh|https://man.openbsd.org/ssh.1> to create and automate firefox with the specified user.  See L<REMOTE AUTOMATION OF FIREFOX VIA SSH|Firefox::Marionette#REMOTE-AUTOMATION-OF-FIREFOX-VIA-SSH>.  The user will default to the current user name.
 
 =item * visible - should firefox be visible on the desktop.  This defaults to "0".
 
@@ -7809,15 +8914,17 @@ creates a new WebDriver session.  It is expected that the caller performs the ne
 
 =head2 nightly
 
-returns true if the current version of firefox is a L<nightly release|https://www.mozilla.org/en-US/firefox/channel/desktop/#nightly> (does the minor version number end with an 'a1'?)
+returns true if the L<current version|Firefox::Marionette#browser_version> of firefox is a L<nightly release|https://www.mozilla.org/en-US/firefox/channel/desktop/#nightly> (does the minor version number end with an 'a1'?)
 
 =head2 paper_sizes 
 
 returns a list of all the recognised names for paper sizes, such as A4 or LEGAL.
 
-=head2 pdf
+=head2 pause
 
-returns a L<File::Temp|File::Temp> object containing a PDF encoded version of the current page for printing.
+accepts a parameter in milliseconds and returns a corresponding action for the L<perform|Firefox::Marionette#perform> method that will cause a pause in the chain of actions given to the L<perform|Firefox::Marionette#perform> method.
+
+=head2 pdf
 
 accepts a optional hash as the first parameter with the following allowed keys;
 
@@ -7841,6 +8948,8 @@ accepts a optional hash as the first parameter with the following allowed keys;
 
 =back
 
+returns a L<File::Temp|File::Temp> object containing a PDF encoded version of the current page for printing.
+
     use Firefox::Marionette();
 
     my $firefox = Firefox::Marionette->new()->go('https://metacpan.org/');
@@ -7851,6 +8960,38 @@ accepts a optional hash as the first parameter with the following allowed keys;
 	    print $firefox->pdf(page => { width => 21, height => 27 }, raw => 1);
             ...
     }
+
+=head2 perform
+
+accepts a list of actions (see L<mouse_up|Firefox::Marionette#mouse_up>, L<mouse_down|Firefox::Marionette#mouse_down>, L<mouse_move|Firefox::Marionette#mouse_move>, L<pause|Firefox::Marionette#pause>, L<key_down|Firefox::Marionette#key_down> and L<key_up|Firefox::Marionette#key_up>) and performs these actions in sequence.  This allows fine control over interactions, including sending right clicks to the browser and sending Control, Alt and other special keys.  The L<release|Firefox::Marionette#release> method will complete outstanding actions (such as L<mouse_up|Firefox::Marionette#mouse_up> or L<key_up|Firefox::Marionette#key_up> actions).
+
+    use Firefox::Marionette();
+    use Firefox::Marionette::Keys qw(:all);
+    use Firefox::Marionette::Buttons qw(:all);
+
+    my $firefox = Firefox::Marionette->new();
+
+    $firefox->chrome()->perform(
+                                 $firefox->key_down(CONTROL()),
+                                 $firefox->key_down('l'),
+                                 $firefox->key_up('l'),
+                                 $firefox->key_up(CONTROL())
+                               )->content();
+
+    $firefox->go('https://metacpan.org');
+    my $help_button = $firefox->find_class('btn search-btn help-btn');
+    $firefox->perform(
+			          $firefox->mouse_move($help_button),
+			          $firefox->mouse_down(RIGHT_BUTTON()),
+			          $firefox->pause(4),
+			          $firefox->mouse_up(RIGHT_BUTTON()),
+		);
+
+See the L<release|Firefox::Marionette#release> method for an alternative for manually specifying all the L<mouse_up|Firefox::Marionette#mouse_up> and L<key_up|Firefox::Marionette#key_up> methods
+
+=head2 profile_directory
+
+returns the profile directory used by the current instance of firefox.  This is mainly intended for debugging firefox.  Firefox is not designed to cope with these files being altered while firefox is running.
 
 =head2 property
 
@@ -7868,6 +9009,72 @@ accepts an L<element|Firefox::Marionette::Element> as the first parameter and a 
 
     my $title = $firefox->find_tag('title')->property('innerHTML'); # same as $firefox->title();
 
+=head2 pwd_mgr_lock
+
+Accepts a new L<primary password|https://support.mozilla.org/en-US/kb/use-primary-password-protect-stored-logins> and locks the L<Password Manager|https://support.mozilla.org/en-US/kb/password-manager-remember-delete-edit-logins> with it.
+
+    use Firefox::Marionette();
+    use IO::Prompt();
+
+    my $firefox = Firefox::Marionette->new();
+    my $password = IO::Prompt::prompt(-echo => q[*], "Please enter the password for the Firefox Password Manager:");
+    $firefox->pwd_mgr_lock($password);
+    $firefox->pwd_mgr_logout();
+    # now no-one can access the Password Manager Database without the value in $password
+
+This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
+
+=head2 pwd_mgr_login
+
+Accepts the L<primary password|https://support.mozilla.org/en-US/kb/use-primary-password-protect-stored-logins> and allows the user to access the L<Password Manager|https://support.mozilla.org/en-US/kb/password-manager-remember-delete-edit-logins>.
+
+    use Firefox::Marionette();
+    use IO::Prompt();
+
+    my $firefox = Firefox::Marionette->new( profile_name => 'default' );
+    my $password = IO::Prompt::prompt(-echo => q[*], "Please enter the password for the Firefox Password Manager:");
+    $firefox->pwd_mgr_login($password);
+    ...
+    # access the Password Database.
+    ...
+    $firefox->pwd_mgr_logout();
+    ...
+    # no longer able to access the Password Database.
+
+This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
+
+=head2 pwd_mgr_logout
+
+Logs the user out of being able to access the L<Password Manager|https://support.mozilla.org/en-US/kb/password-manager-remember-delete-edit-logins>.
+
+    use Firefox::Marionette();
+    use IO::Prompt();
+
+    my $firefox = Firefox::Marionette->new( profile_name => 'default' );
+    my $password = IO::Prompt::prompt(-echo => q[*], "Please enter the password for the Firefox Password Manager:");
+    $firefox->pwd_mgr_login($password);
+    ...
+    # access the Password Database.
+    ...
+    $firefox->pwd_mgr_logout();
+    ...
+    # no longer able to access the Password Database.
+
+This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
+
+=head2 pwd_mgr_needs_login
+
+returns true or false if the L<Password Manager|https://support.mozilla.org/en-US/kb/password-manager-remember-delete-edit-logins> has been locked and needs a L<primary password|https://support.mozilla.org/en-US/kb/use-primary-password-protect-stored-logins> to access it.
+
+    use Firefox::Marionette();
+    use IO::Prompt();
+
+    my $firefox = Firefox::Marionette->new( profile_name => 'default' );
+    if ($firefox->pwd_mgr_needs_login()) {
+      my $password = IO::Prompt::prompt(-echo => q[*], "Please enter the password for the Firefox Password Manager:");
+      $firefox->pwd_mgr_login($password);
+    }
+
 =head2 quit
 
 Marionette will stop accepting new connections before ending the current session, and finally attempting to quit the application.  This method returns the $? (CHILD_ERROR) value for the Firefox process
@@ -7879,6 +9086,29 @@ accepts a L<element|Firefox::Marionette::Element> as the first parameter and ret
 =head2 refresh
 
 refreshes the current page.  The browser will wait for the page to completely refresh or the session's L<page_load|Firefox::Marionette::Timeouts#page_load> duration to elapse before returning, which, by default is 5 minutes.  This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
+
+=head2 release
+
+completes any outstanding actions issued by the L<perform|Firefox::Marionette#perform> method.
+
+    use Firefox::Marionette();
+    use Firefox::Marionette::Keys qw(:all);
+    use Firefox::Marionette::Buttons qw(:all);
+
+    my $firefox = Firefox::Marionette->new();
+
+    $firefox->chrome()->perform(
+                                 $firefox->key_down(CONTROL()),
+                                 $firefox->key_down('l'),
+                               )->release()->content();
+
+    $firefox->go('https://metacpan.org');
+    my $help_button = $firefox->find_class('btn search-btn help-btn');
+    $firefox->perform(
+			          $firefox->mouse_move($help_button),
+			          $firefox->mouse_down(RIGHT_BUTTON()),
+			          $firefox->pause(4),
+		)->release();
 
 =head2 screen_orientation
 
@@ -7913,6 +9143,10 @@ Returns the result of the javascript function.
     if ($firefox->script('return window.find("lucky");')) {
         # luckily!
     }
+
+    my $search_input = $firefox->find_by_id('search-input');
+
+    $firefox->script('arguments[0].style.backgroundColor = "red"', args => [ $search_input ]); # turn the search input box red
 
 The executing javascript is subject to the L<script|Firefox::Marionette::Timeouts#script> timeout, which, by default is 30 seconds.
 
@@ -7962,7 +9196,9 @@ returns the page source of the content document after an attempt has been made t
     use JSON();
     use v5.10;
 
-    say JSON::decode_json(Firefox::Marionette->new()->go('https://fastapi.metacpan.org/v1/download_url/Firefox::Marionette")->strip())->{version};
+    say JSON::decode_json(Firefox::Marionette->new()->go("https://fastapi.metacpan.org/v1/download_url/Firefox::Marionette")->strip())->{version};
+
+Note that this method will assume the bytes it receives from the L<html|Firefox::Marionette#html> method are UTF-8 encoded and will translate accordingly, throwing an exception in the process if the bytes are not UTF-8 encoded.
 
 =head2 switch_to_frame
 
@@ -7978,7 +9214,7 @@ accepts a window handle (either the result of L<window_handles|Firefox::Marionet
 
 =head2 tag_name
 
-accepts a L<Firefox::Marionette::Element|Firefox::Marionette::Element> object as the first parameter and returns the relevant tag name.  For example 'a' or 'input'.
+accepts a L<Firefox::Marionette::Element|Firefox::Marionette::Element> object as the first parameter and returns the relevant tag name.  For example 'L<a|https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a>' or 'L<input|https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input>'.
 
 =head2 text
 
@@ -7990,7 +9226,7 @@ returns the current L<timeouts|Firefox::Marionette::Timeouts> for page loading, 
 
 =head2 title
 
-returns the current title of the window.
+returns the current L<title|https://developer.mozilla.org/en-US/docs/Web/HTML/Element/title> of the window.
 
 =head2 type
 
@@ -8030,9 +9266,56 @@ accepts an optional L<position and size|Firefox::Marionette::Window::Rect> as a 
 
 returns the current window's type.  This should be 'navigator:browser'.
 
-=head2 xvfb
+=head2 xvfb_pid
 
 returns the pid of the xvfb process if it exists.
+
+=head2 xvfb_display
+
+returns the value for the DISPLAY environment variable if one has been generated for the xvfb environment.
+
+=head2 xvfb_xauthority
+
+returns the value for the XAUTHORITY environment variable if one has been generated for the xvfb environment
+
+=head1 AUTOMATING THE FIREFOX PASSWORD MANAGER
+
+This module allows you to login to a website without ever directly handling usernames and password details.  The Password Manager may be preloaded with appropriate passwords and locked, like so;
+
+    use Firefox::Marionette();
+
+    my $firefox = Firefox::Marionette->new( profile_name => 'locked' ); # using a pre-built profile called 'locked'
+    if ($firefox->pwd_mgr_needs_login()) {
+        my $new_password = IO::Prompt::prompt(-echo => q[*], 'Enter the password for the locked profile:');
+        $firefox->pwd_mgr_login($password);
+    } else {
+        my $new_password = IO::Prompt::prompt(-echo => q[*], 'Enter the new password for the locked profile:');
+        $firefox->pwd_mgr_lock($password);
+    }
+    ...
+    $firefox->pwd_mgr_logout();
+
+Usernames and passwords (for both HTTP Authentication popups and HTML Form based logins) may be added, viewed and deleted.
+
+    use WebService::HIBP();
+
+    my $hibp = WebService::HIBP->new();
+
+    $firefox->add_login(host => 'https://github.com', user => 'me@example.org', password => 'qwerty', user_field => 'login', password_field => 'password');
+    $firefox->add_login(host => 'https://pause.perl.org', user => 'AUSER', password => 'qwerty', realm => 'PAUSE');
+    ...
+    foreach my $login ($firefox->logins()) {
+        if ($hibp->password($login->password())) { # does NOT send the password to the HIBP webservice
+            warn "HIBP reports that your password for the " . $login->user() " account at " . $login->host() . " has been found in a data breach";
+            $firefox->delete_login($login); # how could this possibly help?
+        }
+    }
+
+And used to fill in login prompts without explicitly knowing the account details.
+
+    $firefox->go('https://pause.perl.org/pause/authenquery')->accept_alert(); # this goes to the page and submits the http auth popup
+
+    $firefox->go('https://github.com/login')->fill_login(); # fill the login and password fields without needing to see them
 
 =head1 REMOTE AUTOMATION OF FIREFOX VIA SSH
 
@@ -8215,10 +9498,6 @@ Currently the following Marionette methods have not been implemented;
 
 =over
  
-=item * WebDriver:ReleaseAction
-
-=item * WebDriver:PerformActions
-
 =item * WebDriver:SetScreenOrientation
 
 =back
@@ -8259,6 +9538,8 @@ David Dick  C<< <ddick@cpan.org> >>
 Thanks to the entire Mozilla organisation for a great browser and to the team behind Marionette for providing an interface for automation.
  
 Thanks to L<Jan Odvarko|http://www.softwareishard.com/blog/about/> for creating the L<HAR Export Trigger|https://github.com/firefox-devtools/har-export-trigger> extension for Firefox.
+
+Thanks to L<Mike Kaply|https://mike.kaply.com/about/> for his L<post|https://mike.kaply.com/2015/02/10/installing-certificates-into-firefox/> describing importing certificates into Firefox.
 
 Thanks also to the authors of the documentation in the following sources;
 

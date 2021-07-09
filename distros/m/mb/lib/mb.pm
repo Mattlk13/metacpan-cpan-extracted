@@ -11,7 +11,7 @@ package mb;
 use 5.00503;    # Universal Consensus 1998 for primetools
 # use 5.008001; # Lancaster Consensus 2013 for toolchains
 
-$VERSION = '0.19';
+$VERSION = '0.30';
 $VERSION = $VERSION;
 
 # internal use
@@ -24,22 +24,25 @@ BEGIN { $INC{'warnings.pm'} = '' if $] < 5.006 } use warnings; local $^W=1;
 # set OSNAME
 my $OSNAME = $^O;
 
+# encoding name of operating system
+my $system_encoding = undef;
+
 # encoding name of MBCS script
 my $script_encoding = undef;
 
 # over US-ASCII
-${mb::over_ascii} = undef;
+my $over_ascii = undef;
 
 # supports qr/./ in MBCS script
-${mb::x} = undef;
+my $x = undef;
 
 # supports [\b] \d \h \s \v \w in MBCS script
-${mb::bare_backspace} = '\x08';
-${mb::bare_d} = '0123456789';
-${mb::bare_h} = '\x09\x20';
-${mb::bare_s} = '\t\n\f\r\x20';
-${mb::bare_v} = '\x0A\x0B\x0C\x0D';
-${mb::bare_w} = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';
+my $bare_backspace = '\x08';
+my $bare_d = '0123456789';
+my $bare_h = '\x09\x20';
+my $bare_s = '\t\n\f\r\x20';
+my $bare_v = '\x0A\x0B\x0C\x0D';
+my $bare_w = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';
 
 # as many escapes as possible to avoid perl's feature
 my $escapee_in_qq_like = join('', map {"\\$_"} grep( ! /[A-Za-z0-9_]/, map { CORE::chr } 0x21..0x7E));
@@ -72,10 +75,14 @@ sub import {
     # confirm version
     if (defined($_[0]) and ($_[0] =~ /\A [0-9] /xms)) {
         if ($_[0] ne $mb::VERSION) {
-            die "@{[__FILE__]} just $_[0] required--but this is version $mb::VERSION, stopped";
+            my($package,$filename,$line) = caller;
+            die "$filename requires @{[__PACKAGE__]} $_[0], however @{[__FILE__]} am only $mb::VERSION, stopped at $filename line $line.\n";
         }
         shift @_;
     }
+
+    # set system encoding
+    $system_encoding = detect_system_encoding();
 
     # set script encoding
     if (defined $_[0]) {
@@ -88,7 +95,7 @@ sub import {
         }
     }
     else {
-        set_script_encoding(detect_system_encoding());
+        set_script_encoding($system_encoding);
     }
 
     # $^X($EXECUTABLE_NAME) for execute MBCS Perl script
@@ -123,6 +130,9 @@ perl mb.pm -e wtf8      MBCS_Perl_script.pl
 END
     }
 
+    # set system encoding
+    $system_encoding = detect_system_encoding();
+
     # set script encoding from command line
     my $encoding = '';
     if (($encoding) = $ARGV[0] =~ /\A -e ( .+ ) \z/xms) {
@@ -146,7 +156,7 @@ END
         }
     }
     else {
-        set_script_encoding(detect_system_encoding());
+        set_script_encoding($system_encoding);
     }
 
     # poor "make"
@@ -217,12 +227,11 @@ sub cluck {
     my $i = 0;
     my @cluck = ();
     while (my($package,$filename,$line,$subroutine) = caller($i)) {
-        push @cluck, "[$i] $filename($line) $package::$subroutine\n";
+        push @cluck, "[$i] $filename($line) $subroutine\n";
         $i++;
     }
+    print STDERR "\n", @_, "\n";
     print STDERR CORE::reverse @cluck;
-    print STDERR "\n";
-    print STDERR @_;
 }
 
 #---------------------------------------------------------------------
@@ -231,13 +240,12 @@ sub confess {
     my $i = 0;
     my @confess = ();
     while (my($package,$filename,$line,$subroutine) = caller($i)) {
-        push @confess, "[$i] $filename($line) $package"."::$subroutine\n";
+        push @confess, "[$i] $filename($line) $subroutine\n";
         $i++;
     }
+    print STDERR "\n", @_, "\n";
     print STDERR CORE::reverse @confess;
-    print STDERR "\n";
-    print STDERR @_;
-    die "\n";
+    die;
 }
 
 #---------------------------------------------------------------------
@@ -253,10 +261,10 @@ sub mtime {
 
 #---------------------------------------------------------------------
 # chop() for MBCS encoding
-sub mb::chop {
+sub mb::chop (@) {
     my $chop = '';
     for (@_ ? @_ : $_) {
-        if (my @x = /\G${mb::x}/g) {
+        if (my @x = /\G$x/g) {
             $chop = pop @x;
             $_ = join '', @x;
         }
@@ -266,19 +274,24 @@ sub mb::chop {
 
 #---------------------------------------------------------------------
 # chr() for MBCS encoding
-sub mb::chr {
-    local $_ = shift if @_;
+sub mb::chr (;$) {
+    my $number = @_ ? $_[0] : $_;
+
+# Negative values give the Unicode replacement character (chr(0xfffd)),
+# except under the bytes pragma, where the low eight bits of the value
+# (truncated to an integer) are used.
+
     my @octet = ();
     CORE::do {
-        unshift @octet, ($_ % 0x100);
-        $_ = int($_ / 0x100);
-    } while ($_ > 0);
+        unshift @octet, ($number % 0x100);
+        $number = int($number / 0x100);
+    } while ($number > 0);
     return pack 'C*', @octet;
 }
 
 #---------------------------------------------------------------------
 # do FILE for MBCS encoding
-sub mb::do {
+sub mb::do ($) {
     my($file) = @_;
     for my $prefix_file ($file, map { "$_/$file" } @INC) {
         if (-f $prefix_file) {
@@ -323,7 +336,7 @@ END
 
 #---------------------------------------------------------------------
 # DOS-like glob() for MBCS encoding
-sub mb::dosglob {
+sub mb::dosglob (;$) {
     my $expr = @_ ? $_[0] : $_;
     my @glob = ();
 
@@ -336,7 +349,7 @@ sub mb::dosglob {
     else {
 
         # gets pattern
-        while ($expr =~ s{\A [\x20]* ( "(?:${mb::x})+?" | (?:(?!["\x20])${mb::x})+ ) }{}xms) {
+        while ($expr =~ s{\A [\x20]* ( "(?:$x)+?" | (?:(?!["\x20])$x)+ ) }{}xms) {
             my $pattern = $1;
 
             # avoids command injection
@@ -350,7 +363,7 @@ sub mb::dosglob {
 
             # makes globbing result
             mb::tr($pattern, '/', "\x5C");
-            if (my($dir) = $pattern =~ m{\A (${mb::x}*) \\ }xms) {
+            if (my($dir) = $pattern =~ m{\A ($x*) \\ }xms) {
                 push @glob, map { "$dir\\$_" } CORE::split /\n/, `DIR /B $pattern 2>NUL`;
             }
             else {
@@ -366,8 +379,8 @@ sub mb::dosglob {
 
 #---------------------------------------------------------------------
 # eval STRING for MBCS encoding
-sub mb::eval {
-    local $_ = shift if @_;
+sub mb::eval (;$) {
+    local $_ = @_ ? $_[0] : $_;
 
     # run as Perl script in caller package
     return CORE::eval sprintf(<<'END', (caller)[0,2,1], mb::parse());
@@ -379,7 +392,7 @@ END
 
 #---------------------------------------------------------------------
 # getc() for MBCS encoding
-sub mb::getc {
+sub mb::getc (;*) {
     my $fh = @_ ? shift(@_) : \*STDIN;
     confess 'Too many arguments for mb::getc' if @_ and not wantarray;
     my $getc = CORE::getc $fh;
@@ -426,7 +439,7 @@ sub mb::getc {
 
 #---------------------------------------------------------------------
 # index() for MBCS encoding
-sub mb::index {
+sub mb::index ($$;$) {
     my $index = 0;
     if (@_ == 3) {
         $index = mb::index_byte($_[0], $_[1], CORE::length(mb::substr($_[0], 0, $_[2])));
@@ -444,7 +457,7 @@ sub mb::index {
 
 #---------------------------------------------------------------------
 # JPerl like index() for MBCS encoding
-sub mb::index_byte {
+sub mb::index_byte ($$;$) {
     my($str,$substr,$position) = @_;
     $position ||= 0;
     my $pos = 0;
@@ -454,7 +467,7 @@ sub mb::index_byte {
                 return $pos;
             }
         }
-        if (CORE::substr($str,$pos) =~ /\A(${mb::x})/oxms) {
+        if (CORE::substr($str,$pos) =~ /\A($x)/oxms) {
             $pos += CORE::length($1);
         }
         else {
@@ -466,18 +479,18 @@ sub mb::index_byte {
 
 #---------------------------------------------------------------------
 # universal lc() for MBCS encoding
-sub mb::lc {
-    local $_ = shift if @_;
+sub mb::lc (;$) {
+    local $_ = @_ ? $_[0] : $_;
     #                          A a B b C c D d E e F f G g H h I i J j K k L l M m N n O o P p Q q R r S s T t U u V v W w X x Y y Z z
-    return join '', map { {qw( A a B b C c D d E e F f G g H h I i J j K k L l M m N n O o P p Q q R r S s T t U u V v W w X x Y y Z z )}->{$_}||$_ } /\G${mb::x}/g;
+    return join '', map { {qw( A a B b C c D d E e F f G g H h I i J j K k L l M m N n O o P p Q q R r S s T t U u V v W w X x Y y Z z )}->{$_}||$_ } /\G$x/g;
     #                          A a B b C c D d E e F f G g H h I i J j K k L l M m N n O o P p Q q R r S s T t U u V v W w X x Y y Z z
 }
 
 #---------------------------------------------------------------------
 # universal lcfirst() for MBCS encoding
-sub mb::lcfirst {
-    local $_ = shift if @_;
-    if (/\A(${mb::x})(.*)\z/s) {
+sub mb::lcfirst (;$) {
+    local $_ = @_ ? $_[0] : $_;
+    if (/\A($x)(.*)\z/s) {
         return mb::lc($1) . $2;
     }
     else {
@@ -487,17 +500,17 @@ sub mb::lcfirst {
 
 #---------------------------------------------------------------------
 # length() for MBCS encoding
-sub mb::length {
-    local $_ = shift if @_;
-    return scalar(() = /\G${mb::x}/g);
+sub mb::length (;$) {
+    local $_ = @_ ? $_[0] : $_;
+    return scalar(() = /\G$x/g);
 }
 
 #---------------------------------------------------------------------
 # ord() for MBCS encoding
-sub mb::ord {
-    local $_ = shift if @_;
+sub mb::ord (;$) {
+    local $_ = @_ ? $_[0] : $_;
     my $ord = 0;
-    if (/\A(${mb::x})/) {
+    if (/\A($x)/) {
         for my $octet (unpack 'C*', $1) {
             $ord = $ord * 0x100 + $octet;
         }
@@ -507,8 +520,8 @@ sub mb::ord {
 
 #---------------------------------------------------------------------
 # require for MBCS encoding
-sub mb::require {
-    local $_ = shift if @_;
+sub mb::require (;$) {
+    local $_ = @_ ? $_[0] : $_;
 
     # require perl version
     if (/^[0-9]/) {
@@ -591,18 +604,32 @@ END
 
 #---------------------------------------------------------------------
 # reverse() for MBCS encoding
-sub mb::reverse {
+sub mb::reverse (@) {
+
+    # in list context,
     if (wantarray) {
+
+        # returns a list value consisting of the elements of @_ in the opposite order
         return CORE::reverse @_;
     }
+
+    # in scalar context,
     else {
-        return join '', CORE::reverse(join('',@_) =~ /\G${mb::x}/g);
+
+        # returns a string value with all characters in the opposite order of
+        return (join '',
+            CORE::reverse(
+                @_ ?
+                join('',@_) =~ /\G$x/g : # concatenates the elements of @_
+                /\G$x/g                  # $_ when without arguments
+            )
+        );
     }
 }
 
 #---------------------------------------------------------------------
 # rindex() for MBCS encoding
-sub mb::rindex {
+sub mb::rindex ($$;$) {
     my $rindex = 0;
     if (@_ == 3) {
         $rindex = mb::rindex_byte($_[0], $_[1], CORE::length(mb::substr($_[0], 0, $_[2])));
@@ -620,7 +647,7 @@ sub mb::rindex {
 
 #---------------------------------------------------------------------
 # JPerl like rindex() for MBCS encoding
-sub mb::rindex_byte {
+sub mb::rindex_byte ($$;$) {
     my($str,$substr,$position) = @_;
     $position ||= CORE::length($str) - 1;
     my $pos = 0;
@@ -629,7 +656,7 @@ sub mb::rindex_byte {
         if (CORE::substr($str,$pos,CORE::length($substr)) eq $substr) {
             $rindex = $pos;
         }
-        if (CORE::substr($str,$pos) =~ /\A(${mb::x})/oxms) {
+        if (CORE::substr($str,$pos) =~ /\A($x)/oxms) {
             $pos += CORE::length($1);
         }
         else {
@@ -641,23 +668,23 @@ sub mb::rindex_byte {
 
 #---------------------------------------------------------------------
 # set OSNAME
-sub mb::set_OSNAME {
+sub mb::set_OSNAME ($) {
     $OSNAME = $_[0];
 }
 
 #---------------------------------------------------------------------
 # get OSNAME
-sub mb::get_OSNAME {
+sub mb::get_OSNAME () {
     return $OSNAME;
 }
 
 #---------------------------------------------------------------------
 # set script encoding name and more
-sub mb::set_script_encoding {
+sub mb::set_script_encoding ($) {
     $script_encoding = $_[0];
 
     # over US-ASCII
-    ${mb::over_ascii} = {
+    $over_ascii = {
         'sjis'      => '(?>[\x81-\x9F\xE0-\xFC][\x00-\xFF]|[\x80-\xFF])',                         # shift_jis ANSI/OEM Japanese; Japanese (Shift-JIS)
         'gbk'       => '(?>[\x81-\xFE][\x00-\xFF])',                                              # gb2312 ANSI/OEM Simplified Chinese (PRC, Singapore); Chinese Simplified (GB2312)
         'uhc'       => '(?>[\x81-\xFE][\x00-\xFF])',                                              # ks_c_5601-1987 ANSI/OEM Korean (Unified Hangul Code)
@@ -671,7 +698,7 @@ sub mb::set_script_encoding {
     }->{$script_encoding} || '[\x80-\xFF]';
 
     # supports qr/./ in MBCS script
-    ${mb::x} = qr/(?>${mb::over_ascii}|[\x00-\x7F])/;
+    $x = qr/(?>$over_ascii|[\x00-\x7F])/;
 
     # regexp of multi-byte anchoring
 
@@ -712,41 +739,41 @@ sub mb::set_script_encoding {
     }
     elsif ($] >= 5.030000) {
         ${mb::_anchor} = {
-            'sjis'      => qr{(?(?=.{0,65534}\z)(?:${mb::x})*?|(?(?=[^\x81-\x9F\xE0-\xFC]+\z).*?|.*?[^\x81-\x9F\xE0-\xFC](?>[\x81-\x9F\xE0-\xFC][\x81-\x9F\xE0-\xFC])*?))}xms,
-            'eucjp'     => qr{(?(?=.{0,65534}\z)(?:${mb::x})*?|(?(?=[^\xA1-\xFE\xA1-\xFE]+\z).*?|.*?[^\xA1-\xFE\xA1-\xFE](?>[\xA1-\xFE\xA1-\xFE][\xA1-\xFE\xA1-\xFE])*?))}xms,
-            'gbk'       => qr{(?(?=.{0,65534}\z)(?:${mb::x})*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
-            'uhc'       => qr{(?(?=.{0,65534}\z)(?:${mb::x})*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
-            'big5'      => qr{(?(?=.{0,65534}\z)(?:${mb::x})*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
-            'big5hkscs' => qr{(?(?=.{0,65534}\z)(?:${mb::x})*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
-            'gb18030'   => qr{(?(?=.{0,65534}\z)(?:${mb::x})*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
+            'sjis'      => qr{(?(?=.{0,65534}\z)(?:$x)*?|(?(?=[^\x81-\x9F\xE0-\xFC]+\z).*?|.*?[^\x81-\x9F\xE0-\xFC](?>[\x81-\x9F\xE0-\xFC][\x81-\x9F\xE0-\xFC])*?))}xms,
+            'eucjp'     => qr{(?(?=.{0,65534}\z)(?:$x)*?|(?(?=[^\xA1-\xFE\xA1-\xFE]+\z).*?|.*?[^\xA1-\xFE\xA1-\xFE](?>[\xA1-\xFE\xA1-\xFE][\xA1-\xFE\xA1-\xFE])*?))}xms,
+            'gbk'       => qr{(?(?=.{0,65534}\z)(?:$x)*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
+            'uhc'       => qr{(?(?=.{0,65534}\z)(?:$x)*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
+            'big5'      => qr{(?(?=.{0,65534}\z)(?:$x)*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
+            'big5hkscs' => qr{(?(?=.{0,65534}\z)(?:$x)*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
+            'gb18030'   => qr{(?(?=.{0,65534}\z)(?:$x)*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
         }->{$script_encoding} || die;
     }
     elsif ($] >= 5.010001) {
         ${mb::_anchor} = {
-            'sjis'      => qr{(?(?=.{0,32766}\z)(?:${mb::x})*?|(?(?=[^\x81-\x9F\xE0-\xFC]+\z).*?|.*?[^\x81-\x9F\xE0-\xFC](?>[\x81-\x9F\xE0-\xFC][\x81-\x9F\xE0-\xFC])*?))}xms,
-            'eucjp'     => qr{(?(?=.{0,32766}\z)(?:${mb::x})*?|(?(?=[^\xA1-\xFE\xA1-\xFE]+\z).*?|.*?[^\xA1-\xFE\xA1-\xFE](?>[\xA1-\xFE\xA1-\xFE][\xA1-\xFE\xA1-\xFE])*?))}xms,
-            'gbk'       => qr{(?(?=.{0,32766}\z)(?:${mb::x})*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
-            'uhc'       => qr{(?(?=.{0,32766}\z)(?:${mb::x})*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
-            'big5'      => qr{(?(?=.{0,32766}\z)(?:${mb::x})*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
-            'big5hkscs' => qr{(?(?=.{0,32766}\z)(?:${mb::x})*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
-            'gb18030'   => qr{(?(?=.{0,32766}\z)(?:${mb::x})*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
+            'sjis'      => qr{(?(?=.{0,32766}\z)(?:$x)*?|(?(?=[^\x81-\x9F\xE0-\xFC]+\z).*?|.*?[^\x81-\x9F\xE0-\xFC](?>[\x81-\x9F\xE0-\xFC][\x81-\x9F\xE0-\xFC])*?))}xms,
+            'eucjp'     => qr{(?(?=.{0,32766}\z)(?:$x)*?|(?(?=[^\xA1-\xFE\xA1-\xFE]+\z).*?|.*?[^\xA1-\xFE\xA1-\xFE](?>[\xA1-\xFE\xA1-\xFE][\xA1-\xFE\xA1-\xFE])*?))}xms,
+            'gbk'       => qr{(?(?=.{0,32766}\z)(?:$x)*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
+            'uhc'       => qr{(?(?=.{0,32766}\z)(?:$x)*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
+            'big5'      => qr{(?(?=.{0,32766}\z)(?:$x)*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
+            'big5hkscs' => qr{(?(?=.{0,32766}\z)(?:$x)*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
+            'gb18030'   => qr{(?(?=.{0,32766}\z)(?:$x)*?|(?(?=[^\x81-\xFE\x81-\xFE]+\z).*?|.*?[^\x81-\xFE\x81-\xFE](?>[\x81-\xFE\x81-\xFE][\x81-\xFE\x81-\xFE])*?))}xms,
         }->{$script_encoding} || die;
     }
     else {
-        ${mb::_anchor} = qr{(?:${mb::x})*?}xms;
+        ${mb::_anchor} = qr{(?:$x)*?}xms;
     }
 
     # codepoint class shortcuts in qq-like regular expression
-    @{mb::_dot} = "(?>${mb::over_ascii}|.)"; # supports /s modifier by /./
-    @{mb::_B} = "(?:(?<![$mb::bare_w])(?![$mb::bare_w])|(?<=[$mb::bare_w])(?=[$mb::bare_w]))";
-    @{mb::_D} = "(?:(?![0-9])${mb::x})";
-    @{mb::_H} = "(?:(?![\\x09\\x20])${mb::x})";
-    @{mb::_N} = "(?:(?!\\n)${mb::x})";
+    @{mb::_dot} = "(?>$over_ascii|.)"; # supports /s modifier by /./
+    @{mb::_B} = "(?:(?<![$bare_w])(?![$bare_w])|(?<=[$bare_w])(?=[$bare_w]))";
+    @{mb::_D} = "(?:(?![0-9])$x)";
+    @{mb::_H} = "(?:(?![\\x09\\x20])$x)";
+    @{mb::_N} = "(?:(?!\\n)$x)";
     @{mb::_R} = "(?>\\r\\n|[\\x0A\\x0B\\x0C\\x0D])";
-    @{mb::_S} = "(?:(?![\\t\\n\\f\\r\\x20])${mb::x})";
-    @{mb::_V} = "(?:(?![\\x0A\\x0B\\x0C\\x0D])${mb::x})";
-    @{mb::_W} = "(?:(?![A-Za-z0-9_])${mb::x})";
-    @{mb::_b} = "(?:(?<![$mb::bare_w])(?=[$mb::bare_w])|(?<=[$mb::bare_w])(?![$mb::bare_w]))";
+    @{mb::_S} = "(?:(?![\\t\\n\\f\\r\\x20])$x)";
+    @{mb::_V} = "(?:(?![\\x0A\\x0B\\x0C\\x0D])$x)";
+    @{mb::_W} = "(?:(?![A-Za-z0-9_])$x)";
+    @{mb::_b} = "(?:(?<![$bare_w])(?=[$bare_w])|(?<=[$bare_w])(?![$bare_w]))";
     @{mb::_d} = "[0-9]";
     @{mb::_h} = "[\\x09\\x20]";
     @{mb::_s} = "[\\t\\n\\f\\r\\x20]";
@@ -756,7 +783,7 @@ sub mb::set_script_encoding {
 
 #---------------------------------------------------------------------
 # get script encoding name
-sub mb::get_script_encoding {
+sub mb::get_script_encoding () {
     return $script_encoding;
 }
 
@@ -764,9 +791,9 @@ sub mb::get_script_encoding {
 # substr() for MBCS encoding
 BEGIN {
     CORE::eval sprintf <<'END', ($] >= 5.014) ? ':lvalue' : '';
-#              VV--------------------------------AAAAAAA
-sub mb::substr %s {
-    my @x = $_[0] =~ /\G${mb::x}/g;
+#                      VV------------------------AAAAAAA
+sub mb::substr ($$;$$) %s {
+    my @x = $_[0] =~ /\G$x/g;
 
     # If the substring is beyond either end of the string, substr() returns the undefined
     # value and produces a warning. When used as an lvalue, specifying a substring that
@@ -815,44 +842,11 @@ END
 }
 
 #---------------------------------------------------------------------
-# tr/A-C/1-3/ for UTF-8 codepoint
-sub list_all_ASCII_by_hyphen {
-    my @hyphened = @_;
-    my @list_all = ();
-    for (my $i=0; $i <= $#hyphened; ) {
-        if (
-            ($i+1 < $#hyphened)      and
-            ($hyphened[$i+1] eq '-') and
-        1) {
-            if (0) { }
-            elsif ($hyphened[$i+0] !~ m/\A [\x00-\x7F] \z/oxms) {
-                confess sprintf(qq{@{[__FILE__]}: "$hyphened[$i+0]-$hyphened[$i+2]" in tr/// is not ASCII});
-            }
-            elsif ($hyphened[$i+2] !~ m/\A [\x00-\x7F] \z/oxms) {
-                confess sprintf(qq{@{[__FILE__]}: "$hyphened[$i+0]-$hyphened[$i+2]" in tr/// is not ASCII});
-            }
-            elsif ($hyphened[$i+0] gt $hyphened[$i+2]) {
-                confess sprintf(qq{@{[__FILE__]}: "$hyphened[$i+0]-$hyphened[$i+2]" in tr/// is not "$hyphened[$i+0]" le "$hyphened[$i+2]"});
-            }
-            else {
-                push @list_all, ($hyphened[$i+0] .. $hyphened[$i+2]);
-                $i += 3;
-            }
-        }
-        else {
-            push @list_all, $hyphened[$i];
-            $i++;
-        }
-    }
-    return @list_all;
-}
-
-#---------------------------------------------------------------------
 # tr/// and y/// for MBCS encoding
-sub mb::tr {
-    my @x           = $_[0] =~ /\G${mb::x}/g;
-    my @search      = list_all_ASCII_by_hyphen($_[1] =~ /\G${mb::x}/g);
-    my @replacement = list_all_ASCII_by_hyphen($_[2] =~ /\G${mb::x}/g);
+sub mb::tr ($$$;$) {
+    my @x           = $_[0] =~ /\G($x)/xmsg;
+    my @search      = list_all_ASCII_by_hyphen($_[1] =~ /\G(\\-|$x)/xmsg);
+    my @replacement = list_all_ASCII_by_hyphen($_[2] =~ /\G(\\-|$x)/xmsg);
     my %modifier    = (defined $_[3]) ? (map { $_ => 1 } CORE::split //, $_[3]) : ();
 
     my %tr = ();
@@ -1003,18 +997,18 @@ sub mb::tr {
 
 #---------------------------------------------------------------------
 # universal uc() for MBCS encoding
-sub mb::uc {
-    local $_ = shift if @_;
+sub mb::uc (;$) {
+    local $_ = @_ ? $_[0] : $_;
     #                          a A b B c C d D e E f F g G h H i I j J k K l L m M n N o O p P q Q r R s S t T u U v V w W x X y Y z Z
-    return join '', map { {qw( a A b B c C d D e E f F g G h H i I j J k K l L m M n N o O p P q Q r R s S t T u U v V w W x X y Y z Z )}->{$_}||$_ } /\G${mb::x}/g;
+    return join '', map { {qw( a A b B c C d D e E f F g G h H i I j J k K l L m M n N o O p P q Q r R s S t T u U v V w W x X y Y z Z )}->{$_}||$_ } /\G$x/g;
     #                          a A b B c C d D e E f F g G h H i I j J k K l L m M n N o O p P q Q r R s S t T u U v V w W x X y Y z Z
 }
 
 #---------------------------------------------------------------------
 # universal ucfirst() for MBCS encoding
-sub mb::ucfirst {
-    local $_ = shift if @_;
-    if (/\A(${mb::x})(.*)\z/s) {
+sub mb::ucfirst (;$) {
+    local $_ = @_ ? $_[0] : $_;
+    if (/\A($x)(.*)\z/s) {
         return mb::uc($1) . $2;
     }
     else {
@@ -1028,7 +1022,7 @@ sub mb::ucfirst {
 
 #---------------------------------------------------------------------
 # implement of special variable $1,$2,$3,...
-sub mb::_CAPTURE {
+sub mb::_CAPTURE (;$) {
     if ($mb::last_s_passed) {
         if (defined $_[0]) {
 
@@ -1075,7 +1069,7 @@ sub mb::_CAPTURE {
 
 #---------------------------------------------------------------------
 # implement of special variable @+
-sub mb::_LAST_MATCH_END {
+sub mb::_LAST_MATCH_END (@) {
 
     # perl 5.005 does not support @+, so it need CORE::eval
 
@@ -1099,7 +1093,7 @@ sub mb::_LAST_MATCH_END {
 
 #---------------------------------------------------------------------
 # implement of special variable @-
-sub mb::_LAST_MATCH_START {
+sub mb::_LAST_MATCH_START (@) {
 
     # perl 5.005 does not support @-, so it need CORE::eval
 
@@ -1123,7 +1117,7 @@ sub mb::_LAST_MATCH_START {
 
 #---------------------------------------------------------------------
 # implement of special variable $&
-sub mb::_MATCH {
+sub mb::_MATCH () {
     if (defined($&)) {
         if ($mb::last_s_passed) {
             if (defined($1) and (CORE::substr($&, 0, CORE::length($1)) eq $1)) {
@@ -1149,7 +1143,7 @@ sub mb::_MATCH {
 
 #---------------------------------------------------------------------
 # implement of special variable $`
-sub mb::_PREMATCH {
+sub mb::_PREMATCH () {
     if (defined($&)) {
         if ($mb::last_s_passed) {
             return $1;
@@ -1170,34 +1164,34 @@ sub mb::_PREMATCH {
 
 #---------------------------------------------------------------------
 # flag off if last m// was pass
-sub mb::_m_passed {
+sub mb::_m_passed () {
     $mb::last_s_passed = 0;
     return '';
 }
 
 #---------------------------------------------------------------------
 # flag on if last s/// was pass
-sub mb::_s_passed {
+sub mb::_s_passed () {
     $mb::last_s_passed = 1;
     return '';
 }
 
 #---------------------------------------------------------------------
 # ignore case of m//i, qr//i, s///i
-sub mb::_ignorecase {
+sub mb::_ignorecase ($) {
     local($_) = @_;
     my $regexp = '';
 
     # parse into elements
     while (/\G (
-        \(\? \^? [a-z]*        [:\)]          | # cloister (?^x) (?^x: ...
-        \(\? \^? [a-z]*-[a-z]+ [:\)]          | # cloister (?^x-y) (?^x-y: ...
-        \[ ((?: \\${mb::x} | ${mb::x} )+?) \] |
-        \\x\{ [0-9A-Fa-f]{2} \}               |
-        \\o\{ [0-7]{3}       \}               |
-        \\x   [0-9A-Fa-f]{2}                  |
-        \\    [0-7]{3}                        |
-        \\@{mb::_dot}                         |
+        \(\? \^? [a-z]*        [:\)] | # cloister (?^x) (?^x: ...
+        \(\? \^? [a-z]*-[a-z]+ [:\)] | # cloister (?^x-y) (?^x-y: ...
+        \[ ((?: \\@{mb::_dot} | @{mb::_dot} )+?) \] |
+        \\x\{ [0-9A-Fa-f]{2} \}      |
+        \\o\{ [0-7]{3}       \}      |
+        \\x   [0-9A-Fa-f]{2}         |
+        \\    [0-7]{3}               |
+        \\@{mb::_dot}                |
         @{mb::_dot}
     ) /xmsgc) {
         my($element, $classmate) = ($1, $2);
@@ -1283,20 +1277,20 @@ sub mb::_ignorecase {
 
 #---------------------------------------------------------------------
 # custom codepoint class in qq-like regular expression
-sub mb::_cc {
+sub mb::_cc ($) {
     my($classmate) = @_;
     if ($classmate =~ s{\A \^ }{}xms) {
-        return '(?:(?!' . parse_re_codepoint_class($classmate) . ")${mb::x})";
+        return '(?:(?!' . parse_re_codepoint_class($classmate) . ")$x)";
     }
     else {
-        return '(?:(?=' . parse_re_codepoint_class($classmate) . ")${mb::x})";
+        return '(?:(?=' . parse_re_codepoint_class($classmate) . ")$x)";
     }
 }
 
 #---------------------------------------------------------------------
 # makes clustered codepoint from string
-sub mb::_clustered_codepoint {
-    if (my @codepoint = $_[0] =~ /\G(${mb::x})/xmsgc) {
+sub mb::_clustered_codepoint ($) {
+    if (my @codepoint = $_[0] =~ /\G($x)/xmsgc) {
         if (CORE::length($codepoint[$#codepoint]) == 1) {
             return $_[0];
         }
@@ -1311,29 +1305,28 @@ sub mb::_clustered_codepoint {
 
 #---------------------------------------------------------------------
 # open for append by undefined filehandle
-sub mb::_open_a {
+sub mb::_open_a ($$) {
     $_[0] = \do { local *_ } if $] < 5.006;
     return open($_[0], ">> $_[1]");
 }
 
 #---------------------------------------------------------------------
 # open for read by undefined filehandle
-sub mb::_open_r {
+sub mb::_open_r ($$) {
     $_[0] = \do { local *_ } if $] < 5.006;
     return open($_[0], $_[1]);
 }
 
 #---------------------------------------------------------------------
 # open for write by undefined filehandle
-sub mb::_open_w {
+sub mb::_open_w ($$) {
     $_[0] = \do { local *_ } if $] < 5.006;
     return open($_[0], "> $_[1]");
 }
 
 #---------------------------------------------------------------------
 # split() for MBCS encoding
-# sub mb::_split (;$$$) {
-sub mb::_split {
+sub mb::_split (;$$$) {
     my $pattern = defined($_[0]) ? $_[0] : ' ';
     my $string  = defined($_[1]) ? $_[1] : $_;
     my @split = ();
@@ -1357,26 +1350,26 @@ sub mb::_split {
     my $modifier = '';
     if ((($modifier) = $pattern =~ /\A \(\?\^? (.+?) [\)\-\:] /xms) and ($modifier =~ /x/xms)) {
         @parsed = $pattern =~ m{ \G (
-            \\ ${mb::x}              |
-            \# .*? $                 | # comment on /x modifier
-            \(\?\# (?:${mb::x})*? \) |
-            \[ (?:${mb::x})+? \]     |
-            \(\?                     |
-            \(\+                     |
-            \(\*                     |
-            ${mb::x}                 |
+            \\ $x              |
+            \# .*? $           | # comment on /x modifier
+            \(\?\# (?:$x)*? \) |
+            \[ (?:$x)+? \]     |
+            \(\?               |
+            \(\+               |
+            \(\*               |
+            $x                 |
             [\x00-\xFF]
         ) }xgc;
     }
     else {
         @parsed = $pattern =~ m{ \G (
-            \\ ${mb::x}              |
-            \(\?\# (?:${mb::x})*? \) |
-            \[ (?:${mb::x})+? \]     |
-            \(\?                     |
-            \(\+                     |
-            \(\*                     |
-            ${mb::x}                 |
+            \\ $x              |
+            \(\?\# (?:$x)*? \) |
+            \[ (?:$x)+? \]     |
+            \(\?               |
+            \(\+               |
+            \(\*               |
+            $x                 |
             [\x00-\xFF]
         ) }xgc;
     }
@@ -1395,7 +1388,7 @@ sub mb::_split {
         CORE::eval q{ no warnings }; # avoid: Complex regular subexpression recursion limit (nnnnn) exceeded at ...
 
         # gets substrings by repeat chopping by pattern
-        while ((--$limit > 0) and ($string =~ s<\A((?:${mb::x})$substring_quantifier)$pattern><>)) {
+        while ((--$limit > 0) and ($string =~ s<\A((?:$x)$substring_quantifier)$pattern><>)) {
             for (my $n_th=1; $n_th <= $last_match_no; $n_th++) {
                 push @split, CORE::eval('$'.$n_th);
             }
@@ -1407,7 +1400,7 @@ sub mb::_split {
         CORE::eval q{ no warnings }; # avoid: Complex regular subexpression recursion limit (nnnnn) exceeded at ...
 
         # gets substrings by repeat chopping by pattern
-        while ($string =~ s<\A((?:${mb::x})$substring_quantifier)$pattern><>) {
+        while ($string =~ s<\A((?:$x)$substring_quantifier)$pattern><>) {
             for (my $n_th=1; $n_th <= $last_match_no; $n_th++) {
                 push @split, CORE::eval('$'.$n_th);
             }
@@ -1448,7 +1441,7 @@ sub mb::_split {
 
 #---------------------------------------------------------------------
 # chdir() for MSWin32
-sub mb::_chdir {
+sub mb::_chdir (;$) {
 
     # not on MSWin32 or UTF-8
     if (($OSNAME !~ /MSWin32/) or ($script_encoding !~ /\A (?: sjis | gbk | uhc | big5 | big5hkscs | gb18030 ) \z/xms)) {
@@ -1464,7 +1457,7 @@ sub mb::_chdir {
     if (@_ == 0) {
         return CORE::chdir;
     }
-    elsif (($script_encoding =~ /\A (?: sjis ) \z/xms) and ($_[0] =~ /\A ${mb::x}* [\x81-\x9F\xE0-\xFC][\x5C] \z/xms)) {
+    elsif (($script_encoding =~ /\A (?: sjis ) \z/xms) and ($_[0] =~ /\A $x* [\x81-\x9F\xE0-\xFC][\x5C] \z/xms)) {
         if (defined wantarray) {
             return 0;
         }
@@ -1472,7 +1465,7 @@ sub mb::_chdir {
             confess "mb::_chdir: Can't chdir '$_[0]'\n";
         }
     }
-    elsif (($script_encoding =~ /\A (?: gbk | uhc | big5 | big5hkscs | gb18030 ) \z/xms) and ($_[0] =~ /\A ${mb::x}* [\x81-\xFE][\x5C] \z/xms)) {
+    elsif (($script_encoding =~ /\A (?: gbk | uhc | big5 | big5hkscs | gb18030 ) \z/xms) and ($_[0] =~ /\A $x* [\x81-\xFE][\x5C] \z/xms)) {
         if (defined wantarray) {
             return 0;
         }
@@ -1488,7 +1481,7 @@ sub mb::_chdir {
 #---------------------------------------------------------------------
 # stackable filetest -X -Y -Z for MSWin32
 sub mb::_filetest {
-    my @filetest = @{ shift(@_) };
+    my @filetest = map { /(-[A-Za-z])/g } @{ shift(@_) };
     local $_ = @_ ? shift : (($filetest[-1] eq '-t') ? \*STDIN : $_);
     confess "Too many arguments for filetest @filetest" if @_ and not wantarray;
 
@@ -1521,8 +1514,8 @@ sub mb::_filetest {
 
 #---------------------------------------------------------------------
 # lstat() for MSWin32
-sub mb::_lstat {
-    local $_ = shift if @_;
+sub mb::_lstat (;$) {
+    local $_ = @_ ? $_[0] : $_;
     if ($_ eq '_') {
         confess qq{lstat doesn't support '_'\n};
     }
@@ -1541,7 +1534,7 @@ sub mb::_lstat {
 
 #---------------------------------------------------------------------
 # opendir() for MSWin32
-sub mb::_opendir {
+sub mb::_opendir ($$) {
     if (not defined $_[0]) {
         $_[0] = \do { local *_ };
     }
@@ -1561,8 +1554,8 @@ sub mb::_opendir {
 
 #---------------------------------------------------------------------
 # stat() for MSWin32
-sub mb::_stat {
-    local $_ = shift if @_;
+sub mb::_stat (;$) {
+    local $_ = @_ ? $_[0] : $_;
 
     # testee has "\x5C" octet at end
     if (
@@ -1578,7 +1571,7 @@ sub mb::_stat {
 
 #---------------------------------------------------------------------
 # unlink() for MSWin32
-sub mb::_unlink {
+sub mb::_unlink (@) {
 
     # works on MSWin32 only
     if (($OSNAME !~ /MSWin32/) or ($script_encoding !~ /\A (?: sjis | gbk | uhc | big5 | big5hkscs | gb18030 ) \z/xms)) {
@@ -1726,18 +1719,16 @@ sub detect_system_encoding {
     }
 }
 
-my $term = 0;
 my @here_document_delimiter = ();
 
 #---------------------------------------------------------------------
 # parse script
 sub parse {
-    local $_ = shift if @_;
+    local $_ = @_ ? $_[0] : $_;
 
     # Yes, I studied study yesterday, once again.
     study $_; # acts between perl 5.005 to perl 5.014
 
-    $term = 0;
     @here_document_delimiter = ();
 
     # transpile JPerl script to Perl script
@@ -1748,6 +1739,51 @@ sub parse {
 
     # return octet-oriented Perl script
     return $parsed_script;
+}
+
+#---------------------------------------------------------------------
+# parse ambiguous characters
+sub parse_ambiguous_char {
+    my $parsed = '';
+
+    # Ambiguous characters
+    # --------------------------------------------------------
+    # Character   Operator          Term
+    # --------------------------------------------------------
+    # %           modulo            %hash
+    # &           &, &&             &subroutine
+    # '           package           'string'
+    # *           multiplication    *typeglob
+    # +           addition          unary plus
+    # -           subtraction       unary minus
+    # .           concatenation     .3333
+    # /           division          /pattern/
+    # <           less than         <>, <HANDLE>, <fileglob>
+    # <<          left shift        <<HERE, <<~HERE, <<>>
+    # ?           ?:                ?pattern?
+    # --------------------------------------------------------
+
+    # any term then operator
+    # "\x25" [%] PERCENT SIGN (U+0025)
+    # "\x26" [&] AMPERSAND (U+0026)
+    # "\x2A" [*] ASTERISK (U+002A)
+    # "\x2E" [.] FULL STOP (U+002E)
+    # "\x2F" [/] SOLIDUS (U+002F)
+    # "\x3C" [<] LESS-THAN SIGN (U+003C)
+    # "\x3F" [?] QUESTION MARK (U+003F)
+    if (/\G ( \s* (?:
+        %=     | %    |
+        &&=    | &&   | &\.= | &\. | &= | & |
+        \*\*=  | \*\* | \*=  | \*  |
+        \.\.\. | \.\. | \.=  | \.  |
+        \/\/=  | \/\/ | \/=  | \/  |
+        <=>    | <<   | <=   | <   |
+        \?
+    )) /xmsgc) {
+        $parsed .= $1;
+    }
+
+    return $parsed;
 }
 
 #---------------------------------------------------------------------
@@ -1765,7 +1801,7 @@ sub parse_expr {
         $parsed .= $1;
     }
 
-    # \r\n, \r, \n
+    # "\r\n", "\r", "\n"
     elsif (/\G (?= $R ) /xmsgc) {
         while (my $here_document_delimiter = shift @here_document_delimiter) {
             my($delimiter, $quote_type) = @{$here_document_delimiter};
@@ -1791,7 +1827,7 @@ sub parse_expr {
         }
     }
 
-    # \t
+    # "\t"
     # "\x20" [ ] SPACE (U+0020)
     elsif (/\G ( [\t ]+ ) /xmsgc) {
         $parsed .= $1;
@@ -1800,19 +1836,37 @@ sub parse_expr {
     # "\x3B" [;] SEMICOLON (U+003B)
     elsif (/\G ( ; ) /xmsgc) {
         $parsed .= $1;
-        $term = 0;
     }
 
-    # balanced bracket
+    # balanced brackets
     # "\x28" [(] LEFT PARENTHESIS (U+0028)
     # "\x7B" [{] LEFT CURLY BRACKET (U+007B)
     # "\x5B" [[] LEFT SQUARE BRACKET (U+005B)
     elsif (/\G ( [(\{\[] ) /xmsgc) {
         $parsed .= parse_expr_balanced($1);
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
-    # number
+    # version string
+    # v102.111.111
+    # 102.111.111
+    elsif (/\G ( 
+        v [0-9]+ (?: \.[0-9]+ ){1,} \b |
+          [0-9]+ (?: \.[0-9]+ ){2,} \b
+    ) /xmsgc) {
+        my $v_string = $1;
+        $parsed .= join('.', map { "mb::chr($_)" } ($v_string =~ /[0-9]+/g));
+        $parsed .= parse_ambiguous_char();
+    }
+
+    # version string
+    # v9786
+    elsif (/\G v ( [0-9]+ ) \b (?! \s* => ) /xmsgc) {
+        $parsed .= "mb::chr($1)";
+        $parsed .= parse_ambiguous_char();
+    }
+
+    # numbers
     # "\x30" [0] DIGIT ZERO (U+0030)
     # "\x31" [1] DIGIT ONE (U+0031)
     # "\x32" [2] DIGIT TWO (U+0032)
@@ -1831,77 +1885,66 @@ sub parse_expr {
         [1-9] [0-9_]* (?: \.[0-9_]* )? (?: [Ee] [0-9_]+ )?
     ) /xmsgc) {
         $parsed .= $1;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
-    # any term then operator
-    # "\x25" [%] PERCENT SIGN (U+0025)
-    # "\x26" [&] AMPERSAND (U+0026)
-    # "\x2A" [*] ASTERISK (U+002A)
-    # "\x2E" [.] FULL STOP (U+002E)
-    # "\x2F" [/] SOLIDUS (U+002F)
-    # "\x3C" [<] LESS-THAN SIGN (U+003C)
-    # "\x3F" [?] QUESTION MARK (U+003F)
-    elsif ($term and /\G ( %= | % | &&= | && | &\.= | &\. | &= | & | \*\*= | \*\* | \*= | \* | \.\.\. | \.\. | \.= | \. | \/\/= | \/\/ | \/= | \/ | <=> | << | <= | < | \? ) /xmsgc) {
-        $parsed .= $1;
-        $term = 0;
-    }
-
-    # file test operator on MSWin32
+    # file test operators on MSWin32
     # "\x2D" [-] HYPHEN-MINUS (U+002D)
 
     # -X -Y -Z 'file' --> mb::_filetest [qw( -X -Y -Z )], 'file'
     # -X -Y -Z "file" --> mb::_filetest [qw( -X -Y -Z )], "file"
     # -X -Y -Z `file` --> mb::_filetest [qw( -X -Y -Z )], `file`
     # -X -Y -Z $file  --> mb::_filetest [qw( -X -Y -Z )], $file
-    #          vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    #                                           vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv        vvvvvvvvvvvv  vvvvvvvvvvvvvvvvvvvv
-    elsif (/\G ( -[ABCMORSTWXbcdefgkloprstuwxz] (?: \s+ -[ABCMORSTWXbcdefgkloprstuwxz] )* ) (?= (?: \( \s* )* (?: ' | " | ` | \$ ) ) /xmsgc) {
+    # ..., and filetest any word except file handle or directory handle
+    # -X -Y -Z m//    --> mb::_filetest [qw( -X -Y -Z )], m//
+    # -X -Y -Z q//    --> mb::_filetest [qw( -X -Y -Z )], q//
+    # -X -Y -Z qq//   --> mb::_filetest [qw( -X -Y -Z )], qq//
+    # -X -Y -Z qr//   --> mb::_filetest [qw( -X -Y -Z )], qr//
+    # -X -Y -Z qw//   --> mb::_filetest [qw( -X -Y -Z )], qw//
+    # -X -Y -Z qx//   --> mb::_filetest [qw( -X -Y -Z )], qx//
+    # -X -Y -Z s///   --> mb::_filetest [qw( -X -Y -Z )], s///
+    # -X -Y -Z tr///  --> mb::_filetest [qw( -X -Y -Z )], tr///
+    # -X -Y -Z y///   --> mb::_filetest [qw( -X -Y -Z )], y///
+    #          vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    #                                                               vvvvvvvvvvvv  vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    elsif (/\G ( (?: -[ABCMORSTWXbcdefgkloprstuwxz] \s* )+ \b ) (?= (?: \( \s* )* (?: ' | " | ` | \$ | (?: (?: m | q | qq | qr | qw | qx | s | tr | y ) \b )) ) /xmsgc) {
         $parsed .= "mb::_filetest [qw( $1 )], ";
-        $term = 1;
     }
 
-    # -X -Y -Z m//   --> mb::_filetest [qw( -X -Y -Z )], m//
-    # -X -Y -Z q//   --> mb::_filetest [qw( -X -Y -Z )], q//
-    # -X -Y -Z qq//  --> mb::_filetest [qw( -X -Y -Z )], qq//
-    # -X -Y -Z qr//  --> mb::_filetest [qw( -X -Y -Z )], qr//
-    # -X -Y -Z qw//  --> mb::_filetest [qw( -X -Y -Z )], qw//
-    # -X -Y -Z qx//  --> mb::_filetest [qw( -X -Y -Z )], qx//
-    # -X -Y -Z s///  --> mb::_filetest [qw( -X -Y -Z )], s///
-    # -X -Y -Z tr/// --> mb::_filetest [qw( -X -Y -Z )], tr///
-    # -X -Y -Z y///  --> mb::_filetest [qw( -X -Y -Z )], y///
-    #          vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    #            vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv        vvvvvvvvvvvv  vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    elsif (/\G ( (?: -[ABCMORSTWXbcdefgkloprstuwxz] \s+ )+ ) (?= (?: \( \s* )* (?: m | q | qq | qr | qw | qx | s | tr | y ) \b ) /xmsgc) {
-        $parsed .= "mb::_filetest [qw( $1)], ";
-        $term = 1;
-    }
-
+    # filetest file handle or directory handle
     # -X -Y -Z _    --> mb::_filetest [qw( -X -Y -Z )], \*_
     # -X -Y -Z FILE --> mb::_filetest [qw( -X -Y -Z )], \*FILE
-    #          vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    #            vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv    vvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    elsif (/\G ( (?: -[ABCMORSTWXbcdefgkloprstuwxz] \s+ )+ ) (?= [A-Za-z_][A-Za-z0-9_]* ) /xmsgc) {
+    #          vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    #            vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv       vvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    elsif (/\G ( (?: -[ABCMORSTWXbcdefgkloprstuwxz] \s* )+ \b ) (?= [A-Za-z_][A-Za-z0-9_]* ) /xmsgc) {
         $parsed .= "mb::_filetest [qw( $1)], ";
         $parsed .= '\\*';
-        $term = 1;
     }
 
     # -X -Y -Z ... --> mb::_filetest [qw( -X -Y -Z )], ...
-    #          vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    #          vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     #            vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    elsif (/\G ( (?: -[ABCMORSTWXbcdefgkloprstuwxz] \s+ )+ ) /xmsgc) {
-        $parsed .= "mb::_filetest [qw( $1)], ";
-        $term = 1;
+    elsif (/\G ( (?: -[ABCMORSTWXbcdefgkloprstuwxz] \s* )+ \b ) /xmsgc) {
+        $parsed .= "mb::_filetest [qw( $1)]";
+        if (my $ambiguous_char = parse_ambiguous_char()) {
+            $parsed .= $ambiguous_char;
+        }
+        else {
+            $parsed .= ', ';
+        }
     }
 
     # yada-yada or triple-dot operator
     elsif (/\G ( \.\.\. ) /xmsgc) {
         $parsed .= $1;
-        $term = 0;
     }
 
-    # any operator
+    # -> and any method
+    elsif (/\G ( -> \s* [A-Za-z_][A-Za-z_0-9]* ) /xmsgc) {
+        $parsed .= $1;
+    }
+
+    # any operators
     # "\x21" [!] EXCLAMATION MARK (U+0021)
     # "\x2B" [+] PLUS SIGN (U+002B)
     # "\x2C" [,] COMMA (U+002C)
@@ -1913,7 +1956,6 @@ sub parse_expr {
     # "\x7E" [~] TILDE (U+007E)
     elsif (/\G ( != | !~ | ! | \+\+ | \+= | \+ | , | -- | -= | -> | - | == | => | =~ | = | >> | >= | > | \\ | \^\.= | \^\. | \^= | \^ | (?: and | cmp | eq | ge | gt | isa | le | lt | ne | not | or | x | x= | xor ) \b | \|\|= | \|\| | \|\.= | \|\. | \|= | \| | ~~ | ~\. | ~= | ~ ) /xmsgc) {
         $parsed .= $1;
-        $term = 0;
     }
 
     # $`           --> mb::_PREMATCH()
@@ -1923,7 +1965,7 @@ sub parse_expr {
     # ${^PREMATCH} --> mb::_PREMATCH()
     elsif (/\G (?: \$` | \$\{`\} | \$PREMATCH | \$\{PREMATCH\} | \$\{\^PREMATCH\} ) /xmsgc) {
         $parsed .= 'mb::_PREMATCH()';
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # $&        --> mb::_MATCH()
@@ -1933,7 +1975,7 @@ sub parse_expr {
     # ${^MATCH} --> mb::_MATCH()
     elsif (/\G (?: \$& | \$\{&\} | \$MATCH | \$\{MATCH\} | \$\{\^MATCH\} ) /xmsgc) {
         $parsed .= 'mb::_MATCH()';
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # $1 --> mb::_CAPTURE(1)
@@ -1941,13 +1983,13 @@ sub parse_expr {
     # $3 --> mb::_CAPTURE(3)
     elsif (/\G \$ ([1-9][0-9]*) /xmsgc) {
         $parsed .= "mb::_CAPTURE($1)";
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # @{^CAPTURE} --> mb::_CAPTURE()
     elsif (/\G \@\{\^CAPTURE\} /xmsgc) {
         $parsed .= 'mb::_CAPTURE()';
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # ${^CAPTURE}[0] --> mb::_CAPTURE(1)
@@ -1956,7 +1998,7 @@ sub parse_expr {
     elsif (/\G \$\{\^CAPTURE\} \s* (\[) /xmsgc) {
         my $n_th = quotee_of(parse_expr_balanced($1));
         $parsed .= "mb::_CAPTURE($n_th+1)";
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # @-                   --> mb::_LAST_MATCH_START()
@@ -1965,7 +2007,7 @@ sub parse_expr {
     # @{^LAST_MATCH_START} --> mb::_LAST_MATCH_START()
     elsif (/\G (?: \@- | \@LAST_MATCH_START | \@\{LAST_MATCH_START\} | \@\{\^LAST_MATCH_START\} ) /xmsgc) {
         $parsed .= 'mb::_LAST_MATCH_START()';
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # $-[1]                   --> mb::_LAST_MATCH_START(1)
@@ -1975,7 +2017,7 @@ sub parse_expr {
     elsif (/\G (?: \$- | \$LAST_MATCH_START | \$\{LAST_MATCH_START\} | \$\{\^LAST_MATCH_START\} ) \s* (\[) /xmsgc) {
         my $n_th = quotee_of(parse_expr_balanced($1));
         $parsed .= "mb::_LAST_MATCH_START($n_th)";
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # @+                 --> mb::_LAST_MATCH_END()
@@ -1984,7 +2026,7 @@ sub parse_expr {
     # @{^LAST_MATCH_END} --> mb::_LAST_MATCH_END()
     elsif (/\G (?: \@\+ | \@LAST_MATCH_END | \@\{LAST_MATCH_END\} | \@\{\^LAST_MATCH_END\} ) /xmsgc) {
         $parsed .= 'mb::_LAST_MATCH_END()';
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # $+[1]                 --> mb::_LAST_MATCH_END(1)
@@ -1994,7 +2036,7 @@ sub parse_expr {
     elsif (/\G (?: \$\+ | \$LAST_MATCH_END | \$\{LAST_MATCH_END\} | \$\{\^LAST_MATCH_END\} ) \s* (\[) /xmsgc) {
         my $n_th = quotee_of(parse_expr_balanced($1));
         $parsed .= "mb::_LAST_MATCH_END($n_th)";
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # mb::do { block }   --> do { block }
@@ -2004,7 +2046,7 @@ sub parse_expr {
     elsif (/\G (?: mb:: )? ( (?: do | eval ) \s* ) ( \{ ) /xmsgc) {
         $parsed .= $1;
         $parsed .= parse_expr_balanced($2);
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # $#{}, ${}, @{}, %{}, &{}, *{}, do {}, eval {}, sub {}
@@ -2012,60 +2054,54 @@ sub parse_expr {
     elsif (/\G ((?: \$[#] | [\$\@%&*] | (?:CORE::)? do | (?:CORE::)? eval | sub ) \s* ) ( \{ ) /xmsgc) {
         $parsed .= $1;
         $parsed .= parse_expr_balanced($2);
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # mb::do   --> mb::do
-    # mb::eval --> mb::eval
-    elsif (/\G ( mb:: (?: do | eval ) ) \b /xmsgc) {
+    # CORE::do --> CORE::do
+    # do       --> do
+    elsif (/\G ( (?: mb:: | CORE:: )? do ) \b /xmsgc) {
         $parsed .= $1;
-        $term = 1;
     }
 
-    # CORE::do   --> CORE::do
+    # mb::eval   --> mb::eval
     # CORE::eval --> CORE::eval
-    elsif (/\G ( CORE:: (?: do | eval ) ) \b /xmsgc) {
+    # eval       --> eval
+    elsif (/\G ( (?: mb:: | CORE:: )? eval ) \b /xmsgc) {
         $parsed .= $1;
-        $term = 1;
-    }
-
-    # do   --> do
-    # eval --> eval
-    elsif (/\G ( do | eval ) \b /xmsgc) {
-        $parsed .= $1;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # last index of array
     elsif (/\G ( [\$] [#] (?: [A-Za-z_][A-Za-z_0-9]*(?:(?:'|::)[A-Za-z_][A-Za-z_0-9]*)* ) ) /xmsgc) {
         $parsed .= $1;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # scalar variable
     elsif (/\G (     [\$] [\$]* (?: [A-Za-z_][A-Za-z_0-9]*(?:(?:'|::)[A-Za-z_][A-Za-z_0-9]*)* | ^\{[A-Za-z_][A-Za-z_0-9]*\} | [0-9]+ | [!"#\$%&'()+,\-.\/:;<=>?\@\[\\\]\^_`|~] ) (?: \s* (?: \+\+ | -- ) )? ) /xmsgc) {
         $parsed .= $1;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # array variable
     # "\x40" [@] COMMERCIAL AT (U+0040)
     elsif (/\G (   [\@\$] [\$]* (?: [A-Za-z_][A-Za-z_0-9]*(?:(?:'|::)[A-Za-z_][A-Za-z_0-9]*)* | [_] ) ) /xmsgc) {
         $parsed .= $1;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # hash variable
     elsif (/\G ( [\%\@\$] [\$]* (?: [A-Za-z_][A-Za-z_0-9]*(?:(?:'|::)[A-Za-z_][A-Za-z_0-9]*)* | [!+\-] ) ) /xmsgc) {
         $parsed .= $1;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # user subroutine call
     # type glob
     elsif (/\G (     [&*] [\$]* (?: [A-Za-z_][A-Za-z_0-9]*(?:(?:'|::)[A-Za-z_][A-Za-z_0-9]*)* ) ) /xmsgc) {
         $parsed .= $1;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # comment
@@ -2078,15 +2114,21 @@ sub parse_expr {
 
     # '...'
     # "\x27" ['] APOSTROPHE (U+0027)
-    elsif (m{\G ( ' )    }xmsgc) { $parsed .= parse_q__like_endswith($1); $term = 1; }
+    elsif (m{\G ( ' ) }xmsgc) {
+        $parsed .= parse_q__like_endswith($1);
+        $parsed .= parse_ambiguous_char();
+    }
 
     # "...", `...`
     # "\x22" ["] QUOTATION MARK (U+0022)
     # "\x60" [`] GRAVE ACCENT (U+0060)
-    elsif (m{\G ( ["`] ) }xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
+    elsif (m{\G ( ["`] ) }xmsgc) {
+        $parsed .= parse_qq_like_endswith($1);
+        $parsed .= parse_ambiguous_char();
+    }
 
     # /.../
-    elsif (m{\G ( [/] )  }xmsgc) {
+    elsif (m{\G ( [/] ) }xmsgc) {
         my $regexp = parse_re_endswith('m',$1);
         my($modifier_i, $modifier_not_cegir, $modifier_cegr) = parse_re_modifier();
         if ($modifier_i) {
@@ -2095,11 +2137,11 @@ sub parse_expr {
         else {
             $parsed .= sprintf('m{\\G${mb::_anchor}@{[' .            'qr%s%s ]}@{[mb::_m_passed()]}}%s', $regexp, $modifier_not_cegir, $modifier_cegr);
         }
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # ?...?
-    elsif (m{\G ( [?] )  }xmsgc) {
+    elsif (m{\G ( [?] ) }xmsgc) {
         my $regexp = parse_re_endswith('m',$1);
         my($modifier_i, $modifier_not_cegir, $modifier_cegr) = parse_re_modifier();
         if ($modifier_i) {
@@ -2108,93 +2150,96 @@ sub parse_expr {
         else {
             $parsed .= sprintf('m{\\G${mb::_anchor}@{[' .            'qr%s%s ]}@{[mb::_m_passed()]}}%s', $regexp, $modifier_not_cegir, $modifier_cegr);
         }
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # <<>> double-diamond operator
     elsif (/\G ( <<>> ) /xmsgc) {
         $parsed .= $1;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # <FILE> diamond operator
     # <${file}>
     # <$file>
     # <fileglob>
-    elsif (/\G (<) ((?:(?!\s)${mb::x})*?) (>) /xmsgc) {
+    elsif (/\G (<) ((?:(?!\s)$x)*?) (>) /xmsgc) {
         my($open_bracket, $quotee, $close_bracket) = ($1, $2, $3);
         $parsed .= $open_bracket;
-        while ($quotee =~ /\G (${mb::x}) /xmsgc) {
+        while ($quotee =~ /\G ($x) /xmsgc) {
             $parsed .= escape_qq($1, $close_bracket);
         }
         $parsed .= $close_bracket;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # qw/.../, q/.../
     elsif (/\G ( qw | q ) \b /xmsgc) {
         $parsed .= $1;
-        if    (/\G ( [#] )        /xmsgc) { $parsed .= parse_q__like_endswith($1); $term = 1; }
-        elsif (/\G ( ['] )        /xmsgc) { $parsed .= parse_q__like_endswith($1); $term = 1; }
-        elsif (/\G ( [\(\{\[\<] ) /xmsgc) { $parsed .= parse_q__like_balanced($1); $term = 1; }
-        elsif (m{\G( [/] )        }xmsgc) { $parsed .= parse_q__like_endswith($1); $term = 1; }
-        elsif (/\G ( [\S] )       /xmsgc) { $parsed .= parse_q__like_endswith($1); $term = 1; }
+        if    (/\G ( [#] )        /xmsgc) { $parsed .= parse_q__like_endswith($1); }
+        elsif (/\G ( ['] )        /xmsgc) { $parsed .= parse_q__like_endswith($1); }
+        elsif (/\G ( [\(\{\[\<] ) /xmsgc) { $parsed .= parse_q__like_balanced($1); }
+        elsif (m{\G( [/] )        }xmsgc) { $parsed .= parse_q__like_endswith($1); }
+        elsif (/\G ( [\S] )       /xmsgc) { $parsed .= parse_q__like_endswith($1); }
         elsif (/\G ( \s+ )        /xmsgc) { $parsed .= $1;
             while (/\G ( \s+ | [#] [^\n]* ) /xmsgc) {
                 $parsed .= $1;
             }
-            if    (/\G ( [A-Za-z_0-9] ) /xmsgc) { $parsed .= parse_q__like_endswith($1); $term = 1; }
-            elsif (/\G ( ['] )          /xmsgc) { $parsed .= parse_q__like_endswith($1); $term = 1; }
-            elsif (/\G ( [\(\{\[\<] )   /xmsgc) { $parsed .= parse_q__like_balanced($1); $term = 1; }
-            elsif (m{\G( [/] )          }xmsgc) { $parsed .= parse_q__like_endswith($1); $term = 1; }
-            elsif (/\G ( [\S] )         /xmsgc) { $parsed .= parse_q__like_endswith($1); $term = 1; }
+            if    (/\G ( [A-Za-z_0-9] ) /xmsgc) { $parsed .= parse_q__like_endswith($1); }
+            elsif (/\G ( ['] )          /xmsgc) { $parsed .= parse_q__like_endswith($1); }
+            elsif (/\G ( [\(\{\[\<] )   /xmsgc) { $parsed .= parse_q__like_balanced($1); }
+            elsif (m{\G( [/] )          }xmsgc) { $parsed .= parse_q__like_endswith($1); }
+            elsif (/\G ( [\S] )         /xmsgc) { $parsed .= parse_q__like_endswith($1); }
             else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
         }
         else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
+        $parsed .= parse_ambiguous_char();
     }
 
     # qq/.../
     elsif (/\G ( qq ) \b /xmsgc) {
         $parsed .= $1;
-        if    (/\G ( [#] )        /xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
-        elsif (/\G ( ['] )        /xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; } # qq'...' works as "..."
-        elsif (/\G ( [\(\{\[\<] ) /xmsgc) { $parsed .= parse_qq_like_balanced($1); $term = 1; }
-        elsif (m{\G( [/] )        }xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
-        elsif (/\G ( [\S] )       /xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
+        if    (/\G ( [#] )        /xmsgc) { $parsed .= parse_qq_like_endswith($1); }
+        elsif (/\G ( ['] )        /xmsgc) { $parsed .= parse_qq_like_endswith($1); } # qq'...' works as "..."
+        elsif (/\G ( [\(\{\[\<] ) /xmsgc) { $parsed .= parse_qq_like_balanced($1); }
+        elsif (m{\G( [/] )        }xmsgc) { $parsed .= parse_qq_like_endswith($1); }
+        elsif (/\G ( [\S] )       /xmsgc) { $parsed .= parse_qq_like_endswith($1); }
         elsif (/\G ( \s+ )        /xmsgc) { $parsed .= $1;
             while (/\G ( \s+ | [#] [^\n]* ) /xmsgc) {
                 $parsed .= $1;
             }
-            if    (/\G ( [A-Za-z_0-9] ) /xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
-            elsif (/\G ( ['] )          /xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; } # qq'...' works as "..."
-            elsif (/\G ( [\(\{\[\<] )   /xmsgc) { $parsed .= parse_qq_like_balanced($1); $term = 1; }
-            elsif (m{\G( [/] )          }xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
-            elsif (/\G ( [\S] )         /xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
+            if    (/\G ( [A-Za-z_0-9] ) /xmsgc) { $parsed .= parse_qq_like_endswith($1); }
+            elsif (/\G ( ['] )          /xmsgc) { $parsed .= parse_qq_like_endswith($1); } # qq'...' works as "..."
+            elsif (/\G ( [\(\{\[\<] )   /xmsgc) { $parsed .= parse_qq_like_balanced($1); }
+            elsif (m{\G( [/] )          }xmsgc) { $parsed .= parse_qq_like_endswith($1); }
+            elsif (/\G ( [\S] )         /xmsgc) { $parsed .= parse_qq_like_endswith($1); }
             else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
         }
         else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
+        $parsed .= parse_ambiguous_char();
     }
 
     # qx/.../
     elsif (/\G ( qx ) \b /xmsgc) {
         $parsed .= $1;
-        if    (/\G ( [#] )        /xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
-        elsif (/\G ( ['] )        /xmsgc) { $parsed .= parse_q__like_endswith($1); $term = 1; }
-        elsif (/\G ( [\(\{\[\<] ) /xmsgc) { $parsed .= parse_qq_like_balanced($1); $term = 1; }
-        elsif (m{\G( [/] )        }xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
-        elsif (/\G ( [\S] )       /xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
+        if    (/\G ( [#] )        /xmsgc) { $parsed .= parse_qq_like_endswith($1); }
+        elsif (/\G ( ['] )        /xmsgc) { $parsed .= parse_q__like_endswith($1); }
+        elsif (/\G ( [\(\{\[\<] ) /xmsgc) { $parsed .= parse_qq_like_balanced($1); }
+        elsif (m{\G( [/] )        }xmsgc) { $parsed .= parse_qq_like_endswith($1); }
+        elsif (/\G ( [\S] )       /xmsgc) { $parsed .= parse_qq_like_endswith($1); }
         elsif (/\G ( \s+ )        /xmsgc) { $parsed .= $1;
             while (/\G ( \s+ | [#] [^\n]* ) /xmsgc) {
                 $parsed .= $1;
             }
-            if    (/\G ( [A-Za-z_0-9] ) /xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
-            elsif (/\G ( ['] )          /xmsgc) { $parsed .= parse_q__like_endswith($1); $term = 1; }
-            elsif (/\G ( [\(\{\[\<] )   /xmsgc) { $parsed .= parse_qq_like_balanced($1); $term = 1; }
-            elsif (m{\G( [/] )          }xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
-            elsif (/\G ( [\S] )         /xmsgc) { $parsed .= parse_qq_like_endswith($1); $term = 1; }
+            if    (/\G ( [A-Za-z_0-9] ) /xmsgc) { $parsed .= parse_qq_like_endswith($1); }
+            elsif (/\G ( ['] )          /xmsgc) { $parsed .= parse_q__like_endswith($1); }
+            elsif (/\G ( [\(\{\[\<] )   /xmsgc) { $parsed .= parse_qq_like_balanced($1); }
+            elsif (m{\G( [/] )          }xmsgc) { $parsed .= parse_qq_like_endswith($1); }
+            elsif (/\G ( [\S] )         /xmsgc) { $parsed .= parse_qq_like_endswith($1); }
             else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
         }
         else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
+        $parsed .= parse_ambiguous_char();
     }
 
     # m/.../, qr/.../
@@ -2229,7 +2274,7 @@ sub parse_expr {
         else {
             $parsed .= sprintf('{\\G${mb::_anchor}@{[' .            'qr%s%s ]}@{[mb::_m_passed()]}}%s', $regexp, $modifier_not_cegir, $modifier_cegr);
         }
-        $term = 1; 
+        $parsed .= parse_ambiguous_char();
     }
 
     # 3-quotes
@@ -2330,7 +2375,7 @@ sub parse_expr {
         else {
             $parsed .= sprintf('{(\\G${mb::_anchor})@{[' .            'qr%s%s ]}@{[mb::_s_passed()]}}%s{$1 . %s%s}e%s', $regexp, $modifier_not_cegir, $comment, $eval, $replacement, $modifier_cegr);
         }
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # tr/.../.../, y/.../.../
@@ -2339,56 +2384,56 @@ sub parse_expr {
         my $search = '';
         my $comment = '';
         my $replacement = '';
-        if    (/\G ( [#] )        /xmsgc) { $search .= parse_q__like_endswith($1); $replacement .= parse_q__like_endswith($1); }       # tr#...#...#
-        elsif (/\G ( ['] )        /xmsgc) { $search .= parse_q__like_endswith($1); $replacement .= parse_q__like_endswith($1); }       # tr'...'...'
-        elsif (/\G ( [\(\{\[\<] ) /xmsgc) { $search .= parse_q__like_balanced($1);                                                     # tr{...}...
-            if    (/\G ( [#] )        /xmsgc) { $replacement .= parse_q__like_endswith($1); }                                          # tr{}#...#
-            elsif (/\G ( ['] )        /xmsgc) { $replacement .= parse_q__like_endswith($1); }                                          # tr{}'...'
-            elsif (/\G ( [\(\{\[\<] ) /xmsgc) { $replacement .= parse_q__like_balanced($1); }                                          # tr{}{...}
-            elsif (m{\G( [/] )        }xmsgc) { $replacement .= parse_q__like_endswith($1); }                                          # tr{}/.../
-            elsif (/\G ( [\S] )       /xmsgc) { $replacement .= parse_q__like_endswith($1); }                                          # tr{}?...?
+        if    (/\G ( [#] )        /xmsgc) { $search .= parse_tr_like_endswith($1); $replacement .= parse_tr_like_endswith($1); }       # tr#...#...#
+        elsif (/\G ( ['] )        /xmsgc) { $search .= parse_tr_like_endswith($1); $replacement .= parse_tr_like_endswith($1); }       # tr'...'...'
+        elsif (/\G ( [\(\{\[\<] ) /xmsgc) { $search .= parse_tr_like_balanced($1);                                                     # tr{...}...
+            if    (/\G ( [#] )        /xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                          # tr{}#...#
+            elsif (/\G ( ['] )        /xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                          # tr{}'...'
+            elsif (/\G ( [\(\{\[\<] ) /xmsgc) { $replacement .= parse_tr_like_balanced($1); }                                          # tr{}{...}
+            elsif (m{\G( [/] )        }xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                          # tr{}/.../
+            elsif (/\G ( [\S] )       /xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                          # tr{}?...?
             elsif (/\G ( \s+ )        /xmsgc) { $comment .= $1;                                                                        # tr{} SPACE ...
                 while (/\G ( \s+ | [#] [^\n]* ) /xmsgc) {
                     $comment .= $1;
                 }
-                if    (/\G ( [A-Za-z_0-9] ) /xmsgc) { $replacement .= parse_q__like_endswith($1); }                                    # tr{} SPACE A...A
-                elsif (/\G ( ['] )          /xmsgc) { $replacement .= parse_q__like_endswith($1); }                                    # tr{} SPACE '...'
-                elsif (/\G ( [\(\{\[\<] )   /xmsgc) { $replacement .= parse_q__like_balanced($1); }                                    # tr{} SPACE {...}
-                elsif (m{\G( [/] )          }xmsgc) { $replacement .= parse_q__like_endswith($1); }                                    # tr{} SPACE /.../
-                elsif (/\G ( [\S] )         /xmsgc) { $replacement .= parse_q__like_endswith($1); }                                    # tr{} SPACE ?...?
+                if    (/\G ( [A-Za-z_0-9] ) /xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                    # tr{} SPACE A...A
+                elsif (/\G ( ['] )          /xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                    # tr{} SPACE '...'
+                elsif (/\G ( [\(\{\[\<] )   /xmsgc) { $replacement .= parse_tr_like_balanced($1); }                                    # tr{} SPACE {...}
+                elsif (m{\G( [/] )          }xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                    # tr{} SPACE /.../
+                elsif (/\G ( [\S] )         /xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                    # tr{} SPACE ?...?
                 else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
             }
             else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
         }
-        elsif (m{\G( [/] )        }xmsgc) { $search .= parse_q__like_endswith($1); $replacement .= parse_q__like_endswith($1); }       # tr/.../.../
-        elsif (/\G ( [\S] )       /xmsgc) { $search .= parse_q__like_endswith($1); $replacement .= parse_q__like_endswith($1); }       # tr?...?...?
+        elsif (m{\G( [/] )        }xmsgc) { $search .= parse_tr_like_endswith($1); $replacement .= parse_tr_like_endswith($1); }       # tr/.../.../
+        elsif (/\G ( [\S] )       /xmsgc) { $search .= parse_tr_like_endswith($1); $replacement .= parse_tr_like_endswith($1); }       # tr?...?...?
         elsif (/\G ( \s+ )        /xmsgc) { $parsed .= $1;                                                                             # tr SPACE ...
             while (/\G ( \s+ | [#] [^\n]* ) /xmsgc) {
                 $parsed .= $1;
             }
-            if    (/\G ( [A-Za-z_0-9] ) /xmsgc) { $search .= parse_q__like_endswith($1); $replacement .= parse_q__like_endswith($1); } # tr SPACE A...A...A
-            elsif (/\G ( ['] )          /xmsgc) { $search .= parse_q__like_endswith($1); $replacement .= parse_q__like_endswith($1); } # tr SPACE '...'...'
-            elsif (/\G ( [\(\{\[\<] )   /xmsgc) { $search .= parse_q__like_balanced($1);                                               # tr SPACE {...}...
-                if    (/\G ( [#] )        /xmsgc) { $replacement .= parse_q__like_endswith($1); }                                      # tr SPACE {}#...#
-                elsif (/\G ( ['] )        /xmsgc) { $replacement .= parse_q__like_endswith($1); }                                      # tr SPACE {}'...'
-                elsif (/\G ( [\(\{\[\<] ) /xmsgc) { $replacement .= parse_q__like_balanced($1); }                                      # tr SPACE {}{...}
-                elsif (m{\G( [/] )        }xmsgc) { $replacement .= parse_q__like_endswith($1); }                                      # tr SPACE {}/.../
-                elsif (/\G ( [\S] )       /xmsgc) { $replacement .= parse_q__like_endswith($1); }                                      # tr SPACE {}?...?
+            if    (/\G ( [A-Za-z_0-9] ) /xmsgc) { $search .= parse_tr_like_endswith($1); $replacement .= parse_tr_like_endswith($1); } # tr SPACE A...A...A
+            elsif (/\G ( ['] )          /xmsgc) { $search .= parse_tr_like_endswith($1); $replacement .= parse_tr_like_endswith($1); } # tr SPACE '...'...'
+            elsif (/\G ( [\(\{\[\<] )   /xmsgc) { $search .= parse_tr_like_balanced($1);                                               # tr SPACE {...}...
+                if    (/\G ( [#] )        /xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                      # tr SPACE {}#...#
+                elsif (/\G ( ['] )        /xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                      # tr SPACE {}'...'
+                elsif (/\G ( [\(\{\[\<] ) /xmsgc) { $replacement .= parse_tr_like_balanced($1); }                                      # tr SPACE {}{...}
+                elsif (m{\G( [/] )        }xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                      # tr SPACE {}/.../
+                elsif (/\G ( [\S] )       /xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                      # tr SPACE {}?...?
                 elsif (/\G ( \s+ )        /xmsgc) { $comment .= $1;                                                                    # tr SPACE {} SPACE ...
                     while (/\G ( \s+ | [#] [^\n]* ) /xmsgc) {
                         $comment .= $1;
                     }
-                    if    (/\G ( [A-Za-z_0-9] ) /xmsgc) { $replacement .= parse_q__like_endswith($1); }                                # tr SPACE {} SPACE A...A
-                    elsif (/\G ( ['] )          /xmsgc) { $replacement .= parse_q__like_endswith($1); }                                # tr SPACE {} SPACE '...'
-                    elsif (/\G ( [\(\{\[\<] )   /xmsgc) { $replacement .= parse_q__like_balanced($1); }                                # tr SPACE {} SPACE {...}
-                    elsif (m{\G( [/] )          }xmsgc) { $replacement .= parse_q__like_endswith($1); }                                # tr SPACE {} SPACE /.../
-                    elsif (/\G ( [\S] )         /xmsgc) { $replacement .= parse_q__like_endswith($1); }                                # tr SPACE {} SPACE ?...?
+                    if    (/\G ( [A-Za-z_0-9] ) /xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                # tr SPACE {} SPACE A...A
+                    elsif (/\G ( ['] )          /xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                # tr SPACE {} SPACE '...'
+                    elsif (/\G ( [\(\{\[\<] )   /xmsgc) { $replacement .= parse_tr_like_balanced($1); }                                # tr SPACE {} SPACE {...}
+                    elsif (m{\G( [/] )          }xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                # tr SPACE {} SPACE /.../
+                    elsif (/\G ( [\S] )         /xmsgc) { $replacement .= parse_tr_like_endswith($1); }                                # tr SPACE {} SPACE ?...?
                     else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
                 }
                 else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
             }
-            elsif (m{\G( [/] )          }xmsgc) { $search .= parse_q__like_endswith($1); $replacement .= parse_q__like_endswith($1); } # tr SPACE /.../.../
-            elsif (/\G ( [\S] )         /xmsgc) { $search .= parse_q__like_endswith($1); $replacement .= parse_q__like_endswith($1); } # tr SPACE ?...?...?
+            elsif (m{\G( [/] )          }xmsgc) { $search .= parse_tr_like_endswith($1); $replacement .= parse_tr_like_endswith($1); } # tr SPACE /.../.../
+            elsif (/\G ( [\S] )         /xmsgc) { $search .= parse_tr_like_endswith($1); $replacement .= parse_tr_like_endswith($1); } # tr SPACE ?...?...?
             else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
         }
         else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
@@ -2396,37 +2441,101 @@ sub parse_expr {
         # modifier
         my($modifier_not_r, $modifier_r) = parse_tr_modifier();
         if ($modifier_r) {
-            $parsed .= sprintf(q<{[\x00-\xFF]*> .         q<}%s{mb::tr($&,q%s,q%s,'%sr')}er>,                                          $comment, $search, $replacement, $modifier_not_r);
+            $parsed .= sprintf(q<{[\x00-\xFF]*}%s{mb::tr($&,q%s,q%s,'%sr')}ser>, $comment, $search, $replacement, $modifier_not_r);
         }
         elsif ($modifier_not_r =~ /s/) {
-            # these implementations cannot return right number of codepoints replaced. if you want number, you can use mb::tr().
-            $parsed .= sprintf(q<{[\x00-\xFF]*> .         q<}%s{mb::tr($&,q%s,q%s,'%sr')}e>,                                           $comment, $search, $replacement, $modifier_not_r);
-#           $parsed .= sprintf(q<{(\\G${mb::_anchor})(%s+)}%s{$1.mb::tr($2,q%s,q%s,'%sr')}eg>, codepoint_tr($search, $modifier_not_r), $comment, $search, $replacement, $modifier_not_r);
+
+            # this implementation cannot return right count of codepoints replaced.
+            # if you want right count, you can call mb::tr() yourself.
+            $parsed .= sprintf(q<{[\x00-\xFF]+}%s{mb::tr($&,q%s,q%s,'%sr')}se>,  $comment, $search, $replacement, $modifier_not_r);
         }
         else {
-            $parsed .= sprintf(q<{(\\G${mb::_anchor})(%s)}%s{$1.mb::tr($2,q%s,q%s,'%sr')}eg>, codepoint_tr($search, $modifier_not_r),  $comment, $search, $replacement, $modifier_not_r);
+
+            # $parsed .= sprintf(q<{@{mb::_dot}}%s{mb::tr($&,q%s,q%s,'%sr')}msge>, $comment, $search, $replacement, $modifier_not_r);
+            #------------------------------------------------------------------------------------------------------------------------------------------------
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/;    ($r,$_) } => (9,111222DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/s;   ($r,$_) } => (9,111222DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/d;   ($r,$_) } => (9,11122DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/ds;  ($r,$_) } => (9,11122DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/c;   ($r,$_) } => (9,AAABBC22A)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/cs;  ($r,$_) } => (9,AAABBC22A)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/cd;  ($r,$_) } => (9,AAABBCA)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/cds; ($r,$_) } => (9,AAABBCA)
+
+            # $parsed .= sprintf(q<{[\x00-\xFF]*}%s{mb::tr($&,q%s,q%s,'%sr')}msge>, $comment, $search, $replacement, $modifier_not_r);
+            #------------------------------------------------------------------------------------------------------------------------------------------------
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/;    ($r,$_) } => (2,111222DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/s;   ($r,$_) } => (2,12DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/d;   ($r,$_) } => (2,11122DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/ds;  ($r,$_) } => (2,12DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/c;   ($r,$_) } => (2,AAABBC22A)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/cs;  ($r,$_) } => (2,AAABBC2A)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/cd;  ($r,$_) } => (2,AAABBCA)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/cds; ($r,$_) } => (2,AAABBCA)
+
+            # if ($modifier_not_r =~ /c/) {
+            #     $parsed .= sprintf(q<{@{[mb::_cc(q[^%s])]}}%s{mb::tr($&,q%s,q%s,'%sr')}msge>, $search, $comment, $search, $replacement, $modifier_not_r);
+            # }
+            # else {
+            #     $parsed .= sprintf(q<{@{[mb::_cc(q[%s])]}}%s{mb::tr($&,q%s,q%s,'%sr')}msge>, $search, $comment, $search, $replacement, $modifier_not_r);
+            # }
+            #------------------------------------------------------------------------------------------------------------------------------------------------
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/;    ($r,$_) } => (7,111222DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/s;   ($r,$_) } => (7,111222DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/d;   ($r,$_) } => (7,11122DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/ds;  ($r,$_) } => (7,11122DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/c;   ($r,$_) } => (2,AAABBC22A)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/cs;  ($r,$_) } => (2,AAABBC22A)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/cd;  ($r,$_) } => (2,AAABBCA)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/cds; ($r,$_) } => (2,AAABBCA)
+
+            # better idea of mine
+            if ($modifier_not_r =~ /c/) {
+                $parsed .= sprintf(q<{(\\G${mb::_anchor})((?!%s)@{mb::_dot})}%s{$1.mb::tr($2,q%s,q%s,'%sr')}sge>, codepoint_tr($search), $comment, $search, $replacement, $modifier_not_r);
+            }
+            else {
+                $parsed .= sprintf(q<{(\\G${mb::_anchor})((?=%s)@{mb::_dot})}%s{$1.mb::tr($2,q%s,q%s,'%sr')}sge>, codepoint_tr($search), $comment, $search, $replacement, $modifier_not_r);
+            }
+            #------------------------------------------------------------------------------------------------------------------------------------------------
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/;    ($r,$_) } => (7,111222DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/s;   ($r,$_) } => (1,12DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/d;   ($r,$_) } => (7,11122DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/ds;  ($r,$_) } => (1,12DE1)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/c;   ($r,$_) } => (2,AAABBC22A)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/cs;  ($r,$_) } => (1,AAABBC2A)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/cd;  ($r,$_) } => (2,AAABBCA)
+            # do { $_='AAABBCDEA'; $r=tr/ABC/12/cds; ($r,$_) } => (1,AAABBCA)
         }
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # indented here document
-    elsif (/\G ( <<~         ([A-Za-z_][A-Za-z_0-9]*)  ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, ["[\\t ]*$2$R", 'qq']; $term = 1; }
-    elsif (/\G ( <<~       \\([A-Za-z_][A-Za-z_0-9]*)  ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, ["[\\t ]*$2$R", 'q' ]; $term = 1; }
-    elsif (/\G ( <<~ [\t ]* '([A-Za-z_][A-Za-z_0-9]*)' ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, ["[\\t ]*$2$R", 'q' ]; $term = 1; }
-    elsif (/\G ( <<~ [\t ]* "([A-Za-z_][A-Za-z_0-9]*)" ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, ["[\\t ]*$2$R", 'qq']; $term = 1; }
-    elsif (/\G ( <<~ [\t ]* `([A-Za-z_][A-Za-z_0-9]*)` ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, ["[\\t ]*$2$R", 'qq']; $term = 1; }
+    elsif (/\G ( <<~ ) /xmsgc) {
+        $parsed .= $1;
+        if    (/\G (         ([A-Za-z_][A-Za-z_0-9]*)  ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, ["[\\t ]*$2$R", 'qq']; }
+        elsif (/\G (       \\([A-Za-z_][A-Za-z_0-9]*)  ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, ["[\\t ]*$2$R", 'q' ]; }
+        elsif (/\G ( [\t ]* '([A-Za-z_][A-Za-z_0-9]*)' ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, ["[\\t ]*$2$R", 'q' ]; }
+        elsif (/\G ( [\t ]* "([A-Za-z_][A-Za-z_0-9]*)" ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, ["[\\t ]*$2$R", 'qq']; }
+        elsif (/\G ( [\t ]* `([A-Za-z_][A-Za-z_0-9]*)` ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, ["[\\t ]*$2$R", 'qq']; }
+        else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
+        $parsed .= parse_ambiguous_char();
+    }
 
     # here document
-    elsif (/\G ( <<          ([A-Za-z_][A-Za-z_0-9]*)  ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, [       "$2$R", 'qq']; $term = 1; }
-    elsif (/\G ( <<        \\([A-Za-z_][A-Za-z_0-9]*)  ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, [       "$2$R", 'q' ]; $term = 1; }
-    elsif (/\G ( <<  [\t ]* '([A-Za-z_][A-Za-z_0-9]*)' ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, [       "$2$R", 'q' ]; $term = 1; }
-    elsif (/\G ( <<  [\t ]* "([A-Za-z_][A-Za-z_0-9]*)" ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, [       "$2$R", 'qq']; $term = 1; }
-    elsif (/\G ( <<  [\t ]* `([A-Za-z_][A-Za-z_0-9]*)` ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, [       "$2$R", 'qq']; $term = 1; }
+    elsif (/\G ( << ) /xmsgc) {
+        $parsed .= $1;
+        if    (/\G (         ([A-Za-z_][A-Za-z_0-9]*)  ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, [       "$2$R", 'qq']; }
+        elsif (/\G (       \\([A-Za-z_][A-Za-z_0-9]*)  ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, [       "$2$R", 'q' ]; }
+        elsif (/\G ( [\t ]* '([A-Za-z_][A-Za-z_0-9]*)' ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, [       "$2$R", 'q' ]; }
+        elsif (/\G ( [\t ]* "([A-Za-z_][A-Za-z_0-9]*)" ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, [       "$2$R", 'qq']; }
+        elsif (/\G ( [\t ]* `([A-Za-z_][A-Za-z_0-9]*)` ) /xmsgc) { $parsed .= $1; push @here_document_delimiter, [       "$2$R", 'qq']; }
+        else { die "$0(@{[__LINE__]}): $ARGV[0] has not closed:\n", $parsed; }
+        $parsed .= parse_ambiguous_char();
+    }
 
     # sub subroutine();
     elsif (/\G ( sub \s+ [A-Za-z_][A-Za-z_0-9]*(?:(?:'|::)[A-Za-z_][A-Za-z_0-9]*)* \s* ) /xmsgc) {
         $parsed .= $1;
-        $term = 0;
     }
 
     # while (<<>>)
@@ -2434,46 +2543,42 @@ sub parse_expr {
         $parsed .= $1;
         $parsed .= $2;
         $parsed .= $3;
-        $term = 0;
     }
 
     # while (<${file}>)
     # while (<$file>)
     # while (<FILE>)
     # while (<fileglob>)
-    elsif (/\G ( while \s* \( \s* ) (<) ((?:(?!\s)${mb::x})*?) (>) ( \s* \) ) /xmsgc) {
+    elsif (/\G ( while \s* \( \s* ) (<) ((?:(?!\s)$x)*?) (>) ( \s* \) ) /xmsgc) {
         $parsed .= $1;
         my($open_bracket, $quotee, $close_bracket) = ($2, $3, $4);
         my $close_bracket2 = $5;
         $parsed .= $open_bracket;
-        while ($quotee =~ /\G (${mb::x}) /xmsgc) {
+        while ($quotee =~ /\G ($x) /xmsgc) {
             $parsed .= escape_qq($1, $close_bracket);
         }
         $parsed .= $close_bracket;
         $parsed .= $close_bracket2;
-        $term = 0;
     }
 
     # while <<>>
     elsif (/\G ( while \s* ) ( <<>> ) /xmsgc) {
         $parsed .= $1;
         $parsed .= $2;
-        $term = 0;
     }
 
     # while <${file}>
     # while <$file>
     # while <FILE>
     # while <fileglob>
-    elsif (/\G ( while \s* ) (<) ((?:(?!\s)${mb::x})*?) (>) /xmsgc) {
+    elsif (/\G ( while \s* ) (<) ((?:(?!\s)$x)*?) (>) /xmsgc) {
         $parsed .= $1;
         my($open_bracket, $quotee, $close_bracket) = ($2, $3, $4);
         $parsed .= $open_bracket;
-        while ($quotee =~ /\G (${mb::x}) /xmsgc) {
+        while ($quotee =~ /\G ($x) /xmsgc) {
             $parsed .= escape_qq($1, $close_bracket);
         }
         $parsed .= $close_bracket;
-        $term = 0;
     }
 
     # if     (expr)
@@ -2489,13 +2594,11 @@ sub parse_expr {
         # outputs expr
         my $expr = parse_expr_balanced($2);
         $parsed .= $expr;
-        $term = 0;
     }
 
     # else
     elsif (/\G ( else ) \b /xmsgc) {
         $parsed .= $1;
-        $term = 0;
     }
 
     # ... if     expr;
@@ -2504,7 +2607,6 @@ sub parse_expr {
     # ... until  expr;
     elsif (/\G ( if | unless | while | until ) \b /xmsgc) {
         $parsed .= $1;
-        $term = 0;
     }
 
     # foreach my $var (expr) --> foreach my $var (expr)
@@ -2512,7 +2614,6 @@ sub parse_expr {
     elsif (/\G ( (?: foreach | for ) \s+ my \s* [\$] [A-Za-z_][A-Za-z_0-9]* ) ( \( ) /xmsgc) {
         $parsed .= $1;
         $parsed .= parse_expr_balanced($2);
-        $term = 0;
     }
 
     # foreach $var (expr) --> foreach $var (expr)
@@ -2520,7 +2621,6 @@ sub parse_expr {
     elsif (/\G ( (?: foreach | for ) \s* [\$] [\$]* (?: \{[A-Za-z_][A-Za-z_0-9]*(?:(?:'|::)[A-Za-z_][A-Za-z_0-9]*)*\} | [A-Za-z_][A-Za-z_0-9]*(?:(?:'|::)[A-Za-z_][A-Za-z_0-9]* ) ) ) ( \( ) /xmsgc) {
         $parsed .= $1;
         $parsed .= parse_expr_balanced($2);
-        $term = 0;
     }
 
     # foreach (expr1; expr2; expr3) --> foreach (expr1; expr2; expr3)
@@ -2530,17 +2630,12 @@ sub parse_expr {
     elsif (/\G ( (?: foreach | for ) \s* ) ( \( ) /xmsgc) {
         $parsed .= $1;
         $parsed .= parse_expr_balanced($2);
-        $term = 0;
     }
 
-    # CORE::split --> CORE::split
-    elsif (/\G ( CORE::split ) \b /xmsgc) {
-        $parsed .= $1;
-        $term = 1;
-    }
-
-    # split --> mb::_split by default
-    elsif (/\G (?: mb:: )? ( split ) \b /xmsgc) {
+    # CORE::split --> mb::_split
+    # mb::split   --> mb::_split
+    # split       --> mb::_split
+    elsif (/\G (?: CORE:: | mb:: )? ( split ) \b /xmsgc) {
         $parsed .= "mb::_split";
 
         # parse \s and '('
@@ -2633,19 +2728,19 @@ sub parse_expr {
             }
         }
 
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # provides bare Perl and JPerl compatible functions
     elsif (/\G ( (?: lc | lcfirst | uc | ucfirst ) ) \b /xmsgc) {
         $parsed .= "mb::$1";
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # CORE::require, mb::require, require
     elsif (/\G ( (?: CORE:: | mb:: )? require ) /xmsgc) {
         $parsed .= $1;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # mb::use --> BEGIN { mb::require ... }
@@ -2680,7 +2775,6 @@ sub parse_expr {
             }
         }
         $parsed .= "}";
-        $term = 1;
     }
 
     # mb::getc() --> mb::getc()
@@ -2688,7 +2782,6 @@ sub parse_expr {
     #                           vvvvvvvvvvvv
     elsif (/\G ( mb::getc ) (?= (?: \s* \( )+ \s* \) ) /xmsgc) {
         $parsed .= $1;
-        $term = 1;
     }
 
     # mb::getc($fh) --> mb::getc($fh)
@@ -2697,7 +2790,6 @@ sub parse_expr {
     #                           vvvvvvvvvvvv
     elsif (/\G ( mb::getc ) (?= (?: \s* \( )* \s* \$ ) /xmsgc) {
         $parsed .= $1;
-        $term = 1;
     }
 
     # mb::getc(FILE) --> mb::getc(\*FILE)
@@ -2708,30 +2800,76 @@ sub parse_expr {
         $parsed .= $1;
         $parsed .= $2;
         $parsed .= '\\*';
-        $term = 1;
     }
 
     # mb::getc --> mb::getc
     elsif (/\G ( mb::getc ) /xmsgc) {
         $parsed .= $1;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
-    elsif (/\G ( (?: CORE:: | mb:: )? (?: chop | chr | getc | index | lc | lcfirst | length | ord | reverse | rindex | substr | uc | ucfirst ) ) \b /xmsgc) {
+    # CORE::functions that allow zero parameters
+    # mb::functions that allow zero parameters
+    elsif (/\G ( (?: CORE:: | mb:: )? (?:
+        chop    |
+        chr     |
+        getc    |
+        lc      |
+        lcfirst |
+        length  |
+        ord     |
+        uc      |
+        ucfirst
+    ) ) \b /xmsgc) {
         $parsed .= $1;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
-    # mb::subroutine
+    # CORE::functions that must parameters
+    # mb::functions that must parameters
+    elsif (/\G ( (?: CORE:: | mb:: )? (?:
+        index   |
+        reverse |
+        rindex  |
+        substr
+    ) ) \b /xmsgc) {
+        $parsed .= $1;
+    }
+
+    # mb::subroutines
     elsif (/\G ( mb:: (?: index_byte | rindex_byte ) ) \b /xmsgc) {
         $parsed .= $1;
-        $term = 1;
     }
 
-    # CORE::function, function
-    elsif (/\G ( (?: CORE:: )? (?: _ | abs | chomp | cos | exp | fc | hex | int | __LINE__ | log | oct | pop | pos | quotemeta | rand | rmdir | shift | sin | sqrt | tell | time | umask | wantarray ) ) \b /xmsgc) {
+    # CORE::functions that allow zero parameters
+    # functions that allow zero parameters
+    elsif (/\G ( (?: CORE:: )? (?:
+        _         |
+        abs       |
+        chomp     |
+        cos       |
+        exp       |
+        fc        |
+        hex       |
+        int       |
+        __LINE__  |
+        log       |
+        oct       |
+        pop       |
+        pos       |
+        quotemeta |
+        rand      |
+        rmdir     |
+        shift     |
+        sin       |
+        sqrt      |
+        tell      |
+        time      |
+        umask     |
+        wantarray
+    ) ) \b /xmsgc) {
         $parsed .= $1;
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # lstat(), stat() on MSWin32
@@ -2742,7 +2880,6 @@ sub parse_expr {
     #                               vvvvvvvvvvvv
     elsif (/\G ( lstat | stat ) (?= (?: \s* \( )+ \s* \) ) /xmsgc) {
         $parsed .= "mb::_$1";
-        $term = 1;
     }
 
     # lstat(...) --> mb::_lstat(...)
@@ -2751,7 +2888,6 @@ sub parse_expr {
     #                               vvvvvvvvvvvv     vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     elsif (/\G ( lstat | stat ) (?= (?: \s* \( )* \b (?: ' | " | ` | m | q | qq | qr | qw | qx | s | tr | y | \$ ) \b ) /xmsgc) {
         $parsed .= "mb::_$1";
-        $term = 1;
     }
 
     # lstat(FILE)  --> mb::_lstat(\*FILE)
@@ -2766,14 +2902,81 @@ sub parse_expr {
         $parsed .= "mb::_$1";
         $parsed .= $2;
         $parsed .= '\\*';
-        $term = 1;
     }
 
     # function --> mb::subroutine on MSWin32
     # implements run on any systems by transpiling once
-    elsif (/\G ( chdir | lstat | opendir | stat | unlink ) \b /xmsgc) {
+    elsif (/\G ( chdir | lstat | stat | unlink ) \b /xmsgc) {
         $parsed .= "mb::_$1";
-        $term = 1;
+        $parsed .= parse_ambiguous_char();
+    }
+    elsif (/\G ( opendir ) \b /xmsgc) {
+        $parsed .= "mb::_$1";
+    }
+
+    # Carp::carp    <<HEREDOC
+    # Carp::cluck   <<HEREDOC
+    # Carp::confess <<HEREDOC
+    # Carp::croak   <<HEREDOC
+    # carp          <<HEREDOC
+    # cluck         <<HEREDOC
+    # confess       <<HEREDOC
+    # croak         <<HEREDOC
+    # die           <<HEREDOC
+    # print         <<HEREDOC
+    # printf        <<HEREDOC
+    # say           <<HEREDOC
+    # warn          <<HEREDOC
+    elsif (/\G ( 
+        Carp::carp    |
+        Carp::cluck   |
+        Carp::confess |
+        Carp::croak   |
+        carp          |
+        cluck         |
+        confess       |
+        croak         |
+        die           |
+        print         |
+        printf        |
+        say           |
+        warn
+    ) (?= (?: \s+ | [#] .* )* << ) /xgc) {
+        $parsed .= $1;
+        # without $parsed .= parse_ambiguous_char();
+    }
+
+    # printf FILEHANDLE <<HEREDOC
+    # print  FILEHANDLE <<HEREDOC
+    # say    FILEHANDLE <<HEREDOC
+    elsif (/\G (
+        (?: printf | print | say )
+        (?: \s+ | [#] .* )*
+        (?! [a-z]+ ) # lowercase is considered to be function
+        (?: \b [A-Za-z_][A-Za-z_0-9]*(?: :: [A-Za-z_][A-Za-z_0-9]*)* |
+            \$ [A-Za-z_][A-Za-z_0-9]*(?: :: [A-Za-z_][A-Za-z_0-9]*)*
+        )
+    ) /xgc) {
+        $parsed .= $1;
+        # without $parsed .= parse_ambiguous_char();
+    }
+
+    # printf {FILEHANDLE} <<HEREDOC
+    # print  {FILEHANDLE} <<HEREDOC
+    # say    {FILEHANDLE} <<HEREDOC
+    elsif (/\G (
+        (?: printf | print | say )
+        (?: \s+ | [#] .* )*
+        ) (\{) 
+    /xgc) {
+        $parsed .= $1;
+        $parsed .= parse_expr_balanced($2);
+        # without $parsed .= parse_ambiguous_char();
+    }
+
+    # return
+    elsif (/\G ( return ) /xmsgc) {
+        $parsed .= $1;
     }
 
     # any word
@@ -2832,21 +3035,26 @@ sub parse_expr {
     # "\x7A" [z] LATIN SMALL LETTER Z (U+007A)
     elsif (/\G ( [A-Za-z_][A-Za-z_0-9]*(?:(?:'|::)[A-Za-z_][A-Za-z_0-9]*)* ) /xmsgc) {
         $parsed .= $1;
-        $term = 0;
+        $parsed .= parse_ambiguous_char();
+    }
+
+    # any right parenthesis
+    # "\x29" [)] RIGHT PARENTHESIS (U+0029)
+    # "\x7D" [}] RIGHT CURLY BRACKET (U+007D)
+    # "\x5D" []] RIGHT SQUARE BRACKET (U+005D)
+    elsif (/\G ([\)\}\]]) /xmsgc) {
+        $parsed .= $1;
+        $parsed .= parse_ambiguous_char();
     }
 
     # any US-ASCII
     # "\x3A" [:] COLON (U+003A)
-    # "\x29" [)] RIGHT PARENTHESIS (U+0029)
-    # "\x7D" [}] RIGHT CURLY BRACKET (U+007D)
-    # "\x5D" []] RIGHT SQUARE BRACKET (U+005D)
     elsif (/\G ([\x00-\x7F]) /xmsgc) {
         $parsed .= $1;
-        $term = 0;
     }
 
     # otherwise
-    elsif (/\G (${mb::x}) /xmsgc) {
+    elsif (/\G ($x) /xmsgc) {
         die "$0(@{[__LINE__]}): can't parse not US-ASCII '$1'.\n";
     }
 
@@ -2860,20 +3068,18 @@ sub parse_expr_balanced {
     my $close_bracket = {qw| ( ) { } [ ] < > |}->{$open_bracket} || die;
     my $parsed = $open_bracket;
     my $nest_bracket = 1;
-    $term = 0;
     while (1) {
 
         # open bracket
         if (/\G (\Q$open_bracket\E) /xmsgc) {
             $parsed .= $1;
-            $term = 0;
             $nest_bracket++;
         }
 
         # close bracket
         elsif (/\G (\Q$close_bracket\E) /xmsgc) {
             $parsed .= $1;
-            $term = 1;
+            $parsed .= parse_ambiguous_char();
             if (--$nest_bracket <= 0) {
                 last;
             }
@@ -2913,7 +3119,7 @@ sub parse_heredocument_as_q_endswith {
             $parsed .= $1;
             last;
         }
-        elsif (/\G (${mb::x}) /xmsgc) {
+        elsif (/\G ($x) /xmsgc) {
             $parsed .= $1;
         }
 
@@ -3006,7 +3212,7 @@ sub parse_heredocument_as_qq_endswith {
         }
 
         # \any
-        elsif (/\G (\\) (${mb::x}) /xmsgc) {
+        elsif (/\G (\\) ($x) /xmsgc) {
             $parsed .= ($1 . escape_qq($2, '\\'));
         }
 
@@ -3083,7 +3289,7 @@ sub parse_heredocument_as_qq_endswith {
         }
 
         # any
-        elsif (/\G (${mb::x}) /xmsgc) {
+        elsif (/\G ($x) /xmsgc) {
             $parsed .= escape_qq($1, '\\');
         }
 
@@ -3155,7 +3361,7 @@ sub parse_q__like {
     if (/\G (\\\\) /xmsgc) {
         return $1;
     }
-    elsif (/\G (${mb::x}) /xmsgc) {
+    elsif (/\G ($x) /xmsgc) {
         return escape_q($1, $closewith);
     }
 
@@ -3180,7 +3386,17 @@ sub parse_qq_like_balanced {
     my $nest_bracket = 1;
     my $nest_escape = 0;
     while (1) {
-        if (/\G (\Q$open_bracket\E) /xmsgc) {
+
+        # blackets
+        if (/\G (\\ \Q$open_bracket\E) /xmsgc) {
+            $parsed_as_q  .= $1;
+            $parsed_as_qq .= $1;
+        }
+        elsif (/\G (\\ \Q$close_bracket\E) /xmsgc) {
+            $parsed_as_q  .= $1;
+            $parsed_as_qq .= $1;
+        }
+        elsif (/\G (\Q$open_bracket\E) /xmsgc) {
             $parsed_as_q  .= $1;
             $parsed_as_qq .= $1;
             $nest_bracket++;
@@ -3282,7 +3498,13 @@ sub parse_qq_like_endswith {
     my $parsed_as_qq = $endswith;
     my $nest_escape = 0;
     while (1) {
-        if (/\G (\Q$endswith\E) /xmsgc) {
+
+        # ends with
+        if (/\G (\\ \Q$endswith\E) /xmsgc) {
+            $parsed_as_q  .= $1;
+            $parsed_as_qq .= $1;
+        }
+        elsif (/\G (\Q$endswith\E) /xmsgc) {
             $parsed_as_q  .= $1;
             $parsed_as_qq .= ('>)]}' x $nest_escape);
             $parsed_as_qq .= "\n" if CORE::length($1) >= 2; # here document
@@ -3386,7 +3608,7 @@ sub parse_qq_like {
     }
 
     # \any
-    elsif (/\G ( (\\) (${mb::x}) ) /xmsgc) {
+    elsif (/\G ( (\\) ($x) ) /xmsgc) {
         $parsed_as_q  .= $1;
         $parsed_as_qq .= ($2 . escape_qq($3, $closewith));
     }
@@ -3476,7 +3698,7 @@ sub parse_qq_like {
     }
 
     # any
-    elsif (/\G (${mb::x}) /xmsgc) {
+    elsif (/\G ($x) /xmsgc) {
         $parsed_as_q  .= escape_q ($1, $closewith);
         $parsed_as_qq .= escape_qq($1, $closewith);
     }
@@ -3497,6 +3719,220 @@ END
     }
     else {
         return $parsed_as_qq;
+    }
+}
+
+#---------------------------------------------------------------------
+# tr/A-C/1-3/ for US-ASCII codepoint
+sub list_all_ASCII_by_hyphen {
+    my @hyphened = @_;
+    my @list_all = ();
+    for (my $i=0; $i <= $#hyphened; ) {
+        if (
+            ($i+1 < $#hyphened)      and
+            ($hyphened[$i+1] eq '-') and
+        1) {
+            $hyphened[$i+0] = ($hyphened[$i+0] eq '\\-') ? '-' : $hyphened[$i+0];
+            $hyphened[$i+2] = ($hyphened[$i+2] eq '\\-') ? '-' : $hyphened[$i+2];
+            if (0) { }
+            elsif ($hyphened[$i+0] !~ m/\A [\x00-\x7F] \z/oxms) {
+                confess sprintf(qq{@{[__FILE__]}: "$hyphened[$i+0]-$hyphened[$i+2]" in tr/// is not US-ASCII});
+            }
+            elsif ($hyphened[$i+2] !~ m/\A [\x00-\x7F] \z/oxms) {
+                confess sprintf(qq{@{[__FILE__]}: "$hyphened[$i+0]-$hyphened[$i+2]" in tr/// is not US-ASCII});
+            }
+            elsif ($hyphened[$i+0] gt $hyphened[$i+2]) {
+                confess sprintf(qq{@{[__FILE__]}: "$hyphened[$i+0]-$hyphened[$i+2]" in tr/// is not "$hyphened[$i+0]" le "$hyphened[$i+2]"});
+            }
+            else {
+                push @list_all, map { CORE::chr($_) } (CORE::ord($hyphened[$i+0]) .. CORE::ord($hyphened[$i+2]));
+                $i += 3;
+            }
+        }
+        else {
+            if ($hyphened[$i] eq '\\-') {
+                push @list_all, '-';
+            }
+            else {
+                push @list_all, $hyphened[$i];
+            }
+            $i++;
+        }
+    }
+    return @list_all;
+}
+
+#---------------------------------------------------------------------
+# parse tr{here}{here} in balanced blackets
+sub parse_tr_like_balanced {
+    my($open_bracket) = @_;
+    my $close_bracket = {qw| ( ) { } [ ] < > |}->{$open_bracket} || die;
+    my @x = ();
+    my $nest_bracket = 1;
+    while (1) {
+
+        # blackets
+        if (/\G (\\ \Q$open_bracket\E) /xmsgc) {
+            push @x, $1;
+        }
+        elsif (/\G (\\ \Q$close_bracket\E) /xmsgc) {
+            push @x, $1;
+        }
+        elsif (/\G (\Q$open_bracket\E) /xmsgc) {
+            push @x, $1;
+            $nest_bracket++;
+        }
+        elsif (/\G (\Q$close_bracket\E) /xmsgc) {
+            if (--$nest_bracket <= 0) {
+                last;
+            }
+            push @x, $1;
+        }
+
+        # \-
+        elsif (/\G (\\ -) /xmsgc) {
+            push @x, $1;
+        }
+
+        else {
+            push @x, parse_tr_like($close_bracket);
+        }
+    }
+    return join('', $open_bracket, @x, $close_bracket);
+}
+
+#---------------------------------------------------------------------
+# parse tr/here/here/ that ends with a character
+sub parse_tr_like_endswith {
+    my($endswith) = @_;
+    my $openwith = $endswith;
+    my @x = ();
+    while (1) {
+        if (/\G (\\ \Q$endswith\E) /xmsgc) {
+            push @x, $1;
+        }
+        elsif (/\G (\Q$endswith\E) /xmsgc) {
+            last;
+        }
+
+        # \-
+        elsif (/\G (\\ -) /xmsgc) {
+            push @x, $1;
+        }
+
+        else {
+            push @x, parse_tr_like($endswith);
+        }
+    }
+    return join('', $openwith, @x, $endswith);
+}
+
+#---------------------------------------------------------------------
+# parse tr/here/here/ common routine
+sub parse_tr_like {
+    my($closewith) = @_;
+
+    if (0) {
+    }
+
+    # https://perldoc.perl.org/perlop#Interpolation
+    # tr///, y///
+    # No variable interpolation occurs.
+    # String modifying combinations for case and quoting such as \Q, \U, and \E are not recognized.
+    # The other escape sequences such as \200 and \t and backslashed characters such as \\ and \- are converted to appropriate literals.
+    # The character "-" is treated specially and therefore \- is treated as a literal "-".
+
+    # \ddd
+    elsif (/\G \\ ( [0-3][0-7][0-7] | [0-7][0-7] | [0-7] ) /xmsgc) {
+        return escape_tr(mb::chr(oct $1), $closewith);
+    }
+
+    # \oddd
+    elsif (/\G \\o ( [0-3][0-7][0-7] | [0-7][0-7] | [0-7] ) /xmsgc) {
+        return escape_tr(mb::chr(oct $1), $closewith);
+    }
+
+    # \o{...}
+    elsif (/\G \\o\{ (.*?) \} /xmsgc) {
+        return escape_tr(mb::chr(oct $1), $closewith);
+    }
+
+    # \xhh
+    elsif (/\G \\x ( [0-9A-Fa-f][0-9A-Fa-f] | [0-9A-Fa-f] ) /xmsgc) {
+        return escape_tr(mb::chr(hex $1), $closewith);
+    }
+
+    # \x{...}
+    elsif (/\G \\x\{ (.*?) \} /xmsgc) {
+        return escape_tr(mb::chr(hex $1), $closewith);
+    }
+
+    # \cX
+    elsif (/\G ( \\c [\@ABCDEFGHIJKLMNOPQRSTUVWXYZ\[\\\]^_?] ) /xmsgc) {
+        return {
+            '\\c@'  => "\c@",
+            '\\cA'  => "\cA",
+            '\\cB'  => "\cB",
+            '\\cC'  => "\cC",
+            '\\cD'  => "\cD",
+            '\\cE'  => "\cE",
+            '\\cF'  => "\cF",
+            '\\cG'  => "\cG",
+            '\\cH'  => "\cH",
+            '\\cI'  => "\cI",
+            '\\cJ'  => "\cJ",
+            '\\cK'  => "\cK",
+            '\\cL'  => "\cL",
+            '\\cM'  => "\cM",
+            '\\cN'  => "\cN",
+            '\\cO'  => "\cO",
+            '\\cP'  => "\cP",
+            '\\cQ'  => "\cQ",
+            '\\cR'  => "\cR",
+            '\\cS'  => "\cS",
+            '\\cT'  => "\cT",
+            '\\cU'  => "\cU",
+            '\\cV'  => "\cV",
+            '\\cW'  => "\cW",
+            '\\cX'  => "\cX",
+            '\\cY'  => "\cY",
+            '\\cZ'  => "\cZ",
+            '\\c['  => "\c[",
+            '\\c\\' => CORE::chr(0x1C),
+            '\\c]'  => "\c]",
+            '\\c^'  => "\c^",
+            '\\c_'  => "\c_",
+            '\\c?'  => CORE::chr(0x7F),
+        }->{$1} || die;
+    }
+
+    # \\ \a \b \e \f \n \r \t \E \l \L \u \U \Q
+    elsif (/\G ( \\ ([\\abefnrtElLuUQ]) ) /xmsgc) {
+        return {
+            "\x5C\x5C" => "\x5C\x5C",
+            '\a'       => "\a",
+            '\b'       => "\b",
+            '\e'       => "\e",
+            '\f'       => "\f",
+            '\n'       => "\n",
+            '\r'       => "\r",
+            '\t'       => "\t",
+        }->{$1} || $2;
+    }
+
+    # any
+    elsif (/\G ($x) /xmsgc) {
+        return escape_tr($1, $closewith);
+    }
+
+    # something wrong happened
+    else {
+        die sprintf(<<END, pos($_), CORE::substr($_,pos($_)));
+$0(@{[__LINE__]}): something wrong happened in script at pos=%s
+------------------------------------------------------------------------------
+%s
+------------------------------------------------------------------------------
+END
     }
 }
 
@@ -3863,10 +4299,10 @@ sub parse_re_codepoint_class {
         elsif ($codepoint_class =~ /\G(\[:.+?:\])/xmsgc) {
             push @classmate, $1;
         }
-        elsif ($codepoint_class =~ /\G((?>\\${mb::x}))/xmsgc) {
+        elsif ($codepoint_class =~ /\G((?>\\$x))/xmsgc) {
             push @classmate, $1;
         }
-        elsif ($codepoint_class =~ /\G(${mb::x})/xmsgc) {
+        elsif ($codepoint_class =~ /\G($x)/xmsgc) {
             push @classmate, $1;
         }
         else {
@@ -3905,19 +4341,19 @@ sub parse_re_codepoint_class {
         }
 
         # classic perl codepoint class shortcuts
-        elsif ($classmate eq '\\D') { push @xbcs, "(?:(?![$mb::bare_d])${mb::x})"; }
-        elsif ($classmate eq '\\H') { push @xbcs, "(?:(?![$mb::bare_h])${mb::x})"; }
-#       elsif ($classmate eq '\\N') { push @xbcs, "(?:(?!\\n)${mb::x})";           } # \N in a codepoint class must be a named character: \N{...} in regex
-#       elsif ($classmate eq '\\R') { push @xbcs, "(?>\\r\\n|[$mb::bare_v])";      } # Unrecognized escape \R in codepoint class passed through in regex
-        elsif ($classmate eq '\\S') { push @xbcs, "(?:(?![$mb::bare_s])${mb::x})"; }
-        elsif ($classmate eq '\\V') { push @xbcs, "(?:(?![$mb::bare_v])${mb::x})"; }
-        elsif ($classmate eq '\\W') { push @xbcs, "(?:(?![$mb::bare_w])${mb::x})"; }
-        elsif ($classmate eq '\\b') { push @sbcs, $mb::bare_backspace;             }
-        elsif ($classmate eq '\\d') { push @sbcs, $mb::bare_d;                     }
-        elsif ($classmate eq '\\h') { push @sbcs, $mb::bare_h;                     }
-        elsif ($classmate eq '\\s') { push @sbcs, $mb::bare_s;                     }
-        elsif ($classmate eq '\\v') { push @sbcs, $mb::bare_v;                     }
-        elsif ($classmate eq '\\w') { push @sbcs, $mb::bare_w;                     }
+        elsif ($classmate eq '\\D') { push @xbcs, "(?:(?![$bare_d])$x)";  }
+        elsif ($classmate eq '\\H') { push @xbcs, "(?:(?![$bare_h])$x)";  }
+#       elsif ($classmate eq '\\N') { push @xbcs, "(?:(?!\\n)$x)";        } # \N in a codepoint class must be a named character: \N{...} in regex
+#       elsif ($classmate eq '\\R') { push @xbcs, "(?>\\r\\n|[$bare_v])"; } # Unrecognized escape \R in codepoint class passed through in regex
+        elsif ($classmate eq '\\S') { push @xbcs, "(?:(?![$bare_s])$x)";  }
+        elsif ($classmate eq '\\V') { push @xbcs, "(?:(?![$bare_v])$x)";  }
+        elsif ($classmate eq '\\W') { push @xbcs, "(?:(?![$bare_w])$x)";  }
+        elsif ($classmate eq '\\b') { push @sbcs, $bare_backspace;        }
+        elsif ($classmate eq '\\d') { push @sbcs, $bare_d;                }
+        elsif ($classmate eq '\\h') { push @sbcs, $bare_h;                }
+        elsif ($classmate eq '\\s') { push @sbcs, $bare_s;                }
+        elsif ($classmate eq '\\v') { push @sbcs, $bare_v;                }
+        elsif ($classmate eq '\\w') { push @sbcs, $bare_w;                }
 
         # [:POSIX:]
         elsif ($classmate eq '[:alnum:]' ) { push @sbcs, '\x30-\x39\x41-\x5A\x61-\x7A';                  }
@@ -3936,23 +4372,23 @@ sub parse_re_codepoint_class {
         elsif ($classmate eq '[:xdigit:]') { push @sbcs, '\x30-\x39\x41-\x46\x61-\x66';                  }
 
         # [:^POSIX:]
-        elsif ($classmate eq '[:^alnum:]' ) { push @xbcs, "(?:(?![\\x30-\\x39\\x41-\\x5A\\x61-\\x7A])${mb::x})";                      }
-        elsif ($classmate eq '[:^alpha:]' ) { push @xbcs, "(?:(?![\\x41-\\x5A\\x61-\\x7A])${mb::x})";                                 }
-        elsif ($classmate eq '[:^ascii:]' ) { push @xbcs, "(?:(?![\\x00-\\x7F])${mb::x})";                                            }
-        elsif ($classmate eq '[:^blank:]' ) { push @xbcs, "(?:(?![\\x09\\x20])${mb::x})";                                             }
-        elsif ($classmate eq '[:^cntrl:]' ) { push @xbcs, "(?:(?![\\x00-\\x1F\\x7F])${mb::x})";                                       }
-        elsif ($classmate eq '[:^digit:]' ) { push @xbcs, "(?:(?![\\x30-\\x39])${mb::x})";                                            }
-        elsif ($classmate eq '[:^graph:]' ) { push @xbcs, "(?:(?![\\x21-\\x7F])${mb::x})";                                            }
-        elsif ($classmate eq '[:^lower:]' ) { push @xbcs, "(?:(?![abcdefghijklmnopqrstuvwxyz])${mb::x})";                             } # /i modifier requires 'a' to 'z' literally
-        elsif ($classmate eq '[:^print:]' ) { push @xbcs, "(?:(?![\\x20-\\x7F])${mb::x})";                                            }
-        elsif ($classmate eq '[:^punct:]' ) { push @xbcs, "(?:(?![\\x21-\\x2F\\x3A-\\x3F\\x40\\x5B-\\x5F\\x60\\x7B-\\x7E])${mb::x})"; }
-        elsif ($classmate eq '[:^space:]' ) { push @xbcs, "(?:(?![\\s\\x0B])${mb::x})";                                               } # "\s" and vertical tab ("\cK")
-        elsif ($classmate eq '[:^upper:]' ) { push @xbcs, "(?:(?![ABCDEFGHIJKLMNOPQRSTUVWXYZ])${mb::x})";                             } # /i modifier requires 'A' to 'Z' literally
-        elsif ($classmate eq '[:^word:]'  ) { push @xbcs, "(?:(?![\\x30-\\x39\\x41-\\x5A\\x5F\\x61-\\x7A])${mb::x})";                 }
-        elsif ($classmate eq '[:^xdigit:]') { push @xbcs, "(?:(?![\\x30-\\x39\\x41-\\x46\\x61-\\x66])${mb::x})";                      }
+        elsif ($classmate eq '[:^alnum:]' ) { push @xbcs, "(?:(?![\\x30-\\x39\\x41-\\x5A\\x61-\\x7A])$x)";                      }
+        elsif ($classmate eq '[:^alpha:]' ) { push @xbcs, "(?:(?![\\x41-\\x5A\\x61-\\x7A])$x)";                                 }
+        elsif ($classmate eq '[:^ascii:]' ) { push @xbcs, "(?:(?![\\x00-\\x7F])$x)";                                            }
+        elsif ($classmate eq '[:^blank:]' ) { push @xbcs, "(?:(?![\\x09\\x20])$x)";                                             }
+        elsif ($classmate eq '[:^cntrl:]' ) { push @xbcs, "(?:(?![\\x00-\\x1F\\x7F])$x)";                                       }
+        elsif ($classmate eq '[:^digit:]' ) { push @xbcs, "(?:(?![\\x30-\\x39])$x)";                                            }
+        elsif ($classmate eq '[:^graph:]' ) { push @xbcs, "(?:(?![\\x21-\\x7F])$x)";                                            }
+        elsif ($classmate eq '[:^lower:]' ) { push @xbcs, "(?:(?![abcdefghijklmnopqrstuvwxyz])$x)";                             } # /i modifier requires 'a' to 'z' literally
+        elsif ($classmate eq '[:^print:]' ) { push @xbcs, "(?:(?![\\x20-\\x7F])$x)";                                            }
+        elsif ($classmate eq '[:^punct:]' ) { push @xbcs, "(?:(?![\\x21-\\x2F\\x3A-\\x3F\\x40\\x5B-\\x5F\\x60\\x7B-\\x7E])$x)"; }
+        elsif ($classmate eq '[:^space:]' ) { push @xbcs, "(?:(?![\\s\\x0B])$x)";                                               } # "\s" and vertical tab ("\cK")
+        elsif ($classmate eq '[:^upper:]' ) { push @xbcs, "(?:(?![ABCDEFGHIJKLMNOPQRSTUVWXYZ])$x)";                             } # /i modifier requires 'A' to 'Z' literally
+        elsif ($classmate eq '[:^word:]'  ) { push @xbcs, "(?:(?![\\x30-\\x39\\x41-\\x5A\\x5F\\x61-\\x7A])$x)";                 }
+        elsif ($classmate eq '[:^xdigit:]') { push @xbcs, "(?:(?![\\x30-\\x39\\x41-\\x46\\x61-\\x66])$x)";                      }
 
         # \any
-        elsif ($classmate =~ /\G (\\) (${mb::x}) /xmsgc) {
+        elsif ($classmate =~ /\G (\\) ($x) /xmsgc) {
             if (CORE::length($2) == 1) {
                 push @sbcs, ($1 . $2);
             }
@@ -3962,7 +4398,7 @@ sub parse_re_codepoint_class {
         }
 
         # any
-        elsif ($classmate =~ /\G (${mb::x}) /xmsgc) {
+        elsif ($classmate =~ /\G ($x) /xmsgc) {
             if (CORE::length($1) == 1) {
                 push @sbcs, $1;
             }
@@ -4015,7 +4451,7 @@ sub parse_re_as_q_endswith {
                 elsif (/\G (\[:[a-z]*:\]) /xmsgc) {
                     $classmate .= $1;
                 }
-                elsif (/\G (${mb::x}) /xmsgc) {
+                elsif (/\G ($x) /xmsgc) {
                     $classmate .= $1;
                 }
 
@@ -4035,21 +4471,21 @@ END
         }
 
         # /./ or \any
-        elsif (/\G \.  /xmsgc) { $parsed .= "(?:${mb::over_ascii}|.)";       } # after ${mb::over_ascii}, /s modifier wants "." (not [\x00-\xFF])
-        elsif (/\G \\B /xmsgc) { $parsed .= "(?:(?<![$mb::bare_w])(?![$mb::bare_w])|(?<=[$mb::bare_w])(?=[$mb::bare_w]))"; }
-        elsif (/\G \\D /xmsgc) { $parsed .= "(?:(?![$mb::bare_d])${mb::x})"; }
-        elsif (/\G \\H /xmsgc) { $parsed .= "(?:(?![$mb::bare_h])${mb::x})"; }
-        elsif (/\G \\N /xmsgc) { $parsed .= "(?:(?!\\n)${mb::x})";           }
-        elsif (/\G \\R /xmsgc) { $parsed .= "(?>\\r\\n|[$mb::bare_v])";      }
-        elsif (/\G \\S /xmsgc) { $parsed .= "(?:(?![$mb::bare_s])${mb::x})"; }
-        elsif (/\G \\V /xmsgc) { $parsed .= "(?:(?![$mb::bare_v])${mb::x})"; }
-        elsif (/\G \\W /xmsgc) { $parsed .= "(?:(?![$mb::bare_w])${mb::x})"; }
-        elsif (/\G \\b /xmsgc) { $parsed .= "(?:(?<![$mb::bare_w])(?=[$mb::bare_w])|(?<=[$mb::bare_w])(?![$mb::bare_w]))"; }
-        elsif (/\G \\d /xmsgc) { $parsed .= "[$mb::bare_d]";                 }
-        elsif (/\G \\h /xmsgc) { $parsed .= "[$mb::bare_h]";                 }
-        elsif (/\G \\s /xmsgc) { $parsed .= "[$mb::bare_s]";                 }
-        elsif (/\G \\v /xmsgc) { $parsed .= "[$mb::bare_v]";                 }
-        elsif (/\G \\w /xmsgc) { $parsed .= "[$mb::bare_w]";                 }
+        elsif (/\G \.  /xmsgc) { $parsed .= "(?:$over_ascii|.)";    } # after $over_ascii, /s modifier wants "." (not [\x00-\xFF])
+        elsif (/\G \\B /xmsgc) { $parsed .= "(?:(?<![$bare_w])(?![$bare_w])|(?<=[$bare_w])(?=[$bare_w]))"; }
+        elsif (/\G \\D /xmsgc) { $parsed .= "(?:(?![$bare_d])$x)";  }
+        elsif (/\G \\H /xmsgc) { $parsed .= "(?:(?![$bare_h])$x)";  }
+        elsif (/\G \\N /xmsgc) { $parsed .= "(?:(?!\\n)$x)";        }
+        elsif (/\G \\R /xmsgc) { $parsed .= "(?>\\r\\n|[$bare_v])"; }
+        elsif (/\G \\S /xmsgc) { $parsed .= "(?:(?![$bare_s])$x)";  }
+        elsif (/\G \\V /xmsgc) { $parsed .= "(?:(?![$bare_v])$x)";  }
+        elsif (/\G \\W /xmsgc) { $parsed .= "(?:(?![$bare_w])$x)";  }
+        elsif (/\G \\b /xmsgc) { $parsed .= "(?:(?<![$bare_w])(?=[$bare_w])|(?<=[$bare_w])(?![$bare_w]))"; }
+        elsif (/\G \\d /xmsgc) { $parsed .= "[$bare_d]";            }
+        elsif (/\G \\h /xmsgc) { $parsed .= "[$bare_h]";            }
+        elsif (/\G \\s /xmsgc) { $parsed .= "[$bare_s]";            }
+        elsif (/\G \\v /xmsgc) { $parsed .= "[$bare_v]";            }
+        elsif (/\G \\w /xmsgc) { $parsed .= "[$bare_w]";            }
 
         # \o{...}
         elsif (/\G \\o\{ (.*?) \} /xmsgc) {
@@ -4087,7 +4523,7 @@ END
         }
 
         # any
-        elsif (/\G (${mb::x}) /xmsgc) {
+        elsif (/\G ($x) /xmsgc) {
             if (CORE::length($1) == 1) {
                 $parsed .= $1;
             }
@@ -4288,7 +4724,7 @@ sub parse_re {
             elsif (/\G (\[:[a-z]*:\]) /xmsgc) {
                 $classmate .= $1;
             }
-            elsif (/\G (${mb::x}) /xmsgc) {
+            elsif (/\G ($x) /xmsgc) {
                 $classmate .= escape_qq($1, ']');
             }
 
@@ -4364,7 +4800,7 @@ END
     }
 
     # \any
-    elsif (/\G (\\) (${mb::x}) /xmsgc) {
+    elsif (/\G (\\) ($x) /xmsgc) {
         if (CORE::length($2) == 1) {
             $parsed .= ($1 . $2);
         }
@@ -4446,7 +4882,7 @@ END
     }
 
     # any
-    elsif (/\G (${mb::x}) /xmsgc) {
+    elsif (/\G ($x) /xmsgc) {
         if (CORE::length($1) == 1) {
             $parsed .= $1;
         }
@@ -4515,42 +4951,34 @@ sub parse_tr_modifier {
 #---------------------------------------------------------------------
 # makes codepoint class from string
 sub codepoint_tr {
-    my($searchlist) = $_[0] =~ /\A [\x00-\xFF] (.*) [\x00-\xFF] \z/xms;
-    my $look_ahead = ($_[1] =~ /c/) ? '(?:(?!' : '(?:(?=';
-    my $charclass = '';
+    my $searchlist = quotee_of($_[0]);
+
     my @sbcs = ();
     my @xbcs = (); # "xbcs" means DBCS, TBCS, QBCS, ...
-    while (1) {
-        if ($searchlist =~ /\G \z /xmsgc) {
-            $charclass =
-                ( @sbcs and  @xbcs) ? $look_ahead . join('|', @xbcs, '['.join('',@sbcs).']') . ")${mb::x})" :
-                (!@sbcs and  @xbcs) ? $look_ahead . join('|', @xbcs                        ) . ")${mb::x})" :
-                ( @sbcs and !@xbcs) ? $look_ahead .                  '['.join('',@sbcs).']'  . ")${mb::x})" :
-                die;
-            last;
+    while (not $searchlist =~ /\G \z /xmsgc) {
+
+        # \-
+        if ($searchlist =~ /\G (\\-) /xmsgc) {
+            push @sbcs, $1;
         }
 
-        # range specification by '-' in tr/// is not supported
-        # this limitation makes it easier to change the script encoding
+        # -
         elsif ($searchlist =~ /\G (-) /xmsgc) {
-            if ($^W) {
-                cluck <<END;
-"$searchlist" in tr///
+            push @sbcs, $1;
+        }
 
-range specification by '-' in tr/// is not supported.
-this limitation makes it easier to change the script encoding.
-END
-            }
-            push @sbcs, '\\x2D';
+        # any qq escapee
+        elsif ($searchlist =~ /\G ([$escapee_in_qq_like]) /xmsgc) {
+            push @sbcs, "\\$1";
         }
 
         # any
-        elsif ($searchlist =~ /\G (${mb::x}) /xmsgc) {
+        elsif ($searchlist =~ /\G ($x) /xmsgc) {
             if (CORE::length($1) == 1) {
                 push @sbcs, $1;
             }
             else {
-                push @xbcs, '(?:' . escape_to_hex($1, ']') . ')';
+                push @xbcs, escape_qq($1, '\\');
             }
         }
 
@@ -4564,7 +4992,13 @@ $0(@{[__LINE__]}): something wrong happened in script at pos=%s
 END
         }
     }
-    return $charclass;
+
+    # return codepoint class
+    return
+        ( @sbcs and  @xbcs) ? join('|', @xbcs, '['.join('',@sbcs).']') :
+        (!@sbcs and  @xbcs) ? join('|', @xbcs                        ) :
+        ( @sbcs and !@xbcs) ?                  '['.join('',@sbcs).']'  :
+        die;
 }
 
 #---------------------------------------------------------------------
@@ -4619,6 +5053,24 @@ sub escape_qq {
 }
 
 #---------------------------------------------------------------------
+# escape tr/here/here/ as tr-like quote
+sub escape_tr {
+    my($codepoint, $endswith) = @_;
+    if ($codepoint =~ /\A (\Q$endswith\E) \z/xms) {
+        return "\\$1";
+    }
+    elsif ($codepoint =~ /\A ([^\x00-\x7F]) (\Q$endswith\E) \z/xms) {
+        return "$1\\$2";
+    }
+    elsif ($codepoint =~ /\A ([^\x00-\x7F]) ($escapee_in_q__like) \z/xms) {
+        return "$1\\$2";
+    }
+    else {
+        return $codepoint;
+    }
+}
+
+#---------------------------------------------------------------------
 # escape qq/string/ or qr/regexp/ to hex
 sub escape_to_hex {
     my($codepoint, $endswith) = @_;
@@ -4632,79 +5084,6 @@ sub escape_to_hex {
     }
     else {
         return $codepoint;
-    }
-}
-
-#---------------------------------------------------------------------
-# import Perl module in MBCS encoding
-BEGIN { $INC{'mb/PERL.pm'} = __FILE__ }
-sub mb::PERL::import {
-    my $self = shift; # 'mb::PERL' (not used)
-    my $module = shift;
-    my @caller = caller;
-
-    # require file
-    CORE::eval sprintf(<<'END', @caller[0,2,1], $module);
-package %s;
-#line %s "%s"
-mb::require %s;
-END
-
-    # calling VERSION()
-    if (defined($_[0]) and ($_[0] =~ /\A [0-9] /x)) {
-        my $want_version = shift;
-        if ($module->can('VERSION')) {
-            CORE::eval sprintf(<<'END', @caller[0,2,1], $module, $want_version);
-package %s;
-#line %s "%s"
-%s->VERSION(%s);
-END
-        }
-    }
-
-    # calling import()
-    if ($module->can('import')) {
-        CORE::eval sprintf(<<'END', @caller[0,2,1], $module, "@_");
-package %s;
-#line %s "%s"
-%s->import(qw(%s));
-END
-    }
-}
-
-#---------------------------------------------------------------------
-# unimport Perl module in MBCS encoding
-sub mb::PERL::unimport {
-    my $self = shift; # 'mb::PERL' (not used)
-    my $module = shift;
-    my @caller = caller;
-
-    # require file
-    CORE::eval sprintf(<<'END', @caller[0,2,1], $module);
-package %s;
-#line %s "%s"
-mb::require %s;
-END
-
-    # calling VERSION()
-    if (defined($_[0]) and ($_[0] =~ /\A [0-9] /x)) {
-        my $want_version = shift;
-        if ($module->can('VERSION')) {
-            CORE::eval sprintf(<<'END', @caller[0,2,1], $module, $want_version);
-package %s;
-#line %s "%s"
-%s->VERSION(%s);
-END
-        }
-    }
-
-    # calling unimport()
-    if ($module->can('unimport')) {
-        CORE::eval sprintf(<<'END', @caller[0,2,1], $module, "@_");
-package %s;
-#line %s "%s"
-%s->unimport(qw(%s));
-END
     }
 }
 
@@ -4983,53 +5362,57 @@ To install this software without make, type the following:
 
   elder <--                            age                              --> younger
   ---------------------------------------------------------------------------------
-  bare Perl4         JPerl4                                                        
-  bare Perl5         JPerl5             use utf8;          mb.pm                   
-  bare Perl7                            pragma             modulino                
+  bare Perl4         JPerl4
+  bare Perl5         JPerl5             use utf8;          mb.pm
+  bare Perl7                            pragma             modulino
   ---------------------------------------------------------------------------------
-  chop               ---                ---                chop                    
-  chr                chr                bytes::chr         chr                     
-  getc               getc               ---                getc                    
-  index              ---                bytes::index       index                   
-  lc                 lc                 ---                lc (by internal mb::lc) 
-  lcfirst            lcfirst            ---                lcfirst (by internal mb::lcfirst)
-  length             length             bytes::length      length                  
-  ord                ord                bytes::ord         ord                     
-  reverse            reverse            ---                reverse                 
-  rindex             ---                bytes::rindex      rindex                  
-  substr             substr             bytes::substr      substr                  
-  uc                 uc                 ---                uc (by internal mb::uc) 
-  ucfirst            ucfirst            ---                ucfirst (by internal mb::ucfirst)
-  ---                chop               chop               mb::chop                
-  ---                ---                chr                mb::chr                 
-  ---                ---                getc               mb::getc                
-  ---                index              ---                mb::index_byte          
-  ---                ---                index              mb::index               
-  ---                ---                lc                 ---                     
-  ---                ---                lcfirst            ---                     
-  ---                ---                length             mb::length              
-  ---                ---                ord                mb::ord                 
-  ---                ---                reverse            mb::reverse             
-  ---                rindex             ---                mb::rindex_byte         
-  ---                ---                rindex             mb::rindex              
-  ---                ---                substr             mb::substr              
-  ---                ---                uc                 ---                     
-  ---                ---                ucfirst            ---                     
+  chop               ---                ---                chop
+  chr                chr                bytes::chr         chr
+  getc               getc               ---                getc
+  index              ---                bytes::index       index
+  lc                 ---                ---                CORE::lc
+  lcfirst            ---                ---                CORE::lcfirst
+  length             length             bytes::length      length
+  ord                ord                bytes::ord         ord
+  reverse            reverse            ---                reverse
+  rindex             ---                bytes::rindex      rindex
+  substr             substr             bytes::substr      substr
+  uc                 ---                ---                CORE::uc
+  ucfirst            ---                ---                CORE::ucfirst
+  ---                chop               chop               mb::chop
+  ---                ---                chr                mb::chr
+  ---                ---                getc               mb::getc
+  ---                index              ---                mb::index_byte
+  ---                ---                index              mb::index
+  ---                lc                 ---                lc (by internal mb::lc)
+  ---                lcfirst            ---                lcfirst (by internal mb::lcfirst)
+  ---                ---                length             mb::length
+  ---                ---                ord                mb::ord
+  ---                ---                reverse            mb::reverse
+  ---                rindex             ---                mb::rindex_byte
+  ---                ---                rindex             mb::rindex
+  ---                ---                substr             mb::substr
+  ---                uc                 ---                uc (by internal mb::uc)
+  ---                ucfirst            ---                ucfirst (by internal mb::ucfirst)
+  ---                ---                lc                 ---
+  ---                ---                lcfirst            ---
+  ---                ---                uc                 ---
+  ---                ---                ucfirst            ---
   ---------------------------------------------------------------------------------
-  do 'file'          ---                ---                do 'file'               
-  eval 'string'      ---                ---                eval 'string'           
-  require 'file'     ---                ---                require 'file'          
-  use Module         ---                ---                use Module              
-  no Module          ---                ---                no Module               
-  ---                do 'file'          do 'file'          mb::do 'file'           
-  ---                eval 'string'      eval 'string'      mb::eval 'string'       
-  ---                require 'file'     require 'file'     mb::require 'file'      
-  ---                use Module         use Module         mb::use Module          
-  ---                no Module          no Module          mb::no Module           
-  $^X                ---                ---                $^X                     
-  ---                $^X                $^X                $mb::PERL               
-  $0                 $0                 $0                 $mb::ORIG_PROGRAM_NAME  
-  ---                ---                ---                $0                      
+  do 'file'          ---                ---                do 'file'
+  eval 'string'      ---                ---                eval 'string'
+  require 'file'     ---                ---                require 'file'
+  use Module         ---                ---                use Module
+  no Module          ---                ---                no Module
+  ---                do 'file'          do 'file'          mb::do 'file'
+  ---                eval 'string'      eval 'string'      mb::eval 'string'
+  ---                require 'file'     require 'file'     mb::require 'file'
+  ---                use Module         use Module         mb::use Module
+  ---                no Module          no Module          mb::no Module
+  $^X                ---                ---                $^X
+  ---                $^X                $^X                $mb::PERL
+  $0                 $0                 $0                 $mb::ORIG_PROGRAM_NAME
+  ---                ---                ---                $0
   ---------------------------------------------------------------------------------
 
   DOS-like glob() as MBCS subroutine
@@ -5038,6 +5421,7 @@ To install this software without make, type the following:
   -----------------------------------------------------------------
   mb::dosglob             glob, and <globbing*>
   -----------------------------------------------------------------
+  but everybody loves split(/\n/,`dir /b *.* 2>NUL`) since Perl4
 
   index brothers
   ------------------------------------------------------------------------------------------
@@ -5090,8 +5474,8 @@ To install this software without make, type the following:
   eval 'string'             eval 'string'
   getc                      getc
   index                     index
-  lc                        lc
-  lcfirst                   lcfirst
+  lc                        CORE::lc
+  lcfirst                   CORE::lcfirst
   length                    length
   no Module                 no Module
   no Module qw(ARGUMENTS)   no Module qw(ARGUMENTS)
@@ -5100,8 +5484,8 @@ To install this software without make, type the following:
   reverse                   reverse
   rindex                    rindex
   substr                    substr
-  uc                        uc
-  ucfirst                   ucfirst
+  uc                        CORE::uc
+  ucfirst                   CORE::ucfirst
   use Module                use Module
   use Module qw(ARGUMENTS)  use Module qw(ARGUMENTS)
   use Module ()             use Module ()
@@ -5117,10 +5501,14 @@ To install this software without make, type the following:
   do 'file'                 mb::do 'file'
   eval 'string'             mb::eval 'string'
   index                     mb::index_byte
+  lc                        mb::lc (also lc)
+  lcfirst                   mb::lcfirst (also lcfirst)
   no Module                 mb::no Module
   no Module qw(ARGUMENTS)   mb::no Module qw(ARGUMENTS)
   require 'file'            mb::require 'file'
   rindex                    mb::rindex_byte
+  uc                        mb::uc (also uc)
+  ucfirst                   mb::ucfirst (also ucfirst)
   use Module                mb::use Module
   use Module qw(ARGUMENTS)  mb::use Module qw(ARGUMENTS)
   use Module ()             mb::use Module ()
@@ -5172,26 +5560,26 @@ To install this software without make, type the following:
   ------------------------------------------------------------------
   hex   character as US-ASCII
   ------------------------------------------------------------------
-  21    [!]    
-  22    ["]    
+  21    [!]
+  22    ["]
   23    [#]    regexp comment
   24    [$]    sigil of scalar variable
-  25    [%]    
-  26    [&]    
-  27    [']    
+  25    [%]
+  26    [&]
+  27    [']
   28    [(]    regexp group and capture
   29    [)]    regexp group and capture
   2A    [*]    regexp matches zero or more times
   2B    [+]    regexp matches one or more times
-  2C    [,]    
-  2D    [-]    
+  2C    [,]
+  2D    [-]
   2E    [.]    regexp matches any octet
-  2F    [/]    
-  3A    [:]    
-  3B    [;]    
-  3C    [<]    
-  3D    [=]    
-  3E    [>]    
+  2F    [/]
+  3A    [:]
+  3B    [;]
+  3C    [<]
+  3D    [=]
+  3E    [>]
   3F    [?]    regexp matches zero or one times
   40    [@]    sigil of array variable
   5B    [[]    regexp bracketed character class
@@ -5202,7 +5590,7 @@ To install this software without make, type the following:
   7B    [{]    regexp quantifier
   7C    [|]    regexp alternation
   7D    [}]    regexp quantifier
-  7E    [~]    
+  7E    [~]
   ------------------------------------------------------------------
 
 =head1 How to escape 2nd octet of DAMEMOJI
@@ -5305,12 +5693,12 @@ To install this software without make, type the following:
   m'MBCS-quotee'cgmosx                       m{\G${mb::_anchor}@{[qr'OO-quotee'mosx ]}@{[mb::_m_passed()]}}cg
   s'MBCS-regexp'MBCS-replacement'eegimosxr   s{(\G${mb::_anchor})@{[mb::_ignorecase(qr'OO-regexp'mosx)]}@{[mb::_s_passed()]}}{$1 . mb::eval mb::eval q'OO-replacement'}egr
   s'MBCS-regexp'MBCS-replacement'eegmosxr    s{(\G${mb::_anchor})@{[qr'OO-regexp'mosx ]}@{[mb::_s_passed()]}}{$1 . mb::eval mb::eval q'OO-replacement'}egr
-  tr/MBCS-search/MBCS-replacement/cdsr       s{[\x00-\xFF]*}{mb::tr($&,q/OO-search/,q/OO-replacement/,'cdsr')}er
-  tr/MBCS-search/MBCS-replacement/cds        s{[\x00-\xFF]*}{mb::tr($&,q/OO-search/,q/OO-replacement/,'cdsr')}e
-  tr/MBCS-search/MBCS-replacement/ds         s{[\x00-\xFF]*}{mb::tr($&,q/OO-search/,q/OO-replacement/,'dsr')}e
-  y/MBCS-search/MBCS-replacement/cdsr        s{[\x00-\xFF]*}{mb::tr($&,q/OO-search/,q/OO-replacement/,'cdsr')}er
-  y/MBCS-search/MBCS-replacement/cds         s{[\x00-\xFF]*}{mb::tr($&,q/OO-search/,q/OO-replacement/,'cdsr')}e
-  y/MBCS-search/MBCS-replacement/ds          s{[\x00-\xFF]*}{mb::tr($&,q/OO-search/,q/OO-replacement/,'dsr')}e
+  tr/MBCS-search/MBCS-replacement/cdsr       s{[\x00-\xFF]*}{mb::tr($&,q/OO-search/,q/OO-replacement/,'cdsr')}ser
+  tr/MBCS-search/MBCS-replacement/cds        s{[\x00-\xFF]+}{mb::tr($&,q/OO-search/,q/OO-replacement/,'cdsr')}se
+  tr/MBCS-search/MBCS-replacement/ds         s{[\x00-\xFF]+}{mb::tr($&,q/OO-search/,q/OO-replacement/,'dsr')}se
+  y/MBCS-search/MBCS-replacement/cdsr        s{[\x00-\xFF]*}{mb::tr($&,q/OO-search/,q/OO-replacement/,'cdsr')}ser
+  y/MBCS-search/MBCS-replacement/cds         s{[\x00-\xFF]+}{mb::tr($&,q/OO-search/,q/OO-replacement/,'cdsr')}se
+  y/MBCS-search/MBCS-replacement/ds          s{[\x00-\xFF]+}{mb::tr($&,q/OO-search/,q/OO-replacement/,'dsr')}se
   qr'MBCS-quotee'cgimosx                     qr{\G${mb::_anchor}@{[mb::_ignorecase(qr'OO-quotee'mosx)]}@{[mb::_m_passed()]}}cg
   qr'MBCS-quotee'cgmosx                      qr{\G${mb::_anchor}@{[qr'OO-quotee'mosx ]}@{[mb::_m_passed()]}}cg
   split m'^'                                 mb::_split qr{@{[qr'^'m ]}}
@@ -5439,6 +5827,10 @@ To install this software without make, type the following:
   "$LAST_MATCH_END[1]"                       "@{[mb::_LAST_MATCH_END(1)]}"
   "${LAST_MATCH_END}[1]"                     "@{[mb::_LAST_MATCH_END(1)]}"
   "${^LAST_MATCH_END}[1]"                    "@{[mb::_LAST_MATCH_END(1)]}"
+  v1.20.300.4000                             mb::chr(1).mb::chr(20).mb::chr(300).mb::chr(4000)
+  1.20.300.4000                              mb::chr(1).mb::chr(20).mb::chr(300).mb::chr(4000)
+  v1234=>''                                  v1234=>''
+  v1234                                      mb::chr(1234)
   -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
   The transpile-list below is primarily for Microsoft Windows, but it also
@@ -5466,8 +5858,8 @@ To install this software without make, type the following:
   lstat(qw/a/)                               mb::_lstat(qw/a/)
   lstat(qx/a/)                               mb::_lstat(qx/a/)
   lstat(s/a/b/)                              mb::_lstat(s{(\G${mb::_anchor})@{[qr/a/ ]}@{[mb::_s_passed()]}}{$1 . qq /b/}e)
-  lstat(tr/a/b/)                             mb::_lstat(s{(\G${mb::_anchor})((?:(?=[a])(?^:(?>(?>[\x81-\x9F\xE0-\xFC][\x00-\xFF]|[\x80-\xFF])|[\x00-\x7F]))))}{$1.mb::tr($2,q/a/,q/b/,'r')}eg)
-  lstat(y/a/b/)                              mb::_lstat(s{(\G${mb::_anchor})((?:(?=[a])(?^:(?>(?>[\x81-\x9F\xE0-\xFC][\x00-\xFF]|[\x80-\xFF])|[\x00-\x7F]))))}{$1.mb::tr($2,q/a/,q/b/,'r')}eg)
+  lstat(tr/a/b/)                             mb::_lstat(s{(\G${mb::_anchor})((?=[a])@{mb::_dot})}{$1.mb::tr($2,q/a/,q/b/,'r')}sge)
+  lstat(y/a/b/)                              mb::_lstat(s{(\G${mb::_anchor})((?=[a])@{mb::_dot})}{$1.mb::tr($2,q/a/,q/b/,'r')}sge)
   lstat($fh)                                 mb::_lstat($fh)
   lstat(FILE)                                mb::_lstat(\*FILE)
   lstat(_)                                   mb::_lstat(\*_)
@@ -5486,8 +5878,8 @@ To install this software without make, type the following:
   stat(qw/a/)                                mb::_stat(qw/a/)
   stat(qx/a/)                                mb::_stat(qx/a/)
   stat(s/a/b/)                               mb::_stat(s{(\G${mb::_anchor})@{[qr/a/ ]}@{[mb::_s_passed()]}}{$1 . qq /b/}e)
-  stat(tr/a/b/)                              mb::_stat(s{(\G${mb::_anchor})((?:(?=[a])(?^:(?>(?>[\x81-\x9F\xE0-\xFC][\x00-\xFF]|[\x80-\xFF])|[\x00-\x7F]))))}{$1.mb::tr($2,q/a/,q/b/,'r')}eg)
-  stat(y/a/b/)                               mb::_stat(s{(\G${mb::_anchor})((?:(?=[a])(?^:(?>(?>[\x81-\x9F\xE0-\xFC][\x00-\xFF]|[\x80-\xFF])|[\x00-\x7F]))))}{$1.mb::tr($2,q/a/,q/b/,'r')}eg)
+  stat(tr/a/b/)                              mb::_stat(s{(\G${mb::_anchor})((?=[a])@{mb::_dot})}{$1.mb::tr($2,q/a/,q/b/,'r')}sge)
+  stat(y/a/b/)                               mb::_stat(s{(\G${mb::_anchor})((?=[a])@{mb::_dot})}{$1.mb::tr($2,q/a/,q/b/,'r')}sge)
   stat($fh)                                  mb::_stat($fh)
   stat(FILE)                                 mb::_stat(\*FILE)
   stat(_)                                    mb::_stat(\*_)
@@ -5495,146 +5887,146 @@ To install this software without make, type the following:
   stat FILE                                  mb::_stat \*FILE
   stat _                                     mb::_stat \*_
   stat                                       mb::_stat
-  -A $fh                                     mb::_filetest [qw( -A )], $fh
-  -A 'file'                                  mb::_filetest [qw( -A )], 'file'
+  -A $fh                                     mb::_filetest [qw( -A)],  $fh
+  -A 'file'                                  mb::_filetest [qw( -A)],  'file'
   -A FILE                                    mb::_filetest [qw( -A )], \*FILE
   -A _                                       mb::_filetest [qw( -A )], \*_
-  -A qq{file}                                mb::_filetest [qw( -A )], qq{file}
-  -B $fh                                     mb::_filetest [qw( -B )], $fh
-  -B 'file'                                  mb::_filetest [qw( -B )], 'file'
+  -A qq{file}                                mb::_filetest [qw( -A  )], qq{file}
+  -B $fh                                     mb::_filetest [qw( -B)],  $fh
+  -B 'file'                                  mb::_filetest [qw( -B)],  'file'
   -B FILE                                    mb::_filetest [qw( -B )], \*FILE
   -B _                                       mb::_filetest [qw( -B )], \*_
-  -B qq{file}                                mb::_filetest [qw( -B )], qq{file}
-  -C $fh                                     mb::_filetest [qw( -C )], $fh
-  -C 'file'                                  mb::_filetest [qw( -C )], 'file'
+  -B qq{file}                                mb::_filetest [qw( -B  )], qq{file}
+  -C $fh                                     mb::_filetest [qw( -C)],  $fh
+  -C 'file'                                  mb::_filetest [qw( -C)],  'file'
   -C FILE                                    mb::_filetest [qw( -C )], \*FILE
   -C _                                       mb::_filetest [qw( -C )], \*_
-  -C qq{file}                                mb::_filetest [qw( -C )], qq{file}
-  -M $fh                                     mb::_filetest [qw( -M )], $fh
-  -M 'file'                                  mb::_filetest [qw( -M )], 'file'
+  -C qq{file}                                mb::_filetest [qw( -C  )], qq{file}
+  -M $fh                                     mb::_filetest [qw( -M)],  $fh
+  -M 'file'                                  mb::_filetest [qw( -M)],  'file'
   -M FILE                                    mb::_filetest [qw( -M )], \*FILE
   -M _                                       mb::_filetest [qw( -M )], \*_
-  -M qq{file}                                mb::_filetest [qw( -M )], qq{file}
-  -O $fh                                     mb::_filetest [qw( -O )], $fh
-  -O 'file'                                  mb::_filetest [qw( -O )], 'file'
+  -M qq{file}                                mb::_filetest [qw( -M  )], qq{file}
+  -O $fh                                     mb::_filetest [qw( -O)],  $fh
+  -O 'file'                                  mb::_filetest [qw( -O)],  'file'
   -O FILE                                    mb::_filetest [qw( -O )], \*FILE
   -O _                                       mb::_filetest [qw( -O )], \*_
-  -O qq{file}                                mb::_filetest [qw( -O )], qq{file}
-  -R $fh                                     mb::_filetest [qw( -R )], $fh
-  -R 'file'                                  mb::_filetest [qw( -R )], 'file'
+  -O qq{file}                                mb::_filetest [qw( -O  )], qq{file}
+  -R $fh                                     mb::_filetest [qw( -R)],  $fh
+  -R 'file'                                  mb::_filetest [qw( -R)],  'file'
   -R FILE                                    mb::_filetest [qw( -R )], \*FILE
   -R _                                       mb::_filetest [qw( -R )], \*_
-  -R qq{file}                                mb::_filetest [qw( -R )], qq{file}
-  -S $fh                                     mb::_filetest [qw( -S )], $fh
-  -S 'file'                                  mb::_filetest [qw( -S )], 'file'
+  -R qq{file}                                mb::_filetest [qw( -R  )], qq{file}
+  -S $fh                                     mb::_filetest [qw( -S)],  $fh
+  -S 'file'                                  mb::_filetest [qw( -S)],  'file'
   -S FILE                                    mb::_filetest [qw( -S )], \*FILE
   -S _                                       mb::_filetest [qw( -S )], \*_
-  -S qq{file}                                mb::_filetest [qw( -S )], qq{file}
-  -T $fh                                     mb::_filetest [qw( -T )], $fh
-  -T 'file'                                  mb::_filetest [qw( -T )], 'file'
+  -S qq{file}                                mb::_filetest [qw( -S  )], qq{file}
+  -T $fh                                     mb::_filetest [qw( -T)],  $fh
+  -T 'file'                                  mb::_filetest [qw( -T)],  'file'
   -T FILE                                    mb::_filetest [qw( -T )], \*FILE
   -T _                                       mb::_filetest [qw( -T )], \*_
-  -T qq{file}                                mb::_filetest [qw( -T )], qq{file}
-  -W $fh                                     mb::_filetest [qw( -W )], $fh
-  -W 'file'                                  mb::_filetest [qw( -W )], 'file'
+  -T qq{file}                                mb::_filetest [qw( -T  )], qq{file}
+  -W $fh                                     mb::_filetest [qw( -W)],  $fh
+  -W 'file'                                  mb::_filetest [qw( -W)],  'file'
   -W FILE                                    mb::_filetest [qw( -W )], \*FILE
   -W _                                       mb::_filetest [qw( -W )], \*_
-  -W qq{file}                                mb::_filetest [qw( -W )], qq{file}
-  -X $fh                                     mb::_filetest [qw( -X )], $fh
-  -X 'file'                                  mb::_filetest [qw( -X )], 'file'
+  -W qq{file}                                mb::_filetest [qw( -W  )], qq{file}
+  -X $fh                                     mb::_filetest [qw( -X)],  $fh
+  -X 'file'                                  mb::_filetest [qw( -X)],  'file'
   -X FILE                                    mb::_filetest [qw( -X )], \*FILE
   -X _                                       mb::_filetest [qw( -X )], \*_
-  -X qq{file}                                mb::_filetest [qw( -X )], qq{file}
-  -b $fh                                     mb::_filetest [qw( -b )], $fh
-  -b 'file'                                  mb::_filetest [qw( -b )], 'file'
+  -X qq{file}                                mb::_filetest [qw( -X  )], qq{file}
+  -b $fh                                     mb::_filetest [qw( -b)],  $fh
+  -b 'file'                                  mb::_filetest [qw( -b)],  'file'
   -b FILE                                    mb::_filetest [qw( -b )], \*FILE
   -b _                                       mb::_filetest [qw( -b )], \*_
-  -b qq{file}                                mb::_filetest [qw( -b )], qq{file}
-  -c $fh                                     mb::_filetest [qw( -c )], $fh
-  -c 'file'                                  mb::_filetest [qw( -c )], 'file'
+  -b qq{file}                                mb::_filetest [qw( -b  )], qq{file}
+  -c $fh                                     mb::_filetest [qw( -c)],  $fh
+  -c 'file'                                  mb::_filetest [qw( -c)],  'file'
   -c FILE                                    mb::_filetest [qw( -c )], \*FILE
   -c _                                       mb::_filetest [qw( -c )], \*_
-  -c qq{file}                                mb::_filetest [qw( -c )], qq{file}
-  -d $fh                                     mb::_filetest [qw( -d )], $fh
-  -d 'file'                                  mb::_filetest [qw( -d )], 'file'
+  -c qq{file}                                mb::_filetest [qw( -c  )], qq{file}
+  -d $fh                                     mb::_filetest [qw( -d)],  $fh
+  -d 'file'                                  mb::_filetest [qw( -d)],  'file'
   -d FILE                                    mb::_filetest [qw( -d )], \*FILE
   -d _                                       mb::_filetest [qw( -d )], \*_
-  -d qq{file}                                mb::_filetest [qw( -d )], qq{file}
-  -e $fh                                     mb::_filetest [qw( -e )], $fh
-  -e 'file'                                  mb::_filetest [qw( -e )], 'file'
+  -d qq{file}                                mb::_filetest [qw( -d  )], qq{file}
+  -e $fh                                     mb::_filetest [qw( -e)],  $fh
+  -e 'file'                                  mb::_filetest [qw( -e)],  'file'
   -e FILE                                    mb::_filetest [qw( -e )], \*FILE
   -e _                                       mb::_filetest [qw( -e )], \*_
-  -e qq{file}                                mb::_filetest [qw( -e )], qq{file}
-  -f $fh                                     mb::_filetest [qw( -f )], $fh
-  -f 'file'                                  mb::_filetest [qw( -f )], 'file'
+  -e qq{file}                                mb::_filetest [qw( -e  )], qq{file}
+  -f $fh                                     mb::_filetest [qw( -f)],  $fh
+  -f 'file'                                  mb::_filetest [qw( -f)],  'file'
   -f FILE                                    mb::_filetest [qw( -f )], \*FILE
   -f _                                       mb::_filetest [qw( -f )], \*_
-  -f qq{file}                                mb::_filetest [qw( -f )], qq{file}
-  -g $fh                                     mb::_filetest [qw( -g )], $fh
-  -g 'file'                                  mb::_filetest [qw( -g )], 'file'
+  -f qq{file}                                mb::_filetest [qw( -f  )], qq{file}
+  -g $fh                                     mb::_filetest [qw( -g)],  $fh
+  -g 'file'                                  mb::_filetest [qw( -g)],  'file'
   -g FILE                                    mb::_filetest [qw( -g )], \*FILE
   -g _                                       mb::_filetest [qw( -g )], \*_
-  -g qq{file}                                mb::_filetest [qw( -g )], qq{file}
-  -k $fh                                     mb::_filetest [qw( -k )], $fh
-  -k 'file'                                  mb::_filetest [qw( -k )], 'file'
+  -g qq{file}                                mb::_filetest [qw( -g  )], qq{file}
+  -k $fh                                     mb::_filetest [qw( -k)],  $fh
+  -k 'file'                                  mb::_filetest [qw( -k)],  'file'
   -k FILE                                    mb::_filetest [qw( -k )], \*FILE
   -k _                                       mb::_filetest [qw( -k )], \*_
-  -k qq{file}                                mb::_filetest [qw( -k )], qq{file}
-  -l $fh                                     mb::_filetest [qw( -l )], $fh
-  -l 'file'                                  mb::_filetest [qw( -l )], 'file'
+  -k qq{file}                                mb::_filetest [qw( -k  )], qq{file}
+  -l $fh                                     mb::_filetest [qw( -l)],  $fh
+  -l 'file'                                  mb::_filetest [qw( -l)],  'file'
   -l FILE                                    mb::_filetest [qw( -l )], \*FILE
   -l _                                       mb::_filetest [qw( -l )], \*_
-  -l qq{file}                                mb::_filetest [qw( -l )], qq{file}
-  -o $fh                                     mb::_filetest [qw( -o )], $fh
-  -o 'file'                                  mb::_filetest [qw( -o )], 'file'
+  -l qq{file}                                mb::_filetest [qw( -l  )], qq{file}
+  -o $fh                                     mb::_filetest [qw( -o)],  $fh
+  -o 'file'                                  mb::_filetest [qw( -o)],  'file'
   -o FILE                                    mb::_filetest [qw( -o )], \*FILE
   -o _                                       mb::_filetest [qw( -o )], \*_
-  -o qq{file}                                mb::_filetest [qw( -o )], qq{file}
-  -p $fh                                     mb::_filetest [qw( -p )], $fh
-  -p 'file'                                  mb::_filetest [qw( -p )], 'file'
+  -o qq{file}                                mb::_filetest [qw( -o  )], qq{file}
+  -p $fh                                     mb::_filetest [qw( -p)],  $fh
+  -p 'file'                                  mb::_filetest [qw( -p)],  'file'
   -p FILE                                    mb::_filetest [qw( -p )], \*FILE
   -p _                                       mb::_filetest [qw( -p )], \*_
-  -p qq{file}                                mb::_filetest [qw( -p )], qq{file}
-  -r $fh                                     mb::_filetest [qw( -r )], $fh
-  -r 'file'                                  mb::_filetest [qw( -r )], 'file'
-  -r -w -f $fh                               mb::_filetest [qw( -r -w -f )], $fh
-  -r -w -f 'file'                            mb::_filetest [qw( -r -w -f )], 'file'
+  -p qq{file}                                mb::_filetest [qw( -p  )], qq{file}
+  -r $fh                                     mb::_filetest [qw( -r)],  $fh
+  -r 'file'                                  mb::_filetest [qw( -r)],  'file'
+  -r -w -f $fh                               mb::_filetest [qw( -r -w -f)],  $fh
+  -r -w -f 'file'                            mb::_filetest [qw( -r -w -f)],  'file'
   -r -w -f FILE                              mb::_filetest [qw( -r -w -f )], \*FILE
   -r -w -f _                                 mb::_filetest [qw( -r -w -f )], \*_
-  -r -w -f qq{file}                          mb::_filetest [qw( -r -w -f )], qq{file}
+  -r -w -f qq{file}                          mb::_filetest [qw( -r -w -f  )], qq{file}
   -r FILE                                    mb::_filetest [qw( -r )], \*FILE
   -r _                                       mb::_filetest [qw( -r )], \*_
-  -r qq{file}                                mb::_filetest [qw( -r )], qq{file}
-  -s $fh                                     mb::_filetest [qw( -s )], $fh
-  -s 'file'                                  mb::_filetest [qw( -s )], 'file'
+  -r qq{file}                                mb::_filetest [qw( -r  )], qq{file}
+  -s $fh                                     mb::_filetest [qw( -s)],  $fh
+  -s 'file'                                  mb::_filetest [qw( -s)],  'file'
   -s FILE                                    mb::_filetest [qw( -s )], \*FILE
   -s _                                       mb::_filetest [qw( -s )], \*_
-  -s qq{file}                                mb::_filetest [qw( -s )], qq{file}
-  -t $fh                                     mb::_filetest [qw( -t )], $fh
-  -t 'file'                                  mb::_filetest [qw( -t )], 'file'
+  -s qq{file}                                mb::_filetest [qw( -s  )], qq{file}
+  -t $fh                                     mb::_filetest [qw( -t)],  $fh
+  -t 'file'                                  mb::_filetest [qw( -t)],  'file'
   -t FILE                                    mb::_filetest [qw( -t )], \*FILE
   -t _                                       mb::_filetest [qw( -t )], \*_
-  -t qq{file}                                mb::_filetest [qw( -t )], qq{file}
-  -u $fh                                     mb::_filetest [qw( -u )], $fh
-  -u 'file'                                  mb::_filetest [qw( -u )], 'file'
+  -t qq{file}                                mb::_filetest [qw( -t  )], qq{file}
+  -u $fh                                     mb::_filetest [qw( -u)],  $fh
+  -u 'file'                                  mb::_filetest [qw( -u)],  'file'
   -u FILE                                    mb::_filetest [qw( -u )], \*FILE
   -u _                                       mb::_filetest [qw( -u )], \*_
-  -u qq{file}                                mb::_filetest [qw( -u )], qq{file}
-  -w $fh                                     mb::_filetest [qw( -w )], $fh
-  -w 'file'                                  mb::_filetest [qw( -w )], 'file'
+  -u qq{file}                                mb::_filetest [qw( -u  )], qq{file}
+  -w $fh                                     mb::_filetest [qw( -w)],  $fh
+  -w 'file'                                  mb::_filetest [qw( -w)],  'file'
   -w FILE                                    mb::_filetest [qw( -w )], \*FILE
   -w _                                       mb::_filetest [qw( -w )], \*_
-  -w qq{file}                                mb::_filetest [qw( -w )], qq{file}
-  -x $fh                                     mb::_filetest [qw( -x )], $fh
-  -x 'file'                                  mb::_filetest [qw( -x )], 'file'
+  -w qq{file}                                mb::_filetest [qw( -w  )], qq{file}
+  -x $fh                                     mb::_filetest [qw( -x)],  $fh
+  -x 'file'                                  mb::_filetest [qw( -x)],  'file'
   -x FILE                                    mb::_filetest [qw( -x )], \*FILE
   -x _                                       mb::_filetest [qw( -x )], \*_
-  -x qq{file}                                mb::_filetest [qw( -x )], qq{file}
-  -z $fh                                     mb::_filetest [qw( -z )], $fh
-  -z 'file'                                  mb::_filetest [qw( -z )], 'file'
+  -x qq{file}                                mb::_filetest [qw( -x  )], qq{file}
+  -z $fh                                     mb::_filetest [qw( -z)],  $fh
+  -z 'file'                                  mb::_filetest [qw( -z)],  'file'
   -z FILE                                    mb::_filetest [qw( -z )], \*FILE
   -z _                                       mb::_filetest [qw( -z )], \*_
-  -z qq{file}                                mb::_filetest [qw( -z )], qq{file}
+  -z qq{file}                                mb::_filetest [qw( -z  )], qq{file}
   -----------------------------------------------------------------------------
 
   Each elements in strings or regular expressions that are double-quote like are
@@ -5752,11 +6144,62 @@ To install this software without make, type the following:
   This mb.pm modulino requires perl5.00503 or later to use. Also requires 'strict'
   module. It requires the 'warnings' module, too if perl 5.6 or later.
 
-=head1 BUGS Avoidable by Your Doing
+=head1 Fatal Bugs Unavoidable
 
 You can avoid the following bugs with little hacks.
 
 =over 2
+
+=item * chdir() on Microsoft Windows
+
+Function chdir() cannot work if path is ended by chr(0x5C).
+
+  This problem is specific to Microsoft Windows. It is not caused by the mb.pm
+  modulino or the perl interpreter.
+  
+  # chdir.pl
+  mkdir((qw( `/ ))[0], 0777);
+  print "got=", chdir((qw( `/ ))[0]), " cwd=", `cd`;
+  
+  C:\HOME>perl5.00503.exe chdir.pl
+    GOOD ==> got=1 cwd=C:\HOME\`/
+  
+  C:\HOME>strawberry-perl-5.8.9.5.exe chdir.pl
+    BAD ==> got=1 cwd=C:\HOME
+
+This is a lost technology in this century.
+
+  # suggested module name
+  use mb::WinDir; # supports for all MBCS on Microsoft Windows
+  my $wd = mb::WinDir->new('`/');
+  $wd->chdir('..');
+  $wd->open(my $fh, ...);
+
+=item * Look-behind Assertion
+
+The look-behind assertion like (?<=[A-Z]) or (?<![A-Z]) are not prevented from
+matching trail octet of the previous MBCS codepoint.
+
+Please give us your good hack on this.
+
+=item * Empty Variable in Regular Expression
+
+An empty literal string as regexp means empty string. Unlike original Perl, if
+'pattern' is an empty string, the last successfully matched regexp is NOT used.
+Similarly, empty string made by interpolated variable means empty string, too.
+
+=back
+
+=head1 Small Bugs Avoidable
+
+The following is a description of the minor incompatibilities. These are not
+likely to be programming constraints.
+
+=over 2
+
+=item * Hyphen of tr/// Supports US-ASCII Only
+
+Supported ranges of tr/// and y/// by hyphen are US-ASCII only.
 
 =item * Special Variables $` and $& need m/( Capture All )/
 
@@ -5779,11 +6222,7 @@ expression in parentheses. Because $` and $& needs $1 to implement its.
 In the past, Perl scripts with special variables $` and $& had a problem with
 slow execution. Both that era and today, capturing by parentheses works well.
 
-=item * character ranges by hyphen of tr///
-
-tr/// and y/// support ranges only US-ASCII by hyphen.
-
-=item * return value from tr///s
+=item * Return Value from tr///s
 
 tr/// (or y///) operator with /s modifier returns 1 always. If you need right
 number, you can use mb::tr().
@@ -5838,65 +6277,7 @@ If you use perl 5.14 or later, you can use lvalue feature.
 
 =back
 
-=head1 BUGS Unavoidable, LIMITATIONS, and COMPATIBILITY
-
-=over 2
-
-=item * Limitation of Regular Expression
-
-This software has limitation from \G in multibyte anchoring. Only perl 5.30.0 or
-later can treat the codepoint string which exceeds 65534 octets with a regular
-expression, and only perl 5.10.1 or later can 32766 octets.
-
-  see also,
-  
-  The upper limit "n" specifiable in a regular expression quantifier of the form "{m,n}" has been doubled to 65534
-  https://metacpan.org/pod/release/XSAWYERX/perl-5.30.0/pod/perldelta.pod#The-upper-limit-%22n%22-specifiable-in-a-regular-expression-quantifier-of-the-form-%22%7Bm,n%7D%22-has-been-doubled-to-65534
-  
-  In 5.10.0, the * quantifier in patterns was sometimes treated as {0,32767}
-  http://perldoc.perl.org/perl5101delta.html
-  
-  [perl #116379] \G can't treat over 32767 octet
-  http://www.nntp.perl.org/group/perl.perl5.porters/2013/01/msg197320.html
-  
-  perlre - Perl regular expressions
-  http://perldoc.perl.org/perlre.html
-  
-  perlre length limit
-  http://stackoverflow.com/questions/4592467/perlre-length-limit
-
-Everything in this world has limits. If you use perl 5.10 or later, or perl 5.30
-or later, you can increase those limits. That's all.
-
-=item * chdir
-
-Function chdir() cannot work if path is ended by chr(0x5C).
-
-  This problem is specific to Microsoft Windows. It is not caused by the mb.pm
-  modulino or the perl interpreter.
-  
-  # chdir.pl
-  mkdir((qw( `/ ))[0], 0777);
-  print "got=", chdir((qw( `/ ))[0]), " cwd=", `cd`;
-  
-  C:\HOME>perl5.00503.exe chdir.pl
-    GOOD ==> got=1 cwd=C:\HOME\`/
-  
-  C:\HOME>strawberry-perl-5.8.9.5.exe chdir.pl
-    BAD ==> got=1 cwd=C:\HOME
-
-This is a lost technology in this century.
-
-=item * Look-behind Assertion
-
-The look-behind assertion like (?<=[A-Z]) or (?<![A-Z]) are not prevented from
-matching trail octet of the previous MBCS codepoint.
-
-Please give us your good hack on this.
-
-=back
-
-=head1 BUGS Avoidable by Other Modules
+=head1 Not Supported Features
 
 mb.pm modulino does not support the following features. In our experience with
 JPerl, these features are rarely needed. Moreover, if we are going to implement
@@ -5905,6 +6286,12 @@ frequently. If we are going to implement these, it's better to implement them
 as other modules.
 
 =over 2
+
+=item * Delimiter of String and Regexp
+
+qq//, q//, qw//, qx//, qr//, m//, s///, tr///, and y/// can't use a wide codepoint
+as the delimiter.
+I didn't implement this feature because it's rarely needed.
 
 =item * fc(), lc(), lcfirst(), uc(), and ucfirst()
 
@@ -5917,6 +6304,13 @@ fc() not supported. lc(), lcfirst(), uc(), and ucfirst() support US-ASCII only.
   my $uc_string      = mb::Casing::uc($string);
   my $ucfirst_string = mb::Casing::ucfirst($string);
   my $fc_string      = mb::Casing::fc($string);
+
+=item * Cloister of Regular Expression
+
+The cloister (?i) and (?i:...) of a regular expression on encoding of big5,
+big5hkscs, gb18030, gbk, sjis, and uhc will not be implemented for the time being.
+I didn't implement this feature because it was difficult to implement and less
+necessary. If you're interested in this issue, try challenge it.
 
 =item * Named Codepoint
 
@@ -5965,40 +6359,6 @@ Following \b{...} \B{...} available starting in Perl 5.22 are not supported.
 
 This feature (\b{...} and \B{...}) considered not yet stable in the Perl specification.
 
-=back
-
-=head1 Other BUGS
-
-The following is a description of the minor incompatibilities. These are not
-likely to be programming constraints.
-
-=over 2
-
-=item * format
-
-Unlike JPerl, mb.pm modulino does not support the format feature. Because it is
-difficult to implement and you can write the same script in other any ways.
-
-=item * Delimiter of String and Regexp
-
-qq//, q//, qw//, qx//, qr//, m//, s///, tr///, and y/// can't use a wide codepoint
-as the delimiter.
-I didn't implement this feature because it's rarely needed.
-
-=item * Limitation of ?? and m??
-
-Multibyte character needs ( ) which is before {n,m}, {n,}, {n}, *, and + in ?? or
-m??. As a result, you need to rewrite a script about $1,$2,$3,... You cannot use
-(?: ), ?, {n,m}?, {n,}?, and {n}? in ?? and m??, because delimiter of m?? is '?'.
-Here's a quote words from Dan Kogai-san.
-"I'm just a programmer, so I can't fix the bug of the spec."
-
-=item * Empty Variable in Regular Expression
-
-An empty literal string as regexp means empty string. Unlike original Perl, if
-'pattern' is an empty string, the last successfully matched regexp is NOT used.
-Similarly, empty string made by interpolated variable means empty string, too.
-
 =item * Modifier /a /d /l and /u of Regular Expression
 
 I have removed these modifiers to remove your headache.
@@ -6007,12 +6367,50 @@ literal string and literal of regexp in one Perl script. Therefore, modifier
 /a, /d, /l, and /u are not supported.
 \d means [0-9] universally.
 
-=item * cloister of regular expression
+=item * ?? and m?? are Not Supported
 
-The cloister (?i) and (?i:...) of a regular expression on encoding of big5,
-big5hkscs, gb18030, gbk, sjis, and uhc will not be implemented for the time being.
-I didn't implement this feature because it was difficult to implement and less
-necessary. If you're interested in this issue, try challenge it.
+Multibyte character needs ( ) which is before {n,m}, {n,}, {n}, *, and + in ?? or
+m??. As a result, you need to rewrite a script about $1,$2,$3,... You cannot use
+(?: ), ?, {n,m}?, {n,}?, and {n}? in ?? and m??, because delimiter of m?? is '?'.
+Here's a quote words from Dan Kogai-san.
+"I'm just a programmer, so I can't fix the bug of the spec."
+
+=item * format
+
+Unlike JPerl, mb.pm modulino does not support the format feature. Because it is
+difficult to implement and you can write the same script in other any ways.
+
+=back
+
+=head1 Other Limitations
+
+=over 2
+
+=item * Limitation of Regular Expression
+
+This software has limitation from \G in multibyte anchoring. Only perl 5.30.0 or
+later can treat the codepoint string which exceeds 65534 octets with a regular
+expression, and only perl 5.10.1 or later can 32766 octets.
+
+  see also,
+  
+  The upper limit "n" specifiable in a regular expression quantifier of the form "{m,n}" has been doubled to 65534
+  https://metacpan.org/pod/release/XSAWYERX/perl-5.30.0/pod/perldelta.pod#The-upper-limit-%22n%22-specifiable-in-a-regular-expression-quantifier-of-the-form-%22%7Bm,n%7D%22-has-been-doubled-to-65534
+  
+  In 5.10.0, the * quantifier in patterns was sometimes treated as {0,32767}
+  http://perldoc.perl.org/perl5101delta.html
+  
+  [perl #116379] \G can't treat over 32767 octet
+  http://www.nntp.perl.org/group/perl.perl5.porters/2013/01/msg197320.html
+  
+  perlre - Perl regular expressions
+  http://perldoc.perl.org/perlre.html
+  
+  perlre length limit
+  http://stackoverflow.com/questions/4592467/perlre-length-limit
+
+Everything in this world has limits. If you use perl 5.10 or later, or perl 5.30
+or later, you can increase those limits. That's all.
 
 =back
 
@@ -6230,6 +6628,71 @@ programming environment like at that time.
   silently do the right thing, which is what Perl ends up doing.
   --- Advanced Perl Programming, 2nd Edition
 
+=head1 Combinations of mb.pm Modulino and Other Modules
+
+  The following is a description of all the situations in mb.pm modulino is used in Japan.
+  +-------------+--------------+---------------------------------------------------------------------+
+  | OS encoding | I/O encoding |                           script encoding                           |
+  |             |              |----------------------------------+----------------------------------+
+  |             |              |              CP932               |              UTF-8               |
+  +-------------+--------------+----------------------------------+----------------------------------+
+  |             |              |  > perl mb.pm script.pl          |  > perl mb.pm -e utf8 script.pl  |
+  |             |    CP932     |                                  |  use IOas::CP932; # I/O          |
+  |             |              |                                  |  use mb::Encode;  # file-path    |
+  |    CP932    +--------------+----------------------------------+----------------------------------+
+  |             |              |  > perl mb.pm script.pl          |  > perl mb.pm -e utf8 script.pl  |
+  |             |    UTF-8     |  use IOas::UTF8; # I/O           |                                  |
+  |             |              |                                  |  use mb::Encode;  # file-path    |
+  +-------------+--------------+----------------------------------+----------------------------------+
+  |             |              |  $ perl mb.pm -e sjis script.pl  |  $ perl mb.pm script.pl          |
+  |             |    CP932     |                                  |  use IOas::CP932; # I/O          |
+  |             |              |  use mb::Encode; # file-path     |                                  |
+  |    UTF-8    +--------------+----------------------------------+----------------------------------+
+  |             |              |  $ perl mb.pm -e sjis script.pl  |  $ perl mb.pm script.pl          |
+  |             |    UTF-8     |  use IOas::UTF8; # I/O           |                                  |
+  |             |              |  use mb::Encode; # file-path     |                                  |
+  +-------------+--------------+----------------------------------+----------------------------------+
+  
+  Some of the above are useful combinations:
+  +-------------+--------------+---------------------------------------------------------------------+
+  | OS encoding | I/O encoding |                           script encoding                           |
+  |             |              |----------------------------------+----------------------------------+
+  |             |              |              CP932               |              UTF-8               |
+  +-------------+--------------+----------------------------------+----------------------------------+
+  |             |              |  > perl mb.pm script.pl          |                                  |
+  |             |    CP932     |                                  |                                  |
+  |             |              |                                  |                                  |
+  |    CP932    +--------------+----------------------------------+----------------------------------+
+  |             |              |                                  |  > perl mb.pm -e utf8 script.pl  |
+  |             |    UTF-8     |                                  |                                  |
+  |             |              |                                  |  use mb::Encode;  # file-path    |
+  +-------------+--------------+----------------------------------+----------------------------------+
+  |             |              |  $ perl mb.pm -e sjis script.pl  |                                  |
+  |             |    CP932     |                                  |                                  |
+  |             |              |  use mb::Encode; # file-path     |                                  |
+  |    UTF-8    +--------------+----------------------------------+----------------------------------+
+  |             |              |                                  |  $ perl mb.pm script.pl          |
+  |             |    UTF-8     |                                  |                                  |
+  |             |              |                                  |                                  |
+  +-------------+--------------+----------------------------------+----------------------------------+
+  
+  Description of combinations:
+  ----------------------------------------------------------------------
+  encoding
+  O-I-S     description
+  ----------------------------------------------------------------------
+  C-C-C     Best choice when I/O is CP932 encoding
+  C-C-U     
+  C-U-C     
+  C-U-U     Better choice when I/O is UTF-8 encoding, since not so slow
+  U-C-C     Better choice when I/O is CP932 encoding, since not so slow
+  U-C-U     
+  U-U-C     
+  U-U-U     Best choice when I/O is UTF-8 encoding
+  ----------------------------------------------------------------------
+  see also: 7 superstitions about character encoding I encountered
+  https://qiita.com/tonluqclml/items/d4f8274e0292df393b04
+
 =head1 AUTHOR
 
 INABA Hitoshi E<lt>ina@cpan.orgE<gt>
@@ -6239,7 +6702,8 @@ This project was originated by INABA Hitoshi.
 =head1 LICENSE AND COPYRIGHT
 
 This software is free software; you can redistribute it and/or
-modify it under the same terms as Perl itself. See perlartistic.
+modify it under the same terms as Perl itself. See the LICENSE
+file for details.
 
 This software is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -6247,20 +6711,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 =head1 SEE ALSO
 
- perlunicode, Encode, open, utf8, bytes, Arabic, Big5, Big5HKSCS, CP932::R2,
- CP932IBM::R2, CP932NEC::R2, CP932X::R2, Char::Arabic, Char::Big5HKSCS,
- Char::Big5Plus, Char::Cyrillic, Char::EUCJP, Char::EUCTW, Char::GB18030,
- Char::GBK, Char::Greek, Char::HP15, Char::Hebrew, Char::INFORMIXV6ALS,
- Char::JIS8, Char::KOI8R, Char::KOI8U, Char::KPS9566, Char::Latin1,
- Char::Latin10, Char::Latin2, Char::Latin3, Char::Latin4, Char::Latin5,
- Char::Latin6, Char::Latin7, Char::Latin8, Char::Latin9, Char::OldUTF8,
- Char::Sjis, Char::TIS620, Char::UHC, Char::USASCII, Char::UTF2,
- Char::Windows1252, Char::Windows1258, Cyrillic, GBK, Greek, IOas::CP932,
- IOas::CP932IBM, IOas::CP932NEC, IOas::CP932X, IOas::SJIS2004, Jacode,
- Jacode4e, Jacode4e::RoundTrip, KOI8R, KOI8U, KPS9566, KSC5601, Latin1,
- Latin10, Latin2, Latin3, Latin4, Latin5, Latin6, Latin7, Latin8, Latin9,
- Modern::Open, SJIS2004::R2, Sjis, UTF2, UTF8::R2, Windows1250, Windows1252,
- Windows1254, Windows1257, Windows1258.
+ perlunicode, perlunifaq, perluniintro, perlunitut, utf8, bytes,
 
  PERL PUROGURAMINGU
  Larry Wall, Randal L.Schwartz, Yoshiyuki Kondo
@@ -6366,10 +6817,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  Erik Olson, Brian Jepson, David Futato, Dick Hardt
  ISBN 10:1-56592-409-6
  http://shop.oreilly.com/product/9781565924093.do
-
- Announcing Perl 7
- Jun 24, 2020 by brian d foy
- https://www.perl.com/article/announcing-perl-7/
 
  MODAN Perl NYUMON
  By Daisuke Maki
@@ -6516,6 +6963,65 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  http://blade.nagaokaut.ac.jp/cgi-bin/scat.rb/ruby/ruby-list/12392
  http://blade.nagaokaut.ac.jp/cgi-bin/scat.rb/ruby/ruby-list/12393
  http://blade.nagaokaut.ac.jp/cgi-bin/scat.rb/ruby/ruby-list/19156
+
+ Announcing Perl 7
+ https://www.perl.com/article/announcing-perl-7/
+
+ Perl 7 is coming
+ https://www.effectiveperlprogramming.com/2020/06/perl-7-is-coming/
+
+ A vision for Perl 7 and beyond
+ https://xdg.me/a-vision-for-perl-7-and-beyond/
+
+ On Perl 7 and the Perl Steering Committee
+ https://lwn.net/Articles/828384/
+  
+ Perl7 and the future of Perl
+ http://www.softpanorama.org/Scripting/Language_wars/perl7_and_the_future_of_perl.shtml
+
+ Perl 7: A Risk-Benefit Analysis
+ http://blogs.perl.org/users/grinnz/2020/07/perl-7-a-risk-benefit-analysis.html
+
+ Perl 7 By Default
+ http://blogs.perl.org/users/grinnz/2020/08/perl-7-by-default.html
+
+ Perl 7: A Modest Proposal
+ https://dev.to/grinnz/perl-7-a-modest-proposal-434m
+
+ Perl 7 FAQ
+ https://gist.github.com/Grinnz/be5db6b1d54b22d8e21c975d68d7a54f
+
+ Perl 7, not quite getting better yet
+ http://blogs.perl.org/users/leon_timmermans/2020/06/not-quite-getting-better-yet.html
+
+ Re: Announcing Perl 7
+ https://www.nntp.perl.org/group/perl.perl5.porters/2020/06/msg257566.html
+ https://www.nntp.perl.org/group/perl.perl5.porters/2020/06/msg257568.html
+ https://www.nntp.perl.org/group/perl.perl5.porters/2020/06/msg257572.html
+
+ Changed defaults - Are they best for newbies?
+ https://www.nntp.perl.org/group/perl.perl5.porters/2020/08/msg258221.html
+
+ A vision for Perl 7 and beyond
+ https://web.archive.org/web/20200927044106/https://xdg.me/archive/2020-a-vision-for-perl-7-and-beyond/
+
+ Sys::Binmode - A fix for Perl's system call character encoding
+ https://metacpan.org/pod/Sys::Binmode
+
+ File::Glob::Windows - glob routine for Windows environment.
+ https://metacpan.org/pod/File::Glob::Windows
+
+ winja - dirty patch for handling pathname on MSWin32::Ja_JP.cp932
+ https://metacpan.org/release/winja
+
+ Win32::Symlink - Symlink support on Windows
+ https://metacpan.org/pod/Win32::Symlink
+
+ Win32::NTFS::Symlink - Support for NTFS symlinks and junctions on Microsoft Windows
+ https://metacpan.org/pod/Win32::NTFS::Symlink
+
+ Win32::Symlinks - A maintained, working implementation of Perl symlink built in features for Windows.
+ https://metacpan.org/pod/Win32::Symlinks
 
  TANABATA - The Star Festival - common legend of east asia
  https://ja.wikipedia.org/wiki/%E4%B8%83%E5%A4%95

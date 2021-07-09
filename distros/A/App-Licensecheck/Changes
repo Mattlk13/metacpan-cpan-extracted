@@ -7,6 +7,94 @@ Home page:    <https://metacpan.org/release/App-Licensecheck>
 Bug tracker:  <https://bugs.debian.org/cgi-bin/pkgreport.cgi?pkg=licensecheck>
 Maintainer:   Jonas Smedegaard (JONASS) <jonass@cpan.org>
 
+v3.2.3	2021-07-07
+
+ [ Bug Fixes ]
+ - fix option --copyright-delimiter (deb-machine output broken since
+   v3.2.0)
+
+ [ Test Suite ]
+ - rewrite encoding tests
+
+ [ Other ]
+ - stop use strictures (not sure why, but CPANTESTERS choke on it)
+
+v3.2.2	2021-07-04
+
+ [ Bug Fixes ]
+ - fix ignore atomic discoveries in areas already detected stepwise as a
+   license, grant, or exception
+ - fix include leading licensed_under when tracking detected positions
+ - fix resolve shortname not reusable in grant (e.g. SPDX using unversioned
+   SISSL for SISSL-1.1)
+
+ [ Documentation ]
+ - fix describe option --shortname-scheme (not bogus option
+   --shortname-schemes) in changelog entry for release v3.2
+ - fix trace output to include string for stepwise or_later grant trait
+ - mention in POD when each option was introduced
+
+ [ Test Suite ]
+ - add README to source, documenting origin of Fedora tests
+ - add test for not yet recognized PS-or-PDF-font exception
+ - tighten test requirement on Regexp::Pattern::License
+ - update tests to cover Regexp::Pattern::License v3.6.0
+
+ [ Packaging ]
+ - relax runtime requirement on Regexp::Pattern::License
+ - tighten .gitignore file
+
+ [ Other ]
+ - tighten internal trait objects to require file attribute
+
+v3.2.1	2021-06-29
+
+ [ Bug Fixes ]
+ - fix option --deb-machine (broken since v3.2.0)
+
+ [ Test Suite ]
+ - fix include missing test files
+ - stop use strictures in tests (unneeded with Tests2::V0)
+
+v3.2.0	2021-06-22
+
+ [ Bug Fixes ]
+ - stepwise: fix omit version for singleversion objects
+   Sandro Mani++
+ - tighten custom BSD detection to avoid SSLeay false positive
+ - use Getopt::Long and Pod::Usage (not Getopt::Long::Descriptive)
+   David Bremner++
+
+ [ Documentation ]
+ - add pod section ENVIRONMENT (replacing and expanding section DEBUGGING)
+ - colorize output of --help option, and auto-enable color more reliably
+ - document that options --check and --ignore apply only when multiple
+   PATHs are provided
+ - improve markup of pod section OPTIONS
+ - rephrase description for option --skipped
+ - restore POD section OPTIONS (gone since v3.0.2)
+ - split pod section OPTIONS into subsections
+ - stop bogusly annotate v3.1.0 bugfix as security-related
+ - update TODOs
+
+ [ Test Suite ]
+ - update author tests
+ - update detection of SISSL since Regexp::Pattern::License v3.5.0
+ - update to match capitalized name of Libtool exception, corrected since
+   Regexp::Pattern::License v3.5.0
+
+ [ Packaging ]
+ - tighten to require more recent Regexp::Pattern::License
+
+ [ Other ]
+ - Added: add option --list-licenses
+ - Added: add option --list-naming-schemes
+ - Added: add option --shortname-scheme, replacing option --deb-fmt (kept
+   for now, documented as deprecated)
+ - logging: fix resolve identifier in trace of exception and flaw detection
+ - resolve license patterns only when used, speeding up --help
+ - use IO::Interactive
+
 v3.1.1	2020-05-21
 
  [ Test Suite ]
@@ -14,8 +102,8 @@ v3.1.1	2020-05-21
 
 v3.1.0	2020-05-21
 
- [ SECURITY ]
- - Fix: avoid uninitialized value in local Apache-and-BSD pattern
+ [ Bug Fixes ]
+ - avoid uninitialized value in local Apache-and-BSD pattern
    Sandro Mani++
 
  [ Test Suite ]

@@ -14,8 +14,9 @@ use AWS::Signature4;
 use HTTP::Request::Common;
 use Amazon::SNS::V4::Target;
 use Amazon::SNS::V4::Topic;
+use Amazon::SNS::V4::FifoTopic;
 
-our $VERSION = '1.9';
+our $VERSION = '2.0';
 
 
 sub CreateTopic
@@ -35,8 +36,21 @@ sub CreateTopic
 sub GetTopic
 {
 	my ($self, $arn) = @_;
+	if ($arn =~ m{\.fifo$}) {
+		return GetFifoTopic( @_ );
+	}
 
 	return Amazon::SNS::V4::Topic->new({
+		'sns' => $self,
+		'arn' => $arn,
+	});
+}
+
+sub GetFifoTopic
+{
+	my ($self, $arn) = @_;
+
+	return Amazon::SNS::V4::FifoTopic->new({
 		'sns' => $self,
 		'arn' => $arn,
 	});
@@ -109,7 +123,7 @@ sub dispatch
 	$self->error(undef);
 	$self->error_response(undef);
 
-	$self->service('http://sns.eu-west-1.amazonaws.com')
+	$self->service('https://sns.eu-west-1.amazonaws.com')
 		unless defined $self->service;
 	$self->signer( AWS::Signature4->new(
 		-access_key => scalar $self->key,
@@ -143,7 +157,7 @@ sub dispatch
 				'ForceArray' => [ qw/ Topics member / ],
 		);
 	} else {
-		$self->error_response( $response_content );
+		$self->error_response( $response->content );
 		$self->error(
 			($response->content =~ /^<.+>/)
 				? eval { XMLin($response->content)->{'Error'}{'Message'} || $response->status_line }
@@ -199,6 +213,11 @@ Amazon::SNS::V4 - Amazon Simple Notification Service with v4 Signatures
 
   $topic->Publish('My test message', 'My Subject');
 
+  # publish to a known ARN (FIFO)
+
+  my $topic = $sns->GetTopic('arn:aws:sns:eu-west-1:123456789099:MyTopic.fifo');
+
+  $topic->Publish('My test message', 'My Subject', 'group-id', 'dedupe-id');
 
   # get all topics
 
@@ -206,11 +225,9 @@ Amazon::SNS::V4 - Amazon Simple Notification Service with v4 Signatures
 
   print $_->arn, "\n" for @topics;
 
-
-
   # change region
 
-  $sns->service('http://sns.us-east-1.amazonaws.com');
+  $sns->service('https://sns.us-east-1.amazonaws.com');
 
 =head1 DESCRIPTION
 
@@ -221,79 +238,79 @@ Sorry for not providing a better documentation, patches are always accepted. ;)
 
 =head1 METHODS
 
-=over
+=head2 Amazon::SNS::V4->new({ 'key' => '...', 'secret' => '...' })
 
-=item Amazon::SNS::V4->new({ 'key' => '...', 'secret' => '...' })
+Creates an Amazon::SNS::V4 object with given key and secret.
 
-	Creates an Amazon::SNS::V4 object with given key and secret.
+=head2 $sns->GetTopic($arn)
 
-=item $sns->GetTopic($arn)
+Gives you an Amazon::SNS::V4::Topic object using an existing ARN.
 
-	Gives you an Amazon::SNS::V4::Topic object using an existing ARN.
+If your ARN refers to a FIFO Topic, gives you an Amazon::SNS::V4::FifoTopic object.
 
-=item $sns->GetTarget($arn)
+=head2 $sns->GetTarget($arn)
 
-	Gives you an Amazon::SNS::V4::Target object using an existing ARN. Sending Notification to TargetArn instead of TopicArn.
+Gives you an Amazon::SNS::V4::Target object using an existing ARN. Sending Notification to TargetArn instead of TopicArn.
 
-=item $sns->Publish($message, $subject, $attributes) (Amazon::SNS::V4::Target)
+=head2 $sns->Publish($message, $subject, $attributes) (Amazon::SNS::V4::Topic)
 
-	When used with Amazon::SNS::V4::Target object (see GetTarget), additional parameter $attributes is used to pass 
-	MessageAttributes.entry.N attributes with message.
-	An example of MobilePush TTL: $attributes = {"AWS.SNS.MOBILE.APNS.TTL" => {"Type" => "String", "Value" => 3600}};
-	More information can be found on Amazon web site: http://docs.aws.amazon.com/sns/latest/dg/sns-ttl.html
+=head2 $sns->Publish($message, $subject, $attributes) (Amazon::SNS::V4::Target)
 
-=item $sns->CreateTopic($name)
+=head2 $sns->Publish($message, $subject, $attributes, $messagegroupid, $messagededupeid, $attributes) (Amazon::SNS::FifoTopic)
 
-	Gives you an Amazon::SNS::V4::Topic object with the given name, creating it 
-	if it does not already exist in your Amazon SNS account.
+Additional parameter $attributes is used to pass MessageAttributes.entry.N attributes with message.
+An example of MobilePush TTL: $attributes = {"AWS.SNS.MOBILE.APNS.TTL" => {"Type" => "String", "Value" => 3600}};
+More information can be found on Amazon web site: L<https://docs.aws.amazon.com/sns/latest/dg/sns-ttl.html>
 
-=item $sns->DeleteTopic($arn)
+$messagegroupid and $messagededupeid are for FIFO Topics, $messagegroupid is required, and $messagededupeid is required
+if the Topic has Content Based Deduplication disabled.  L<https://docs.aws.amazon.com/sns/latest/dg/fifo-message-dedup.html>
 
-	Deletes a topic using its ARN.
+=head2 $sns->CreateTopic($name)
 
-=item $sns->ListTopics
+Gives you an Amazon::SNS::V4::Topic object with the given name, creating it 
+if it does not already exist in your Amazon SNS account.
 
-	The result is a list of all the topics in your account, as an array of Amazon::SNS::V4::Topic objects.
+=head2 $sns->DeleteTopic($arn)
 
-=item $sns->error
+Deletes a topic using its ARN.
 
-	Description of the last error, or undef if none.
+=head2 $sns->ListTopics
 
-=item $sns->status_code
+The result is a list of all the topics in your account, as an array of Amazon::SNS::V4::Topic objects.
 
-	The status code of the last HTTP response.
+=head2 $sns->error
 
-=back
+Description of the last error, or undef if none.
+
+=head2 $sns->status_code
+
+The status code of the last HTTP response.
 
 =head1 ATTRIBUTES
 
-=over
+=head2 $sns->service
 
-=item $sns->service
+=head2 $sns->service($service_url)
 
-=item $sns->service($service_url)
+Get/set SNS service url, something like 'https://sns.us-east-1.amazonaws.com'.
 
-	Get/set SNS service url, something like 'http://sns.us-east-1.amazonaws.com'.
+=head2 $sns->key
 
-=item $sns->key
+=head2 $sns->key('...')
 
-=item $sns->key('...')
+Get/set auth key.
 
-	Get/set auth key.
+=head2 $sns->secret
 
-=item $sns->secret
+=head2 $sns->secret('...')
 
-=item $sns->secret('...')
+Get/set secret.
 
-	Get/set secret.
+=head2 $sns->debug
 
-=item $sns->debug
+=head2 $sns->debug(1)
 
-=item $sns->debug(1)
-
-	Get/set debug level. When set to 1 you'll get some debug output on STDERR.
-
-=back
+Get/set debug level. When set to 1 you'll get some debug output on STDERR.
 
 =head1 NOTES
 
@@ -316,15 +333,13 @@ L<AWS::Signature4>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2020 James Wright
+Copyright (C) 2020-2021 James Wright
 
 Copyright (C) 2011-15 Alessandro Zummo
-
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License version 2 as
 published by the Free Software Foundation.
-
 
 =cut
 

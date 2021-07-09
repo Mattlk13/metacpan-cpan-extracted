@@ -57,13 +57,14 @@ sub select {
     my @bu;
 
     COLUMNS: while ( 1 ) {
-        $ax->print_sql( $sql );
+        my $info = $ax->get_sql_info( $sql );
         # Choose
         my @idx = $tc->choose(
             $menu,
-            { %{$sf->{i}{lyt_h}}, meta_items => [ 0 .. $#pre - 1 ], no_spacebar => [ $#pre ], include_highlighted => 2,
-              index => 1 }
+            { %{$sf->{i}{lyt_h}}, info => $info, meta_items => [ 0 .. $#pre - 1 ], no_spacebar => [ $#pre ],
+              include_highlighted => 2, index => 1 }
         );
+        $ax->print_sql_info( $info );
         if ( ! $idx[0] ) {
             if ( @bu ) {
                 ( $sql->{select_cols}, $sql->{alias} ) = @{pop @bu};
@@ -102,12 +103,13 @@ sub distinct {
 
     DISTINCT: while ( 1 ) {
         my $menu = [ @pre, $sf->{distinct}, $sf->{all} ];
-        $ax->print_sql( $sql );
+        my $info = $ax->get_sql_info( $sql );
         # Choose
         my $select_distinct = $tc->choose(
             $menu,
-            { %{$sf->{i}{lyt_h}} }
+            { %{$sf->{i}{lyt_h}}, info => $info }
         );
+        $ax->print_sql_info( $info );
         if ( ! defined $select_distinct ) {
             if ( $sql->{distinct_stmt} ) {
                 $sql->{distinct_stmt} = '';
@@ -150,12 +152,13 @@ sub __add_aggregate_substmt {
     my $ax = App::DBBrowser::Auxil->new( $sf->{i}, $sf->{o}, $sf->{d} );
     my @pre = ( undef, $sf->{i}{ok} );
     my $i = @{$sql->{aggr_cols}};
-    $ax->print_sql( $sql );
+    my $info = $ax->get_sql_info( $sql );
     # Choose
     my $aggr = $tc->choose(
         [ @pre, @{$sf->{aggregate}} ],
-        { %{$sf->{i}{lyt_h}} }
+        { %{$sf->{i}{lyt_h}}, info => $info }
     );
+    $ax->print_sql_info( $info );
     if ( ! defined $aggr ) {
         return;
     }
@@ -169,12 +172,13 @@ sub __add_aggregate_substmt {
         $aggr =~ s/\(\S\)\z//; #
         $sql->{aggr_cols}[$i] = $aggr . "(";
         if ( $aggr =~ /^(?:COUNT|GROUP_CONCAT|STRING_AGG)\z/ ) {
-            $ax->print_sql( $sql );
+            my $info = $ax->get_sql_info( $sql );
             # Choose
             my $all_or_distinct = $tc->choose(
                 [ undef, $sf->{all}, $sf->{distinct} ],
-                { %{$sf->{i}{lyt_h}} }
+                { %{$sf->{i}{lyt_h}}, info => $info }
             );
+            $ax->print_sql_info( $info );
             if ( ! defined $all_or_distinct ) {
                 return;
             }
@@ -182,12 +186,13 @@ sub __add_aggregate_substmt {
                 $sql->{aggr_cols}[$i] .= $sf->{distinct};
             }
         }
-        $ax->print_sql( $sql );
+        my $info = $ax->get_sql_info( $sql );
         # Choose
         my $f_col = $tc->choose(
             [ undef, @{$sql->{cols}} ],
-            { %{$sf->{i}{lyt_h}} }
+            { %{$sf->{i}{lyt_h}}, info => $info }
         );
+        $ax->print_sql_info( $info );
         if ( ! defined $f_col ) {
             return;
         }
@@ -199,7 +204,7 @@ sub __add_aggregate_substmt {
             $sql->{aggr_cols}[$i] .= ' ' . $f_col . " )";
         }
     }
-    my $alias = $ax->alias( 'aggregate', $sql->{aggr_cols}[$i] );
+    my $alias = $ax->alias( $sql, 'aggregate', $sql->{aggr_cols}[$i] );
     if ( defined $alias && length $alias ) {
         $sql->{alias}{$sql->{aggr_cols}[$i]} = $ax->quote_col_qualified( [ $alias ] );
     }
@@ -220,12 +225,13 @@ sub set {
     my @pre = ( undef, $sf->{i}{ok} );
 
     COL: while ( 1 ) {
-        $ax->print_sql( $sql );
+        my $info = $ax->get_sql_info( $sql );
         # Choose
         my $quote_col = $tc->choose(
             [ @pre, @{$sql->{cols}} ],
-            { %{$sf->{i}{lyt_h}} }
+            { %{$sf->{i}{lyt_h}}, info => $info }
         );
+        $ax->print_sql_info( $info );
         if ( ! defined $quote_col ) {
             if ( @bu_col ) {
                 ( $sql->{set_stmt}, $sql->{set_args}, $col_sep ) = @{pop @bu_col};
@@ -287,12 +293,13 @@ sub where {
         if ( $sf->{o}{enable}{parentheses} ) {
             unshift @choices, $unclosed ? ')' : '(';
          }
-        $ax->print_sql( $sql );
+        my $info = $ax->get_sql_info( $sql );
         # Choose
         my $quote_col = $tc->choose(
             [ @pre, @choices ],
-            { %{$sf->{i}{lyt_h}} }
+            { %{$sf->{i}{lyt_h}}, info => $info }
         );
+        $ax->print_sql_info( $info );
         if ( ! defined $quote_col ) {
             if ( @bu_col ) {
                 ( $sql->{where_stmt}, $sql->{where_args}, $AND_OR, $unclosed, $count ) = @{pop @bu_col};
@@ -328,12 +335,13 @@ sub where {
             next COL;
         }
         if ( $count > 0 && $sql->{where_stmt} !~ /\(\z/ ) { #
-            $ax->print_sql( $sql );
+            my $info = $ax->get_sql_info( $sql );
             # Choose
             $AND_OR = $tc->choose(
                 [ undef, $sf->{and}, $sf->{or} ],
-                { %{$sf->{i}{lyt_h}} }
+                { %{$sf->{i}{lyt_h}}, info => $info }
             );
+            $ax->print_sql_info( $info );
             if ( ! defined $AND_OR ) {
                 next COL;
             }
@@ -387,13 +395,14 @@ sub group_by {
 
     GROUP_BY: while ( 1 ) {
         $sql->{group_by_stmt} = "GROUP BY " . join ', ', @{$sql->{group_by_cols}};
-        $ax->print_sql( $sql );
+        my $info = $ax->get_sql_info( $sql );
         # Choose
         my @idx = $tc->choose(
             $menu,
-            { %{$sf->{i}{lyt_h}}, meta_items => [ 0 .. $#pre - 1 ], no_spacebar => [ $#pre ], include_highlighted => 2,
-              index => 1 }
+            { %{$sf->{i}{lyt_h}}, info => $info, meta_items => [ 0 .. $#pre - 1 ], no_spacebar => [ $#pre ],
+              include_highlighted => 2, index => 1 }
         );
+        $ax->print_sql_info( $info );
         if ( ! $idx[0] ) {
             if ( @{$sql->{group_by_cols}} ) {
                 pop @{$sql->{group_by_cols}};
@@ -448,12 +457,13 @@ sub having {
         if ( $sf->{o}{enable}{parentheses} ) {
             unshift @choices, $unclosed ? ')' : '(';
         }
-        $ax->print_sql( $sql );
+        my $info = $ax->get_sql_info( $sql );
         # Choose
         my $aggr = $tc->choose(
             [ @pre, @choices ],
-            { %{$sf->{i}{lyt_h}} }
+            { %{$sf->{i}{lyt_h}}, info => $info }
         );
+        $ax->print_sql_info( $info );
         if ( ! defined $aggr ) {
             if ( @bu_col ) {
                 ( $sql->{having_stmt}, $sql->{having_args}, $AND_OR, $unclosed, $count ) = @{pop @bu_col};
@@ -478,12 +488,13 @@ sub having {
             next COL;
         }
         if ( $count > 0 && $sql->{having_stmt} !~ /\(\z/ ) {
-            $ax->print_sql( $sql );
+            my $info = $ax->get_sql_info( $sql );
             # Choose
             $AND_OR = $tc->choose(
                 [ undef, $sf->{and}, $sf->{or} ],
-                { %{$sf->{i}{lyt_h}} }
+                { %{$sf->{i}{lyt_h}}, info => $info }
             );
+            $ax->print_sql_info( $info );
             if ( ! defined $AND_OR ) {
                 next COL;
             }
@@ -547,12 +558,13 @@ sub order_by {
     my @bu;
 
     ORDER_BY: while ( 1 ) {
-        $ax->print_sql( $sql );
+        my $info = $ax->get_sql_info( $sql );
         # Choose
         my $col = $tc->choose(
             [ @pre, @cols ],
-            { %{$sf->{i}{lyt_h}} }
+            { %{$sf->{i}{lyt_h}}, info => $info }
         );
+        $ax->print_sql_info( $info );
         if ( ! defined $col ) {
             if ( @bu ) {
                 ( $sql->{order_by_stmt}, $col_sep ) = @{pop @bu};
@@ -579,12 +591,13 @@ sub order_by {
         }
         push @bu, [ $sql->{order_by_stmt}, $col_sep ];
         $sql->{order_by_stmt} .= $col_sep . $col;
-        $ax->print_sql( $sql );
+        $info = $ax->get_sql_info( $sql );
         # Choose
         my $direction = $tc->choose(
             [ undef, $sf->{asc}, $sf->{desc} ],
-            { %{$sf->{i}{lyt_h}} }
+            { %{$sf->{i}{lyt_h}}, info => $info }
         );
+        $ax->print_sql_info( $info );
         if ( ! defined $direction ){
             ( $sql->{order_by_stmt}, $col_sep ) = @{pop @bu};
             next ORDER_BY;
@@ -607,12 +620,13 @@ sub limit_offset {
 
     LIMIT: while ( 1 ) {
         my ( $limit, $offset ) = ( 'LIMIT', 'OFFSET' );
-        $ax->print_sql( $sql );
+        my $info = $ax->get_sql_info( $sql );
         # Choose
         my $choice = $tc->choose(
             [ @pre, $limit, $offset ],
-            { %{$sf->{i}{lyt_h}} }
+            { %{$sf->{i}{lyt_h}}, info => $info }
         );
+        $ax->print_sql_info( $info );
         if ( ! defined $choice ) {
             if ( @bu ) {
                 ( $sql->{limit_stmt}, $sql->{offset_stmt} )  = @{pop @bu};
@@ -628,11 +642,12 @@ sub limit_offset {
         if ( $choice eq $limit ) {
             #$sql->{limit_stmt} = " LIMIT";
             $sql->{limit_stmt} = "LIMIT";
-            $ax->print_sql( $sql );
+            my $info = $ax->get_sql_info( $sql );
             # Choose_a_number
             my $limit = $tu->choose_a_number( $digits,
-                { cs_label => 'LIMIT: ' }
+                { info => $info, cs_label => 'LIMIT: ' }
             );
+            $ax->print_sql_info( $info );
             if ( ! defined $limit ) {
                 ( $sql->{limit_stmt}, $sql->{offset_stmt} ) = @{pop @bu};
                 next LIMIT;
@@ -646,11 +661,12 @@ sub limit_offset {
                 $sql->{limit_stmt} = "LIMIT " . ( $sf->{o}{G}{max_rows} || '18446744073709551615' ) if $sf->{i}{driver} eq 'mysql';    # 2 ** 64 - 1
             }
             $sql->{offset_stmt} = "OFFSET";
-            $ax->print_sql( $sql );
+            my $info = $ax->get_sql_info( $sql );
             # Choose_a_number
             my $offset = $tu->choose_a_number( $digits,
-                { cs_label => 'OFFSET: ' }
+                { info => $info, cs_label => 'OFFSET: ' }
             );
+            $ax->print_sql_info( $info );
             if ( ! defined $offset ) {
                 ( $sql->{limit_stmt}, $sql->{offset_stmt} ) = @{pop @bu};
                 next LIMIT;

@@ -30,6 +30,17 @@ like to scan through all possible work (or like to lose yourself), see
 * Videos (screen recordings), articles, talks.
 
 
+## Consistency
+
+* `pointer_eq` vs. `boolean_equal` is probably inconsistent ("equal is
+  always about the content, eq is about pointer identity", fine, but,
+  `eq` is taken, and if you make it long, just use the same naming
+  approach?)
+  
+* `boolean_equal` should be in a `FP::Boolean` library. Speaking of
+  which: what about a real boolean type, so that `equal` will know how
+  to work with them? That would probably go there.
+
 ## Items
 
 This is an unsorted collection of items to work on.
@@ -42,6 +53,15 @@ See also [[ideas]], [[htmlgen/TODO]], [[functional_XML/TODO]] and the
 * add a `pairkeys` method to `FP::Abstract::Sequence` (doing the
   equivalent of `->chunks_of(2)->map(the_method "first")` or
   `List::Util` 1.29's function of the same name)
+
+* <Grinnz>: you may find https://metacpan.org/pod/Sub::Identify useful,
+  and https://perldoc.perl.org/Sub::Util#set_subname lets you set a sub
+  name for anonymous subs that is helpful for such debugging, especially
+  when installing anonymous subs in non-anonymous places.
+  
+  `FP::Show` is already using `Sub::Util`, have a look if there's
+  anything to improve. Provide an easy way to tag closures with names?
+
 
 ### Work on the code
 
@@ -289,6 +309,14 @@ usefully listed first).
 
 
 ### Other people's code
+
+- change dependency on `Math::BigInt` into a recommendation?
+
+- remove recommendation of `Method::Signatures`, experimental
+  signatures are enough?
+
+- should FunctionalPerl feature tags only import those whose
+  dependencies are satisfied? Probably, to make `fperl` work.
 
 - replace `FP::Lazy` with `Data::Thunk`? This would be cool from a
   transparency stand point, except that separate code by way of
