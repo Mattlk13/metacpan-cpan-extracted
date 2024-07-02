@@ -1009,6 +1009,26 @@ class TestCase::Math {
     return 1;
   }
 
+  static method atan2 : int () {
+    my $eps      = 0.000000001;
+    my $got      = Math->atan2(0.777350269189625764509148780501957455647601751270126876018, 0.577350269189625764509148780501957455647601751270126876018);
+    my $expected = 0.9319734769439985;
+    unless ($expected - $eps <= $got && $got <= $expected + $eps) {
+      return 0;
+    }
+    return 1;
+  }
+
+  static method atan2f : int () {
+    my $eps      = 0.0001f;
+    my $got      = Math->atan2f(0.777350269189625764509148780501957455647601751270126876018f, 0.577350269189625764509148780501957455647601751270126876018f);
+    my $expected = 0.9319734769439985f;
+    unless ($expected - $eps <= $got && $got <= $expected + $eps) {
+      return 0;
+    }
+    return 1;
+  }
+
   # Hyperbolic functions
   static method cosh : int () {
     my $eps      = 0.000000001;
@@ -2808,6 +2828,34 @@ class TestCase::Math {
     return 1;
   }
 
+  static method cnegf : int () {
+    my $z : Complex_2f;
+    $z->{re} = 0.5f;
+    $z->{im} = 0.25f;
+    
+    my $z3 = Math->cnegf($z);
+    
+    unless ($z3->{re} == -0.5f && $z3->{im} == -0.25f) {
+      return 0;
+    }
+    
+    return 1;
+  }
+
+  static method cneg : int () {
+    my $z : Complex_2d;
+    $z->{re} = 0.5;
+    $z->{im} = 0.25;
+    
+    my $z3 = Math->cneg($z);
+    
+    unless ($z3->{re} == -0.5 && $z3->{im} == -0.25) {
+      return 0;
+    }
+    
+    return 1;
+  }
+
   static method cmulf : int () {
     my $eps = 0.001f;
 
@@ -2842,46 +2890,6 @@ class TestCase::Math {
     my $z3 = Math->cmul($z1, $z2);
 
     unless ($z3->{re} == 0.046875 && $z3->{im} == 0.0625) {
-      return 0;
-    }
-
-    return 1;
-  }
-
-  static method cscamulf : int () {
-    my $z1 = -0.5f;
-
-    my $z2 : Complex_2f;
-    $z2->{re} = -0.1f;
-    $z2->{im} = 0.05f;
-
-    my $z3 = Math->cscamulf($z1, $z2);
-    
-    unless ($z3->{re} == 0.05f) {
-      return 0;
-    }
-    
-    unless ($z3->{im} == -0.025f) {
-      return 0;
-    }
-
-    return 1;
-  }
-
-  static method cscamul : int () {
-    my $z1 = 0.001;
-
-    my $z2 : Complex_2d;
-    $z2->{re} = -1.0;
-    $z2->{im} = 3.0;
-
-    my $z3 = Math->cscamul($z1, $z2);
-
-    unless ($z3->{re} == -0.001) {
-      return 0;
-    }
-    
-    unless ($z3->{im} == 0.003) {
       return 0;
     }
 

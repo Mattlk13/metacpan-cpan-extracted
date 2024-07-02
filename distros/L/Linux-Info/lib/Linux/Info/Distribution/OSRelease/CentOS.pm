@@ -2,7 +2,7 @@ package Linux::Info::Distribution::OSRelease::CentOS;
 
 use warnings;
 use strict;
-use parent 'Linux::Info::Distribution::OSRelease';
+use base 'Linux::Info::Distribution::OSRelease';
 use Hash::Util qw(lock_hash unlock_hash);
 use Class::XSAccessor getters => {
     get_ansi_color                      => 'ansi_color',
@@ -14,7 +14,7 @@ use Class::XSAccessor getters => {
     get_redhat_support_product_version  => 'redhat_support_product_version',
 };
 
-our $VERSION = '2.16'; # VERSION
+our $VERSION = '2.19'; # VERSION
 # ABSTRACT: a subclass of Linux::Info::Distribution::OSRelease
 
 
@@ -54,7 +54,7 @@ Linux::Info::Distribution::OSRelease::CentOS - a subclass of Linux::Info::Distri
 
 =head1 VERSION
 
-version 2.16
+version 2.19
 
 =head1 DESCRIPTION
 

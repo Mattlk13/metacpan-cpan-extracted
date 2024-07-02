@@ -7,13 +7,14 @@
 
 package Couch::DB::Document;
 use vars '$VERSION';
-$VERSION = '0.002';
+$VERSION = '0.005';
 
 use Couch::DB::Util;
 
 use Log::Report 'couch-db';
-use Scalar::Util qw(weaken);
-use MIME::Base64 qw(decode_base64);
+use Scalar::Util             qw/weaken/;
+use MIME::Base64             qw/decode_base64/;
+use Devel::GlobalDestruction qw/in_global_destruction/;
 
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -24,11 +25,15 @@ sub init($)
 	$self->{CDD_db}    = my $db = delete $args->{db};
 	$self->{CDD_info}  = {};
 	$self->{CDD_batch} = exists $args->{batch} ? delete $args->{batch} : $db->batch;
-	$self->{CDD_revs}  = {};
+	$self->{CDD_revs}  = my $revs = {};
 	$self->{CDD_local} = delete $args->{local};
 
 	$self->{CDD_couch} = $db->couch;
 	weaken $self->{CDD_couch};
+
+	if(my $content = delete $args->{content})
+	{	$revs->{_new} = $content;
+	}
 
 	# The Document is (for now) not linked to its Result source, because
 	# that might consume a lot of memory.  Although it may help debugging.
@@ -37,9 +42,15 @@ sub init($)
 	$self;
 }
 
+sub DESTROY()
+{	my $self = shift;
+	$self->{CDD_revs}{_new} || ! in_global_destruction
+		or panic "Unsaved new document.";
+}
+
 sub _consume($$)
 {	my ($self, $result, $data) = @_;
-	my $id       = delete $data->{_id};
+	my $id       = $self->{CDD_id} = delete $data->{_id};
 	my $rev      = delete $data->{_rev};
 
 	# Add all received '_' labels to the existing info.
@@ -90,10 +101,10 @@ sub _deleted($)
 	$self->{CDD_deleted} = 1;
 }
 
-sub _saved($$$)
+sub _saved($$;$)
 {	my ($self, $id, $rev, $data) = @_;
 	$self->{CDD_id} ||= $id;
-	$self->{CDD_revs}{$rev} = $data;
+	$self->{CDD_revs}{$rev} = $data || delete $self->{CDD_revs}{_new};
 }
 
 #-------------
@@ -199,36 +210,36 @@ sub update($%)
 	$couch->call(PUT => $self->_pathToDoc,
 		query    => \%query,
 		send     => $data,
-		$couch->_resultsConfig(\%args, on_final => sub { $self->__saved($_[0], $data) }),
+		$couch->_resultsConfig(\%args, on_final => sub { $self->__created($_[0], $data) }),
 	);
 }
 
 
 sub __get($$)
-{	my ($self, $result, $query) = @_;
+{	my ($self, $result, $flags) = @_;
 	$result or return;   # do nothing on unsuccessful access
 	$self->_consume($result, $result->answer);
 
-	# The query here, is the Perl version of the query, so bool=perl bool
-	$query->{conflicts} = $query->{deleted_conflicts} = $query->{revs_info} = 1
-		if $query->{meta};
+	# meta is a shortcut for other flags
+	$flags->{conflicts} = $flags->{deleted_conflicts} = $flags->{revs_info} = 1
+		if $flags->{meta};
 
-	$self->{CDD_query}      = $query;
+	$self->{CDD_flags}      = $flags;
 }
 
 sub get(%)
-{	my ($self, %args) = @_;
+{	my ($self, $flags, %args) = @_;
 	my $couch = $self->couch;
 
-	my %query  = %args;
+	my %query  = $flags ? %$flags : ();
 	$couch->toQuery(\%query, bool => qw/attachments att_encoding_info conflicts
 		deleted_conflicts latest local_seq meta revs revs_info/);
 
 	$couch->call(GET => $self->_pathToDoc,
 		query    => \%query,
 		$couch->_resultsConfig(\%args,
-			on_final => sub { $self->__get($_[0], \%args) },
-			headers  => { Accept => $args{attachments} ? 'multipart/related' : 'application/json' },
+			on_final => sub { $self->__get($_[0], $flags) },
+			_headers => { Accept => $args{attachments} ? 'multipart/related' : 'application/json' },
 		),
 	);
 }
@@ -271,7 +282,7 @@ sub cloneInto($%)
 		query    => \%query,
 		$couch->_resultsConfig(\%args,
 			on_final => sub { $self->__delete($_[0]) },
-			headers  => +{ Destination => $to->id },
+			_headers => +{ Destination => $to->id },
 		),
 	);
 }
@@ -292,7 +303,7 @@ sub appendTo($%)
 		query    => \%query,
 		$couch->_resultsConfig(\%args,
 			on_final => sub { $self->__delete($_[0]) },
-			headers  => +{ Destination => $to->id . "?rev=$dest_rev" },
+			_headers => +{ Destination => $to->id . "?rev=$dest_rev" },
 		),
 	);
 }
@@ -348,7 +359,7 @@ sub attSave($$%)
 		query => \%query,
 		send  => $data,
 		$self->couch->_resultsConfig(\%args,
-			headers => { "Content-Type" => $type },
+			_headers => { 'Content-Type' => $type },
 		),
 	);
 }

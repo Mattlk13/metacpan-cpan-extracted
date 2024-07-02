@@ -34,7 +34,7 @@ sub test_numericness {
     my %tests =
       ( 1	=> 't',
 	0	=> 't',
-  	'0xF00'	=> 'f', # controversial?  but if you +=10 then it's == 10
+
 	'15e7'	=> 't',
 	'15E7'	=> 't',
 	"not 0"	=> 'f',
@@ -47,6 +47,15 @@ sub test_numericness {
 	my $actual = Test::Unit::Assert::is_numeric($str) ? 't' : 'f';
 	$self->fail("For string '$str', expect $expect but got $actual")
 	  unless $expect eq $actual;
+    }
+
+    if ($] gt '5.029001' && $] lt '5.031004') {
+        # https://github.com/Perl/perl5/issues/17062
+        # skipping test, broken around v5.30 because of bug in perl
+    } else {
+        my $actual = Test::Unit::Assert::is_numeric('0xF00') ? 't' : 'f';
+        $self->fail("For string '0xF00', expect f but got $actual")
+          unless 'f' eq $actual;
     }
 }
 
@@ -63,6 +72,8 @@ sub test_assert {
     $self->assert($coderef, 'a', 'a');
     $self->assert([]);
     $self->assert([ 'foo', 7 ]);
+
+    my $qr_string = "" . qr/foo/; # for use in tests below
     $self->check_failures(
         'Boolean assertion failed' => [ __LINE__, sub { shift->assert(undef) } ],
         'Boolean assertion failed' => [ __LINE__, sub { shift->assert(0)   } ],
@@ -70,7 +81,7 @@ sub test_assert {
 
         'bang'  => [ __LINE__, sub { shift->assert(0, 'bang')              } ],
         'bang'  => [ __LINE__, sub { shift->assert('', 'bang')             } ],
-        "'qux' did not match /(?-xism:foo)/"
+        "'qux' did not match /$qr_string/"
                 => [ __LINE__, sub { shift->assert(qr/foo/, 'qux')         } ],
         'bang'  => [ __LINE__, sub { shift->assert(qr/foo/, 'qux', 'bang') } ],
         'a ne b'=> [ __LINE__, sub { shift->assert($coderef, 'a', 'b')     } ],
@@ -243,18 +254,21 @@ sub test_ok_equals {
 sub test_ok_not_equals {
     my $self = shift;
     my $adder = sub { 2+2 };
+
+    my $qr_string = "" . qr/x/; # To interpolate below in @checks
     my @checks = (
         # interface is ok(GOT, EXPECTED);
-        q{expected 1, got 0}                => [ 0,      1       ], 
-        q{expected 0, got 1}                => [ 1,      0       ], 
-        q{expected 3, got 2}                => [ 2,      3       ], 
-        q{expected -57.001, got -57}        => [ -57,    -57.001 ], 
-        q{expected 'bar', got 'foo'}        => [ 'foo',  'bar'   ], 
-        q{expected '', got 'foo'}           => [ 'foo',  ''      ], 
-        q{expected 'foo', got ''}           => [ '',     'foo'   ], 
-        q{expected 5, got 4}                => [ $adder, 5       ], 
-        q{'foo' did not match /(?-xism:x)/} => [ 'foo',  qr/x/   ], 
+        q{expected 1, got 0}                  => [ 0,      1       ],
+        q{expected 0, got 1}                  => [ 1,      0       ],
+        q{expected 3, got 2}                  => [ 2,      3       ],
+        q{expected -57.001, got -57}          => [ -57,    -57.001 ],
+        q{expected 'bar', got 'foo'}          => [ 'foo',  'bar'   ],
+        q{expected '', got 'foo'}             => [ 'foo',  ''      ],
+        q{expected 'foo', got ''}             => [ '',     'foo'   ],
+        q{expected 5, got 4}                  => [ $adder, 5       ],
+        qq{'foo' did not match /$qr_string/}  => [ 'foo',  qr/x/   ],
     );
+
     my @tests = ();
     while (@checks) {
         my $expected = shift @checks;
@@ -402,10 +416,10 @@ sub test_assert_deep_equals {
     );
 
     my $differ = sub {
-        my ($a, $b) = @_;
+        my ($x, $y) = @_;
         qr/^Structures\ begin\ differing\ at: $ \n
-        \S*\s* \$a .* = .* (?-x:$a)      .* $ \n
-        \S*\s* \$b .* = .* (?-x:$b)/mx;
+        \S*\s* \$a .* = .* (?-x:$x)      .* $ \n
+        \S*\s* \$b .* = .* (?-x:$y)/mx;
     };
 
     my %families; # key=test-purpose, value=assorted circular structures

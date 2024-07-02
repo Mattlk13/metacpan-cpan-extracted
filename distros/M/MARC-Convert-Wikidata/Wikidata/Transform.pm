@@ -12,7 +12,7 @@ use MARC::Convert::Wikidata::Object::ISBN;
 use MARC::Convert::Wikidata::Object::Kramerius;
 use MARC::Convert::Wikidata::Object::People;
 use MARC::Convert::Wikidata::Object::Publisher;
-use MARC::Convert::Wikidata::Object::Series;
+use MARC::Convert::Wikidata::Object::Series 0.04;
 use MARC::Convert::Wikidata::Utils qw(clean_cover clean_date clean_edition_number
 	clean_number_of_pages clean_oclc clean_publication_date clean_publisher_name
 	clean_publisher_place clean_series_name clean_series_ordinal clean_subtitle
@@ -36,7 +36,7 @@ Readonly::Hash our %PEOPLE_TYPE => {
 	'trl' => 'translators',
 };
 
-our $VERSION = 0.07;
+our $VERSION = 0.10;
 
 # Constructor.
 sub new {
@@ -461,6 +461,8 @@ sub _publishers {
 sub _series {
 	my $self = shift;
 
+	my @series_830 = $self->{'marc_record'}->field('830');
+
 	my @series_490 = $self->{'marc_record'}->field('490');
 	my @series;
 	foreach my $series_490 (@series_490) {
@@ -473,7 +475,11 @@ sub _series {
 		foreach my $publisher ($self->_publishers) {
 			push @series, MARC::Convert::Wikidata::Object::Series->new(
 				'name' => $series_name,
-				'publisher' => $publisher,
+				defined $publisher ? (
+					'publisher' => MARC::Convert::Wikidata::Object::Publisher->new(
+						'name' => clean_publisher_name($publisher),
+					),
+				) : (),
 				'series_ordinal' => $series_ordinal,
 			);
 		}

@@ -1,5 +1,5 @@
 package Thrift::API::HiveClient2;
-$Thrift::API::HiveClient2::VERSION = '0.024';
+$Thrift::API::HiveClient2::VERSION = '0.026';
 {
   $Thrift::API::HiveClient2::DIST = 'Thrift-API-HiveClient2';
 }
@@ -73,6 +73,11 @@ has sasl => (
     default => 0,
 );
 
+has use_ssl => (
+    is      => 'ro',
+    default => 0,
+);
+
 # Kerberos principal
 # Usually in the format 'hive/{hostname}@REALM.COM';
 has principal => (
@@ -130,7 +135,18 @@ sub _set_sasl {
 sub BUILD {
     my $self = shift;
 
-    $self->_set_socket( Thrift::Socket->new( $self->host, $self->port ) )
+    my $thrift_socket;
+    
+    my $transport_class = 'Thrift::Socket';
+    if( $self->use_ssl ) {
+        require Thrift::SSLSocket;
+        $transport_class = 'Thrift::SSLSocket';
+    }
+
+    $thrift_socket = $transport_class->new( $self->host, $self->port );
+
+
+    $self->_set_socket( $thrift_socket )
         unless $self->_socket;
     $self->_socket->setRecvTimeout( $self->timeout * 1000 );
 
@@ -532,7 +548,7 @@ Thrift::API::HiveClient2 - Perl to HiveServer2 Thrift API wrapper
 
 =head1 VERSION
 
-version 0.024
+version 0.026
 
 =for Pod::Coverage BUILD DEMOLISH
 
@@ -563,6 +579,10 @@ Kerberos principal. Default is not set. See the L</WARNING> section.
 =head3 sasl
 
 Enables authentication. Default is not set. See the L</WARNING> section.
+
+=head3 use_ssl
+
+uses Thrift::SSLSocket if enabled by setting 1. By default set to 0 and uses Thrift::Socket
 
 =head3 timeout
 

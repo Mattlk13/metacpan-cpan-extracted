@@ -7,7 +7,7 @@
 
 package Couch::DB;
 use vars '$VERSION';
-$VERSION = '0.002';
+$VERSION = '0.005';
 
 use version;
 
@@ -20,15 +20,15 @@ use Couch::DB::Design   ();
 use Couch::DB::Node     ();
 use Couch::DB::Util     qw(flat);
 
-use Scalar::Util      qw(blessed);
-use List::Util        qw(first);
 use DateTime          ();
-use DateTime::Format::Mail    ();
 use DateTime::Format::ISO8601 ();
+use DateTime::Format::Mail    ();
+use JSON              qw/encode_json/;
+use List::Util        qw(first min);
+use Scalar::Util      qw(blessed);
+use Storable          qw/dclone/;
 use URI               ();
 use URI::Escape       qw/uri_escape uri_unescape/;
-use JSON              qw/encode_json/;
-use Storable          qw/dclone/;
 
 use constant
 {	DEFAULT_SERVER => 'http://127.0.0.1:5984',
@@ -100,9 +100,19 @@ sub db($%)
 }
 
 
+sub node($)
+{	my ($self, $name) = @_;
+	$self->{CD_nodes}{$name} ||= Couch::DB::Node->new(name => $name, couch => $self);
+}
+
+
+sub cluster() { $_[0]->{CD_cluster} ||= Couch::DB::Cluster->new(couch => $_[0]) }
+
+#-------------
+
 #XXX the API-doc might be mistaken, calling the "analyzer" parameter "field".
 
-sub searchAnalyse(%)
+sub searchAnalyze(%)
 {	my ($self, %args) = @_;
 
 	my %send = (
@@ -118,13 +128,29 @@ sub searchAnalyse(%)
 }
 
 
-sub node($)
-{	my ($self, $name) = @_;
-	$self->{CD_nodes}{$name} ||= Couch::DB::Node->new(name => $name, couch => $self);
+sub requestUUIDs($%)
+{	my ($self, $count, %args) = @_;
+
+	$self->call(GET => '/_uuids',
+		introduced => '2.0.0',
+		query      => { count => $count },
+		$self->_resultsConfig(\%args),
+	);
 }
 
 
-sub cluster() { $_[0]->{CD_cluster} ||= Couch::DB::Cluster->new(couch => $_[0]) }
+sub freshUUIDs($%)
+{	my ($self, $count, %args) = @_;
+	my $stock = $self->{CDC_uuids} || [];
+	my $bulk  = delete $args{bulk} || 50;
+
+	while($count > @$stock)
+	{	my $result = $self->requestUUIDs($bulk, _delay => 0) or last;
+		push @$stock, @{$result->values->{uuids} || []};
+	}
+
+	splice @$stock, 0, $count;
+}
 
 #-------------
 
@@ -155,12 +181,10 @@ sub client($)
 
 
 sub call($$%)
-{	my $self = shift;
-	my %args = @_==1 ? %{$_[0]} : (method => shift, path => shift, @_);
-
-	my $method = $args{method};
-	my $path   = $args{path};
-	$args{query}  ||= {};
+{	my ($self, $method, $path, %args) = @_;
+	$args{method}   = $method;
+	$args{path}     = $path;
+	$args{query}  ||= my $query = {};
 
 	my $headers     = $args{headers} ||= {};
 	$headers->{Accept} ||= 'application/json';
@@ -169,13 +193,22 @@ sub call($$%)
 #use Data::Dumper;
 #warn "CALL ", Dumper \%args;
 
-    defined $args{send} || ($method ne 'POST' && $method ne 'PUT')
+    my $send = $args{send};
+	defined $send || ($method ne 'POST' && $method ne 'PUT')
 		or panic "No send in $method $path";
 
-	($method eq 'GET' ? $args{query} : $args{send})->{bookmark} = delete $args{bookmark}
-		if exists $args{bookmark};
+	my $introduced = $args{introduced};
+	$self->check(exists $args{$_}, $_ => delete $args{$_}, "Endpoint '$method $path'")
+		for qw/removed introduced deprecated/;
 
 	### On this level, we pick a client.  Extensions implement the transport.
+
+	my $paging = $args{paging};
+	if($paging && (my $client = $paging->{client}))
+	{	# No free choices for clients once we are on page 2
+		$args{client} = $client;
+		delete $args{clients};
+	}
 
 	my @clients;
 	if(my $client = delete $args{client})
@@ -189,16 +222,13 @@ sub call($$%)
 	}
 	@clients or error __x"No clients can run {method} {path}.", method => $method, path => $path;
 
-	my $introduced = $args{introduced};
-	$self->check(exists $args{$_}, $_ => delete $args{$_}, "Endpoint '$method $path'")
-		for qw/removed introduced deprecated/;
-
 	my $result  = Couch::DB::Result->new(
 		couch     => $self,
-		to_values => $args{to_values},
+		on_values => $args{on_values},
 		on_error  => $args{on_error},
 		on_final  => $args{on_final},
-		next      => ($args{paginate} ? \%args : undef),
+		on_chain  => $args{on_chain},
+		paging    => $paging,
 	);
 
   CLIENT:
@@ -207,8 +237,24 @@ sub call($$%)
 		! $introduced || $client->version >= $introduced
 			or next CLIENT;  # server release too old
 
-		$self->_callClient($result, $client, %args)
-			and last;
+		if($paging)
+		{	do
+			{	# Merge paging setting into the request
+	    		$self->_pageRequest($paging, $method, $query, $send);
+
+				$self->_callClient($result, $client, %args);
+
+				$result
+					or next CLIENT;  # fail
+			} while $result->pageIsPartial;
+
+			last CLIENT;
+		}
+		else
+		{	# Non-paging commands are simple
+			$self->_callClient($result, $client, %args)
+				and last CLIENT;
+		}
 	}
 
 	# The error from the last try will remain.
@@ -217,37 +263,118 @@ sub call($$%)
 
 sub _callClient { panic "must be extended" }
 
-# Described in the DETAILS below
+# Described in the DETAILS below, non-paging commands
 sub _resultsConfig($%)
 {	my ($self, $args, @more) = @_;
 	my %config;
+
 	exists $args->{"_$_"} && ($config{$_} = delete $args->{"_$_"})
 		for qw/delay client clients headers/;
 
-	exists $args->{$_} && ($config{$_} = delete $args->{$_})
-		for qw/on_error on_final/;
+	exists $args->{$_} && (push @{$config{$_}}, delete $args->{$_})
+		for qw/on_error on_final on_chain on_values/;
 
 	while(@more)
 	{	my ($key, $value) = (shift @more, shift @more);
-		if($key eq 'headers')
+		if($key eq '_headers')
 		{	# Headers are added, as default only
 			my $headers = $config{headers} ||= {};
 			exists $headers->{$_} or ($headers->{$_} = $value->{$_}) for keys %$value;
 			next;
 		}
 		elsif($key =~ /^on_/)
-		{	# Events are added to list of events
-			$config{$key} = exists $config{$key} ? [ flat $config{$key}, $value ] : $value;
+		{	push @{$config{$key}}, $value;
 		}
 		else
 		{	# Other parameters used as default
 			exists $config{$key} or $config{$key} = $value;
 		}
 	}
+
+	keys %$args and warn "Unused call parameters: ", join ', ', sort keys %$args;
 	%config;
 }
 
-#-------------
+# Described in the DETAILS below, paging commands
+sub _resultsPaging($%)
+{	my ($self, $args, @more) = @_;
+
+	my %state = (harvested => []);
+	my $succ;  # successor
+	if(my $succeeds = delete $args->{_succeed})
+	{	delete $args->{_clients}; # no client switching within paging
+
+		if(blessed $succeeds && $succeeds->isa('Couch::DB::Result'))
+		{	# continue from living previous result
+			$succ = $succeeds->nextPageSettings;
+			$args->{_client} = $succeeds->client;
+		}
+		else
+		{	# continue from resurrected from Result->pagingState()
+			my $h = $succeeds->{harvester}
+				or panic "_succeed does not contain data from pagingState() nor is a Result object.";
+
+			$h eq 'DEFAULT' || $args->{_harvester}
+				or panic "Harvester does not survive pagingState(), resupply.";
+
+			$succeeds->{map} eq 'NONE' || $args->{_map}
+				or panic "Map does not survive pagingState(), resupply.";
+
+			$succ  = $succeeds;
+			$args->{_client} = $succeeds->{client};
+		}
+	}
+
+	$state{start}     = $succ->{start} || 0;
+	$state{skip}      = delete $args->{skip} || 0;
+	$state{all}       = delete $args->{_all} || 0;
+	$state{map}       = my $map = delete $args->{_map} || $succ->{map};
+	$state{harvester} = my $harvester = delete $args->{_harvester} || $succ->{harvester};
+	$state{page_size} = my $size = delete $args->{_page_size} || $succ->{page_size} || 25;
+	$state{req_max}   = delete $args->{limit} || $succ->{req_max} || 100;
+
+	if(my $page = delete $args->{_page})
+	{	$state{start}  = ($page - 1) * $state{page_size};
+	}
+
+	$state{bookmarks} = $succ->{bookmarks} ||= { };
+	if(my $b = delete $args->{_bookmark})
+	{	$state{bookmarks}{$state{start}} = $b;
+	}
+
+	$harvester ||= sub { my $v = $_[0]->values; $v->{docs} || $v->{rows} };
+	my $harvest = sub {
+		my $result = shift or return;
+		my @found  = flat $harvester->($result);
+		@found     = map $map->($result, $_), @found if $map;
+		$result->_pageAdd($result->answer->{bookmark}, @found);  # also call with 0
+	};
+
+	# When less elements are returned
+	return
+	( $self->_resultsConfig($args, @more, on_final => $harvest),
+	   paging => \%state,
+	);
+}
+
+sub _pageRequest($$$$)
+{	my ($self, $paging, $method, $query, $send) = @_;
+	my $params   = $method eq 'GET' ? $query : $send;
+	my $progress = @{$paging->{harvested}};      # within the page
+	my $start    = $paging->{start};
+
+	$params->{limit} = $paging->{all} ? $paging->{req_max} : (min $paging->{page_size} - $progress, $paging->{req_max});
+
+	if(my $bookmark = $paging->{bookmarks}{$start + $progress})
+	{	$params->{bookmark} = $bookmark;
+		$params->{skip}     = $paging->{skip};
+	}
+	else
+	{	delete $params->{bookmark};
+		$params->{skip}     = $start + $paging->{skip} + $progress;
+	}
+}
+
 
 my %default_toperl = (  # sub ($couch, $name, $datum) returns value/object
 	abs_uri   => sub { URI->new($_[2]) },
@@ -344,8 +471,8 @@ sub jsonText($%)
 my (%surpress_depr, %surpress_intro);
 
 sub check($$$$)
-{	defined $_[3] or return $_[0];
-	my ($self, $element, $change, $version, $what) = @_;
+{	$_[1] or return $_[0];
+	my ($self, $condition, $change, $version, $what) = @_;
 
 	# API-doc versions are sometimes without 3rd part.
 	my $cv = version->parse($version);
@@ -356,43 +483,18 @@ sub check($$$$)
 				what => $what, release => $version, api => $self->api;
 	}
 	elsif($change eq 'introduced')
-	{	$self->api >= $cv && ! $surpress_intro{$what}++
+	{	$self->api >= $cv || $surpress_intro{$what}++
 			or warning __x"{what} was introduced in {release}, but you specified api {api}.",
 				what => $what, release => $version, api => $self->api;
 	}
 	elsif($change eq 'deprecated')
-	{	$self->api >= $cv && ! $surpress_depr{$what}++
+	{	$self->api >= $cv || $surpress_depr{$what}++
 			or warning __x"{what} got deprecated in api {release}.",
 					what => $what, release => $version;
 	}
 	else { panic "$change $cv $what" }
 
 	$self;
-}
-
-
-sub requestUUIDs($%)
-{	my ($self, $count, %args) = @_;
-
-	$self->call(GET => '/_uuids',
-		introduced => '2.0.0',
-		query      => { count => $count },
-		$self->_resultsConfig(\%args),
-	);
-}
-
-
-sub freshUUIDs($%)
-{	my ($self, $count, %args) = @_;
-	my $stock = $self->{CDC_uuids};
-	my $bulk  = delete $args{bulk} || 50;
-
-	while($count > @$stock)
-	{	my $result = $self->requestUUIDs($bulk, _delay => 0) or last;
-		push @$stock, @{$result->values->{uuids} || []};
-	}
-
-	splice @$stock, 0, $count;
 }
 
 #-------------
@@ -402,10 +504,10 @@ sub freshUUIDs($%)
 # Returns the JSON structure which is part of the response by the CouchDB
 # server.  Usually, this is the bofy of the response.  In multipart
 # responses, it is the first part.
-sub _extractAnswer($) { panic "must be extended" }
+sub _extractAnswer($)  { panic "must be extended" }
 
 # The the decoded named extension from the multipart message
-sub _attachment($$)   { panic "must be extended" }
+sub _attachment($$)    { panic "must be extended" }
 
 # Extract the decoded body of the message
 sub _messageContent($) { panic "must be extended" }

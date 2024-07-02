@@ -2,7 +2,7 @@ package Linux::Info::KernelRelease::Rocky;
 
 use warnings;
 use strict;
-use parent 'Linux::Info::KernelRelease';
+use base 'Linux::Info::KernelRelease';
 use Carp qw(confess);
 use Class::XSAccessor getters => {
     get_revision     => 'revision',
@@ -10,7 +10,7 @@ use Class::XSAccessor getters => {
     get_distro_info  => 'distro_info',
 };
 
-our $VERSION = '2.16'; # VERSION
+our $VERSION = '2.19'; # VERSION
 
 # ABSTRACT: a subclass of Linux::Info::KernelRelease specific to parse RockyLinux kernel information
 
@@ -55,7 +55,7 @@ Linux::Info::KernelRelease::Rocky - a subclass of Linux::Info::KernelRelease spe
 
 =head1 VERSION
 
-version 2.16
+version 2.19
 
 =head2 new
 

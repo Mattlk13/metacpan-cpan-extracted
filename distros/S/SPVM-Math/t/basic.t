@@ -71,6 +71,8 @@ ok(SPVM::TestCase::Math->asin);
 ok(SPVM::TestCase::Math->asinf);
 ok(SPVM::TestCase::Math->atan);
 ok(SPVM::TestCase::Math->atanf);
+ok(SPVM::TestCase::Math->atan2);
+ok(SPVM::TestCase::Math->atan2f);
 
 # Hyperbolic functions
 ok(SPVM::TestCase::Math->cosh);
@@ -222,10 +224,10 @@ ok(SPVM::TestCase::Math->isunorderedf);
   ok(SPVM::TestCase::Math->cadd);
   ok(SPVM::TestCase::Math->csubf);
   ok(SPVM::TestCase::Math->csub);
+  ok(SPVM::TestCase::Math->cnegf);
+  ok(SPVM::TestCase::Math->cneg);
   ok(SPVM::TestCase::Math->cmulf);
   ok(SPVM::TestCase::Math->cmul);
-  ok(SPVM::TestCase::Math->cscamulf);
-  ok(SPVM::TestCase::Math->cscamul);
   ok(SPVM::TestCase::Math->cdivf);
   ok(SPVM::TestCase::Math->cdiv);
 }

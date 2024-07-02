@@ -1,4 +1,4 @@
-package Mojolicious::Plugin::Config::Structured::Bootstrap 0.02;
+package Mojolicious::Plugin::Config::Structured::Bootstrap 0.06;
 use v5.26;
 use warnings;
 
@@ -11,6 +11,7 @@ use Hash::Merge;
 use HTTP::Status     qw(:constants status_message);
 use List::MoreUtils  qw(arrayify);
 use Module::Loadable qw(module_loadable);
+use DateTime::Format::MySQL;
 use Readonly;
 use Syntax::Keyword::Try;
 
@@ -127,15 +128,14 @@ sub register($self, $app, $app_config) {
         client_secret  => $app->conf->auth->client_secret(1),
         public_key     => $app->conf->auth->public_key,
         well_known_url => $app->conf->auth->well_known_url,
+        base_url       => $app->conf->urls->backend,
         login_path     => '/api/auth/login',
         make_routes    => 0,
 
         get_token => sub ($c) {
-          if (my $t = $c->cookie('oidc_auth_token')) {
-            $c->cookie(oidc_auth_token => '', {expires => 1});
-            return $t;
-          }
-          if (($c->req->headers->authorization // '') =~ /^Bearer (.*)/) {return $1;}
+          if (my $t = $c->cookie('oidc_auth_token'))                                               {return $t;}
+          if (($c->req->headers->authorization // '') =~ /^Bearer (.*)/)                           {return $1;}
+          if (($c->req->headers->header('Sec-WebSocket-Protocol') // '') =~ /^access_token, (.*)/) {return $1;}
           return undef;
         },
         get_user => sub ($token) {
@@ -160,15 +160,24 @@ sub register($self, $app, $app_config) {
         },
 
         on_success => sub ($c, $token, $url) {
-          $c->cookie(oidc_auth_token => $token, {expires => time + 60});
+          $c->cookie(oidc_auth_token => $token, {path => '/api', expires => time + 60, sameSite => 'Lax'});
           $c->redirect_to($url);
         },
         on_login => sub ($c, $u) {
-          $u->update({last_login_at    => \["NOW()"]});
-          $u->update({last_activity_at => \["NOW()"]});
+          my $now = DateTime::Format::MySQL->format_datetime(DateTime->now(time_zone => 'local'));
+          $u->update({last_login_at    => $now});
+          $u->update({last_activity_at => $now});
         },
         on_activity => sub ($c, $u) {
-          $u->update({last_activity_at => \["NOW()"]});
+          my $now = DateTime::Format::MySQL->format_datetime(DateTime->now(time_zone => 'local'));
+          $u->update({last_activity_at => $now});
+          if ($app->conf->auth->enable_media_access) {
+            if (my $token = $c->__oidc_token(undef, 0)) {
+              $c->cookie(oidc_auth_token => $token, {path => '/api', expires => time + 300, samesite => 'Strict'});
+              return;
+            }
+          }
+          $c->cookie(oidc_auth_token => '', {path => '/api', expires => 1});
         }
       }
     }
@@ -199,7 +208,9 @@ sub register($self, $app, $app_config) {
               my $u = $c->authn->current_user();
               return $c->$cb('User not authenticated')  unless (defined($u));
               return $c->$cb('User email not verified') unless ($u->email_verified);
-              return $c->$cb()                          unless ($scopes->@*);
+              return $c->$cb('User disabled/deleted')
+                if ($u->can('deleted_at') && defined($u->deleted_at) && $u->deleted_at < DateTime->now());
+              return $c->$cb() unless ($scopes->@*);
               return $c->$cb() if (intersect($scopes->@*, $c->authn->current_user_roles->@*));
               return $c->$cb('User not authorized');
             } catch ($e) {

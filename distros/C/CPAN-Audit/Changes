@@ -1,5 +1,16 @@
 Revision history for Perl extension CPAN-Audit
 
+20240626.001 2024-06-26T14:35:29Z
+	* data update for 2024-06-26 (mainly polyfill.io compromise)
+	https://stackdiary.com/polyfill-compromise-hits-100000-sites-in-a-supply-chain-attack/
+
+20240615.002 2024-06-15T15:57:57Z
+	* update the POSIX::2008 advisories
+
+20240615.001 2024-06-15T05:41:25Z
+	* Data update for 2024-06-15
+	* Added advisory for POSIX::2008 (briandfoy/cpan-security-advisory#154)
+
 20240601.001 2024-06-01T20:15:25Z
 	* data update for 2024-06-01
 

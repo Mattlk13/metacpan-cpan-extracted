@@ -7,7 +7,7 @@
 
 package Couch::DB::Design;
 use vars '$VERSION';
-$VERSION = '0.002';
+$VERSION = '0.005';
 
 use parent 'Couch::DB::Document';
 
@@ -101,9 +101,9 @@ sub indexFind($%)
 	$couch->call(GET => $self->_pathToDDoc('_search/' . uri_escape $index),
 		introduced => '3.0.0',
 		query      => $query,
-		paginate   => 1,
-		to_values  => sub { $self->__indexValues($_[0], $_[1], db => $self->db, full_docs => $search->{include_docs}) },
-		$couch->_resultsConfig(\%args),
+		$couch->_resultsPaging(\%args,
+			on_values  => sub { $self->__indexValues($_[0], $_[1], db => $self->db, full_docs => $search->{include_docs}) },
+		),
 	);
 }
 
@@ -119,19 +119,17 @@ sub indexDetails($%)
 
 #-------------
 
-sub viewFind($%)
-{	my ($self, $view, %args) = @_;
-	$self->db->listDocuments(view => $view, design => $self, %args);
+sub viewSearch($;$%)
+{	my ($self, $view, $search, %args) = @_;
+	$self->db->search($search, view => $view, design => $self, %args);
 }
 
 #-------------
 
-sub show($%)
-{	my ($self, $function, %args) = @_;
+sub show($;$%)
+{	my ($self, $function, $doc, %args) = @_;
 	my $path = $self->_pathToDoc('_show/'.uri_escape($function));
-	if(my $doc = delete $args{doc})
-	{	$path .= '/' . (blessed $doc ? $doc->id : $doc);
-	}
+	$path .= '/' . (blessed $doc ? $doc->id : $doc) if defined $doc;
 
 	$self->couch->call(GET => $path,
 		deprecated => '3.0.0',
@@ -155,13 +153,14 @@ sub list($$%)
 }
 
 
-sub applyUpdate($%)
-{	my ($self, $function, %args) = @_;
-	my $path = $self->_pathToDoc('_update/'.uri_escape($function));
+#XXX The 3.3.3 doc says /{docid} version requires PUT, but shows a POST example.
+#XXX The 3.3.3post4 docs make the example patch with PUT.
+#XXX The code probably says: anything except GET is okay.
 
-	if(my $doc = delete $args{doc})
-	{	$path .= '/' . (blessed $doc ? $doc->id : $doc);
-	}
+sub applyUpdate($%)
+{	my ($self, $function, $doc, %args) = @_;
+	my $path = $self->_pathToDoc('_update/'.uri_escape($function));
+	$path .= '/' . (blessed $doc ? $doc->id : $doc) if defined $doc;
 
 	$self->couch->call(POST => $path,
 		deprecated => '3.0.0',

@@ -10,9 +10,10 @@ use MARC::Convert::Wikidata::Item::BookEdition;
 use MARC::Convert::Wikidata::Item::Periodical;
 use MARC::Convert::Wikidata::Transform;
 use MARC::Leader;
+use Mo::utils 0.08 qw(check_isa check_required);
 use Scalar::Util qw(blessed);
 
-our $VERSION = 0.07;
+our $VERSION = 0.10;
 
 # Constructor.
 sub new {
@@ -51,14 +52,8 @@ sub new {
 	# Process parameters.
 	set_params($self, @params);
 
-	if (! defined $self->{'marc_record'}) {
-		err "Parameter 'marc_record' is required.";
-	}
-	if (! blessed($self->{'marc_record'})
-		|| ! $self->{'marc_record'}->isa('MARC::Record')) {
-
-		err "Parameter 'marc_record' must be a MARC::Record object.";
-	}
+	check_required($self, 'marc_record');
+	check_isa($self, 'marc_record', 'MARC::Record');
 
 	$self->{'_transform_object'} = MARC::Convert::Wikidata::Transform->new(
 		'marc_record' => $self->{'marc_record'},
@@ -81,15 +76,15 @@ sub type {
 
 	# Language material
 	if ($leader_obj->type eq 'a' && $leader_obj->bibliographic_level eq 'm') {
-		return 'monograph';
+		return 'monograph_text';
 
-	# XXX Notated music
+	# Notated music
 	} elsif ($leader_obj->type eq 'c' && $leader_obj->bibliographic_level eq 'm') {
-		return 'monograph';
+		return 'monograph_music';
 
 	# Nonmusical sound recording
 	} elsif ($leader_obj->type eq 'i' && $leader_obj->bibliographic_level eq 'm') {
-		return 'audiobook';
+		return 'monograph_audiobook';
 
 	# Serial
 	} elsif ($leader_obj->bibliographic_level eq 's') {
@@ -116,11 +111,11 @@ sub wikidata {
 
 	my $wikidata;
 	my $marc_type = $self->type;
-	if ($marc_type eq 'monograph') {
+	if ($marc_type eq 'monograph_text') {
 		$wikidata = MARC::Convert::Wikidata::Item::BookEdition->new(
 			%params,
 		)->wikidata;
-	} elsif ($marc_type eq 'audiobook') {
+	} elsif ($marc_type eq 'monograph_audiobook') {
 		$wikidata = MARC::Convert::Wikidata::Item::AudioBook->new(
 			%params,
 		)->wikidata;
@@ -263,8 +258,10 @@ Returns Wikibase::Datatype instance.
  new():
          From Class::Utils::set_params():
                  Unknown parameter '%s'.
-         Parameter 'marc_record' is required.
-         Parameter 'marc_record' must be a MARC::Record object.
+         From Mo::utils::check_isa():
+                 Parameter 'marc_record' must be a 'MARC::Record' object.
+         From Mo::utils::check_required():
+                 Parameter 'marc_record' is required.
 
  type():
          Unsupported item with leader '%s'.
@@ -502,12 +499,12 @@ L<http://skim.cz>
 
 =head1 LICENSE AND COPYRIGHT
 
-© 2021-2023 Michal Josef Špaček
+© 2021-2024 Michal Josef Špaček
 
 BSD 2-Clause License
 
 =head1 VERSION
 
-0.07
+0.10
 
 =cut

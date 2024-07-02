@@ -14,6 +14,11 @@ use Config::ROFL ();
 
 $ENV{CONFIG_ROFL_DEBUG} = 1;
 
+subtest 'Does not crash (libyaml.so)' => sub {
+  my $c = Config::ROFL->new( relative_dir => "$Bin/data/config/share" );
+  lives_ok { $c->get('test'); } 'Does not crash: "LibYAML.c: loadable library and perl binaries are mismatched (got first handshake key 0xeb80080, needed 0xf380080)"';
+};
+
 subtest 'Object interface' => sub {
   my $c = Config::ROFL->new( relative_dir => "$Bin/data/config/share" );
 
@@ -130,14 +135,22 @@ subtest 'Shared directories' => sub {
 
 subtest 'Using dist as parameter' => sub {
   my $c = Config::ROFL->new( lookup_order => ['by_dist'], dist => 'File-Share' );
-  like $c->share_file, qr{auto/File/Share}, 'Correct share dir when setting dist to external module';
+  like $c->share_file, qr{auto/File/Share|site/share}, 'Correct share dir when setting dist to external module';
 };
 
 subtest 'sub-class' => sub {
   require "$Bin/test-subclass/lib/Foo/Config.pm";
   my $c = Foo::Config->new();
-  diag explain $c->config;
   is $c->get('foo'), 'bar', 'Correct value';
+};
+
+subtest 'Test prefix ENV config values' => sub {
+  local $ENV{CONFIG_ROFL_CONFIG_PATH} = "$Bin/data/config/json";
+  local $ENV{MYPREFIX_KEY}            = 'Some value';
+
+  my $c = Config::ROFL->new( envvar_prefix => 'MYPREFIX' );
+
+  is $c->get('key'), 'Some value', 'Got value from environment'
 };
 
 done_testing;

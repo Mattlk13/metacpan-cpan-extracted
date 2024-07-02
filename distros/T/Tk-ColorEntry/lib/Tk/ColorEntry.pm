@@ -3,7 +3,7 @@ package Tk::ColorEntry;
 use strict;
 use warnings;
 use vars qw($VERSION);
-$VERSION = '0.05';
+$VERSION = '0.07';
 use Tk;
 
 use base qw(Tk::Derived Tk::Frame);
@@ -14,7 +14,7 @@ require Tk::PopColor;
 
 =head1 NAME
 
-Tk::ColorEntry - Entry widget with a Tk::PopColor widget attached.
+Tk::ColorEntry - Entry widget with a color selection facilities.
 
 =head1 SYNOPSIS
 
@@ -41,7 +41,7 @@ Callback to be executed when a color is selected. The color is given as paramete
 
 =item Switch: B<-entryerrorcolor>
 
-Default value '#FF0000'. Foreground color of the entry
+Default value '#FF0000' (red). Foreground color of the entry
 when it's content is not a valid color.
 
 =item Switch: B<-indborderwidth>
@@ -56,13 +56,9 @@ Default value 4. Width of the indicator label.
 
 Default value 'sunken'. Relief of the indicator label.
 
-=item Switch: B<-popborderwidth>
+=item Switch: B<-popcolor>
 
-Default value 1. Borderwidth of the ColorPop widget.
-
-=item Switch: B<-poprelief>
-
-Default value 'raised'. Relief of the ColorPop widget.
+Sets and returns the reference to the PopColor widget to be used.
 
 =item Switch: B<-variable>
 
@@ -79,6 +75,8 @@ Reference to the variable where the current value is held.
 sub Populate {
 	my ($self,$args) = @_;
 
+	my $pop = delete $args->{'-popcolor'};
+	
 	$self->SUPER::Populate($args);
 	
 	my $entry = $self->Entry(
@@ -90,25 +88,27 @@ sub Populate {
 	);
 	my $indicator = $self->Label->pack(
 		-side => 'left',
+		-fill => 'y',
 		-padx => 2,
 # 		-pady => 2,
 	);
 	$self->Advertise('Display', $indicator);
 	$self->Advertise('Entry', $entry);
-	my $pop = $self->PopColor(
+	$pop = $self->PopColor(
 		-updatecall => sub {
 			$self->put(shift);
 		},
 		-widget => $self,
-	);
-	$self->Advertise('Pop', $pop);
+	) unless defined $pop;
 
-	$entry->bind('<Button-1>', [$self, 'popFlip']);
+	$entry->bind('<Button-1>', [$self, 'popBlock']);
+	$entry->bind('<ButtonRelease-1>', [$self, 'popFlip']);
 	$entry->bind('<Return>', [$self, 'popFlip']);
 	$entry->bind('<FocusOut>', [$self, 'popDown']);
 	$entry->bind('<Key>', [$self, 'OnKey']);
 	$entry->bind('<Escape>', [$self, 'OnEscape']);
 
+	$self->{POPBLOCK} = 0;
 	my $var = '';
 	$self->ConfigSpecs(
 		-background => ['SELF', 'DESCENDANTS'],
@@ -117,20 +117,12 @@ sub Populate {
 		-entryforeground => ['PASSIVE', undef, undef, $self->Subwidget('Entry')->cget('-foreground')],
 		-font => [$entry],
 		-foreground => [$entry],
-		-indborderwidth => [{
-			-borderwidth => $indicator,
-			-indborderwidth => $pop,
-		}, undef, undef, 2],
-		-indicatorwidth => [{
-			-width => $indicator,
-			-indicatorwidth => $pop,
-		}, undef, undef, 4],
-		-indrelief => [{
-			-relief => $indicator,
-			-indrelief => $pop,
-		}, undef, undef, 'sunken'],
+		-indborderwidth => [{-borderwidth => $indicator}, undef, undef, 2],
+		-indicatorwidth => [{-width => $indicator}, undef, undef, 4],
+		-indrelief => [{-relief => $indicator}, undef, undef, 'sunken'],
 		-justify => [$entry],
 		-popborderwidth => [{-borderwidth => $pop}, undef, undef, 1],
+		-popcolor => ['PASSIVE', undef, undef, $pop],
 		-poprelief => [{-relief => $pop}, undef, undef, 'raised'],
 		-state => [$entry],
 		-variable => [{-textvariable => $entry}, undef, undef, \$var],
@@ -190,31 +182,48 @@ sub OnKey {
 sub popCancel {
 	my $self = shift;
 	delete $self->{'e_save'};
-	$self->Subwidget('Pop')->popCancel;
+	$self->cget('-popcolor')->popCancel;
+}
+
+sub popBlock {
+	my $self = shift;
+	if ($self->cget('-popcolor')->ismapped) {
+		my $color = $self->Subwidget('Entry')->get;
+		$self->Callback('-command', $color) if $self->validate($color);
+		$self->{POPBLOCK} = 1;
+		$self->after(400, sub { $self->{POPBLOCK} = 0});
+	}
 }
 
 sub popDown {
 	my $self = shift;
+	print "popdown\n";
 	delete $self->{'e_save'};
-	$self->Subwidget('Pop')->popDown;
 	my $color = $self->Subwidget('Entry')->get;
 	$self->Callback('-command', $color) if $self->validate($color);
+	$self->cget('-popcolor')->popDown;
 }
 
 sub popFlip {
 	my $self = shift;
-	if ($self->Subwidget('Pop')->ismapped) {
+	if ($self->cget('-popcolor')->ismapped) {
 		$self->popDown
 	} else {
-		$self->popUp
+		$self->popUp unless $self->{POPBLOCK}
 	}
 }
 
 sub popUp {
 	my $self = shift;
+	print "popup\n";
 	my $save = $self->Subwidget('Entry')->get;
 	$self->{'e_save'} = $save;
-	$self->Subwidget('Pop')->popUp;
+	my $pop = $self->cget('-popcolor');
+	$pop->configure(-widget => $self->Subwidget('Entry'));
+	$pop->configure(-updatecall => ['put', $self]);
+	$pop->put($save);
+	
+	$pop->popUp;
 }
 
 =item B<put>(I<$color>)
@@ -232,8 +241,13 @@ sub put {
 	}
 	my $var = $self->Subwidget('Entry')->cget('-textvariable');
 	$$var = $color;
-	$self->Subwidget('Pop')->put($color);
 	$self->EntryUpdate;
+}
+
+sub validate {
+	my ($self, $val) = @_;
+	my $repeat = $self->cget('-popcolor')->colordepth / 4;
+	return $val =~ /^#(?:[0-9a-fA-F]{3}){$repeat}$/
 }
 
 =back
@@ -251,6 +265,18 @@ Hans Jeuken (hanje at cpan dot org)
 =head1 BUGS
 
 Unknown. If you find any, please contact the author.
+
+=head1 SEE ALSO
+
+=over 4
+
+=item L<Tk::Poplevel>
+
+=item L<Tk::PopColor>
+
+=item L<Tk::ColorPicker>
+
+=back
 
 =cut
 

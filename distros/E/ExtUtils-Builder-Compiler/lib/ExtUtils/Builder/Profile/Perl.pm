@@ -1,10 +1,10 @@
 package ExtUtils::Builder::Profile::Perl;
-$ExtUtils::Builder::Profile::Perl::VERSION = '0.004';
+$ExtUtils::Builder::Profile::Perl::VERSION = '0.008';
 use strict;
 use warnings;
 
+use ExtUtils::Helpers 0.027 'split_like_shell';
 use File::Spec::Functions qw/catdir/;
-use Text::ParseWords 'shellwords';
 
 sub _get_var {
 	my ($config, $opts, $key) = @_;
@@ -13,7 +13,7 @@ sub _get_var {
 
 sub _split_var {
 	my ($config, $opts, $key) = @_;
-	return delete $opts->{$key} || [ shellwords($config->get($key)) ];
+	return delete $opts->{$key} || [ split_like_shell($config->get($key)) ];
 }
 
 sub process_compiler {
@@ -43,21 +43,16 @@ sub process_linker {
 	}
 	my $os = _get_var($config, $opts, 'osname');
 	if ($linker->type eq 'executable' or $linker->type eq 'shared-library' or ($linker->type eq 'loadable-object' and $needs_relinking{$os})) {
-		if ($os eq 'MSWin32') {
-			$linker->add_argument(value => _split_var($config, $opts, 'libperl'));
-		}
-		else {
-			my ($libperl, $libext, $so) = map { _get_var($config, $opts, $_) } qw/libperl lib_ext so/;
-			my ($lib) = $libperl =~ / \A (?:lib)? ( \w* perl \w* ) (?: \. $so | $libext) \b /msx;
-			$linker->add_libraries([$lib]);
-		}
+		my ($libperl, $libext, $so) = map { _get_var($config, $opts, $_) } qw/libperl lib_ext so/;
+		my ($lib) = $libperl =~ / \A (?:lib)? ( \w* perl \w* ) (?: \. $so | $libext) \b /msx;
+		$linker->add_libraries([$lib], ranking => sub { $_[0] - 1 });
 
 		my $libdir = catdir(_get_var($config, $opts, 'archlibexp'), 'CORE');
 		$linker->add_library_dirs([$libdir]);
 		$linker->add_argument(ranking => 80, value => _split_var($config, $opts, 'perllibs'));
 	}
 	if ($linker->type eq 'executable') {
-		my $rpath = $opts->{rpath} || [ shellwords($config->get('ccdlflags') =~ $rpath_regex) ];
+		my $rpath = $opts->{rpath} || [ split_like_shell($config->get('ccdlflags') =~ $rpath_regex) ];
 		$linker->add_argument(ranking => 40, value => $rpath) if @{$rpath};
 	}
 	return;
@@ -79,7 +74,7 @@ ExtUtils::Builder::Profile::Perl - A profile for compiling and linking against p
 
 =head1 VERSION
 
-version 0.004
+version 0.008
 
 =head1 SYNOPSIS
 

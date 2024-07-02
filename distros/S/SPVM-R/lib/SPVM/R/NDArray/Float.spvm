@@ -1,0 +1,115 @@
+# Copyright (c) 2024 Yuki Kimoto
+# MIT License
+
+class R::NDArray::Float extends R::NDArray {
+  
+  # Class Mehtods
+  static method new : R::NDArray::Float ($options : object[] = undef) {
+    
+    my $self = new R::NDArray::Float;
+    
+    $self->init($options);
+    
+    return $self;
+  }
+  
+  protected method init : void ($options : object[] = undef) {
+    
+    $self->SUPER::init($options);
+  }
+  
+  method data : float[] () {
+    
+    return (float[])$self->{data};
+  }
+  
+  protected method check : void () {
+    
+    my $data = (float[])$self->{data};
+    
+    my $length = $self->length;
+    
+    unless (@$data == $length) {
+      die "The length of data field must be the same as length field.";
+    }
+  }
+  
+  protected method create_default_data : float[] ($length : int = 0) {
+    
+    unless ($length >= 0) {
+      die "The length \$length must be more than or equal to 0.";
+    }
+    
+    my $data = new float[$length];
+    
+    return $data;
+  }
+  
+  method clone : R::NDArray::Float () {
+    return (R::NDArray::Float)$self->SUPER::clone;
+  }
+  
+  method elem_to_string : string ($data_index : int) {
+    
+    my $data = $self->data;
+    
+    my $elem = $data->[$data_index];
+    
+    my $string = (string)(float)$elem;
+    
+    return $string;
+  }
+  
+  precompile method set_order : void ($indexes_ndarray : R::NDArray::Int) {
+    
+    $self->check_set_order_args($indexes_ndarray);
+    
+    my $indexes = $indexes_ndarray->data;
+    
+    my $data = (float[])$self->{data};
+    
+    my $tmp = $self->clone;
+    
+    my $tmp_data = $tmp->data;
+    
+    my $length = $self->length;
+    for (my $i = 0; $i < $length; $i++) {
+      my $order_index = $indexes->[$i];
+      
+      $data->[$i] = $tmp_data->[$order_index];
+    }
+  }
+  
+  protected method slice_data : object ($data_indexes : int[]) {
+    
+    unless ($data_indexes) {
+      die "The data indexes \$data_indexes must be defined.";
+    }
+    
+    my $data_indexes_length = @$data_indexes;
+    my $data = $self->data;
+    my $ret_data = new float[$data_indexes_length];
+    for (my $i = 0; $i < $data_indexes_length; $i++) {
+      $ret_data->(float[])->[$i] = $data->(float[])->[$i];
+    }
+    
+    return $ret_data;
+  }
+  
+  protected method slice_set_data : void ($data_indexes : int[], $data : object) {
+    
+    my $self_data = $self->{data};
+    
+    unless ($data_indexes) {
+      die "The data indexes \$data_indexes must be defined.";
+    }
+    
+    my $data_index = 0;
+    my $data_indexes_length = @$data_indexes;
+    for (my $i = 0; $i < $data_indexes_length; $i++) {
+      $self_data->(float[])->[$i] = $data->(float[])->[$data_index];
+      $data_index++;
+    }
+  }
+  
+}

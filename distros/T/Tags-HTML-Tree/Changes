@@ -1,3 +1,10 @@
+0.07 2024-06-21T19:24:13+02:00
+ - Add another example to doc.
+
+0.06 2024-06-20T13:38:34+02:00
+ - Add 'cb_value' parameter.
+ - Fix presentation of error in ERRORS section in doc.
+
 0.05 2024-05-18T09:30:11+02:00
  - Add tests for bad 'css_class' parameter.
  - Add tests for bad 'indent' parameter.

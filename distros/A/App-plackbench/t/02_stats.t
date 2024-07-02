@@ -15,6 +15,8 @@ subtest 'min'                => \&test_min;
 subtest 'max'                => \&test_max;
 subtest 'standard deviation' => \&test_standard_deviation;
 subtest 'percentile'         => \&test_percentile;
+subtest 'elapsed'            => \&test_elapsed;
+subtest 'rate'               => \&test_rate;
 
 done_testing();
 
@@ -34,12 +36,10 @@ sub test_insert {
     my $stats = App::plackbench::Stats->new(10);
 
     $stats->insert(9);
-    cmp_deeply($stats, noclass([9, 10]), 'should insert the new number in the list');
-
     $stats->insert(12);
-    cmp_deeply($stats, noclass([9, 10, 12]), 'should insert the new number in the list in the right order');
-
     $stats->insert(11);
+    $stats->finalize;
+
     cmp_deeply($stats, noclass([9, 10, 11, 12]), 'should insert the new number in the list in the right order');
 
     return;
@@ -123,4 +123,25 @@ sub test_percentile {
     return;
 }
 
+sub test_elapsed {
+    my $stats = App::plackbench::Stats->new(2, 4, 4, 4, 5, 5, 7, 9);
+    is( $stats->elapsed(), 40, 'elapsed() should return the total time' );
+
+    $stats = App::plackbench::Stats->new();
+    is( $stats->elapsed(), 0, 'elapsed() should return 0 for an empty list' );
+
+    return;
+}
+
+sub test_rate {
+    my $stats = App::plackbench::Stats->new(0.1, 0.2, 0.3, 0.1, 0.2, 0.1);
+    is( $stats->rate(), 6, 'rate() should return the number of requests per second' );
+
+    $stats = App::plackbench::Stats->new();
+    is( $stats->rate(), 0, 'rate() should return 0 for an empty list' );
+
+    return;
+}
+
 1;
+

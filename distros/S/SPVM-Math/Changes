@@ -1,3 +1,20 @@
+1.004  2024-06-24
+  [Incompatible Changes]
+    * Remove Math#cscamul method. This method was misnamed because it does not actually perform a scalar multiplication.
+    * Remove Math#cscamulf method. This method was misnamed because it does not actually perform a scalar multiplication.
+      
+      Sorry, please rewrite source codes using Math->complex($re, 0);
+      
+1.003  2024-06-17
+  [New Features]
+    * Add Math#atan2f method.
+1.002  2024-06-17
+  [Configuration Changes]
+    * Math class is compiled by GNU C99 instead of C99.
+  [New Features]
+    * Add Math#cnegf method.
+    * Add Math#cneg method.
+    
 1.001  2023-04-26
   [Prequirement Changes]
     * SPVM 0.971006+ is required.

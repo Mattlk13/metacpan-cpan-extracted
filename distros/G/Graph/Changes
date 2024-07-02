@@ -1,3 +1,9 @@
+0.9729
+- add is_planar (#31) - thanks @merkys
+
+0.9728
+- add is_bipartite (#30) - thanks @merkys
+
 0.9727 2023-06-25
 - fix biconnectivity to work with refvertexed (#29) - thanks @merkys for report
 

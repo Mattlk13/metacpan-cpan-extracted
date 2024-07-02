@@ -2,9 +2,7 @@ package Data::Enum;
 
 # ABSTRACT: immutable enumeration classes
 
-use v5.10;
-
-use strict;
+use v5.14;
 use warnings;
 
 use Package::Stash;
@@ -13,48 +11,52 @@ use Scalar::Util qw/ blessed refaddr /;
 
 # RECOMMEND PREREQ: Package::Stash::XS
 
-use overload ();
+use overload
+  q{""} => \&as_string,
+  q{eq} => \&MATCH,
+  q{ne} => \&_NOT_MATCH;
 
 use constant TRUE  => 1;
 use constant FALSE => 0;
 
-our $VERSION = 'v0.2.7';
-
+our $VERSION = 'v0.5.0';
 
 
 sub new {
     my $this = shift;
 
+    my $opts   = ref( $_[0] ) eq "HASH" ? shift : {};
+    my $prefix = $opts->{prefix} // "is_";
+
     my @values = uniqstr( sort map { "$_" } @_ );
 
     die "has no values" unless @values;
 
-    die "values must be alphanumeric" if any{ /\W/ } @values;
+    die "values must be alphanumeric" if any { /\W/ } @values;
 
     my $key = join chr(28), @values;
 
     state %Cache;
     state $Counter = 1;
 
-
     if ( my $name = $Cache{$key} ) {
         return $name;
     }
 
-    my $name = "Data::Enum::" . $Counter++;
+    my $name = $opts->{name} || ( __PACKAGE__ . "::" . $Counter++ );
 
     my $base = Package::Stash->new($name);
 
     my $_make_symbol = sub {
         my ($value) = @_;
-        my $self = bless \$value, "${name}::${value}";
-        Internals::SvREADONLY($value, 1);
+        my $self    = bless \$value, "${name}::${value}";
+        Internals::SvREADONLY( $value, 1 );
         return $self;
     };
 
     my $_make_predicate = sub {
         my ($value) = @_;
-        return "is_" . $value;
+        return $prefix . $value;
     };
 
     $base->add_symbol(
@@ -62,49 +64,55 @@ sub new {
         sub {
             my ( $class, $value ) = @_;
             state $symbols = {
-                map {
-                    $_ => $_make_symbol->($_)
-                } @values
+                map { $_ => $_make_symbol->($_) } @values
             };
             exists $symbols->{"$value"} or die "invalid value: '$value'";
             return $symbols->{"$value"};
         }
     );
 
-    $base->add_symbol( '&values', sub { return @values });
+    $base->add_symbol( '&values', sub { return @values } );
 
-    $base->add_symbol( '&predicates', sub { return map { $_make_predicate->($_) } @values } );
-
-    my $match = sub {
-        my ( $self, $arg ) = @_;
-        return blessed($arg)
-            ? refaddr($arg) == refaddr($self)
-            : $arg eq $$self;
-    };
-
-    $base->add_symbol( '&MATCH', $match );
-
-    $name->overload::OVERLOAD(
-        q{""} => sub { my ($self) = @_; return $$self; },
-        q{eq} => $match,
-        q{ne} => sub {
-            my ( $self, $arg ) = @_;
-            return blessed($arg)
-              ? refaddr($arg) != refaddr($self)
-              : $arg ne $$self;
-        },
+    $base->add_symbol(
+        '&predicates',
+        sub {
+            return map { $_make_predicate->($_) } @values;
+        }
     );
+
+    $base->add_symbol( '&prefix', sub { $prefix } );
 
     for my $value (@values) {
         my $predicate = $_make_predicate->($value);
         $base->add_symbol( '&' . $predicate, \&FALSE );
         my $elem    = "${name}::${value}";
         my $subtype = Package::Stash->new($elem);
-        $subtype->add_symbol( '@ISA',  [$name] );
+        $subtype->add_symbol( '@ISA',           [ __PACKAGE__, $name ] );
         $subtype->add_symbol( '&' . $predicate, \&TRUE );
     }
 
     return $Cache{$key} = $name;
+}
+
+sub _NOT_MATCH {
+    my ( $self, $arg ) = @_;
+    return blessed($arg)
+      ? refaddr($arg) != refaddr($self)
+      : $arg ne $$self;
+}
+
+
+sub MATCH {
+    my ( $self, $arg ) = @_;
+    return blessed($arg)
+      ? refaddr($arg) == refaddr($self)
+      : $arg eq $$self;
+}
+
+
+sub as_string {
+    my ($self) = @_;
+    return $$self;
 }
 
 
@@ -122,7 +130,7 @@ Data::Enum - immutable enumeration classes
 
 =head1 VERSION
 
-version v0.2.7
+version v0.5.0
 
 =head1 SYNOPSIS
 
@@ -133,9 +141,9 @@ version v0.2.7
   my $red = $color->new("red");
 
   $red->is_red;    # "1"
-  $red->is_yellow; # "" (false)
-  $red->is_blue;   # "" (false)
-  $red->is_green;  # "" (false)
+  $red->is_yellow; # "0" (false)
+  $red->is_blue;   # "0" (false)
+  $red->is_green;  # "0" (false)
 
   say $red;        # outputs "red"
 
@@ -157,7 +165,7 @@ Any two classes with the same elements are equivalent.
 The following two classes are the I<same>:
 
   my $one = Data::Enum->new( qw[ foo bar baz ] );
-  my $two = Data::Enum->new( qw[ foo bar baz ] );
+  my $two = Data::Enum->new( qw[ baz bar foo ] );
 
 =item *
 
@@ -186,7 +194,7 @@ Values are immutable (read-only).
 
 This is done by creating a unique internal class name based on the
 possible values.  Each value is actually a subclass of that class,
-with the appropriate C<is_> method returning a constant.
+with the appropriate predicate method returning a constant.
 
 =head1 METHODS
 
@@ -201,9 +209,42 @@ constructor:
 
 Calling the constructor with an invalid value will throw an exception.
 
-Each instance will have an C<is_> method for each value.
+Each instance will have a predicate C<is_> method for each value.
+
+The values are case sensitive.
 
 Each instance stringifies to its value.
+
+Since v0.3.0 you can change the specify options in the class generator:
+
+  my $class = Data::Enum->new( \%options, @values );
+
+The following options are supported:
+
+=over
+
+=item prefix
+
+Change prefix of the predicate methods to something other than C<is_>. For example,
+
+  my $class = Data::Enum->new( { prefix => "from_" }, "home", "work" );
+  my $place = $class->new("work");
+
+  $place->from_home;
+
+This was added in v0.3.0.
+
+=item name
+
+This assigns a name to the class, so instances can be constructed by name:
+
+  my $class = Data::Enum->new( { name => "Colours" }, "red", "orange", "yellow", "green" );
+
+  my $color = Colours->new("yellow");
+
+This was added in v0.5.0.
+
+=back
 
 =head2 values
 
@@ -228,9 +269,21 @@ A hash of predicates to values is roughly
 
 This was added in v0.2.1.
 
+=head2 prefix
+
+This returns the prefix.
+
+This was added in v0.3.0.
+
 =head2 MATCH
 
 This method adds support for L<match::simple>.
+
+=head2 as_string
+
+This stringifies the the object.
+
+This was added in v0.4.0.
 
 =for Pod::Coverage TRUE
 
@@ -243,7 +296,7 @@ strings.  When using this in production code, you may want to benchmark performa
 
 =head1 SUPPORT FOR OLDER PERL VERSIONS
 
-This module requires Perl v5.10 or later.
+This module requires Perl v5.14 or later.
 
 Future releases may only support Perl versions released in the last ten years.
 
@@ -279,7 +332,7 @@ Robert Rothenberg <rrwo@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2021-2023 by Robert Rothenberg.
+This software is Copyright (c) 2021-2024 by Robert Rothenberg.
 
 This is free software, licensed under:
 

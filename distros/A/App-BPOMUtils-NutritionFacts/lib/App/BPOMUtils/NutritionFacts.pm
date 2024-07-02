@@ -9,9 +9,9 @@ use Log::ger;
 use Exporter 'import';
 
 our $AUTHORITY = 'cpan:PERLANCAR'; # AUTHORITY
-our $DATE = '2024-01-30'; # DATE
+our $DATE = '2024-06-17'; # DATE
 our $DIST = 'App-BPOMUtils-NutritionFacts'; # DIST
-our $VERSION = '0.025'; # VERSION
+our $VERSION = '0.027'; # VERSION
 
 our @EXPORT_OK = qw(
                        bpom_show_nutrition_facts
@@ -84,10 +84,37 @@ _
 
         fat           => {summary => 'Total fat, in g/100g'           , schema => 'ufloat*', req=>1},
         saturated_fat => {summary => 'Saturated fat, in g/100g'       , schema => 'ufloat*', req=>1},
+        cholesterol   => {summary => 'Cholesterol, in mg/100g'        , schema => 'ufloat*'},
         protein       => {summary => 'Protein, in g/100g'             , schema => 'ufloat*', req=>1},
         carbohydrate  => {summary => 'Total carbohydrate, in g/100g'  , schema => 'ufloat*', req=>1},
         sugar         => {summary => 'Total sugar, in g/100g'         , schema => 'ufloat*', req=>1},
         sodium        => {summary => 'Sodium, in mg/100g'             , schema => 'ufloat*', req=>1, cmdline_aliases=>{salt=>{}}},
+        va            => {summary => 'Vitamin A, in mcg/100g (all-trans-)retinol', schema => 'ufloat*'},
+        vd            => {summary => 'Vitamin D, in mcg', schema => 'ufloat*'},
+        ve            => {summary => 'Vitamin E, in mg alpha-TE (tocopherol-equivalent)', schema => 'ufloat*'},
+        vk            => {summary => 'Vitamin K, in mcg', schema => 'ufloat*'},
+        vb1           => {summary => 'Vitamin B1, in mg/100g', schema => 'ufloat*'},
+        vb2           => {summary => 'Vitamin B2, in mg/100g', schema => 'ufloat*'},
+        vb3           => {summary => 'Vitamin B3, in mg/100g', schema => 'ufloat*'},
+        vb5           => {summary => 'Vitamin B5 (pantothenic acid), in mg/100g', schema => 'ufloat*'},
+        vb6           => {summary => 'Vitamin B6, in mg/100g', schema => 'ufloat*'},
+        folate        => {summary => 'Folate (vitamin B9), in mcg/100g', schema => 'ufloat*'},
+        vb12          => {summary => 'Vitamin B12, in mcg/100g', schema => 'ufloat*'},
+        biotin        => {summary => 'Biotin, in mcg/100g', schema => 'ufloat*'},
+        choline       => {summary => 'Choline, in mg/100g', schema => 'ufloat*'},
+        vc            => {summary => 'Vitamin C, in mg/100g', schema => 'ufloat*'},
+        ca            => {summary => 'Calcium, in mg/100g', schema => 'ufloat*'},
+        phosphorus    => {summary => 'Phosphorus, in mg/100g', schema => 'ufloat*'},
+        mg            => {summary => 'Magnesium, in mg/100g', schema => 'ufloat*'},
+        k             => {summary => 'Potassium, in mg/100g', schema => 'ufloat*'},
+        mn            => {summary => 'Manganese, in mcg/100g', schema => 'ufloat*'},
+        cu            => {summary => 'Copper, in mcg/100g', schema => 'ufloat*'},
+        cr            => {summary => 'Chromium, in mcg/100g', schema => 'ufloat*'},
+        fe            => {summary => 'Iron, in mg/100g', schema => 'ufloat*'},
+        iodium        => {summary => 'Iodium, in mcg/100g', schema => 'ufloat*'},
+        zn            => {summary => 'Zinc, in mg/100g', schema => 'ufloat*'},
+        se            => {summary => 'Selenium, in mcg/100g', schema => 'ufloat*'},
+        fluorine      => {summary => 'Fluorine, in mg/100g', schema => 'ufloat*'},
 
         serving_size  => {summary => 'Serving size, in g'             , schema => 'ufloat*', req=>1},
         package_size  => {summary => 'Packaging size, in g'           , schema => 'ufloat*', req=>1},
@@ -323,7 +350,7 @@ sub bpom_show_nutrition_facts {
                 if ($per_package_ing) {
                 } else {
                     push @rows, [{bottom_border=>1, text=>''}, {colspan=>2, $attr=>$code_fmttext->("Energi dari lemak jenuh")}, {colspan=>2, align=>'right', $attr=>$code_fmttext->("$valr kkal")}];
-                }
+                 }
             } elsif ($output_format =~ /linear/) {
                 push @rows, $code_fmttext->("Energi dari lemak jenuh $valr kkal, ");
             } elsif ($output_format =~ /calculation/) {
@@ -440,6 +467,62 @@ sub bpom_show_nutrition_facts {
                              {align=>'left', $attr=>$code_fmttext->("= *$pct_dv_R*")}];
             }
     } # FAT
+
+  CHOLESTEROL: {
+        my $code_round_cholesterol = sub {
+            my $val = shift;
+            if ($val <  2)    { 0 }
+            if ($val <= 5)    { _nearest(1  , $val) }
+            else              { _nearest(5  , $val) }
+        };
+        my $code_round_cholesterol_pct_dv = sub {
+            my ($val, $valr) = @_;
+            if   ($valr == 0)  { 0 }
+            else               { _nearest(1  , $val) }
+        };
+
+        my $val0 = $args{cholesterol};
+        last unless defined $val0;
+        my $val  = $val0*$args{$size_key}/100;
+        my $valr = $code_round_cholesterol->($val);
+        my $pct_dv = $val/300*100;
+        my $pct_dv_R = $code_round_cholesterol_pct_dv->($pct_dv, $valr);
+        $funcraw->{cholesterol_per_srv} = $val          if !$per_package_ing;
+        $funcraw->{cholesterol_per_srv_rounded} = $valr if !$per_package_ing;
+        $funcraw->{cholesterol_per_pkg} = $val          if  $per_package_ing;
+        $funcraw->{cholesterol_per_pkg_rounded} = $valr if  $per_package_ing;
+        if ($output_format eq 'raw_table') {
+            push @rows, {
+                name_eng => 'Cholesterol',
+                name_ind => 'Kolesterol',
+                val_per_100g  => $val0,
+                (val_per_srv   => $val,
+                 val_per_srv_R => $valr) x ($per_package_ing ? 0:1),
+                (val_per_pkg   => $val,
+                 val_per_pkg_R => $valr) x $per_package_ing,
+                pct_dv   => $pct_dv,
+                pct_dv_R => $pct_dv_R,
+            };
+        } elsif ($output_format =~ /vertical/) {
+            push @rows, [{colspan=>2, $attr=>$code_fmttext->("Kolesterol")}, {align=>'right', $attr=>$code_fmttext->("$valr mg")}, {align=>'right', $attr=>"$pct_dv_R %"}, ''];
+        } elsif ($output_format =~ /linear/) {
+            push @rows, $code_fmttext->("Kolesterol $valr mg ($pct_dv_R% AKG), ");
+        } elsif ($output_format =~ /calculation/) {
+            push @rows, [{colspan=>2, align=>'middle', $attr=>$code_fmttext->('*Kolesterol*')}];
+            push @rows, [{align=>'right', text=>'Kolesterol per 100 g'},
+                         {align=>'left', $attr=>"= $args{cholesterol} mg"}];
+            push @rows, [{align=>'right', text=>"Kolesterol total per ".($per_package_ing ? "kemasan $args{package_size} g" : "takaran saji $args{serving_size} g")},
+                         {align=>'left', $attr=>"= $val0 $M $args{$size_key} / 100 = $val mg"}];
+            push @rows, [{align=>'right', text=>"(dibulatkan: <2 -> 0, 2-5 -> 1 mg terdekat, >5 -> 5 mg terdekat)"},
+                         {align=>'left', $attr=>$code_fmttext->("= *$valr* mg")}];
+            push @rows, ['', ''];
+            push @rows, [{colspan=>2, align=>'middle', $attr=>$code_fmttext->('*%AKG kolesterol*')}];
+            push @rows, [{align=>'right', text=>"\%AKG"},
+                         {align=>'left', $attr=>"= $val / 300 $M 100 = $pct_dv"}];
+            push @rows, [{align=>'right', text=>"(dibulatkan ke % terdekat)"},
+                         {align=>'left', $attr=>$code_fmttext->("= *$pct_dv_R*")}];
+        }
+    }
 
   PROTEIN: {
         my $code_round_protein = sub {
@@ -640,8 +723,119 @@ sub bpom_show_nutrition_facts {
             push @rows, [{align=>'right', text=>"(dibulatkan ke % terdekat)"},
                          {align=>'left', $attr=>$code_fmttext->("= *$pct_dv_R*")}];
         }
-        }
     }
+    }
+
+  VITAMIN_MINERAL_NONNUTRIENTS: {
+
+        my @rows_vm;
+      VITAMIN_MINERAL: {
+            my $code_round_vitamin_mineral_pct_dv = sub {
+                my ($val, $valr) = @_;
+                if   ($val <= 10)  { _nearest(2, $val) }
+                else               { _nearest(5, $val) }
+            };
+
+            my $do_vm = sub {
+                my ($name_ind, $val0, $akg, $unit, $name_eng) = @_;
+
+                $name_eng //= $name_ind;
+                my $val  = $val0*$args{$size_key}/100;
+                my $pct_dv = $val/$akg *100;
+                my $pct_dv_R = $code_round_vitamin_mineral_pct_dv->($pct_dv, $pct_dv);
+                if ($pct_dv_R < 2) {
+                    warn "$name_eng value is below 2% AKG, skipped showing in nutrition facts\n";
+                    return;
+                }
+                $funcraw->{va_pct_dv_per_srv} = $pct_dv           if !$per_package_ing;
+                $funcraw->{va_pct_dv_per_srv_rounded} = $pct_dv_R if !$per_package_ing;
+                $funcraw->{va_pct_dv_per_pkg} = $pct_dv           if  $per_package_ing;
+                $funcraw->{va_pct_dv_per_pkg_rounded} = $pct_dv_R if  $per_package_ing;
+                if ($output_format eq 'raw_table') {
+                    push @rows_vm, {
+                        name_eng => $name_eng,
+                        name_ind => $name_ind,
+                        val_per_100g  => $val0,
+                        (val_per_srv   => $val) x (!$per_package_ing ? 1:0),
+                        (val_per_pkg   => $val) x ( $per_package_ing ? 1:0),
+                        pct_dv   => $pct_dv,
+                        pct_dv_R => $pct_dv_R,
+                    };
+                } elsif ($output_format =~ /vertical/) {
+                    push @rows_vm, [{}, {colspan=>2, $attr=>$code_fmttext->($name_ind)}, {colspan=>2, align=>'right', $attr=>$code_fmttext->("$pct_dv_R %")}];
+                } elsif ($output_format =~ /linear/) {
+                    push @rows_vm, $code_fmttext->("$name_ind ($pct_dv_R% AKG)");
+                } elsif ($output_format =~ /calculation/) {
+                    push @rows_vm, [{colspan=>2, align=>'middle', $attr=>$code_fmttext->("*$name_ind*")}];
+                    push @rows_vm, [{align=>'right', text=>"$name_ind per 100 g"},
+                                     {align=>'left', $attr=>"= $args{va} $unit"}];
+                    push @rows_vm, [{align=>'right', text=>"Vitamin A total per ".($per_package_ing ? "kemasan $args{package_size} g" : "takaran saji $args{serving_size} g")},
+                                     {align=>'left', $attr=>"= $val0 $M $args{$size_key} / 100 = $val $unit"}];
+                    push @rows_vm, ['', ''];
+                    push @rows_vm, [{colspan=>2, align=>'middle', $attr=>$code_fmttext->("*%AKG $name_ind*")}];
+                    push @rows_vm, [{align=>'right', text=>"\%AKG"},
+                                    {align=>'left', $attr=>"= $val / $akg $M 100 = $pct_dv"}];
+                    push @rows_vm, [{align=>'right', text=>"(dibulatkan [<=10% AKG -> 2% terdekat, >10% AKG -> 5% terdekat])"},
+                                    {align=>'left', $attr=>$code_fmttext->("= *$pct_dv_R*")}];
+                }
+            }; # do_vm
+
+            $do_vm->("Vitamin A", $args{va}, 600, "mcg (all-trans-)retinol") if $args{va};
+            $do_vm->("Vitamin D", $args{vd}, 15, "mcg") if $args{vd};
+            $do_vm->("Vitamin E", $args{ve}, 15, "mg alpha-TE (tocopherol-equivalent)") if $args{ve};
+            $do_vm->("Vitamin K", $args{vk}, 60, "mcg") if $args{vk};
+            $do_vm->("Vitamin B1", $args{vb1}, 1.4, "mg") if $args{vb1};
+            $do_vm->("Vitamin B2", $args{vb2}, 1.6, "mg") if $args{vb2};
+            $do_vm->("Vitamin B3", $args{vb3}, 15, "mg") if $args{vb3};
+            $do_vm->("Vitamin B5", $args{vb5}, 5, "mg") if $args{vb5};
+            $do_vm->("Vitamin B6", $args{vb6}, 1.3, "mg") if $args{vb6};
+            $do_vm->("Folat", $args{folate}, 400, "mcg", "Folate") if $args{folate};
+            $do_vm->("Vitamin B12", $args{vb12}, 2.4, "mcg") if $args{vb12};
+            $do_vm->("Biotin", $args{biotin}, 30, "mcg") if $args{biotin};
+            $do_vm->("Kolin", $args{choline}, 450, "mg", "Choline") if $args{choline};
+            $do_vm->("Vitamin C", $args{vc}, 90, "mg") if $args{vc};
+            $do_vm->("Kalsium", $args{ca}, 1100, "mg", "Calcium") if $args{ca};
+            $do_vm->("Fosfor", $args{phosphorus}, 700, "mg", "Phosphorus") if $args{phosphorus};
+            $do_vm->("Magnesium", $args{mg}, 350, "mg") if $args{mg};
+            $do_vm->("Kalium", $args{potassium}, 4700, "mg", "Potassium") if $args{potassium};
+            $do_vm->("Mangan", $args{mn}, 2000, "mcg", "Manganese") if $args{mn};
+            $do_vm->("Tembaga", $args{cu}, 800, "mcg", "Copper") if $args{cu};
+            $do_vm->("Kromium", $args{cr}, 26, "mcg", "Chromium") if $args{cr};
+            $do_vm->("Besi", $args{fe}, 22, "mg", "Iron") if $args{fe};
+            $do_vm->("Iodium", $args{iodium}, 90, "mcg", "Iodium") if $args{iodium};
+            $do_vm->("Seng", $args{zn}, 13, "mg", "Zinc") if $args{zn};
+            $do_vm->("Selenium", $args{se}, 30, "mcg") if $args{se};
+            $do_vm->("Fluor", $args{fluorine}, 2.5, "mg", "Fluorine") if $args{fluorine};
+        } # VITAMIN_MINERAL
+
+        my @rows_nn;
+      NONNUTRIENTS: {
+            1;
+        } # NONNUTRIENTS
+
+        # add heading & border
+        if (@rows_vm) {
+            if ($output_format =~ /vertical/) {
+                push @rows, [{colspan=>5, $attr=>$code_fmttext->("Vitamin dan mineral")}];
+                unless (@rows_nn) {
+                    for (@{ $rows_vm[-1] }) { $_->{bottom_border} = 1 }
+                }
+            }
+        }
+        if (@rows_nn) {
+            if ($output_format =~ /vertical/) {
+                push @rows, [{colspan=>5, $attr=>$code_fmttext->("Zat Nongizi")}];
+                for (@{ $rows_nn[-1] }) { $_->{bottom_border} = 1 }
+            }
+        }
+
+        if ($output_format =~ /linear/) {
+            push @rows, join(", ", @rows_vm, @rows_nn), (@rows_vm || @rows_nn ? ". " : "");
+        } else {
+            push @rows, @rows_vm, @rows_nn;
+        }
+
+    } # VITAMIN_MINERAL_NONNUTRIENTS
 
     if ($output_format eq 'raw_table') {
     } elsif ($output_format =~ /vertical/) {
@@ -736,7 +930,7 @@ App::BPOMUtils::NutritionFacts - Utilities related to BPOM nutrition facts
 
 =head1 VERSION
 
-This document describes version 0.025 of App::BPOMUtils::NutritionFacts (from Perl distribution App-BPOMUtils-NutritionFacts), released on 2024-01-30.
+This document describes version 0.027 of App::BPOMUtils::NutritionFacts (from Perl distribution App-BPOMUtils-NutritionFacts), released on 2024-06-17.
 
 =head1 SYNOPSIS
 
@@ -1019,21 +1213,73 @@ Arguments ('*' denotes required arguments):
 
 =over 4
 
+=item * B<biotin> => I<ufloat>
+
+Biotin, in mcgE<sol>100g.
+
 =item * B<browser> => I<true>
 
 View output HTML in browser instead of returning it.
+
+=item * B<ca> => I<ufloat>
+
+Calcium, in mgE<sol>100g.
 
 =item * B<carbohydrate>* => I<ufloat>
 
 Total carbohydrate, in gE<sol>100g.
 
+=item * B<cholesterol> => I<ufloat>
+
+Cholesterol, in mgE<sol>100g.
+
+=item * B<choline> => I<ufloat>
+
+Choline, in mgE<sol>100g.
+
 =item * B<color> => I<str> (default: "auto")
 
 (No description)
 
+=item * B<cr> => I<ufloat>
+
+Chromium, in mcgE<sol>100g.
+
+=item * B<cu> => I<ufloat>
+
+Copper, in mcgE<sol>100g.
+
 =item * B<fat>* => I<ufloat>
 
 Total fat, in gE<sol>100g.
+
+=item * B<fe> => I<ufloat>
+
+Iron, in mgE<sol>100g.
+
+=item * B<fluorine> => I<ufloat>
+
+Fluorine, in mgE<sol>100g.
+
+=item * B<folate> => I<ufloat>
+
+Folate (vitamin B9), in mcgE<sol>100g.
+
+=item * B<iodium> => I<ufloat>
+
+Iodium, in mcgE<sol>100g.
+
+=item * B<k> => I<ufloat>
+
+Potassium, in mgE<sol>100g.
+
+=item * B<mg> => I<ufloat>
+
+Magnesium, in mgE<sol>100g.
+
+=item * B<mn> => I<ufloat>
+
+Manganese, in mcgE<sol>100g.
 
 =item * B<name> => I<str>
 
@@ -1051,6 +1297,10 @@ in a paragraph.
 
 Packaging size, in g.
 
+=item * B<phosphorus> => I<ufloat>
+
+Phosphorus, in mgE<sol>100g.
+
 =item * B<protein>* => I<ufloat>
 
 Protein, in gE<sol>100g.
@@ -1058,6 +1308,10 @@ Protein, in gE<sol>100g.
 =item * B<saturated_fat>* => I<ufloat>
 
 Saturated fat, in gE<sol>100g.
+
+=item * B<se> => I<ufloat>
+
+Selenium, in mcgE<sol>100g.
 
 =item * B<serving_size>* => I<ufloat>
 
@@ -1070,6 +1324,54 @@ Sodium, in mgE<sol>100g.
 =item * B<sugar>* => I<ufloat>
 
 Total sugar, in gE<sol>100g.
+
+=item * B<va> => I<ufloat>
+
+Vitamin A, in mcgE<sol>100g (all-trans-)retinol.
+
+=item * B<vb1> => I<ufloat>
+
+Vitamin B1, in mgE<sol>100g.
+
+=item * B<vb12> => I<ufloat>
+
+Vitamin B12, in mcgE<sol>100g.
+
+=item * B<vb2> => I<ufloat>
+
+Vitamin B2, in mgE<sol>100g.
+
+=item * B<vb3> => I<ufloat>
+
+Vitamin B3, in mgE<sol>100g.
+
+=item * B<vb5> => I<ufloat>
+
+Vitamin B5 (pantothenic acid), in mgE<sol>100g.
+
+=item * B<vb6> => I<ufloat>
+
+Vitamin B6, in mgE<sol>100g.
+
+=item * B<vc> => I<ufloat>
+
+Vitamin C, in mgE<sol>100g.
+
+=item * B<vd> => I<ufloat>
+
+Vitamin D, in mcg.
+
+=item * B<ve> => I<ufloat>
+
+Vitamin E, in mg alpha-TE (tocopherol-equivalent).
+
+=item * B<vk> => I<ufloat>
+
+Vitamin K, in mcg.
+
+=item * B<zn> => I<ufloat>
+
+Zinc, in mgE<sol>100g.
 
 
 =back

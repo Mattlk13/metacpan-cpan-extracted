@@ -1,5 +1,5 @@
 package ExtUtils::Builder::Linker::COFF;
-$ExtUtils::Builder::Linker::COFF::VERSION = '0.004';
+$ExtUtils::Builder::Linker::COFF::VERSION = '0.008';
 use strict;
 use warnings;
 
@@ -15,8 +15,8 @@ my %export_for = (
 sub _init {
 	my ($self, %args) = @_;
 	$args{export} ||= $export_for{ $args{type} };
-	$self->SUPER::_init(%args);
 	$self->{autoimport} = defined $args{autoimport} ? $args{autoimport} : 1;
+	$self->SUPER::_init(%args);
 	return;
 }
 
@@ -39,7 +39,7 @@ ExtUtils::Builder::Linker::COFF
 
 =head1 VERSION
 
-version 0.004
+version 0.008
 
 =head1 AUTHOR
 

@@ -1,0 +1,227 @@
+#!perl
+use utf8;
+use strict;
+use warnings;
+use Aozora2Epub;
+use Getopt::Long;
+use Path::Tiny;
+
+our $VERSION = '0.03';
+
+binmode(STDERR, "utf8");
+binmode(STDOUT, "utf8");
+
+my $cmd_name = path($0)->basename;
+
+my ($output, $title, $author, $cover, $no_okuzuke, $use_subtitle);
+Getopt::Long::Configure ("bundling");
+GetOptions("o|output=s" => \$output,
+           "t|title=s" => \$title,
+           "a|author=s" => \$author,
+           "use-subtitle" => \$use_subtitle,
+           "c|cover=s" => \$cover,
+           "no-okuzuke" => \$no_okuzuke,
+           "h|help" => sub { usage(0) },
+           "version" => sub { show_version(); exit 0; },
+       ) or usage(1, 1);
+
+sub show_version {
+    print "$cmd_name version $VERSION ($0)\n";
+    print "Running under Perl $^V ($^X)\n\n";
+}
+
+sub load_argv_from_stdin {
+
+    my @argv;
+    while(defined(my $line = <STDIN>)){
+        chomp $line;
+        $line =~ s/#.+$//; # comment
+        $line =~ s/^\s+//; # trim spaces
+        $line =~ s/\s+$//; # trim spaces
+
+        push @argv, $line if $line;
+    }
+    return @argv;
+}
+
+my @files = @ARGV;
+if (@files == 0 && !-t STDIN) {
+    @files = load_argv_from_stdin();
+}
+
+@files or usage(1, 1, "$cmd_name requires one or more arguments");
+
+my $ae = (@files > 1 ? Aozora2Epub->new() : Aozora2Epub->new(shift @files));
+$ae->title($title) if $title;
+$ae->author($author) if $author;
+
+my %append_options;
+$append_options{use_subtitle} = 1 if $use_subtitle;
+for my $f (@files) {
+    $ae->append($f, %append_options);
+}
+
+if ($no_okuzuke) {
+    $ae->bib_info(undef);
+}
+
+my %options;
+$options{output} = $output if $output;
+if ($cover) {
+    unless (do { my $fh; open $fh, "<", $cover and close $fh; }) {
+        print STDERR "$cover: $!\n";
+        usage(1);
+    }
+    $options{cover} = $cover
+}
+
+$ae->to_epub(%options);
+exit 0;
+
+sub usage {
+    my ($exit_status, $short, $mes) = @_;
+
+    print STDERR $mes, "\n" if $mes;
+    print STDERR "Usage: $cmd_name [options] aozora-url ...\n\n";
+    if ($short) {
+        print STDERR "Try `$cmd_name --help` for more options.\n";
+    } else {
+        print STDERR <<"USAGE";
+Options:
+ -t,--title      タイトル。デフォルトは本のタイトル
+ -a,--author     著者。デフォルトは本の著者
+ --use-subtitle  合本を作成する際、章名に各本のタイトルではなくサブタイトルを使う
+ -c,--cover      表紙ページのjpegファイル名。デフォルトは表紙ページ無し
+ -o,--output     出力するEPUBファイル名。デフォルトは`タイトル'.epub
+ --no-okuzuke    奥付を含めない
+ -h,--help       このヘルプを表示
+ --version       このコマンドのバージョンを表示
+USAGE
+    }
+    exit($exit_status);
+}
+
+__END__
+
+=encoding utf-8
+
+=head1 NAME
+
+aozora2epub - Convert Aozora Bunko XHTML to EPUB
+
+=head1 SYNOPSIS
+
+  aozora2epub https://www.aozora.gr.jp/cards/001569/files/59761_74795.html
+  aozora2epub https://www.aozora.gr.jp/cards/001569/card59761.html # 図書カードのURLでもOK
+  aozora2epub 001569/card59761.html # 上と同じ
+  
+  # 合本の作成
+  aozora2epub --title "中谷宇吉郎作品集" 001569/card59761.html 001569/files/59572_72817.html
+
+
+=head1 DESCRIPTION
+
+aozora2epub は青空文庫のXHTML形式の本をEPUBに変換するコマンドです。
+
+複数の本を指定すると、合本が作られます。
+
+=head1 ARGUMENTS
+
+本の指定は以下のいずれかの形式で行います。
+いずれも、URL先頭の B<https://www.aozora.gr.jp/cards/>の部分を省略することが可能です。
+
+=over 4
+
+=item B<図書カードのURL>
+
+青空文庫の図書カードのURLです。以下に例を示します。
+
+  https://www.aozora.gr.jp/cards/001569/card59761.html
+  
+  001569/card59761.html # 先頭部分を省略
+
+=item B<XHTMLのURL>
+
+青空文庫のXHTMLファイルのURLです。以下に例を示します。
+
+  https://www.aozora.gr.jp/cards/001569/files/59761_74795.html
+  
+  001569/files/59761_74795.html # 先頭部分を省略
+
+=back
+
+引数を省略した場合、かつ標準入力がターミナルでない場合は、本の指定を標準入力から読み込みます。
+このときは、各行が上記のいずれかの形式でなければなりません。各行のC<#>以降はコメントとして無視されます。また、各行の前後の空白文字および空行は無視されます。
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-t>, B<--title>
+
+出力するEPUBファイルのタイトルを指定します。
+デフォルトは、引数に指定した青空文庫の本のタイトルです。
+合本の場合は最初に指定した本のタイトルが使われます。
+
+=item B<-a>, B<--author>
+
+出力するEPUBファイルの著者を指定します。
+デフォルトは、引数に指定した青空文庫の本の著者です。
+合本の場合は最初に指定した本の著者が使われます。
+
+=item B<--use-subtitle>
+
+合本の作成時に、章タイトルとして各本のタイトルではなくサブタイトルを使います。
+このオプションは以下の例の様な、タイトルがシリーズ名、サブタイトル作品名となっている本を
+合本にしたい場合に便利です。
+
+  銭形平次捕物控　001 金色の処女（新字新仮名、作品ID：56372）
+  銭形平次捕物控　002 振袖源太（新字新仮名、作品ID：56278）
+  銭形平次捕物控　003 大盗懺悔（新字新仮名、作品ID：56314）
+  銭形平次捕物控　004 呪いの銀簪（新字新仮名、作品ID：57231）
+  銭形平次捕物控　005 幽霊にされた女（新字新仮名、作品ID：56220）
+
+  L<青空文庫 作家別作品リスト：No.1670|https://www.aozora.gr.jp/index_pages/person1670.html>より引用
+
+=item B<-c>, B<--cover>
+
+表紙にするjpegファイルを指定します。デフォルトは表紙無しです。
+
+=item B<-o>, B<--output>
+
+出力するEPUBファイルのファイル名を指定します。
+デフォルトは、タイトル.epub です。
+
+=item B<--no-okuzuke>
+
+EPUBに奥付を含めません。
+
+=item B<-h>, B<--help>
+
+ヘルプを表示します。
+
+=item B<--version>
+
+このコマンドのバージョンを表示します。
+
+=back
+
+=head1 AUTHOR
+
+Yoshimasa Ueno E<lt>saltyduck@gmail.comE<gt>
+
+=head1 COPYRIGHT
+
+Copyright 2024- Yoshimasa Ueno
+
+=head1 LICENSE
+
+This is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=head1 SEE ALSO
+
+L<Aozora2Epub>
+
+=cut
+

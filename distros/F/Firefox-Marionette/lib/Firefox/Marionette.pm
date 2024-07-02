@@ -73,7 +73,7 @@ our @EXPORT_OK =
   qw(BY_XPATH BY_ID BY_NAME BY_TAG BY_CLASS BY_SELECTOR BY_LINK BY_PARTIAL);
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
-our $VERSION = '1.57';
+our $VERSION = '1.59';
 
 sub _ANYPROCESS                     { return -1 }
 sub _COMMAND                        { return 0 }
@@ -274,6 +274,25 @@ sub _setup_geo {
     return $self;
 }
 
+sub tz {
+    my ( $self, $timezone ) = @_;
+    require Firefox::Marionette::Extension::Timezone;
+    my %parameters = ( timezone => $timezone );
+    $self->script(
+        $self->_compress_script(
+            Firefox::Marionette::Extension::Timezone->timezone_contents(
+                %parameters)
+        )
+    );
+    if ( $self->{timezone_extension} ) {
+        $self->uninstall( delete $self->{timezone_extension} );
+    }
+    my $zip = Firefox::Marionette::Extension::Timezone->new(%parameters);
+    $self->{timezone_extension} =
+      $self->_install_extension_by_handle( $zip, 'timezone-0.0.1.xpi' );
+    return $self;
+}
+
 sub geo {
     my ( $self, @parameters ) = @_;
 
@@ -288,6 +307,9 @@ sub geo {
         $self->set_pref( 'geo.wifi.uri',
             q[data:application/json,]
               . JSON->new()->convert_blessed()->encode($location) );
+        if ( my $ipgeolocation_timezone = $location->tz() ) {
+            $self->tz($ipgeolocation_timezone);
+        }
         return $self;
     }
     my $new_location =
@@ -518,7 +540,8 @@ sub _is_trident_user_agent {
 
 sub _parse_user_agent {
     my ( $self, $user_agent ) = @_;
-    my ( $app_version, $platform, $vendor, $vendor_sub, $oscpu );
+    my ( $app_version, $platform, $product, $product_sub, $vendor, $vendor_sub,
+        $oscpu );
 
     # https://developer.mozilla.org/en-US/docs/Web/API/Navigator/userAgent#value
     if ( !defined $user_agent ) {
@@ -536,26 +559,31 @@ sub _parse_user_agent {
         ( my $webkit_app, $app_version, $platform ) = ( $1, $2, $3 );
         $app_version .= q[)];
         ( $vendor, $vendor_sub, $oscpu ) = ( q[], q[], $platform );
+        $product     = 'Gecko';
+        $product_sub = '20100101';
         if ( $self->_is_chrome_user_agent($user_agent) ) {
             $app_version = $webkit_app;
+            $product_sub = '20030107';
             $vendor      = 'Google Inc.';
             $vendor_sub  = q[];
+            $oscpu       = undef;
         }
         elsif ( $self->_is_safari_user_agent($user_agent) ) {
             $app_version = $webkit_app;
+            $product_sub = '20030107';
             if ( $self->_is_safari_and_iphone_user_agent($user_agent) ) {
                 $platform = 'iPhone';
-                $oscpu    = undef;
             }
             else {
                 $platform = 'MacIntel';
-                $oscpu    = $platform;
             }
             $vendor     = 'Apple Computer, Inc.';
             $vendor_sub = q[];
+            $oscpu      = undef;
         }
         elsif ( $self->_is_trident_user_agent($user_agent) ) {
             $app_version = $webkit_app;
+            $product_sub = undef;
             $vendor      = q[];
             $vendor_sub  = undef;
         }
@@ -576,14 +604,17 @@ sub _parse_user_agent {
         }
         elsif ( $user_agent =~ /Android/smx ) {
             $platform = 'Linux armv81';
+            $oscpu    = undef;
         }
     }
     else {
-        ( $app_version, $platform, $vendor, $vendor_sub, $oscpu ) =
-          ( q[], q[], q[], q[], q[] );
+        (
+            $app_version, $platform, $product, $product_sub, $vendor,
+            $vendor_sub,  $oscpu
+        ) = ( q[], q[], q[], q[], q[], q[], q[] );
     }
-    return ( $user_agent, $app_version, $platform, $vendor, $vendor_sub,
-        $oscpu );
+    return ( $user_agent, $app_version, $platform, $product, $product_sub,
+        $vendor, $vendor_sub, $oscpu );
 }
 
 sub _original_agent {
@@ -736,10 +767,9 @@ sub agent {
         else {
             $new_agent = $new_list[0];
         }
-        my (
-            $user_agent, $app_version, $platform,
-            $vendor,     $vendor_sub,  $oscpu
-        ) = $self->_parse_user_agent($new_agent);
+        my ( $user_agent, $app_version, $platform, $product, $product_sub,
+            $vendor, $vendor_sub, $oscpu )
+          = $self->_parse_user_agent($new_agent);
         $self->set_pref( $pref_name,                    $user_agent );
         $self->set_pref( 'general.platform.override',   $platform );
         $self->set_pref( 'general.appversion.override', $app_version );
@@ -782,23 +812,27 @@ sub agent {
         $self->set_pref( 'privacy.donottrackheader.enabled', $false )
           ;    # trying to blend in with the most common options
         if ( $self->{stealth} ) {
-            my %agent_parameters = ( from => $old_agent, to => $user_agent );
+            my %agent_parameters = (
+                from        => $old_agent,
+                to          => $user_agent,
+                app_version => $app_version,
+                platform    => $platform,
+                product     => $product,
+                product_sub => $product_sub,
+                vendor      => $vendor,
+                vendor_sub  => $vendor_sub,
+                oscpu       => $oscpu,
+            );
             $self->script(
                 $self->_compress_script(
-                    <<'_JS_' . Firefox::Marionette::Extension::Stealth->user_agent_contents(%agent_parameters) ), args => [ $user_agent, $app_version, $platform, $vendor, $vendor_sub, $oscpu ] );
-{
-  let navProto = Object.getPrototypeOf(window.navigator);
-  Object.defineProperty(navProto, 'userAgent', {value: arguments[0], writable: true});
-  Object.defineProperty(navProto, 'appVersion', {value: arguments[1], writable: true});
-  Object.defineProperty(navProto, 'platform', {value: arguments[2], writable: true});
-  Object.defineProperty(navProto, 'vendor', {value: arguments[3], writable: true});
-  Object.defineProperty(navProto, 'vendorSub', {value: arguments[4], writable: true});
-  Object.defineProperty(navProto, 'oscpu', {value: arguments[5], writable: true});
-}
-_JS_
+                    Firefox::Marionette::Extension::Stealth
+                      ->user_agent_contents(
+                        %agent_parameters)
+                )
+            );
             $self->uninstall( delete $self->{stealth_extension} );
-            my $zip = Firefox::Marionette::Extension::Stealth->new(
-                $self->_original_agent(), $user_agent );
+            my $zip =
+              Firefox::Marionette::Extension::Stealth->new(%agent_parameters);
             $self->{stealth_extension} =
               $self->_install_extension_by_handle( $zip, 'stealth-0.0.1.xpi' );
         }
@@ -1112,8 +1146,10 @@ sub _setup_ssh_with_reconnect {
                 $self->{marionette_binary} = $proxy->{ssh}->{binary};
                 $self->{_initial_version}  = $proxy->{firefox}->{version};
                 $self->_initialise_version();
-                $self->{_ssh_local_directory} = $ssh_local_directory;
-                $self->{_root_directory}      = $proxy->{ssh}->{root};
+                $self->{_ssh_local_directory}   = $ssh_local_directory;
+                $self->{_root_directory}        = $proxy->{ssh}->{root};
+                $self->{_remote_root_directory} = $proxy->{ssh}->{root};
+
                 if ( defined $proxy->{ssh}->{tmp} ) {
                     $self->{_original_remote_tmp_directory} =
                       $proxy->{ssh}->{tmp};
@@ -1336,6 +1372,9 @@ sub _init {
     }
     if ( defined $parameters{trackable} ) {
         $self->{trackable} = $parameters{trackable};
+    }
+    if ( defined $parameters{timezone} ) {
+        $self->{timezone} = $parameters{timezone};
     }
     $self->_load_specified_extensions(%parameters);
     $self->_determine_mime_types(%parameters);
@@ -4281,7 +4320,7 @@ sub _post_launch_checks_and_setup {
     }
     if ( $self->{stealth} ) {
         my $old_user_agent = $self->agent();
-        my $zip = Firefox::Marionette::Extension::Stealth->new($old_user_agent);
+        my $zip            = Firefox::Marionette::Extension::Stealth->new();
         $self->{stealth_extension} =
           $self->_install_extension_by_handle( $zip, 'stealth-0.0.1.xpi' );
         $self->script(
@@ -7482,6 +7521,9 @@ sub _write_local_proxy {
 sub _setup_profile_directories {
     my ( $self, $profile ) = @_;
     if ( ($profile) && ( $profile->download_directory() ) ) {
+        if ( $self->_ssh() ) {
+            $self->{_root_directory} = $self->_get_remote_root_directory();
+        }
     }
     elsif ( my $ssh = $self->_ssh() ) {
         $self->{_root_directory} = $self->_get_remote_root_directory();
@@ -10789,6 +10831,7 @@ sub title {
 
 sub quit {
     my ( $self, $flags ) = @_;
+    my $ssh_local_directory = $self->ssh_local_directory();
     if ( !$self->alive() ) {
         my $socket = delete $self->{_socket};
         if ($socket) {
@@ -10825,8 +10868,8 @@ sub quit {
         $self->_terminate_process();
     }
     if ( !$self->_reconnected() ) {
-        if ( $self->ssh_local_directory() ) {
-            File::Path::rmtree( $self->ssh_local_directory(), 0, 0 );
+        if ($ssh_local_directory) {
+            File::Path::rmtree( $ssh_local_directory, 0, 0 );
         }
         elsif ( defined $self->root_directory() ) {
             File::Path::rmtree( $self->root_directory(), 0, 0 );
@@ -10924,36 +10967,42 @@ sub _wait_for_firefox_to_exit {
 
 sub _get_remote_root_directory {
     my ($self) = @_;
-    $self->_initialise_remote_uname();
-    my $original_tmp_directory;
-    {
-        local %ENV = %ENV;
-        delete $ENV{TMPDIR};
-        delete $ENV{TMP};
-        $original_tmp_directory =
-             $self->_get_remote_environment_variable_via_ssh('TMPDIR')
-          || $self->_get_remote_environment_variable_via_ssh('TMP')
-          || '/tmp';
-        $original_tmp_directory =~ s/\/$//smx;    # remove trailing / for darwin
-        $self->{_original_remote_tmp_directory} = $original_tmp_directory;
-    }
-    my $name = File::Temp::mktemp('firefox_marionette_remote_XXXXXXXXXXX');
-    my $proposed_tmp_directory =
-      $self->_remote_catfile( $original_tmp_directory, $name );
-    local $ENV{TMPDIR} = $proposed_tmp_directory;
-    my $new_tmp_dir = $self->_get_remote_environment_variable_via_ssh('TMPDIR');
-    my $remote_root_directory;
+    if ( !$self->{_remote_root_directory} ) {
+        $self->_initialise_remote_uname();
+        my $original_tmp_directory;
+        {
+            local %ENV = %ENV;
+            delete $ENV{TMPDIR};
+            delete $ENV{TMP};
+            $original_tmp_directory =
+                 $self->_get_remote_environment_variable_via_ssh('TMPDIR')
+              || $self->_get_remote_environment_variable_via_ssh('TMP')
+              || '/tmp';
+            $original_tmp_directory =~
+              s/\/$//smx;    # remove trailing / for darwin
+            $self->{_original_remote_tmp_directory} = $original_tmp_directory;
+        }
+        my $name = File::Temp::mktemp('firefox_marionette_remote_XXXXXXXXXXX');
+        my $proposed_tmp_directory =
+          $self->_remote_catfile( $original_tmp_directory, $name );
+        local $ENV{TMPDIR} = $proposed_tmp_directory;
+        my $new_tmp_dir =
+          $self->_get_remote_environment_variable_via_ssh('TMPDIR');
+        my $remote_root_directory;
 
-    if (   ( defined $new_tmp_dir )
-        && ( $new_tmp_dir eq $proposed_tmp_directory ) )
-    {
-        $remote_root_directory = $self->_make_remote_directory($new_tmp_dir);
+        if (   ( defined $new_tmp_dir )
+            && ( $new_tmp_dir eq $proposed_tmp_directory ) )
+        {
+            $remote_root_directory =
+              $self->_make_remote_directory($new_tmp_dir);
+        }
+        else {
+            $remote_root_directory = $self->_make_remote_directory(
+                $self->_remote_catfile( $original_tmp_directory, $name ) );
+        }
+        $self->{_remote_root_directory} = $remote_root_directory;
     }
-    else {
-        $remote_root_directory = $self->_make_remote_directory(
-            $self->_remote_catfile( $original_tmp_directory, $name ) );
-    }
-    return $remote_root_directory;
+    return $self->{_remote_root_directory};
 }
 
 sub uname {
@@ -11009,7 +11058,7 @@ sub _get_remote_environment_variable_via_ssh {
 sub _cleanup_remote_filesystem {
     my ($self) = @_;
     if (   ( my $ssh = $self->_ssh() )
-        && ( defined $self->{_root_directory} ) )
+        && ( defined $self->_get_remote_root_directory() ) )
     {
         my $binary     = 'rm';
         my @parameters = ('-Rf');
@@ -11017,7 +11066,7 @@ sub _cleanup_remote_filesystem {
             $binary     = 'rmdir';
             @parameters = ( '/S', '/Q' );
         }
-        my @remote_directories = ( $self->{_root_directory} );
+        my @remote_directories = ( $self->_get_remote_root_directory() );
         if ( $self->{_original_remote_tmp_directory} ) {
             foreach my $sandbox ( sort { $a cmp $b } keys %{ $ssh->{sandbox} } )
             {
@@ -11833,15 +11882,20 @@ sub _get_xpi_path {
     return $xpi_path;
 }
 
+sub _addons_directory {
+    my ($self) = @_;
+    return $self->{_addons_directory};
+}
+
 sub install {
     my ( $self, $path, $temporary ) = @_;
     my $xpi_path = $self->_get_xpi_path($path);
     my $actual_path;
     if ( $self->_ssh() ) {
-        if ( !$self->{_addons_directory} ) {
-            $self->{_addons_directory} =
-              $self->_make_remote_directory(
-                $self->_remote_catfile( $self->_root_directory(), 'addons' ) );
+        if ( !$self->_addons_directory() ) {
+            $self->{_root_directory}   = $self->_get_remote_root_directory();
+            $self->{_addons_directory} = $self->_make_remote_directory(
+                $self->_remote_catfile( $self->{_root_directory}, 'addons' ) );
         }
         my ( $volume, $directories, $name ) =
           File::Spec->splitpath("$xpi_path");
@@ -11849,7 +11903,7 @@ sub install {
           or Firefox::Marionette::Exception->throw(
             "Failed to open '$xpi_path' for reading:$EXTENDED_OS_ERROR");
         binmode $handle;
-        my $addons_directory = $self->{_addons_directory};
+        my $addons_directory = $self->_addons_directory();
         $actual_path = $self->_remote_catfile( $addons_directory, $name );
         $self->_put_file_via_scp( $handle, $actual_path, 'addon ' . $name );
         if ( $self->_remote_uname() eq 'cygwin' ) {
@@ -12152,7 +12206,7 @@ Firefox::Marionette - Automate the Firefox browser with the Marionette protocol
 
 =head1 VERSION
 
-Version 1.57
+Version 1.59
 
 =head1 SYNOPSIS
 
@@ -12183,7 +12237,7 @@ This is a client module to automate the Mozilla Firefox browser via the L<Marion
 
 =head2 BCD_PATH
 
-returns the local path used for storing the brower compability data for the L<agent|/agent> method when the <code>stealth</code> parameter is supplied to the L<new|/new> method.  This database is built by the build-bcd-for-firefox binary.
+returns the local path used for storing the brower compability data for the L<agent|/agent> method when the C<stealth> parameter is supplied to the L<new|/new> method.  This database is built by the L<build-bcd-for-firefox|https://metacpan.org/pod/build-bcd-for-firefox> binary.
 
 =head1 SUBROUTINES/METHODS
 
@@ -12508,7 +12562,7 @@ These parameters can be used to set a user agent string like so;
     # user agent is now equal to
     # Mozilla/5.0 (X11; Linux s390x; rv:109.0) Gecko/20100101 Firefox/115.0
 
-If the C<stealth> parameter has supplied to the L<new|/new> method, it will also attempt to delete/provide dummy implementations for number of L<javascript attributes|https://github.com/mdn/browser-compat-data> to match the desired browser.  The following websites have been very useful in testing these ideas;
+If the C<stealth> parameter has supplied to the L<new|/new> method, it will also attempt to create known specific javascript functions to imitate the required browser.  If the database built by L<build-bcd-for-firefox|https://metacpan.org/pod/build-bcd-for-firefox> is accessible, then it will also attempt to delete/provide dummy implementations for the corresponding L<javascript attributes|https://github.com/mdn/browser-compat-data> for the desired browser.  The following websites have been very useful in testing these ideas;
 
 =over 4
 
@@ -12695,7 +12749,7 @@ accepts a L<certificate stored in the Firefox database|Firefox::Marionette::Cert
         }
     }
 
-The L<ca-bundle-for-firefox|ca-bundle-for-firefox> command that is provided as part of this distribution does this.
+The L<ca-bundle-for-firefox|https://metacpan.org/pod/ca-bundle-for-firefox> command that is provided as part of this distribution does this.
 
 =head2 certificates
 
@@ -13336,7 +13390,9 @@ NOTE: firefox will only allow L<Geolocation|https://developer.mozilla.org/en-US/
 
     warn "Apparently, we're now at " . Firefox::Marionette->new( proxy => 'https://this.is.another.location:3128', geo => 'https://freeipapi.com/api/json/' )->go('https://maps.google.com/')->geo();
 
-NOTE: currently this call sets the location to be exactly what is specified.  It doesn't change anything else relevant (yet, but it may in future), such as L<languages|/languages> or the L<timezone|https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/getTimezoneOffset>.  This function should be considered experimental.  Feedback welcome.
+NOTE: currently this call sets the location to be exactly what is specified.  It will also attempt to modify the current timezone (if available in the L<geo location|Firefox::Marionette::GeoLocation> parameter) to match the specified L<timezone|Firefox::Marionette::GeoLocation#tz>.  This function should be considered experimental.  Feedback welcome.
+
+If particular, the L<ipgeolocation API|https://ipgeolocation.io/documentation/ip-geolocation-api.html> is the only API that currently providing geolocation data and matching timezone data in one API call.  If anyone finds/develops another similar API, I would be delighted to include support for it in this module.
 
 =head2 go
 
@@ -13904,13 +13960,23 @@ accepts an optional hash as a parameter.  Allowed keys are below;
 
 =item * profile - create a new profile based on the supplied L<profile|Firefox::Marionette::Profile>.  NOTE: firefox ignores any changes made to the profile on the disk while it is running, instead, use the L<set_pref|/set_pref> and L<clear_pref|/clear_pref> methods to make changes while firefox is running.
 
-=item * profile_name - pick a specific existing profile to automate, rather than creating a new profile.  L<Firefox|https://firefox.com> refuses to allow more than one instance of a profile to run at the same time.  Profile names can be obtained by using the L<Firefox::Marionette::Profile::names()|Firefox::Marionette::Profile#names> method.  NOTE: firefox ignores any changes made to the profile on the disk while it is running, instead, use the L<set_pref|/set_pref> and L<clear_pref|/clear_pref> methods to make changes while firefox is running.
+=item * profile_name - pick a specific existing profile to automate, rather than creating a new profile.  L<Firefox|https://firefox.com> refuses to allow more than one instance of a profile to run at the same time.  Profile names can be obtained by using the L<Firefox::Marionette::Profile::names()|Firefox::Marionette::Profile#names> method. The following conditions are required to use existing profiles;
+
+=over 8
+
+=item * the preference C<security.webauth.webauthn_enable_softtoken> must be set to C<true> in the profile OR
+
+=item * the C<webauth> parameter to this method must be set to C<0>
+
+=back
+
+NOTE: firefox ignores any changes made to the profile on the disk while it is running, instead, use the L<set_pref|/set_pref> and L<clear_pref|/clear_pref> methods to make changes while firefox is running.
 
 =item * proxy - this is a shortcut method for setting a L<proxy|Firefox::Marionette::Proxy> using the L<capabilities|Firefox::Marionette::Capabilities> parameter above.  It accepts a proxy URL, with the following allowable schemes, 'http' and 'https'.  It also allows a reference to a list of proxy URLs which will function as list of proxies that Firefox will try in L<left to right order|https://developer.mozilla.org/en-US/docs/Web/HTTP/Proxy_servers_and_tunneling/Proxy_Auto-Configuration_PAC_file#description> until a working proxy is found.  See L<REMOTE AUTOMATION OF FIREFOX VIA SSH|/REMOTE-AUTOMATION-OF-FIREFOX-VIA-SSH>, L<NETWORK ARCHITECTURE|/NETWORK-ARCHITECTURE> and L<SETTING UP SOCKS SERVERS USING SSH|Firefox::Marionette::Proxy#SETTING-UP-SOCKS-SERVERS-USING-SSH>.
 
 =item * reconnect - an experimental parameter to allow a reconnection to firefox that a connection has been discontinued.  See the survive parameter.
 
-=item * scp - force the scp protocol when transferring files to remote hosts via ssh. See L<REMOTE AUTOMATION OF FIREFOX VIA SSH|/REMOTE-AUTOMATION-OF-FIREFOX-VIA-SSH> and the --scp-only option in the L<ssh-auth-cmd-marionette|ssh-auth-cmd-marionette> script in this distribution.
+=item * scp - force the scp protocol when transferring files to remote hosts via ssh. See L<REMOTE AUTOMATION OF FIREFOX VIA SSH|/REMOTE-AUTOMATION-OF-FIREFOX-VIA-SSH> and the --scp-only option in the L<ssh-auth-cmd-marionette|https://metacpan.org/pod/ssh-auth-cmd-marionette> script in this distribution.
 
 =item * script - a shortcut to allow directly providing the L<script|Firefox::Marionette::Timeout#script> timeout, instead of needing to use timeouts from the capabilities parameter.  Overrides all longer ways.
 
@@ -14454,6 +14520,10 @@ accepts a L<element|Firefox::Marionette::Element> as the first parameter and ret
 
 returns the current L<timeouts|Firefox::Marionette::Timeouts> for page loading, searching, and scripts.
 
+=head2 tz
+
+accepts a L<Olson TZ identifier|https://en.wikipedia.org/wiki/List_of_tz_database_time_zones#List> as the first parameter. This method returns L<itself|Firefox::Marionette> to aid in chaining methods.
+
 =head2 title
 
 returns the current L<title|https://developer.mozilla.org/en-US/docs/Web/HTML/Element/title> of the window.
@@ -14741,7 +14811,7 @@ the combination of a variety of parameter names and the ability to pass paramete
 
 These sites were active at the time this documentation was written, but mainly function as an illustration of the flexibility of L<geo|/geo> and L<json|/json> methods in providing the desired location to the L<Geolocation API|https://developer.mozilla.org/en-US/docs/Web/API/Geolocation_API>.
 
-The L<country_code|Firefox::Marionette::GeoLocation#country_code> and L<timezone_offset|Firefox::Marionette::GeoLocation#timezone_offset> methods can be used to help set the L<languages|/languages> method and possibly in the future change the timezone of the browser.
+As mentioned in the L<geo|/geo> method documentation, the L<ipgeolocation API|https://ipgeolocation.io/documentation/ip-geolocation-api.html> is the only API that currently providing geolocation data and matching timezone data in one API call.  If this url is used, the L<tz|/tz> method will be automatically called to set the timezone to the matching timezone for the geographic location.
 
 =head1 CONSOLE LOGGING
 
@@ -14792,7 +14862,7 @@ This module has support for creating and automating an instance of Firefox on a 
 
     no-agent-forwarding,no-pty,no-X11-forwarding,permitopen="127.0.0.1:*",command="/usr/local/bin/ssh-auth-cmd-marionette" ssh-rsa AAAA ... == user@server
 
-As an example, the L<ssh-auth-cmd-marionette|ssh-auth-cmd-marionette> command is provided as part of this distribution.
+As an example, the L<ssh-auth-cmd-marionette|https://metacpan.org/pod/ssh-auth-cmd-marionette> command is provided as part of this distribution.
 
 The module will expect to access private keys via the local L<ssh-agent|https://man.openbsd.org/ssh-agent> when authenticating.
 
@@ -14859,6 +14929,8 @@ There are a collection of methods and techniques that may be useful if you would
 =item * the L<geo|/geo> method, which allows the modification of the L<Geolocation|https://developer.mozilla.org/en-US/docs/Web/API/Geolocation> reported by the browser, but not the location produced by mapping the external IP address used by the browser (see the L<NETWORK ARCHITECTURE|/NETWORK-ARCHITECTURE> section for a discussion of different types of proxies that can be used to change your external IP address).
 
 =item * the L<languages|/languages> method, which can change the L<requested languages|https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Language> for your browser session.
+
+=item * the L<tz|/tz> method, which can change the L<timezone|https://en.wikipedia.org/wiki/List_of_tz_database_time_zones#List> for your browser session.
 
 =back
 

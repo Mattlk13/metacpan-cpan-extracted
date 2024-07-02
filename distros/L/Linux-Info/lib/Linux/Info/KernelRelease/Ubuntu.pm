@@ -2,7 +2,7 @@ package Linux::Info::KernelRelease::Ubuntu;
 
 use warnings;
 use strict;
-use parent 'Linux::Info::KernelRelease';
+use base 'Linux::Info::KernelRelease';
 use Carp qw(confess);
 use Class::XSAccessor getters => {
     get_abi_bump => 'abi_bump',
@@ -11,7 +11,7 @@ use Class::XSAccessor getters => {
     get_sig_raw  => 'sig_raw',
 };
 
-our $VERSION = '2.16'; # VERSION
+our $VERSION = '2.19'; # VERSION
 
 # ABSTRACT: a subclass of Linux::Info::KernelRelease specific to parse Ubuntu kernel information
 
@@ -65,7 +65,7 @@ Linux::Info::KernelRelease::Ubuntu - a subclass of Linux::Info::KernelRelease sp
 
 =head1 VERSION
 
-version 2.16
+version 2.19
 
 =head1 METHODS
 

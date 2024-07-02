@@ -1,5 +1,7 @@
 =pod
 
+=encoding utf8
+
 =head1 NAME
 
 Kelp::Manual::Cookbook - Recipes for Kelp dishes
@@ -96,7 +98,7 @@ A slightly shorter version with state variables and no ping:
         ]);
     }
 
-Same methods can be used for accessing the schema of <DBIx::Class>.
+Same methods can be used for accessing the schema of L<DBIx::Class>.
 
 =head2 Custom 404 and 500 error pages
 
@@ -226,6 +228,132 @@ use L<Plack::Middleware::ReverseProxy>.
 
 (REMOTE_ADDR is not set at all when using the proxy via filesocket).
 
+=head2 Changing the default access logging
+
+Access logs reported by Kelp through C<logger> can be modified or disabled by
+writing your own customized L<Kelp/before_dispatch> method (not calling the
+parent version).
+
+    sub before_dispatch {} # enough to disable the access logs
+
+=head2 Using sessions
+
+In order to have access to L<Kelp::Request/session> a
+L<Plack::Middleware::Session> middleware must be initialized. In your config
+file:
+
+    middleware => ['Session'],
+    middleware_init => {
+        Session => {
+            store => 'File'
+        }
+    }
+
+Note that you pretty much need to choose a C<store> right away, as otherwise it
+will store data in memory, which is both volatile and does not work with
+multi-process servers.
+
+=head2 Responding in the same charset as request
+
+Kelp usually uses its own L<Kelp/charset> as response encoding, but makes it
+easy to use the same charset in response as the one you got in request:
+
+    use utf8;
+
+    $self->add_route('/copy_charset' => sub {
+        my $self = shift;
+
+        $self->res->charset($self->req->charset);
+        return 'et voilà!';
+    });
+
+Note that request charset is only actually used if the C<Content-Type> of the
+request is either C<text/*> or C<application/*>.
+
+=head2 Custom encodings in requests and responses
+
+It is trivial to extend L<Kelp::Request> and L<Kelp::Response> to make it
+seamlessly handle other serialization schemes, for example YAML (through
+L<Kelp::Module::YAML>):
+
+(Note that there is C<kelp_extensions> flag in
+L<Kelp::Module::YAML/CONFIGURATION>, which will install this logic
+automatically right into base Kelp packages, so this is just an example for
+custom encodings)
+
+=head3 Extending Request
+
+    package YAML::Request;
+    use Kelp::Base 'Kelp::Request';
+    use Try::Tiny;
+
+    sub is_yaml {
+        my $self = shift;
+        return 0 unless $self->content_type;
+        return $self->content_type =~ m{^text/yaml}i;
+    }
+
+    sub yaml_content {
+        my $self = shift;
+        return undef unless $self->is_yaml;
+
+        return try {
+            $self->app->get_encoder(yaml => 'internal')->decode($self->content);
+        }
+        catch {
+            undef;
+        };
+    }
+
+=head3 Extending Response
+
+    package YAML::Response;
+    use Kelp::Base 'Kelp::Response';
+
+    sub yaml {
+        my $self = shift;
+        $self->set_content_type('text/yaml', $self->charset || $self->app->charset);
+        return $self;
+    }
+
+    sub _render_ref {
+        my ($self, $body) = @_;
+
+        if ($self->content_type =~ m{^text/yaml}i) {
+            return $self->app->get_encoder(yaml => 'internal')->encode($body);
+        }
+        else {
+            return $self->SUPER::_render_ref($body);
+        }
+    }
+
+=head3 Using it in an app
+
+    use Kelp::Exception;
+
+    sub build {
+        my $self = shift;
+
+        $self->load_module('YAML');
+        $self->request_obj('YAML::Request');
+        $self->response_obj('YAML::Response');
+
+        $self->add_route('/yaml' => 'handler');
+    }
+
+    sub handler {
+        my $self = shift;
+        my $yaml_document = $self->req->yaml_content;
+
+        Kelp::Exception->throw(400)
+            unless defined $yaml_document;
+
+        # ... do something with $yaml_document
+
+        $self->res->yaml;
+        return $yaml_document;
+    }
+
 =head1 SEE ALSO
 
 L<Kelp::Manual>
@@ -238,8 +366,9 @@ L<Plack>
 
 =over
 
-=item * GitHub: L<https://github.com/sgnix/kelp>
+=item * GitHub: L<https://github.com/Kelp-framework/Kelp>
 
-=item * Mailing list: L<https://groups.google.com/forum/?fromgroups#!forum/perl-kelp>
+=item * Mailing list: L<https://groups.google.com/g/perl-kelp>
 
 =back
+

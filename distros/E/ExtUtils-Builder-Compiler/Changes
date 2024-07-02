@@ -1,5 +1,20 @@
 Revision history for ExtUtils-Builder-Compiler
 
+0.008     2024-06-28 12:36:56+02:00 Europe/Brussels
+          - Simplify libperl linking logic on Windows
+
+0.007     2024-06-18 20:39:07+02:00 Europe/Brussels
+          - Use split_like_shell instead of shellwords
+          - Fix adding of libraries for MSVC
+
+0.006     2024-06-17 18:52:59+02:00 Europe/Brussels
+          - Fix ranking of libperl argument on Windows
+          - Correct initialization of Linker::PE::MSVC
+
+0.005     2024-06-16 18:17:46+02:00 Europe/Brussels
+          - Simplify executable check
+          - Reorder libperl argument on Windows
+
 0.004     2024-05-14 10:38:55+02:00 Europe/Brussels
           - Set default export value for Linker::PE::GCC
           - Correct loading ExtUtils::Builder::Action::Function in Linker

@@ -1,0 +1,219 @@
+NAME
+
+    Data::Checks - Value constraint checking
+
+SYNOPSIS
+
+    With Signature::Attribute::Checked:
+
+       use v5.26;
+       use Sublike::Extended;
+       use Signature::Attribute::Checked;
+    
+       use Data::Checks qw( Str );
+    
+       extended sub greet ( $message :Checked(Str) ) {
+          say "Hello, $message";
+       }
+    
+       greet( "world" );  # is fine
+       greet( undef );    # throws an exception
+
+    With Object::Pad::FieldAttr::Checked:
+
+       use v5.22;
+       use Object::Pad;
+       use Object::Pad::FieldAttr::Checked;
+    
+       use Data::Checks qw( Str );
+    
+       class Datum {
+          field $name :param :reader :Checked(Str);
+       }
+    
+       my $x = Datum->new( name => "something" );  # is fine
+       my $y = Datum->new( name => undef );        # throws an exception
+
+DESCRIPTION
+
+    This module provides functions that implement various value constraint
+    checking behaviours. These are the parts made visible by the use
+    Data::Checks ... import line, in Perl code.
+
+    It also provides the underlying common framework XS functions to assist
+    in writing modules that actually implement such constraint checking.
+    These parts are not visible in Perl code, but instead made visible at
+    the XS level by the #include "DataChecks.h" directive.
+
+CONSTRAINTS
+
+    The following constraint checks are inspired by the same-named ones in
+    Types::Standard. They may be called fully-qualified, or imported
+    lexically into the calling scope.
+
+    Note to users familiar with Types::Standard: some of these functions
+    behave slightly differently. In particular, these constraints are
+    generally happy to accept an object reference to a class that provides
+    a conversion overload, whereas the ones in Types::Standard often are
+    not. Additionally functions that are parametric take their parameters
+    in normal Perl function argument lists, not wrapped in additional array
+    references.
+
+ Defined
+
+       Defined()
+
+    Accepts any defined value, rejects only undef.
+
+ Object
+
+       Object()
+
+    Accepts any blessed object reference, rejects non-references or
+    references to unblessed data.
+
+ Str
+
+       Str()
+
+    Accepts any defined non-reference value, or a reference to an object in
+    a class that overloads stringification. rejects undefined, unblessed
+    references, or references to objects in classes that do not overload
+    stringification.
+
+ Num
+
+       Num()
+
+    Accepts any defined non-reference value that is either a plain number,
+    or a string that could be used as one without warning, or a reference
+    to an object in a class that overloads numification. rejects undefined,
+    strings that would raise a warning if converted to a number, unblessed
+    references, or references to objects in classes that do not overload
+    numification.
+
+ Isa
+
+       Isa($classname)
+
+    Since version 0.04.
+
+    Accepts any blessed object reference to an instance of the given class
+    name, or a subclass derived from it (i.e. anything accepted by the isa
+    operator).
+
+ Maybe
+
+       Maybe($C)
+
+    Since version 0.04.
+
+    Accepts undef in addition to anything else accepted by the given
+    constraint.
+
+XS FUNCTIONS
+
+    The following functions are provided by the DataChecks.h header file
+    for use in XS modules that implement value constraint checking.
+
+ boot_data_checks
+
+       void boot_data_checks(double ver);
+
+    Call this function from your BOOT section in order to initialise the
+    module and load the rest of the support functions.
+
+    ver should either be 0 or a decimal number for the module version
+    requirement; e.g.
+
+       boot_data_checks(0.01);
+
+ make_checkdata
+
+       struct DataChecks_Checker *make_checkdata(SV *checkspec);
+
+    Creates a struct DataChecks_Checker structure, which wraps the intent
+    of the value constraint check. The returned value is used as the
+    checker argument for the remaining functions.
+
+    The constraint check itself is specified by the SV given by checkspec,
+    which should come directly from the user code. The constraint check may
+    be specified in any of three ways:
+
+      * An object reference in a class which has a check method. Value
+      checks will be invoked as
+
+         $ok = $checkerobj->check( $value );
+
+      * A package name as a plain string of a package which has a check
+      method. Value checks will be invoked as
+
+         $ok = $checkerpkg->check( $value );
+
+      * A code reference. Value checks will be invoked with a single
+      argument, as
+
+         $ok = $checkersub->( $value );
+
+      * Additionally, the constraint check functions provided by this
+      module may be implemented using any of the above mechanisms, or may
+      use an unspecified fourth different mechanism. Outside code should
+      not rely on what that mechanism may be.
+
+    Once constructed into a checker structure, the choice of which
+    implementation is used is fixed, and if a method lookup is involved its
+    result is stored directly as a CV pointer for efficiency of later
+    invocations. In either of the first two cases, the reference count on
+    the checkspec SV is increased to account for the argument value used on
+    each invocation. In the third case, the reference SV is not retained,
+    but the underlying CV it refers to has its reference count increased.
+
+ free_checkdata
+
+       void free_checkdata(struct DataChecks_Checker *checker);
+
+    Releases any stored SVs in the checker structure, and the structure
+    itself.
+
+ gen_assertmess
+
+       void gen_assertmess(struct DataChecks_Checker *checker, SV *name, SV *constraint);
+
+    Generates and stores a message string for the assert message to be used
+    by "make_assertop" and "assert_value". The message will take the form
+
+       NAME requires a value satisfying CONSTRAINT
+
+    Both name and constraint SVs used as temporary strings to generate the
+    stored message string. Neither SV is retained by the checker directly.
+
+ make_assertop
+
+       OP *make_assertop(struct DataChecks_Checker *checker, OP *argop);
+
+    Creates an optree fragment for a value check assertion operation.
+
+    Given an optree fragment in scalar context that generates an argument
+    value (argop), constructs a larger optree fragment that consumes it and
+    checks that the value is accepted by the constraint check given by
+    checker. The returned optree fragment will operate in void context
+    (i.e. it does not yield the argument value itself).
+
+ check_value
+
+       bool check_value(struct DataChecks_Checker *checker, SV *value);
+
+    Checks whether a given SV is accepted by the given constraint check,
+    returning true if so, or false if not.
+
+ assert_value
+
+       void assert_value(struct DataChecks_Checker *checker, SV *value);
+
+    Checks whether a given SV is accepted by the given constraint check,
+    throwing its assertion message if it does not.
+
+AUTHOR
+
+    Paul Evans <leonerd@leonerd.org.uk>
+

@@ -6,7 +6,7 @@ use POSIX qw(strftime);
 use UNIVERSAL;
 use Linux::Info::Compilation;
 
-our $VERSION = '2.16'; # VERSION
+our $VERSION = '2.19'; # VERSION
 
 # ABSTRACT: API in Perl to recover information about the running Linux OS
 
@@ -159,7 +159,7 @@ Linux::Info - API in Perl to recover information about the running Linux OS
 
 =head1 VERSION
 
-version 2.16
+version 2.19
 
 =head1 SYNOPSIS
 
@@ -233,25 +233,29 @@ higher Kwalitee;
 
 =head1 TECHNICAL NOTE
 
-This distribution collects statistics by the virtual F</proc> filesystem (procfs) and is
-developed on the default vanilla kernel. It is tested on x86 hardware with the distributions
-RHEL, Fedora, Debian, Ubuntu, Asianux, Slackware, Mandriva and openSuSE (SLES on zSeries as
-well but a long time ago) on kernel versions 2.4 and/or 2.6. It's possible that it doesn't
-run on all linux distributions if some procfs features are deactivated or too much modified.
-As example the Linux kernel 2.4 can compiled with the option C<CONFIG_BLK_STATS> what turn
-on or off block statistics for devices.
+This distribution collects statistics by the virtual F</proc> filesystem
+(procfs) and is developed on the default vanilla kernel. It is tested on x86
+hardware with the distributions RHEL, Fedora, Debian, Ubuntu, Asianux,
+Slackware, Mandriva and openSuSE (SLES on zSeries as well but a long time ago)
+on kernel versions 2.4 and/or 2.6. It's possible that it doesn't run on all
+Linux distributions if some procfs features are deactivated or too much modified.
+
+As example the Linux kernel 2.4 can compiled with the option C<CONFIG_BLK_STATS>
+what turn on or off block statistics for devices.
 
 =head1 VIRTUAL MACHINES
 
 Note that if you try to install or run C<Linux::Info> under virtual machines
-on guest systems that some statistics are not available, such as C<SockStats>, C<PgSwStats>
-and C<DiskStats>. The reason is that not all F</proc> data are passed to the guests.
+on guest systems that some statistics are not available, such as C<SockStats>,
+C<PgSwStats> and C<DiskStats>. The reason is that not all F</proc> data are
+passed to the guests.
 
-If the installation fails then try to force the installation with
+If the installation fails then try to force the installation with:
 
     cpan> force install Linux::Info
 
-and notice which tests fails, because these statistics maybe not available on the virtual machine - sorry.
+and notice which tests fails, because these statistics maybe not available on
+the virtual machine - sorry.
 
 =head1 DELTAS
 
@@ -278,15 +282,19 @@ The Linux Programmer's Manual
 
 L<http://www.kernel.org/doc/man-pages/online/pages/man5/proc.5.html>
 
-If you have questions or don't understand the sense of some statistics then take a look
-into this awesome documentation.
+If you have questions or don't understand the sense of some statistics then
+take a look into this awesome documentation.
 
 =head1 OPTIONS FOR NEW INSTANCES
 
-During the creation of new instances of L<Linux::Info>, you can pass as parameters to the C<new> method different statistics to
+During the creation of new instances of L<Linux::Info>, you can pass as
+parameters to the C<new> method different statistics to
 collect. The statistics available are those listed on L</DELTAS>.
 
-You can use the L</DELTAS> by using their respective package names in lowercase. To activate the gathering of statistics you have to set the options by the call of C<new()> or C<set()>.
+You can use the L</DELTAS> by using their respective package names in lowercase
+. To activate the gathering of statistics you have to set the options by the
+call of C<new()> or C<set()>.
+
 In addition you can deactivate statistics with C<set()>.
 
 The options must be set with one of the following values:
@@ -360,33 +368,76 @@ The initial statistics are stored to the temporary file:
     pswpout: 272
     time: 1236783534.9328
 
-Every time you call the script the initial statistics are loaded/stored from/to the file.
-This could be helpful if you doesn't run it as daemon and if you want to calculate the
-average load of your system since the last call.
+Every time you call the script the initial statistics are loaded/stored from/to
+the file. This could be helpful if you doesn't run it as daemon and if you want
+to calculate the average load of your system since the last call.
 
-To get more information about the statistics refer the different modules of the distribution.
+To get more information about the statistics refer the different modules of the
+distributions below:
 
-    cpustats    -  Collect cpu statistics                  with Linux::Info::CpuStats.
-    procstats   -  Collect process statistics              with Linux::Info::ProcStats.
-    memstats    -  Collect memory statistics               with Linux::Info::MemStats.
-    pgswstats   -  Collect paging and swapping statistics  with Linux::Info::PgSwStats.
-    netstats    -  Collect net statistics                  with Linux::Info::NetStats.
-    sockstats   -  Collect socket statistics               with Linux::Info::SockStats.
-    diskstats   -  Collect disk statistics                 with Linux::Info::DiskStats.
-    diskusage   -  Collect the disk usage                  with Linux::Info::DiskUsage.
-    loadavg     -  Collect the load average                with Linux::Info::LoadAVG.
-    filestats   -  Collect inode statistics                with Linux::Info::FileStats.
-    processes   -  Collect process statistics              with Linux::Info::Processes.
+=over
 
-The options just described don't apply to L<Linux::Info::SysInfo> since this module doesn't hold statistics from the OS.
-If you try to use it C<Linux::Info> will C<die> with an error message. In order to use L<Linux::Info::SysInfo>, just
-create an instance of it directly. See L<Linux::Info::SysInfo> for information on that.
+=item *
+
+Collect CPU load statistics using L<Linux::Info::CpuStats>
+
+=item *
+
+Collect process statistics using L<Linux::Info::ProcStats>
+
+=item *
+
+Collect memory statistics using L<Linux::Info::MemStats>
+
+=item *
+
+Collect paging and swapping statistics using L<Linux::Info::PgSwStats>
+
+=item *
+
+Collect net statistics using L<Linux::Info::NetStats>
+
+=item *
+
+Collect socket statistics using L<Linux::Info::SockStats>
+
+=item *
+
+Collect disk statistics using L<Linux::Info::DiskStats>
+
+=item *
+
+Collect the disk usage using L<Linux::Info::DiskUsage>
+
+=item *
+
+Collect the load average using L<Linux::Info::LoadAVG>
+
+=item *
+
+Collect inode statistics using L<Linux::Info::FileStats>
+
+=item *
+
+Collect process statistics using L<Linux::Info::Processes>
+
+=back
+
+Besides statistics, it is possible to retrieve qualitative information from
+the host by using L<Linux::Info::SysInfo> B<but> the options just described
+do not apply to it. If you try to use it C<Linux::Info> will C<die> with an
+error message.
+
+In order to use L<Linux::Info::SysInfo>, just create an instance of it
+directly. See L<Linux::Info::SysInfo> for information on that.
 
 =head1 METHODS
 
 =head2 new()
 
-Call C<new()> to create a new Linux::Info object. You can call C<new()> with options.
+Call C<new()> to create a new Linux::Info object. You can call C<new()> with
+options.
+
 This options would be passed to the method C<set()>.
 
 Without options
@@ -448,9 +499,7 @@ Or you can pass the time to sleep with the call of C<get()>.
 Now the statistcs are available with
 
     $stat->cpustats
-
     # or
-
     $stat->{cpustats}
 
 Take a look to the documentation of L<Linux::Info::Compilation> for more information.
@@ -591,7 +640,7 @@ Nothing.
 
 =item *
 
-The L<Sys::Statistics::Linux> distribution, which is base of Linux::Info
+The L<Sys::Statistics::Linux> distribution, which is the base of C<Linux::Info>.
 
 =item *
 

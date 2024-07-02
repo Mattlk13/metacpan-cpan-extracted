@@ -4,7 +4,7 @@ Data::Enum - immutable enumeration classes
 
 # VERSION
 
-version v0.2.7
+version v0.5.0
 
 # SYNOPSIS
 
@@ -16,9 +16,9 @@ my $color = Data::Enum->new( qw[ red yellow blue green ] );
 my $red = $color->new("red");
 
 $red->is_red;    # "1"
-$red->is_yellow; # "" (false)
-$red->is_blue;   # "" (false)
-$red->is_green;  # "" (false)
+$red->is_yellow; # "0" (false)
+$red->is_blue;   # "0" (false)
+$red->is_green;  # "0" (false)
 
 say $red;        # outputs "red"
 
@@ -38,7 +38,7 @@ properties:
 
     ```perl
     my $one = Data::Enum->new( qw[ foo bar baz ] );
-    my $two = Data::Enum->new( qw[ foo bar baz ] );
+    my $two = Data::Enum->new( qw[ baz bar foo ] );
     ```
 
 - All class instances are singletons.
@@ -64,7 +64,7 @@ properties:
 
 This is done by creating a unique internal class name based on the
 possible values.  Each value is actually a subclass of that class,
-with the appropriate `is_` method returning a constant.
+with the appropriate predicate method returning a constant.
 
 # METHODS
 
@@ -83,9 +83,44 @@ my $instance = $class->new( $value );
 
 Calling the constructor with an invalid value will throw an exception.
 
-Each instance will have an `is_` method for each value.
+Each instance will have a predicate `is_` method for each value.
+
+The values are case sensitive.
 
 Each instance stringifies to its value.
+
+Since v0.3.0 you can change the specify options in the class generator:
+
+```perl
+my $class = Data::Enum->new( \%options, @values );
+```
+
+The following options are supported:
+
+- prefix
+
+    Change prefix of the predicate methods to something other than `is_`. For example,
+
+    ```perl
+    my $class = Data::Enum->new( { prefix => "from_" }, "home", "work" );
+    my $place = $class->new("work");
+
+    $place->from_home;
+    ```
+
+    This was added in v0.3.0.
+
+- name
+
+    This assigns a name to the class, so instances can be constructed by name:
+
+    ```perl
+    my $class = Data::Enum->new( { name => "Colours" }, "red", "orange", "yellow", "green" );
+
+    my $color = Colours->new("yellow");
+    ```
+
+    This was added in v0.5.0.
 
 ## values
 
@@ -116,9 +151,21 @@ my %handlers = mesh [ $class->values ], [ $class->predicates ];
 
 This was added in v0.2.1.
 
+## prefix
+
+This returns the prefix.
+
+This was added in v0.3.0.
+
 ## MATCH
 
 This method adds support for [match::simple](https://metacpan.org/pod/match%3A%3Asimple).
+
+## as\_string
+
+This stringifies the the object.
+
+This was added in v0.4.0.
 
 # CAVEATS
 
@@ -127,7 +174,7 @@ strings.  When using this in production code, you may want to benchmark performa
 
 # SUPPORT FOR OLDER PERL VERSIONS
 
-This module requires Perl v5.10 or later.
+This module requires Perl v5.14 or later.
 
 Future releases may only support Perl versions released in the last ten years.
 
@@ -163,7 +210,7 @@ Robert Rothenberg <rrwo@cpan.org>
 
 # COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2021-2023 by Robert Rothenberg.
+This software is Copyright (c) 2021-2024 by Robert Rothenberg.
 
 This is free software, licensed under:
 

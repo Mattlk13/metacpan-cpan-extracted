@@ -1,4 +1,4 @@
-package Mojolicious::Plugin::Authentication::OIDC 0.04;
+package Mojolicious::Plugin::Authentication::OIDC 0.06;
 use v5.26;
 use warnings;
 
@@ -66,7 +66,7 @@ Readonly::Array my @REQUIRED_PARAMS => qw(
   public_key
 );
 Readonly::Array my @ALLOWED_PARAMS => qw(
-  client_id on_login on_activity
+  client_id on_login on_activity base_url
 );
 Readonly::Hash my %DEFAULT_PARAMS => (
   login_path    => '/auth/login',
@@ -289,7 +289,7 @@ sub register($self, $app, $params) {
   $app->helper(
     $params_helper => sub {
       return {map {$_ => $conf{$_}}
-          qw(auth_endpoint scope response_type login_path token_endpoint client_id client_secret grant_type on_error on_success logout_endpoint)
+          qw(auth_endpoint scope response_type login_path token_endpoint client_id client_secret grant_type on_error on_success logout_endpoint base_url)
       };
     }
   );
@@ -300,14 +300,17 @@ sub register($self, $app, $params) {
     $token_helper => sub($c, $token = undef, $decode = 1) {
       my $t = $token // $conf{get_token}->($c);
       return $t unless ($decode);
-      return decode_jwt(token => ($token // $conf{get_token}->($c)), key => \$conf{public_key});
+      return undef if (!defined($t) || $t eq 'null');
+      return decode_jwt(token => $t, key => \$conf{public_key});
     }
   );
 
   # public helper to access current user and OIDC roles
   $app->helper(
     $current_user_helper => sub($c) {
-      return $conf{get_user}->($c->app->renderer->get_helper($token_helper)->($c));
+      my $t = $c->app->renderer->get_helper($token_helper)->($c);
+      return undef if (!defined($t) || $t eq 'null');
+      return $conf{get_user}->($t);
     }
   );
   $app->helper(
@@ -315,7 +318,8 @@ sub register($self, $app, $params) {
       my ($user, $token);
       try {
         $token = $c->app->renderer->get_helper($token_helper)->($c);
-        $user  = $c->app->renderer->get_helper($current_user_helper)->($c);
+        return [] unless ($token);
+        $user = $c->app->renderer->get_helper($current_user_helper)->($c);
         my @roles = $conf{get_roles}->($user, $token)->@*;
         @roles = grep {defined} map {$conf{role_map}->{$_}} @roles if (defined($conf{role_map}));
         return [@roles];

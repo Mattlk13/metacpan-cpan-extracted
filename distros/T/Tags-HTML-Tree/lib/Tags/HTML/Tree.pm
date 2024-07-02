@@ -7,12 +7,12 @@ use warnings;
 use Class::Utils qw(set_params split_params);
 use English;
 use Error::Pure qw(err);
-use Mo::utils 0.01 qw(check_required);
+use Mo::utils 0.12 qw(check_code check_required);
 use Mo::utils::CSS 0.07 qw(check_css_class check_css_unit);
 use Scalar::Util qw(blessed);
 use Unicode::UTF8 qw(decode_utf8);
 
-our $VERSION = 0.05;
+our $VERSION = 0.07;
 
 # Constructor.
 sub new {
@@ -20,8 +20,19 @@ sub new {
 
 	# Create object.
 	my ($object_params_ar, $other_params_ar) = split_params(
-		['css_class', 'indent'], @params);
+		['cb_value', 'css_class', 'indent'], @params);
 	my $self = $class->SUPER::new(@{$other_params_ar});
+
+	# Callback for tree value.
+	$self->{'cb_value'} = sub {
+		my ($self, $tree) = @_;
+
+		$self->{'tags'}->put(
+			['d', $tree->value],
+		);
+
+		return;
+	};
 
 	# CSS class.
 	$self->{'css_class'} = 'tree';
@@ -31,6 +42,8 @@ sub new {
 
 	# Process params.
 	set_params($self, @{$object_params_ar});
+
+	check_code($self, 'cb_value');
 
 	check_required($self, 'css_class');
 	check_css_class($self, 'css_class');
@@ -154,7 +167,9 @@ sub _li {
 		$self->{'tags'}->put(
 			['b', 'span'],
 			['a', 'class', 'caret'],
-			['d', $tree->value],
+		);
+		$self->{'cb_value'}->($self, $tree);
+		$self->{'tags'}->put(
 			['e', 'span'],
 
 			['b', 'ul'],
@@ -167,9 +182,7 @@ sub _li {
 			['e', 'ul'],
 		);
 	} else {
-		$self->{'tags'}->put(
-			['d', $tree->value],
-		);
+		$self->{'cb_value'}->($self, $tree);
 	}
 	$self->{'tags'}->put(
 		['e', 'li'],
@@ -207,6 +220,8 @@ L<Tags> helper to print HTML page of tree structure defined by L<Tree> instance.
 
 The page contains clickable tree with usage of Javascript code.
 
+Tree node value in HTML could be defined by 'cb_value' callback parameter.
+
 =head1 METHODS
 
 =head2 C<new>
@@ -216,6 +231,27 @@ The page contains clickable tree with usage of Javascript code.
 Constructor.
 
 =over 8
+
+=item * C<cb_value>
+
+Callback for L<Tree> value, which call C<$self-E<gt>{'tags'}-E<gt>put> for adding some
+value.
+
+Arguments of callback are L<Tags::HTML::Tree> C<$self> and C<$tree> objects.
+
+Default value is subroutine:
+
+ sub {
+         my ($self, $tree) = @_;
+         
+         $self->{'tags'}->put(
+                 ['d', $tree->value],
+         );
+         
+         return;
+ };
+
+which adds HTML text content with C<$tree-E<gt>value> value.
 
 =item * C<css>
 
@@ -286,8 +322,11 @@ Returns undef.
  new():
          From Class::Utils::set_params():
                  Unknown parameter '%s'.
+         From Mo::utils::check_code():
+                 Parameter 'cb_value' must be a code.
+                         Value: %s
          From Mo::utils::check_required():
-                 Parameter '%s' is required.
+                 Parameter 'css_class' is required.
          From Mo::utils::CSS::check_css_class():
                  Parameter 'css_class' has bad CSS class name.
                          Value: %s
@@ -645,6 +684,86 @@ Returns undef.
 
 =end html
 
+=head1 EXAMPLE4
+
+=for comment filename=plack_app_tree_color.pl
+
+ use strict;
+ use warnings;
+ 
+ use CSS::Struct::Output::Indent;
+ use Plack::App::Tags::HTML;
+ use Plack::Runner;
+ use Tags::HTML::Tree;
+ use Tags::Output::Indent;
+ use Tree;
+
+ # Example tree object.
+ my $data_tree = Tree->new('Root');
+ $data_tree->meta({'color' => 'orange'});
+ my %node;
+ foreach my $node_string (qw/H I J K L M N O P Q/) {
+          $node{$node_string} = Tree->new($node_string);
+ }
+ $data_tree->add_child($node{'H'});
+ $node{'H'}->meta({'color' => 'red'});
+ $node{'H'}->add_child($node{'I'});
+ $node{'I'}->add_child($node{'J'});
+ $node{'J'}->meta({'color' => 'green'});
+ $node{'H'}->add_child($node{'K'});
+ $node{'H'}->add_child($node{'L'});
+ $data_tree->add_child($node{'M'});
+ $data_tree->add_child($node{'N'});
+ $node{'N'}->add_child($node{'O'});
+ $node{'O'}->add_child($node{'P'});
+ $node{'O'}->meta({'color' => 'blue'});
+ $node{'P'}->add_child($node{'Q'});
+ 
+ my $css = CSS::Struct::Output::Indent->new;
+ my $tags = Tags::Output::Indent->new(
+         'xml' => 1,
+         'preserved' => ['script', 'style'],
+ );
+ my $app = Plack::App::Tags::HTML->new(
+         'component' => 'Tags::HTML::Tree',
+         'constructor_args' => {
+                 'cb_value' => sub {
+                         my ($self, $tree) = @_;
+
+                         if (exists $tree->meta->{'color'}) {
+                                 $self->{'tags'}->put(
+                                         ['b', 'span'],
+                                         ['a', 'style', 'color:'.$tree->meta->{'color'}.';'],
+                                 );
+                         }
+                         $self->{'tags'}->put(
+                                 ['d', $tree->value],
+                         );
+                         if (exists $tree->meta->{'color'}) {
+                                 $self->{'tags'}->put(
+                                         ['e', 'span'],
+                                 );
+                         }
+
+                         return;
+                 },
+         },
+         'data_init' => [$data_tree],
+         'css' => $css,
+         'tags' => $tags,
+ )->to_app;
+ Plack::Runner->new->run($app);
+
+ # Output screenshot is in images/ directory.
+
+=begin html
+
+<a href="https://raw.githubusercontent.com/michal-josef-spacek/Tags-HTML-Tree/master/images/plack_app_tree_color.png">
+  <img src="https://raw.githubusercontent.com/michal-josef-spacek/Tags-HTML-Tree/master/images/plack_app_tree_color.png" alt="Web app example" width="300px" height="300px" />
+</a>
+
+=end html
+
 =head1 DEPENDENCIES
 
 L<Class::Utils>,
@@ -674,6 +793,6 @@ BSD 2-Clause License
 
 =head1 VERSION
 
-0.05
+0.07
 
 =cut

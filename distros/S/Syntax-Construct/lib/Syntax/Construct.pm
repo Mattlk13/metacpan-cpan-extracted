@@ -4,10 +4,13 @@ use 5.006002;
 use strict;
 use warnings;
 
-our $VERSION = '1.034';
+our $VERSION = '1.037';
 
 my %introduces = do { no warnings 'qw';
-                 ( '5.038' => [qw[
+                 ( '5.040' => [qw[
+                                  ^^ __CLASS__ :reader
+                             ]],
+                   '5.038' => [qw[
                                  unicode15.0 ^HOOK signature-default-operator
                                  INCDIR *{} REG_INF_I32_MAX
                                  ^LAST_SUCCESSFUL_PATTERN
@@ -176,6 +179,8 @@ my %alias = (
     # 5.038
     'keyword-hook' => '^HOOK',
     'optimistic-eval' => '*{}',
+    # 5.040
+    'logical-xor' => '^^',
 );
 
 my %_introduced = map {
@@ -196,8 +201,12 @@ sub _hook {
           eval {
               use locale;
               require POSIX;
-              POSIX::setlocale(POSIX::LC_ALL(), 'tr_TR.UTF-8');
-              lc 'I' ne 'i'
+              my $orig_locale = POSIX::setlocale(POSIX::LC_CTYPE());
+              (POSIX::setlocale(POSIX::LC_CTYPE(), 'tr_TR.UTF-8') || "")
+                  eq 'tr_TR.UTF-8' or die;
+              my $cmp = lc 'I' ne 'i';
+              POSIX::setlocale(POSIX::LC_CTYPE(), $orig_locale);
+              $cmp
           } or die 'Turkic locale casing not working at '
               . _position(1) . "\.\n";
       },
@@ -255,17 +264,10 @@ sub import {
     }
     die 'Empty construct list at ', _position(), ".\n" unless @_;
 
-    my $nearest_stable = ( my $is_stable = $] =~ /^[0-5]\.[0-9][0-9][02468]/ )
-                       ? $]
-                       : do {
-                           my ($major, $minor)
-                               = $] =~ /^([0-5])\.([0-9][0-9][13579])/;
-                           ++$minor;
-                           "$major.$minor"
-                       };
+    my $nearest_stable = _nearest_stable();
     if ($max_version le $nearest_stable) {
         warn "Faking version $nearest_stable to test removed constructs.\n"
-            if ! $is_stable && $max_version eq $nearest_stable;
+            if ! _is_stable($]) && $max_version eq $nearest_stable;
         die "$d_constr removed in $max_version at ", _position(), ".\n";
     }
 
@@ -276,7 +278,22 @@ sub import {
     $_->() for @actions;
 }
 
+
+sub _is_stable {
+    my ($version) = @_;
+    return $version =~ /^[0-5]\.[0-9][0-9][02468]/
+}
+
+sub _nearest_stable {
+    return $] if _is_stable($]);
+    my ($major, $minor) = $] =~ /^([0-5])\.([0-9][0-9][13579])/;
+    ++$minor;
+    return "$major.$minor"
+}
+
+
 sub _is_old_empty { @{ $introduces{old} } ? 0 : 1 }
+
 
 =head1 NAME
 
@@ -284,7 +301,7 @@ Syntax::Construct - Explicitly state which non-feature constructs are used in th
 
 =head1 VERSION
 
-Version 1.034
+Version 1.037
 
 =head1 SYNOPSIS
 
@@ -403,7 +420,7 @@ Same as C<introduced>, but for removed constructs (e.g. auto-deref in
 
 =head3 s-utf8-delimiters-hack
 
-See L<s-utf8-delimiters>. The hack doesn't seem to work in 5.008
+See L</s-utf8-delimiters>. The hack doesn't seem to work in 5.008
 and older. Removed in 5.020.
 
 =head2 5.010
@@ -679,7 +696,7 @@ L<perl5200delta/Core Enhancements>.
 
 See L<perl5200delta/Regular Expressions>: in older Perl versions, a
 hack around was possible: to specify the delimiter twice in
-substitution. Use C<s-utf8-delimiters-hack> if your code uses it.
+substitution. Use C</s-utf8-delimiters-hack> if your code uses it.
 
 Alias: wide-char-delimiters
 
@@ -938,6 +955,22 @@ L<perl5380delta/REG_INF has been raised from 65,536 to 2,147,483,647>
 
 L<perl5380delta/New regexp variable ${^LAST_SUCCESSFUL_PATTERN}>
 
+=head2 5.040
+
+=head3 ^^
+
+L<perldelta/New ^^ logical xor operator>
+
+Alias: logical-xor
+
+=head3 __CLASS__
+
+L<perldelta/New __CLASS__ keyword>.
+
+=head3 :reader
+
+L<perldelta/:reader attribute for field variables>
+
 =for completeness
 =head2 old
 
@@ -1031,7 +1064,7 @@ L<Perl::MinimumVersion>, L<Perl::MinimumVersion::Fast>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2013 - 2023 E. Choroba.
+Copyright 2013 - 2024 E. Choroba.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the the Artistic License (2.0). You may obtain a

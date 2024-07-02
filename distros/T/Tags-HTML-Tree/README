@@ -17,11 +17,36 @@ DESCRIPTION
 
     The page contains clickable tree with usage of Javascript code.
 
+    Tree node value in HTML could be defined by 'cb_value' callback
+    parameter.
+
 METHODS
   "new"
      my $obj = Tags::HTML::Tree->new(%params);
 
     Constructor.
+
+    *       "cb_value"
+
+            Callback for Tree value, which call "$self->{'tags'}->put" for
+            adding some value.
+
+            Arguments of callback are Tags::HTML::Tree $self and $tree
+            objects.
+
+            Default value is subroutine:
+
+             sub {
+                     my ($self, $tree) = @_;
+         
+                     $self->{'tags'}->put(
+                             ['d', $tree->value],
+                     );
+         
+                     return;
+             };
+
+            which adds HTML text content with "$tree->value" value.
 
     *       "css"
 
@@ -84,8 +109,11 @@ ERRORS
      new():
              From Class::Utils::set_params():
                      Unknown parameter '%s'.
+             From Mo::utils::check_code():
+                     Parameter 'cb_value' must be a code.
+                             Value: %s
              From Mo::utils::check_required():
-                     Parameter '%s' is required.
+                     Parameter 'css_class' is required.
              From Mo::utils::CSS::check_css_class():
                      Parameter 'css_class' has bad CSS class name.
                              Value: %s
@@ -426,6 +454,75 @@ EXAMPLE3
 
      # Output screenshot is in images/ directory.
 
+EXAMPLE4
+     use strict;
+     use warnings;
+ 
+     use CSS::Struct::Output::Indent;
+     use Plack::App::Tags::HTML;
+     use Plack::Runner;
+     use Tags::HTML::Tree;
+     use Tags::Output::Indent;
+     use Tree;
+
+     # Example tree object.
+     my $data_tree = Tree->new('Root');
+     $data_tree->meta({'color' => 'orange'});
+     my %node;
+     foreach my $node_string (qw/H I J K L M N O P Q/) {
+              $node{$node_string} = Tree->new($node_string);
+     }
+     $data_tree->add_child($node{'H'});
+     $node{'H'}->meta({'color' => 'red'});
+     $node{'H'}->add_child($node{'I'});
+     $node{'I'}->add_child($node{'J'});
+     $node{'J'}->meta({'color' => 'green'});
+     $node{'H'}->add_child($node{'K'});
+     $node{'H'}->add_child($node{'L'});
+     $data_tree->add_child($node{'M'});
+     $data_tree->add_child($node{'N'});
+     $node{'N'}->add_child($node{'O'});
+     $node{'O'}->add_child($node{'P'});
+     $node{'O'}->meta({'color' => 'blue'});
+     $node{'P'}->add_child($node{'Q'});
+ 
+     my $css = CSS::Struct::Output::Indent->new;
+     my $tags = Tags::Output::Indent->new(
+             'xml' => 1,
+             'preserved' => ['script', 'style'],
+     );
+     my $app = Plack::App::Tags::HTML->new(
+             'component' => 'Tags::HTML::Tree',
+             'constructor_args' => {
+                     'cb_value' => sub {
+                             my ($self, $tree) = @_;
+
+                             if (exists $tree->meta->{'color'}) {
+                                     $self->{'tags'}->put(
+                                             ['b', 'span'],
+                                             ['a', 'style', 'color:'.$tree->meta->{'color'}.';'],
+                                     );
+                             }
+                             $self->{'tags'}->put(
+                                     ['d', $tree->value],
+                             );
+                             if (exists $tree->meta->{'color'}) {
+                                     $self->{'tags'}->put(
+                                             ['e', 'span'],
+                                     );
+                             }
+
+                             return;
+                     },
+             },
+             'data_init' => [$data_tree],
+             'css' => $css,
+             'tags' => $tags,
+     )->to_app;
+     Plack::Runner->new->run($app);
+
+     # Output screenshot is in images/ directory.
+
 DEPENDENCIES
     Class::Utils, English, Error::Pure, Mo::utils, Mo::utils::CSS,
     Scalar::Util, Unicode::UTF8, Tags::HTML.
@@ -444,5 +541,5 @@ LICENSE AND COPYRIGHT
     BSD 2-Clause License
 
 VERSION
-    0.05
+    0.07
 

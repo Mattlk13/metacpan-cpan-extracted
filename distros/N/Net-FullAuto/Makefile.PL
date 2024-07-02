@@ -26,7 +26,7 @@
 ################################################################
 
 
-our $VERSION='1.0000650';
+our $VERSION='1.0000663';
 
 
 if ($ENV{'AUTOMATED_TESTING'}) {
@@ -94,7 +94,7 @@ if ($ENV{'AUTOMATED_TESTING'}) {
 
       run cpan and at the cpan command prompt type "install Net::FullAuto".
 
-      Be sure $ENV{'AUTOMATED_TESTING'}==0.
+      Be sure $ENV{'AUTOMATED_TESTING'}=0.
 
       Net::FullAuto will install successfully on any Linux flavor or FreeBSD
       server in Amazon EC2. It will also install with Cygwin on Windows.
@@ -287,10 +287,10 @@ if ($ARGV[0]=~/\.pem/) {
 }
 our $system_type='';
 # Bullet Proof Test for AWS EC2
-# wget --tries=1 --timeout=5 -qO- http://169.254.169.254/latest/dynamic/instance-identity/document 2>&1
-my $aws=`wget --tries=1 --timeout=5 -qO- http://169.254.169.254/latest/dynamic/instance-identity/document 2>&1`;
-$aws=(-1<index $aws,'signature')?1:0;
-if ($^O eq 'linux' || $^O eq 'freebsd') {
+# https://serverfault.com/questions/462903/how-to-know-if-a-machine-is-an-ec2-instance
+my $aws=`/bin/bash -c 'if [ -f /sys/hypervisor/uuid ];then if [ \`/bin/head -c 3 /sys/hypervisor/uuid\`=="ec2" ];then echo yes;else echo no;fi;elif [ -r /sys/devices/virtual/dmi/id/product_uuid ];then if [ \`/bin/head -c 3 /sys/devices/virtual/dmi/id/product_uuid\` == "EC2" ]; then echo yes;else echo no;fi;else if \$(curl -s -m 5 http://169.254.169.254/latest/dynamic/instance-identity/document | grep -q availabilityZone);then echo yes;else echo no;fi;fi'`;
+$aws=(-1<index $aws,'yes')?1:0;
+if (($^O eq 'linux' || $^O eq 'freebsd') && !(grep { /SKIP/i } @ARGV)) {
    if ((-e "/etc/system-release-cpe") &&
          ((-1<index `cat /etc/system-release-cpe`,'amazon:linux') ||
          (-1<index `cat /etc/system-release-cpe`,'amazon_linux'))) {
@@ -303,6 +303,7 @@ if ($^O eq 'linux' || $^O eq 'freebsd') {
       $system_type='amazon_linux';
    } elsif ((-e "/etc/os-release") &&
          (-1<index `cat /etc/os-release`,'ubuntu')) {
+
       $amazon{'ubuntu'}='' if $aws;
       $system_type='ubuntu';
    } elsif ($^O eq 'freebsd') {
@@ -839,6 +840,8 @@ our $cygwin_root_dir=$cwd;
 my @drive_options=();
 my $perl_version=$^V;
 $perl_version=~s/^v//;
+my $fs='ftp://ftp.figlet.org/pub/figlet/program'.
+       '/unix/figlet-2.2.5.tar.gz';
 if ($^O eq 'cygwin') {
    my $cygcheck=`/bin/cygcheck -c` || fa_die($!);
    my $uname=`/bin/uname` || fa_die($!);
@@ -879,23 +882,49 @@ if ($^O eq 'cygwin') {
       if ($packs) {
          my $message=<<END;
 
-   FATAL ERROR!: The following Cygwin
-                 packages are missing from
-                 your installation:
+    __  __ _       _              ___                 _
+   |  \\/  (_)_____(_)_ _  __ _   / __|  _ __ ___ __ _(_)_ _
+   | |\\/| | (_-<_-< | ' \\/ _` | | (_| || / _` \\ V  V / | ' \\
+   |_|  |_|_/__/__/_|_||_\\__, |  \\___\\_, \\__, |\\_/\\_/|_|_||_|
+                         |___/       |__/|___/
+    ___               _                       _      _
+   | _ \\___ __ _ _  _(_)_ _ ___ _ __  ___ _ _| |_ __| |
+   |   / -_) _` | || | | '_/ -_) '  \\/ -_) ' \\  _(_-<_|
+   |_|_\\___\\__, |\\_,_|_|_| \\___|_|_|_\\___|_||_\\__/__(_)
+              |_|
+
+   The following Cygwin packages are missing from your
+   installation:
 
    $packs
 
-   Please report any bugs and send any
-   questions, thoughts or feedback to:
-
-      Brian.Kelly\@FullAuto.com
+   Attempt to install these requirements?:
 
 END
-         print $message;
-         if (exists $ENV{PAR_TEMP}) {
-            print "   Press ANY key to exit.\n\n";<STDIN>;
+
+         my $timeout=120;
+         my $fae="No   (FullAuto Setup will exit)";
+         {
+            local $SIG{__DIE__}; # No sigdie handler
+            eval {
+               local $SIG{ALRM} = sub { die "alarm\n" }; # NB: \n required
+               alarm $timeout;
+               my $menu1 = [
+                     $message,
+                     [ "Yes", sub{ return 'Yes' } ],
+                     [ $fae, sub{ return 'No' } ],
+                     ];
+               my $selection=&menu($menu1);
+               exit 0 if $selection eq ']quit[';
+               exit 0 if -1<index $selection, 'No';
+               alarm 0;
+            };
          }
-         exit 1;
+      } print "\n\n   FullAuto install continues . . .\n\n";
+      my $cw='https://cygwin.com/setup-x86_64.exe';
+      fa_system("wget $cw");
+      foreach my $pck (split / /,$packs) {
+         fa_system("./setup-x86_64.exe -q -P $pck");
       }
    }
    my @required_cygwin_services=();
@@ -1130,6 +1159,43 @@ END
    # to install Net::FullAuto on an EC2 image have consented to this,
    # especially since Admin privileges are needed to do this.
 
+   my $message=<<END;
+
+   ======================================================================
+   This message times out in two minutes so FullAuto Install can continue
+   ====================================================================== 
+      _                            ___ ___ ___   _    _
+     /_\\  _ __  __ _ ______ _ _   | __/ __|_  ) | |  (_)_ _ _  ___ __
+    / _ \\| '  \\/ _` |_ / _ \\ ' \\  | _| (__ / /  | |__| | ' \\ || \\ \\ /
+   /_/ \\_\\_|_|_\\__,_/__\\___/_||_| |___\\___/___| |____|_|_||_\\_,_/_\\_\
+
+   In order to install FullAuto on Amazon EC2 Linux servers, a number of
+   prerequisite dependencies must be installed or present. Allow
+   FullAuto Setup to validate and install any missing dependencies?
+   (Default is 'yes')
+
+END
+
+   my $timeout=120;
+   my $fae="No   (FullAuto Setup will exit)";
+   {
+      local $SIG{__DIE__}; # No sigdie handler
+      eval {
+         local $SIG{ALRM} = sub { die "alarm\n" }; # NB: \n required
+         alarm $timeout;
+         my $menu1 = [
+               $message,
+               [ "Yes", sub{ return 'Yes' } ],
+               [ $fae, sub{ return 'No' } ],
+               ];
+         my $selection=&menu($menu1);
+         exit 0 if $selection eq ']quit[';
+         exit 0 if -1<index $selection, 'No';
+         alarm 0;
+      };
+   }
+   print "\n\n   FullAuto install continues . . .\n\n";
+
    my $grpi=`sudo yum grouplist`;
    if (-1<index $grpi,'no installed groups file') {
       my $out=`sudo yum groups mark convert`;
@@ -1161,9 +1227,12 @@ END
       fa_system("sudo yum -y install 'wget'");
    }
    unless (-e '/usr/local/bin/figlet') {
-      my $fs='ftp://ftp.figlet.org/pub/figlet/program'.
-             '/unix/figlet-2.2.5.tar.gz';
       fa_system("(wget $fs;tar zxvf fig*gz;cd figlet-2.2.5;make install)");
+      unless (-e "figlet-2.2.5.tar.gz") {
+         my $cmd="tar zxvf dependencies/FIGlet_fonts/fig*gz;".
+                 "cd figlet-2.2.5;make install";
+         fa_system($cmd);
+      }
    }
    unless (-1<index $yins,'nano') {
       fa_system("sudo yum -y install 'nano'");
@@ -1172,10 +1241,47 @@ END
 } elsif ((exists $amazon{'amazon_linux'}) || (exists $amazon{'centos'}) ||
       $system_type eq 'centos') {
 
-   # Most Amazon images need a lot of helper software like compilers
+   # Most Linux systems need a lot of helper software like compilers
    # to install all module dependencies. It is assumed users attempting
-   # to install Net::FullAuto on an EC2 image have consented to this,
+   # to install Net::FullAuto on a Linux system have consented to this,
    # especially since Admin privileges are needed to do this.
+
+         my $message=<<END;
+
+   ======================================================================
+   This message times out in two minutes so FullAuto Install can continue
+   ======================================================================
+    ___     _ _   _       _                    _    _
+   | __|  _| | | /_\\ _  _| |_ ___   ___ _ _   | |  (_)_ _ _  ___ __
+   | _| || | | |/ _ \\ || |  _/ _ \\ / _ \\ ' \\  | |__| | ' \\ || \\ \\ /
+   |_| \\_,_|_|_/_/ \\_\\_,_|\\__\\___/ \\___/_||_| |____|_|_||_\\_,_/_\\_\\
+
+   In order to install FullAuto on Linux servers, a number of
+   prerequisite dependencies must be installed or present. Allow
+   FullAuto Setup to validate and install any missing dependencies?
+   (Default is 'yes')
+
+END
+
+   my $timeout=120;
+   my $fae="No   (FullAuto Setup will exit)";
+   {
+      local $SIG{__DIE__}; # No sigdie handler
+      eval {
+         local $SIG{ALRM} = sub { die "alarm\n" }; # NB: \n required
+         alarm $timeout;
+         my $menu1 = [
+               $message,
+               [ "Yes", sub{ return 'Yes' } ],
+               [ $fae, sub{ return 'No' } ],
+               ];
+         my $selection=&menu($menu1);
+         exit 0 if $selection eq ']quit[';
+         exit 0 if -1<index $selection, 'No';
+         alarm 0;
+      };
+   }
+   print "\n\n   FullAuto install continues . . .\n\n";
 
    my $yins=`yum list installed`;
    unless (-1<index $yins,'openssl-devel') {
@@ -1188,9 +1294,12 @@ END
       fa_system("sudo yum -y install 'wget'");
    }
    unless (-e '/usr/local/bin/figlet') {
-      my $fs='ftp://ftp.figlet.org/pub/figlet/program'.
-             '/unix/figlet-2.2.5.tar.gz';
       fa_system("(wget $fs;tar zxvf fig*gz;cd figlet-2.2.5;make install)");
+      unless (-e "figlet-2.2.5.tar.gz") {
+         my $cmd="tar zxvf dependencies/FIGlet_fonts/fig*gz;".
+                 "cd figlet-2.2.5;make install";
+         fa_system($cmd);
+      }
    }
    unless (-1<index $yins,'nano') {
       fa_system("sudo yum -y install 'nano'");
@@ -1244,8 +1353,46 @@ END
    # to install Net::FullAuto on an EC2 image have consented to this,
    # especially since Admin privileges are needed to do this.
 
+   my $message=<<END;
+
+   This message times out in two minutes so FullAuto Install can continue
+      _                            _   _ _             _
+     /_\\  _ __  __ _ ______ _ _   | | | | |__ _  _ _ _| |_ _  _
+    / _ \\| '  \\/ _` |_ / _ \\ ' \\  | |_| | '_ \\ || | ' \\  _| || |
+   /_/ \\_\\_|_|_\\__,_/__\\___/_||_|  \\___/|_.__/\\_,_|_||_\\__|\\_,_|
+
+   In order to install FullAuto on Amazon Ubuntu servers, a number of
+   prerequisite dependencies must be installed or present. Allow
+   FullAuto Setup to validate and install any missing dependencies?
+   (Default is 'yes')
+
+END
+
+   my $timeout=120;
+   my $fae="No   (FullAuto Setup will exit)";
+   {
+      local $SIG{__DIE__}; # No sigdie handler
+      eval {
+         local $SIG{ALRM} = sub { die "alarm\n" }; # NB: \n required
+         alarm $timeout;
+         my $menu1 = [
+               $message,
+               [ "Yes", sub{ return 'Yes' } ],
+               [ $fae, sub{ return 'No' } ],
+               ];
+         my $selection=&menu($menu1);
+         exit 0 if $selection eq ']quit[';
+         exit 0 if -1<index $selection, 'No';
+         alarm 0;
+      };
+   }
+   print "\n\n   FullAuto install continues . . .\n\n";
+
    my $dpkg=`/bin/dpckg -l`;
    my $update_flag=0;
+   if (-1==index $dpkg,'unzip') {
+      fa_system('sudo apt-get -y install unzip');
+   }
    if (-1==index $dpkg,'build-essential') {
       fa_system("sudo apt-get -y update");
       $update_flag==1;
@@ -1256,6 +1403,9 @@ END
          fa_system("sudo apt-get -y update");
       }
       fa_system("sudo apt-get -y install 'libssl-dev'");
+   }
+   if (-1==index $dpkg,'zlib1g-dev') {
+      fa_system("sudo apt-get -y install 'zlib1g-dev'");
    }
    if (-1==index $dpkg,'figlet') {
       fa_system("sudo apt-get -y install 'figlet'");
@@ -1320,11 +1470,66 @@ END
    # especially since Admin privileges are needed to do this.
 
    unless (-e '/usr/local/bin/figlet') {
-      my $fs='ftp://ftp.figlet.org/pub/figlet/program'.
-             '/unix/figlet-2.2.5.tar.gz';
       fa_system("(wget $fs;tar zxvf fig*gz;cd figlet-2.2.5;make install)");
+      unless (-e "figlet-2.2.5.tar.gz") {
+         my $cmd="tar zxvf dependencies/FIGlet_fonts/fig*gz;".
+                 "cd figlet-2.2.5;make install";
+         fa_system($cmd);
+      }
    }
 }
+my $awscli=`aws 2>&1`;
+if ((-1==index $awscli,'usage') && (exists $amazon{'amazon_linux'} ||
+      exists $amazon{'ubuntu'} || exists $amazon{'centos'} ||
+      exists $amazon{'rhel'})) {
+   my $message=<<END;
+
+   This message times out in two minutes so FullAuto Install can continue
+
+      _                             ___ _       ___ _ _         _
+     /_\\  _ __  __ _ ______ _ _    / __| |     / __| (_)___ _ _| |_
+    / _ \\| '  \\/ _` |_ / _ \\ ' \\  | (__| |__  | (__| | / -_) ' \\  _|
+   /_/ \\_\\_|_|_\\__,_/__\\___/_||_|  \\___|____|  \\___|_|_\\___|_||_\\__|
+
+   In order to automate Amazon AWS Cloud infrastructure, the Amazon
+   AWS Command Line Client (AWS CLI) needs to installed. Install
+   AWS CLI?  (Default is 'yes')
+
+END
+
+   my $timeout=120;my $selection='';
+   my $fae="No";
+   {
+      local $SIG{__DIE__}; # No sigdie handler
+      eval {
+         local $SIG{ALRM} = sub { die "alarm\n" }; # NB: \n required
+         alarm $timeout;
+         my $menu1 = [
+               $message,
+               [ "Yes", sub{ return 'Yes' } ],
+               [ $fae, sub{ return 'No' } ],
+               ];
+         $selection=&menu($menu1);
+         exit 0 if $selection eq ']quit[';
+         alarm 0;
+      };
+   }
+   if ($selection eq 'Yes') {
+      my $cmd='curl "https://awscli.amazonaws.com/'.
+            'awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"';
+      fa_system($cmd);
+      fa_system('unzip awscliv2.zip;sudo ./aws/install');
+   } print "\n\n   FullAuto install continues . . .\n\n";
+}
+
+if (grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
+   my $f=$fs;
+   $f=~s/^.*\/(.*)$/$1/;
+   unless (-e "dependencies/FIGlet_fonts/$f") {
+      fa_system("(cd dependencies/FIGlet_fonts;wget $fs)");
+   }
+}
+
 my $cpantest=0;
 $cpantest=1 unless $mycpantest;
 use if ($mycpantest), "CPAN::MyConfig";
@@ -1461,7 +1666,7 @@ sub fa_install_mod {
       require CPAN::Mini;
       import CPAN::Mini;
    };
-   if (!$@ && grep { /-*add[-_]?dependencies/i } @ARGV) {
+   if (!$@ && grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
       my $distribution = CPAN::Shell->expand(
             "Module",$p 
          )->distribution()->pretty_id();
@@ -1824,7 +2029,7 @@ if ($^O ne 'MSWin32' && $^O ne 'MSWin64') {
       require Module::Build;
    };
    if ((!($@) && $Module::Build::VERSION<=$mod_build_version) || $@
-         || grep { /-*add[-_]?dependencies/i } @ARGV) {
+         || grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
       &fa_install_mod('ExtUtils::ParseXS','install','Makefile');
       &fa_install_mod('Compress::Raw::Bzip2','install','Makefile');
       &fa_install_mod('Compress::Raw::Zlib','install','Makefile');
@@ -1840,9 +2045,9 @@ if ($^O ne 'MSWin32' && $^O ne 'MSWin64') {
    #&fa_install_mod('IO::CaptureOutput','install','Makefile');
    #REPLACE BY Capture::Tiny
    if ($^O ne 'MSWin32' && $^O ne 'MSWin64' ||
-         grep { /-*add[-_]?dependencies/i } @ARGV) {
+         grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
       &fa_install_module('IO::Pty','install','Makefile');
-      unless (grep { /-*add[-_]?dependencies/i } @ARGV) {
+      unless (grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
          my $argv0=$ARGV[0]||'';
          exit if $argv0 eq 'install_IO_Pty_from_CPAN';
       }
@@ -1864,11 +2069,12 @@ if ($^O ne 'MSWin32' && $^O ne 'MSWin64') {
    &fa_install_module('ExtUtils::InstallPaths','install','Makefile');
    &fa_install_module('ExtUtils::Helpers','install','Makefile');
    &fa_install_module('Test::Harness','install','Makefile','','3.33');
+   &fa_install_module('CPAN::Requirements::Dynamic','install','Makefile');
    &fa_install_module('Module::Build::Tiny','install','Build');
    &fa_install_module('IO::Socket::IP','install','Build');
    &fa_install_module('Test::Needs','install','Makefile');
    if ($^O ne 'cygwin'
-         || grep { /-*add[-_]?dependencies/i } @ARGV) {
+         || grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
       &fa_install_module('HTTP::Daemon','install','Build');
    }
    &fa_install_module('WWW::RobotRules','install','Makefile');
@@ -1961,7 +2167,7 @@ END
          } last;
       }
       close FH;
-   } elsif (grep { /-*add[-_]?dependencies/i } @ARGV) {
+   } elsif (grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
       &fa_install_module('Net::SSLeay','get');
    }
    &fa_install_module('IO::Socket::SSL','install','Makefile','','','n');
@@ -1974,7 +2180,7 @@ END
    &fa_install_module('common::sense','install','Makefile');
    &fa_install_module('Types::Serialiser','install','Makefile');
    &fa_install_module('Term::RawInput','install','Makefile');
-   if ($^O eq 'cygwin' || grep { /-*add[-_]?dependencies/i } @ARGV) {
+   if ($^O eq 'cygwin' || grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
       &fa_install_module('Encode::compat','install','Makefile');
       &fa_install_module('Win32::API','install','Makefile');
       &fa_install_module('Win32::DriveInfo','install','Makefile');
@@ -1998,9 +2204,9 @@ END
       local $SIG{__DIE__}; # No sigdie handler
       require Data::Dump::Streamer;
    };
-   if ($@ || grep { /-*add[-_]?dependencies/i } @ARGV) {
+   if ($@ || grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
       &fa_install_module('Data::Dump::Streamer','get');
-      unless (grep { /-*add[-_]?dependencies/i } @ARGV) {
+      unless (grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
          my $dir=&fa_find_latest('Data-Dump-Streamer');
          fa_system("cd \"$dir\";$^X Build.PL NODDS;");
          fa_system("cd \"$dir\";./Build install;");
@@ -2838,7 +3044,7 @@ if ($^O eq 'MSWin32' || $^O eq 'MSWin64') {
                       .'git,libcrypt-devel,perl-LWP-Protocol-https,nano,'
                       .'autobuild,autoconf,automake,libtool,libxml2-devel,'
                       .'libisl15,libcloog-isl4,sqlite3,rpm,cpio,curl,'
-                      .'libnsl-devel'
+                      .'libnsl-devel','zip'
                       .$selection.' -X -A -q '."-R $cygwin_root_dir "
                       .'-s '.$mirror_url;
             } else {
@@ -4021,7 +4227,7 @@ eval {
    require CPAN::Mini;
    import CPAN::Mini;
 };
-if (!$@ && grep { /-*add[-_]?dependencies/i } @ARGV) {
+if (!$@ && grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
    my $distribution = CPAN::Shell->expand(
          "Module",'BerkeleyDB'
       )->distribution()->pretty_id();
@@ -4189,7 +4395,7 @@ if ($get_BerkeleyDB && $^O ne 'cygwin') {
             $filename=~/^(.*)_(\d+).tar$/;
             $filename=$1;
             my $uniq=$2;
-            File::Copy::move("$filename.NC","$filename.NC_$uniq");
+            File::Copy::move("$filename","${filename}_$uniq");
             my $ver=$filenm;
             $ver=~s/_.*$//;
             $ver=~s/^.*db-(\d+[.]\d+).*$/$1/;
@@ -4240,7 +4446,7 @@ if ($get_BerkeleyDB && $^O ne 'cygwin') {
    $ENV{'DB_FILE_LIB'}='/usr/lib';
 }
 
-if (grep { /-*add[-_]?dependencies/i } @ARGV) {
+if (grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
    my @download=download_berkeleydb();
    `mkdir -p 'dependencies/BerkeleyDB'` unless
       -e 'dependencies/BerkeleyDB';
@@ -4503,7 +4709,7 @@ print "SOURCE=$source<==\n";
              "CHECKSUM Test for $filename *FAILED*\n");
       }
       close(FILE);
-      if (grep { /-*add[-_]?dependencies/i } @ARGV) {
+      if (grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
          Term::ReadKey::ReadMode(0);
          return $filename,$md5filename,$file;
       } else {
@@ -4522,7 +4728,7 @@ print "SOURCE=$source<==\n";
          unless ($already_downloaded) {
             select STDOUT;
             $log->close() if $log && -1<index $log,'*';
-            if (grep { /-*add[-_]?dependencies/i } @ARGV) {
+            if (grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
                exec 'sudo',$^X,'Makefile.PL','add_dependencies',
                     'BDB',$filename;
             } else {
@@ -4542,7 +4748,7 @@ print "SOURCE=$source<==\n";
          unless ($already_downloaded) {
             select STDOUT;
             $log->close() if $log && -1<index $log,'*';
-            if (grep { /-*add[-_]?dependencies/i } @ARGV) {
+            if (grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
                exec 'sudo',$^X,'Makefile.PL','add_dependencies',
                     'BDB',$filename;
             } else {
@@ -4568,8 +4774,7 @@ print "SOURCE=$source<==\n";
    $filename=~/^.*\/(.*)_(.*).tar$/;
    $filename=$1;
    my $uniq=$2;
-   #File::Copy::move("$filename","${filename}_$uniq");
-   File::Copy::move("$filename","$filename.NC_$uniq");
+   File::Copy::move("$filename","${filename}_$uniq");
    my $ver=$file;
    $ver=~s/_.*$//;
    $ver=~s/^.*db-(\d+[.]\d+).*$/$1/;
@@ -4601,436 +4806,12 @@ print "SOURCE=$source<==\n";
 
 }
 
-
-sub download_berkeleydb_BAK {
-
-   my $url=
-      'https://www.oracle.com/technetwork/database/'.
-      'database-technologies/berkeleydb/downloads/'.
-      'index.html';
-   if ($CPAN::META->has_usable('LWP')) {
-      FA::LWP::UserAgent->config;
-      print "Fetching with LWP:\n  $url\n";
-      my $Ua;
-      eval {
-         local $SIG{__DIE__}; # No sigdie handler;
-         $Ua = FA::LWP::UserAgent->new(
-               timeout=>300,show_progress=>1)
-      };
-      if ($@) {
-         $CPAN::Frontend->mywarn(
-            "ERROR: FA::LWP::UserAgent->new dies with $@\n");
-      } else {
-         my($var);
-         $Ua->proxy('http', $var)
-            if $var = $CPAN::Config->{http_proxy} ||
-            $ENV{http_proxy};
-         $Ua->no_proxy($var)
-            if $var = $CPAN::Config->{no_proxy} || $ENV{no_proxy};
-      }
-      my $req = HTTP::Request->new(GET => $url);
-      $req->header('Accept' => 'text/html');
-      my $res = $Ua->request($req);
-      my $BDB_selection='NON-ENCRYPTED';
-      if ($res->is_success) {
-         print " + request successful.\n"
-            if $CPAN::DEBUG;
-         my $source=$res->content;
-         my $site='download.oracle.com';
-         $source=~
-           s/^.*?(http:\/\/$site\/)(?:otn\/)*(b.*?\d.tar.gz).*$/$1$2/s;
-         my $file=$2;
-         my $file=substr($file,(index $file,'/')+1,-7);
-         my $ver=$file;
-         $ver=~s/^.*db-(\d+[.]\d+).*$/$1/;
-         my $timeout=120;my $a='';my $w="      ";
-         my $pre="/usr/local/BerkeleyDB.$ver";
-         $pre=$PREFIX."BerkeleyDB$ver" if $PREFIX;
-         my $berkeley_banner=<<END;
-
-         *** THIS SCREEN WILL TIMEOUT AND PROCEED WITH Berkeley DB
-                      INSTALLATION in 5 MINUTES ***
-
-   Berkeley DB is a file-based (lightweight) database that FullAuto uses for
-   storing and retrieving credentials and persistence data. Berkeley DB is
-   maintained by Oracle Corporation and hosted at Oracle.com. It has the same
-   open source license as FullAuto: GNU Affero General Public License V3.0.
-   The default version of Berkeley DB that FullAuto will install and use is
-   the latest **NON-ENCRYPTED** version. There is an option to choose
-   Encrypted on the next screen.
-
-         There is **NO WARRANTY** for Berkeley DB. USE AT YOUR RISK!
-
-   FullAuto setup will download source code from Oracle.com and build it. It
-   will be installed into:   $pre
-END
-
-               my $berkeleybanner=<<END;
-
-         *** THIS SCREEN WILL TIMEOUT AND PROCEED WITH Berkeley DB
-                      INSTALLATION in 5 MINUTES ***
-
-
-
-
-
-
-
-END
-
-               my $encrypted_banner=<<END;
-
-   From http://http://docs.oracle.com/cd/E17076_03/html/index.html:
-
-   "Berkeley DB releases optionally include strong cryptographic support;
-   this release DOES contain cryptographic support. Export/import and/or
-   use of cryptography software, or even communicating technical details
-   about cryptography software, is illegal in some parts of the world. You
-   are strongly advised to pay close attention to any export/import and/or
-   use laws which apply to you when you import a release of Berkeley DB
-   including cryptography to your country or re-distribute source code
-   from it in any way."
-
-   FullAuto does *NOT* utilize the encrypted features of Berkeley DB, and
-   only offers to install the encrypted version as a courtesy. You are
-   advised to install the NON-ENCRYPTED version unless you have specific
-   reasons for needing the encrypted one.
-END
-
-         my %encryted_berkeley=(
-
-            Name => 'encrypted_berkeley',
-            Item_1 => {
-
-               Text => "Install NON-ENCRYPTED Berkeley DB".
-                       " ( Recommended! )",
-
-            },
-
-            Item_2 => {
-
-               Text => "Install Encrypted Berkeley DB",
-
-            },
-            Banner => $encrypted_banner,
-
-         );
-
-         my %berkeleymenu=(
-
-             Name => 'berkeleymenu',
-             Item_1 => {
-
-                Text => "Install NON-ENCRYPTED Berkeley DB",
-
-             },
-             Item_2 => {
-
-                Text => "Install Encrypted Berkeley DB",
-                Result => \%encryted_berkeley,
-
-             },
-             Item_3 => {
-
-                Text => "Exit FullAuto Setup",
-
-             },
-             Scroll => 1,
-             Banner => $berkeleybanner,
-
-         );
-         my %berkeley_menu=(
-
-            Name   => 'berkeley_menu',
-            Result => \%berkeleymenu,
-            Banner => $berkeley_banner,
-
-         );
-         my $already_downloaded=0;
-         my $filename='';
-         unless (grep { /Encrypted/i } @ARGV) {
-            unless (keys %amazon) {
-               {
-                  local $SIG{__DIE__}; # No sigdie handler
-                  eval {
-                     local $SIG{ALRM} = sub { die "alarm\n" }; # NB: \n required
-                     alarm $timeout;
-                     $BDB_selection=Menu(\%berkeley_menu);
-                     alarm 0;
-                  };
-                  if ($@) {
-                     # timed out
-                     $BDB_selection='NON-ENCRYPTED';
-                     $source=~s/tar.gz/NC.tar.gz/;
-                  } elsif ($BDB_selection=~/\]quit\[|Exit/s) {
-                     print "\n";
-                     exit;
-                  } elsif (-1<index $BDB_selection,'Encrypted') {
-                     $BDB_selection='Encrypted';
-                  } else {
-                     $source=~s/tar.gz/NC.tar.gz/;
-                  } alarm 0;
-               };
-            } else {
-               $BDB_selection='NON-ENCRYPTED';
-               $source=~s/tar.gz/NC.tar.gz/;
-            }
-         } elsif (grep  { /Encrypted/ } @ARGV) {
-            $BDB_selection='Encrypted';
-            $already_downloaded=1;
-            $filename=$ARGV[$#ARGV];
-         } else {
-            $source=~s/tar.gz/NC.tar.gz/;
-            $already_downloaded=1;
-            $filename=$ARGV[$#ARGV];
-         }
-         my $fh='';
-         my $suffix=($BDB_selection eq 'Encrypted')?
-               '.tar.gz':'.NC.tar.gz';
-         unless ($already_downloaded) {
-            ($fh,$filename)=get_temp_file($file,$suffix);
-            my $end_flag=0;my $md5filename='';
-            my %errors = ('500'=>'Bad hostname supplied',
-                          '404'=>'URL not found',
-                          '403'=>'URL forbidden',
-                          '401'=>'Authorization failed',
-                          '400'=>'Bad request found',
-                          '302'=>'Redirected URL'
-            );
-            while (1) {
-               $req = HTTP::Request->new(GET => $source);
-               $req->header('Accept-Encoding' => 'gzip, compress');
-               $res = $Ua->request($req);
-               my $success=1;
-               if ($res->is_success) {
-                  print " + request successful.\n"
-                     if $CPAN::DEBUG;
-                  print $fh $res->content;
-                  close $fh;
-               } else {
-                  my $status_line=$res->status_line;
-                  ($status_line) = ($status_line =~ /(\d+)/);
-                  if (defined($errors{$status_line})) {
-                     print(
-                        "LWP failed with code $status_line, ",
-                        "message $errors{$status_line}\n".
-                        "Please check your connection to the Internet!\n",
-                        $status_line,
-                        $res->message,
-                     );
-                     if (!$end_flag && ($status_line eq '404')) {
-                        unlink $filename;
-                        $source=$last_known_good_location;
-                        $end_flag=1;my $rt=qr/b.*?\d.tar.gz/;
-                        my $h=qr/http:\/\/$site\//;
-                        $source=~s/^.*?($h)(?:otn\/)*($rt).*$/$1$2/s;
-                        $file=$2;
-                        ($suffix=$file)=~s/^.*(([.]NC)*.tar.gz)$/$1/;
-                        $BDB_selection='Encrypted' if $1;
-                        $file=substr($file,(index $file,'/')+1,-7);
-                        ($fh,$filename)=get_temp_file($file,$suffix);
-                        $ver=$file;
-                        $ver=~s/_.*$//;
-                        $ver=~s/^.*db-(\d+[.]\d+).*$/$1/;
-                        $pre="/usr/local/BerkeleyDB.$ver";
-                        $pre=$PREFIX."BerkeleyDB$ver" if $PREFIX;
-                        next;
-                     }
-                  } else {
-                     print(
-                        "LWP failed with an Unknown Error\n".
-                        "Please check your connection to the Internet!\n",
-                     );
-                  }
-                  $success = 0;
-                  close $fh;
-                  last;
-               }
-               print(qq{ + saved content to $filename \n})
-                  if $CPAN::DEBUG;
-               my $md5fh='';
-               ($md5fh,$md5filename)=get_temp_file($file,$suffix.'.md5');
-               $req = HTTP::Request->new(GET => $source.'.md5');
-               $req->header('Accept-Encoding' => 'gzip, compress');
-               $res = $Ua->request($req);
-               if ($res->is_success) {
-                  print " + request successful.\n"
-                     if $CPAN::DEBUG;
-                  print $md5fh $res->content;
-                  close $md5fh;
-               } else {
-                  my $status_line=$res->status_line;
-                  ($status_line) = ($status_line =~ /(\d+)/);
-                  if (defined($errors{$status_line})) {
-                     print(
-                        "LWP failed with code $status_line, ",
-                        "message $errors{$status_line}\n".
-                        "Please check your connection to the Internet!\n",
-                        $status_line,
-                        $res->message,
-                     );
-                     if (!$end_flag && ($status_line eq '404')) {
-                        unlink $filename;
-                        $source=$last_known_good_location;
-                        $end_flag=1;my $rt=qr/b.*?\d.tar.gz/;
-                        my $h=qr/http:\/\/$site\//;
-                        $source=~s/^.*?($h)(?:otn\/)*($rt).*$/$1$2/s;
-                        $file=$2;
-                        ($suffix=$file)=~s/^.*(([.]NC)*.tar.gz)$/$1/;
-                        $BDB_selection='Encrypted' if $1;
-                        $file=substr($file,(index $file,'/')+1,-7);
-                        ($fh,$filename)=get_temp_file($file,$suffix);
-                        $ver=$file;
-                        $ver=~s/_.*$//;
-                        $ver=~s/^.*db-(\d+[.]\d+).*$/$1/;
-                        $pre="/usr/local/BerkeleyDB.$ver";
-                        $pre=$PREFIX."BerkeleyDB$ver" if $PREFIX;
-                        next;
-                     }
-                  } else {
-                     print(
-                        "LWP failed with an Unknown Error\n".
-                        "Please check your connection to the Internet!\n",
-                     );
-                  }
-                  $success = 0;
-                  close $fh;
-                  last;
-               }
-               print(qq{ + saved md5 content to $md5filename \n})
-                  if $CPAN::DEBUG;
-               open(MH,"<$md5filename") || fa_die($!);
-               my $mhf=<MH>;
-               close(MH);
-               my $checksum=$mhf;
-               $checksum=~s/^\s*(\S+)\s+.*$/$1/s;
-               open(FILE, $filename) or fa_die("Can't open '$file': $!");
-               binmode(FILE);
-               require Digest::MD5;
-               import Digest::MD5;
-               my $digestmd5=Digest::MD5->new->addfile(*FILE)->hexdigest;
-               if ($checksum eq $digestmd5) {
-                  print(qq{ + CHECKSUM Test for $filename *PASSED* \n})
-                     if $CPAN::DEBUG;
-               } else {
-                  print "CHECKSUM test for $filename *FAILED*\n";
-                  print "CALCULATED=$digestmd5 and ",
-                        "DOWNLOADED=$checksum\n";
-                  print "\nPress ANY key to terminate FullAuto ",
-                        "installation ...\n";
-                  <STDIN>;
-                  fa_die("FATAL ERROR! : ".
-                      "CHECKSUM Test for $filename *FAILED*\n");
-               }
-               close(FILE);
-               last;
-            }
-            if (grep { /-*add[-_]?dependencies/i } @ARGV) {
-               Term::ReadKey::ReadMode(0);
-               return $filename,$md5filename,$file;
-            } else {
-               cpan_gunzip_and_untar();
-               unless (keys %amazon) {
-                  my $so=fa_system($CPAN::Config->{gzip}." -d $filename");
-                  if ($so==-1) {
-                     fa_die("Cannot gunzip $filename: $!\n");
-                  }
-               }
-               $filename=~s/\.gz$//;
-            }
-         }
-         if (keys %amazon) {
-            unless (exists $amazon{'freebsd'}) {
-               unless ($already_downloaded) {
-                  select STDOUT;
-                  $log->close() if $log && -1<index $log,'*';
-                  if (grep { /-*add[-_]?dependencies/i } @ARGV) {
-                     exec 'sudo',$^X,'Makefile.PL','add_dependencies',
-                          $BDB_selection,$filename;
-                  } else {
-                     exec 'sudo',$^X,'Makefile.PL',$BDB_selection,
-                          $filename;
-                  }
-               }
-               my $so=fa_system($CPAN::Config->{gzip}." -d $filename");
-               if ($so==-1) {
-                  fa_die("Cannot gunzip $filename: $!\n");
-               }
-               print "***** Untar1: sudo ",
-                  $CPAN::Config->{tar}," xvf $filename\n";
-               fa_system("sudo ".$CPAN::Config->{tar}." xvf $filename");
-            } else {
-               unless ($already_downloaded) {
-                  select STDOUT;  
-                  $log->close() if $log && -1<index $log,'*';
-                  if (grep { /-*add[-_]?dependencies/i } @ARGV) {
-                     exec 'sudo',$^X,'Makefile.PL','add_dependencies',
-                          $BDB_selection,$filename;
-                  } else {
-                     exec 'sudo',$^X,'Makefile.PL',$BDB_selection,
-                          $filename;
-                  }
-               }
-               my $so=fa_system($CPAN::Config->{gzip}." -d $filename");
-               if ($so==-1) {
-                  fa_die("Cannot gunzip $filename: $!\n");
-               }
-               print "***** Untar2: ",
-                  $CPAN::Config->{tar}," xvf $filename\n";
-               fa_system($CPAN::Config->{tar}." xvf $filename");
-            }
-         } else {
-            print "***** Untar3: ",
-               $CPAN::Config->{tar}," xvf $filename\n";
-            fa_system($CPAN::Config->{tar}." xvf $filename");
-         }
-         my $uniq='';
-         if ($BDB_selection eq 'Encrypted' || -1==index $filename,'.NC.') {
-            $filename=~/^.*(......).tar$/;
-            $uniq=$1;
-            $filename=~s/........tar$//;
-            `mv -f $filename ${filename}_$uniq`;
-         } else {
-            $filename=~/^.*(......).NC.tar$/;
-            $uniq=$1;
-            $filename=~s/........NC.tar$//;
-            `mv -f $filename.NC $filename.NC_$uniq`;
-         }
-         my $ver=$filename;
-         $ver=~s/^.*db-(\d+[.]\d+).*$/$1/;
-         my $timeout=120;my $a='';my $w="      ";
-         my $pre="/usr/local/BerkeleyDB.$ver";
-         $pre=$PREFIX."BerkeleyDB$ver" if $PREFIX;
-         build_berkeleydb($filename,$uniq,$pre,$PREFIX,$BDB_selection);
-      } else {
-         if ($res->is_error(500)) {
-            print(sprintf(
-               "LWP failed with code[%s], message[%s]\n".
-               "Please check your connection to the Internet!\n",
-               $res->code,
-               $res->message,
-            ));
-         } else {
-            print(sprintf(
-               "LWP failed with code[%s], message[%s]\n",
-               $res->code,
-               $res->message,
-            ));
-         }
-      }
-   } else {
-      $CPAN::Frontend->mywarn("  LWP not available\n");
-   }
-
-}
-
 sub build_berkeleydb {
 
    my $filename=$_[0];
    my $uniq=$_[1];
    my $pre=$_[2]||'';
    my $PREFIX=$_[3]||'';
-   my $BDB_selection=$_[4]||'';
    #my $args=' --enable-sql --enable-sql_compat';
    my $args='';
    if ($PREFIX) {
@@ -5038,17 +4819,10 @@ sub build_berkeleydb {
    }
    my $one=1;
    WH: while ($one) {
-      if ($BDB_selection eq 'Encrypted') {
-         open(FH,
-            "cd ${filename}_$uniq/build_unix;".
-            "../dist/configure$args 2>&1|")
-         || warn $!;
-      } else {
-         open(FH,
-            "cd ${filename}.NC_$uniq/build_unix;".
-            "../dist/configure$args 2>&1|")
-         || warn $!;
-      }
+      open(FH,
+         "cd ${filename}_$uniq/build_unix;".
+         "../dist/configure$args 2>&1|")
+      || warn $!;
       while (my $line=<FH>) {
          if (-1<index $line,'C compiler cannot create executables') {
             $ENV{'CC'}='gcc';
@@ -5065,23 +4839,11 @@ sub build_berkeleydb {
          $CPAN::Config->{make}='/usr/local/bin/make';
       }
    }
-   if ($BDB_selection eq 'Encrypted') {
-      print "*** Starting Encrypted BerkeleyDB build\n";
-      fa_system("(cd ${filename}_$uniq/build_unix;".
-            $CPAN::Config->{make}." install) 2>&1")
-         || warn $!;
-      print "*** Completed Encrypted BerkeleyDB build\n";
-   } else {
-      print "*** Starting Non-Encrypted BerkeleyDB build\n";
-      # REMOVE JAVA UTILITIES BECAUSE LOG4J VULNERABILITY
-      fa_system("(cd ${filename}.NC_$uniq/lang;".
-         "rm -rf java;cd -) 2>&1")
-         || warn $!;
-      fa_system("(cd ${filename}.NC_$uniq/build_unix;".
+   print "*** Starting Encrypted BerkeleyDB build\n";
+   fa_system("(cd ${filename}_$uniq/build_unix;".
          $CPAN::Config->{make}." install) 2>&1")
-         || warn $!;
-      print "*** Completed Non-Encrypted BerkeleyDB build\n";
-   }
+      || warn $!;
+   print "*** Completed Encrypted BerkeleyDB build\n";
    my $ver=$filename;
    $ver=~s/^.*db-(\d+[.]\d+).*$/$1/;
    $berkeleydb=$pre.'/lib';
@@ -5631,8 +5393,8 @@ if (keys %amazon) {
          my %perms_menu=();
          unless ($^O eq 'cygwin') {
             @list=('Install with 777 Permissions on FullAuto Files Only (Default)',
-                   'Install with Setuid Permissions (Experimental)',
-                   'Install with Setgid Permissions (Experimental)',
+                   #'Install with Setuid Permissions (Experimental)',
+                   #'Install with Setgid Permissions (Experimental)',
                    'Install with 770 Permissions on FullAuto Files Only (Experimental)'
                   );
             my $banner="\n   *** THIS SCREEN WILL TIMEOUT AND CHOOSE ".
@@ -6343,7 +6105,7 @@ sub MY::dist {
 
    my $inherited = shift->SUPER::dist(@_);
 
-   if (grep { /-*add[-_]?dependencies/i } @ARGV) {
+   if (grep { /-*(?:add|all)[-_]?dependencies/i } @ARGV) {
 
       $inherited =~ s/^(DISTVNAME.*Net-FullAuto)(.*)$/$1-Complete$2/m;
 

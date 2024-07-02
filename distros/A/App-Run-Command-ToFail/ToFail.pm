@@ -21,7 +21,7 @@ Readonly::Hash our %PRESETS => (
 	],
 );
 
-our $VERSION = 0.02;
+our $VERSION = 0.04;
 
 # Constructor.
 sub new {
@@ -69,23 +69,23 @@ sub run {
 	}
 
 	if ($PRESETS{$self->{'_opts'}->{'p'}}[0] > @ARGV) {
-		print 'Wrong number of arguments (need '.$PRESETS{$self->{'_opts'}->{'p'}}[0].
+		print STDERR 'Wrong number of arguments (need '.$PRESETS{$self->{'_opts'}->{'p'}}[0].
 			" for command '".$PRESETS{$self->{'_opts'}->{'p'}}[1]."').\n";
 		return 1;
 	}
 
-	foreach my $i (1 .. $self->{'_opts'}->{'n'}) {
-		my @preset_args;
-		my @other_args;
-		for (my $i = 0; $i < @ARGV; $i++) {
-			if ($i + 1 <= $PRESETS{$self->{'_opts'}->{'p'}}[0]) {
-				push @preset_args, $ARGV[$i];
-			} else {
-				push @other_args, $ARGV[$i];
-			}
+	my @preset_args;
+	my @other_args;
+	for (my $i = 0; $i < @ARGV; $i++) {
+		if ($i + 1 <= $PRESETS{$self->{'_opts'}->{'p'}}[0]) {
+			push @preset_args, $ARGV[$i];
+		} else {
+			push @other_args, $ARGV[$i];
 		}
-		my $command = sprintf $PRESETS{$self->{'_opts'}->{'p'}}[1], @preset_args;
-		$command .= ' '.(join ' ', @other_args);
+	}
+	my $command = sprintf $PRESETS{$self->{'_opts'}->{'p'}}[1], @preset_args;
+	$command .= ' '.(join ' ', @other_args);
+	foreach my $i (1 .. $self->{'_opts'}->{'n'}) {
 		my $ret = system $command;
         	if ($ret > 1) {
                 	print STDERR "Exited in $i round with exit code $ret.\n";
@@ -155,12 +155,16 @@ Returns 1 for error, 0 for success.
 
  # Arguments.
  @ARGV = (
-         '-n 10',
+         '-n', '10',
          $tmp_file,
  );
 
  # Run.
- exit App::Run::Command::ToFail->new->run;
+ my $exit = App::Run::Command::ToFail->new->run;
+
+ unlink $tmp_file;
+
+ exit $exit;
 
  # Output like:
  # ..........Everything is ok.
@@ -182,12 +186,12 @@ L<http://skim.cz>
 
 =head1 LICENSE AND COPYRIGHT
 
-© 2023 Michal Josef Špaček
+© 2023-2024 Michal Josef Špaček
 
 BSD 2-Clause License
 
 =head1 VERSION
 
-0.02
+0.04
 
 =cut

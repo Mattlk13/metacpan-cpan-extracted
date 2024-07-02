@@ -4,6 +4,7 @@ use warnings;
 
 use Module::Build;
 use Object::Pad::ExtensionBuilder;
+use Data::Checks::Builder;
 
 my @extra_compiler_flags = qw( -Ihax );
 
@@ -19,6 +20,7 @@ my $build = Module::Build->new(
    module_name => 'Object::Pad::FieldAttr::Checked',
    requires => {
       'perl' => '5.022', # op_convert_list
+      'Data::Checks' => '0.02',
       'Object::Pad' => '0.802',
    },
    test_requires => {
@@ -26,6 +28,8 @@ my $build = Module::Build->new(
    },
    configure_requires => {
       'Module::Build' => '0.4004', # test_requires
+
+      'Data::Checks::Builder' => '0.02',
       'Object::Pad::ExtensionBuilder' => '0.802',
    },
    license => 'perl',
@@ -36,5 +40,7 @@ my $build = Module::Build->new(
 );
 
 Object::Pad::ExtensionBuilder->extend_module_build( $build );
+
+Data::Checks::Builder->extend_module_build( $build );
 
 $build->create_build_script;

@@ -1,12 +1,15 @@
 package Kelp::Base;
 
-use strict ();
-use warnings ();
+use strict;
+use warnings;
 use feature ();
 use Carp;
-use namespace::autoclean ();
 
-sub import {
+require namespace::autoclean;
+require Kelp::Util;
+
+sub import
+{
     my $class = shift;
     my $caller = caller;
 
@@ -15,54 +18,57 @@ sub import {
 
     my $base = shift || $class;
 
-    if ( $base ne '-strict' ) {
+    if ($base ne '-strict') {
         no strict 'refs';
         no warnings 'redefine';
 
-        my $file = $base;
-        $file =~ s/::|'/\//g;
-        require "$file.pm" unless $base->can('new'); # thanks sri
+        if ($base ne '-attr') {
+            Kelp::Util::load_package($base);
+            push @{"${caller}::ISA"}, $base;
+        }
 
-        push @{"${caller}::ISA"}, $base;
-        *{"${caller}::attr"} = sub { attr( $caller, @_ ) };
+        *{"${caller}::attr"} = sub { attr($caller, @_) };
+
+        namespace::autoclean->import(
+            -cleanee => $caller
+        );
     }
 
     strict->import;
     warnings->import;
     feature->import(':5.10');
-
-    namespace::autoclean->import(
-        -cleanee => scalar(caller),
-    );
 }
 
-sub new {
-    bless { @_[ 1 .. $#_ ] }, $_[0];
+sub new
+{
+    my $self = shift;
+    return bless {@_}, $self;
 }
 
-sub attr {
-    my ( $class, $name, $default ) = @_;
+sub attr
+{
+    my ($class, $name, $default) = @_;
 
-    if ( ref $default && ref $default ne 'CODE' ) {
+    if (ref $default && ref $default ne 'CODE') {
         croak "Default value for '$name' can not be a reference.";
     }
-
-    no strict 'refs';
-    no warnings 'redefine';
 
     # Readonly attributes are marked with '-'
     my $readonly = $name =~ s/^\-//;
 
-    *{"${class}::$name"} = sub {
-        if ( @_ > 1 && !$readonly ) {
-            $_[0]->{$name} = $_[1];
-        }
-        return $_[0]->{$name} if exists $_[0]->{$name};
-        return $_[0]->{$name} =
-          ref $default eq 'CODE'
-          ? $default->( $_[0] )
-          : $default;
-    };
+    # Remember if default is a function
+    my $default_sub = ref $default eq 'CODE';
+
+    {
+        no strict 'refs';
+        no warnings 'redefine';
+
+        *{"${class}::$name"} = sub {
+            return $_[0]->{$name} = $_[1] if @_ > 1 && !$readonly;
+            return $_[0]->{$name} if exists $_[0]->{$name};
+            return $_[0]->{$name} = $default_sub ? $default->($_[0]) : $default;
+        };
+    }
 }
 
 1;
@@ -104,7 +110,6 @@ or
     use Kelp::Base -strict;    # Only use strict, warnings and v5.10
                                   # No magic
 
-
 =head1 DESCRIPTION
 
 This module provides simple lazy attributes.
@@ -112,12 +117,17 @@ This module provides simple lazy attributes.
 =head1 WHY?
 
 Some users will naturally want to ask F<"Why not use Moose/Mouse/Moo/Mo?">. The
-answer is that the Kelp web framework needs lazy attributes, but the
-author wanted to keep the code light and object manager agnostic.
-This allows the users of the framework to choose an object manager to
-their liking.
-There is nothing more annoying than a module that forces you to use L<Moose> when you
-are perfectly fine with L<Moo> or L<Mo>, for example.
+answer is that the Kelp web framework needs lazy attributes, but the author
+wanted to keep the code light and object manager agnostic. This allows the
+users of the framework to choose an object manager to their liking. As a nice
+addition, our getters and constructors are quite a bit faster than any non-XS
+variant of L<Moose>, which makes the core code very fast.
+
+There is nothing more annoying than a module that forces you to use L<Moose>
+when you are perfectly fine with L<Moo> or L<Mo>, for example. Since this
+module is so minimal, you should probably switch to a full-blown OO system of
+your choice when writing your application. Kelp::Base should be compatible with
+it as long as it uses blessed hashes under the hood.
 
 =head1 USAGE
 
@@ -147,8 +157,20 @@ name with a dash.
     say $self->readonly;           # something
     $self->readonly("nothing");    # no change
 
+Kelp::Base can also be imported without turning an object into a class:
+
+    # imports strict, warnings and :5.10
+    use Kelp::Base -strict;
+
+    # imports all of the above plus attr
+    use Kelp::Base -attr;
+
+The former is useful for less boilerplate in scripts on older perls. The latter
+is useful when using C<attr> with L<Role::Tiny>.
+
 =head1 SEE ALSO
 
 L<Kelp>, L<Moose>, L<Moo>, L<Mo>, L<Any::Moose>
 
 =cut
+

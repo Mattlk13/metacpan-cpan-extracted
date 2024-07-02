@@ -1,16 +1,15 @@
 package ExtUtils::Builder::Linker::PE::MSVC;
-$ExtUtils::Builder::Linker::PE::MSVC::VERSION = '0.004';
+$ExtUtils::Builder::Linker::PE::MSVC::VERSION = '0.008';
 use strict;
 use warnings;
 
 use ExtUtils::Builder::Action::Command;
 
-use base qw/ExtUtils::Builder::Linker ExtUtils::Builder::Linker::COFF/;
+use base qw/ExtUtils::Builder::Linker::COFF/;
 
 sub _init {
 	my ($self, %args) = @_;
 	$args{ld} ||= ['link'];
-	$self->ExtUtils::Builder::Linker::_init(%args);
 	$self->ExtUtils::Builder::Linker::COFF::_init(%args);
 	return;
 }
@@ -20,7 +19,7 @@ sub linker_flags {
 	my @ret;
 	push @ret, $self->new_argument(ranking =>  5, value => ['/nologo']);
 	push @ret, $self->new_argument(ranking => 10, value => ['/dll']) if $self->type eq 'shared-library' or $self->type eq 'loadable-object';
-	push @ret, map { $self->new_argument(ranking => $_->{ranking}, value => [ "/libpath:-L$_->{value}" ]) } @{ $self->_library_dirs };
+	push @ret, map { $self->new_argument(ranking => $_->{ranking}, value => [ "/libpath:-L$_->{value}" ]) } @{ $self->{library_dirs} };
 	push @ret, map { $self->new_argument(ranking => $_->{ranking}, value => [ "$_->{value}.lib" ]) } @{ $self->_libraries };
 	push @ret, $self->new_argument(ranking => 50, value => [ @{$from} ]);
 	push @ret, $self->new_argument(ranking => 80, value => ["/OUT:$to"]);
@@ -51,7 +50,7 @@ ExtUtils::Builder::Linker::PE::MSVC
 
 =head1 VERSION
 
-version 0.004
+version 0.008
 
 =head1 AUTHOR
 

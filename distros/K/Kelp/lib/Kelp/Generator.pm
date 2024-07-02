@@ -7,14 +7,16 @@ use Carp;
 
 attr -templates_dir => sub { path(__FILE__)->parent . '/templates' };
 
-sub list_templates {
+sub list_templates
+{
     my ($self) = @_;
 
     my $dir = $self->templates_dir;
     return map { path($_)->basename } glob "$dir/*";
 }
 
-sub get_template_files {
+sub get_template_files
+{
     my ($self, $template) = @_;
 
     my $dir = $self->templates_dir;
@@ -25,17 +27,18 @@ sub get_template_files {
     my ($index_file) = map { "$dir/$_/template" }
         grep { $_ eq $template }
         $self->list_templates
-    ;
+        ;
     return unless $index_file;
 
     my $index = path($index_file);
     return unless $index->is_file;
 
-    return map { s/^\s+//; s/\s+$//; "$dir/$template/$_" }
-        $index->lines({chomp => 1});
+    my @files = map { s/^\s+//; s/\s+$//; $_ } $index->lines({chomp => 1});
+    return map { "$dir/$template/$_" } grep { length } @files;
 }
 
-sub get_template {
+sub get_template
+{
     my ($self, $template, $name, %args) = @_;
 
     my $vars = {'name' => $name, %args};
@@ -55,9 +58,10 @@ sub get_template {
         # resolve the destination name
         # hyphens become directory separators
         (my $dest_file = $file->basename) =~ s{-}{/}g;
-        $dest_file =~ s/NAME/$vars->{name}/ge;
-        $dest_file =~ s/PATH/$vars->{module_path}/ge;
-        $dest_file =~ s/FILE/$vars->{module_file}/ge;
+        $dest_file =~ s/NAME/$vars->{name}/g;
+        $dest_file =~ s/PATH/$vars->{module_path}/g;
+        $dest_file =~ s/FILE/$vars->{module_file}/g;
+        $dest_file =~ s/DOT/./g;
 
         # process the template, if it is .gen (generated)
         my $contents = $file->slurp;
@@ -100,8 +104,8 @@ Kelp::Generator - Generation templates
 This is a class for discovery and parsing of generation templates for Kelp. A
 generation template is a set of files that can be parsed using
 L<Template::Tiny> and inserted into a given directory. This class only handles
-the discovery and parsing of these templates. The Kelp script or custom script
-should handle saving them in a destination directory.
+the discovery and parsing of these templates. The C<kelp-generator> script or
+custom script should handle saving them in a destination directory.
 
 =head1 TEMPLATE CREATION
 
@@ -114,7 +118,7 @@ This means that CPAN modules can add templates to L<Kelp/templates> and they
 will be discovered as long as they have been installed in the same root
 directory as Kelp without changing the contents of the package variable. Any
 template that can be discovered in the default directory will be usable in the
-Kelp script.
+C<kelp-generator> script.
 
 =head2 Contents
 
@@ -152,8 +156,8 @@ extension should not be used in when generating template files using the same
 syntax as L<Template>, because there's no way to tell which directives should
 not be interpreted right away.
 
-Files can also contain NAME, FILE and PATH in their name, which will be
-replaced by C<name>, C<module_file> and C<module_path>.
+Files can also contain NAME, FILE, PATH and DOT in their name, which will be
+replaced by C<name>, C<module_file>, C<module_path> and C<.>.
 
 =head1 INTERFACE
 
@@ -199,3 +203,4 @@ Returns the list of template files for a given template. Will return full
 paths, not just file names.
 
 =cut
+

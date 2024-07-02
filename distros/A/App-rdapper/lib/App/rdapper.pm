@@ -1,13 +1,13 @@
 package App::rdapper;
 use Getopt::Long qw(GetOptionsFromArray :config pass_through);
 use JSON;
-use List::Util qw(min);
+use List::Util qw(min max);
 use List::MoreUtils qw(any);
 use Net::ASN;
 use Net::DNS::Domain;
 use Net::IP;
 use Net::RDAP::EPPStatusMap;
-use Net::RDAP 0.24;
+use Net::RDAP 0.26;
 use Pod::Usage;
 use Term::ANSIColor;
 use Term::Size;
@@ -26,12 +26,13 @@ use constant {
 use vars qw($VERSION);
 use strict;
 
-$VERSION = '1.01';
+$VERSION = '1.03';
 
 #
 # global arg variables (note: nopager is now ignored)
 #
-my ($type, $object, $help, $short, $bypass, $auth, $nopager, $raw, $registrar, $nocolor, $reverse, $version);
+my ($type, $object, $help, $short, $bypass, $auth, $nopager, $raw, $both,
+    $registrar, $nocolor, $reverse, $version);
 
 #
 # options spec for Getopt::Long
@@ -45,6 +46,7 @@ my %opts = (
     'auth:s'        => \$auth,
     'nopager'       => \$nopager,
     'raw'           => \$raw,
+    'both'          => \$both,
     'registrar'     => \$registrar,
     'nocolor'       => \$nocolor,
     'reverse'       => \$reverse,
@@ -60,8 +62,52 @@ my %funcs = (
     'help'       => sub { 1 }, # help only contains generic properties
 );
 
-my @role_order = qw(registrant administrative technical billing abuse registrar reseller sponsor proxy notifications noc);
-my %role_display = ('noc' => 'NOC');
+my @ROLE_DISPLAY_NAMES_ORDER = qw(registrant administrative technical billing
+    abuse registrar reseller sponsor proxy notifications noc);
+
+my %ROLE_DISPLAY_NAMES = ('noc' => 'NOC');
+
+my @EVENTS = (
+    'registration',
+    'reregistration',
+    'last changed',
+    'expiration',
+    'deletion',
+    'reinstantiation',
+    'transfer',
+    'locked',
+    'unlocked',
+    'last update of RDAP database',
+    'registrar expiration',
+    'enum validation expiration',
+);
+
+my %EVENT_DISPLAY_ORDER;
+for (my $i = 0 ; $i < scalar(@EVENTS) ; $i++) {
+    $EVENT_DISPLAY_ORDER{$EVENTS[$i]} = $i;
+}
+
+my @VCARD_DISPLAY_ORDER = qw(SOURCE KIND FN TITLE ROLE ORG ADR GEO EMAIL CONTACT-URI SOCIALPROFILE TEL IMPP URL CATEGORIES NOTE);
+my %VCARD_NODE_NAMES = (
+    FN              => 'Name',
+    ORG             => 'Organization',
+    TEL             => 'Phone',
+    EMAIL           => 'Email',
+    IMPP            => 'Messaging',
+    URL             => 'Website',
+    SOCIALPROFILE   => 'Profile',
+    'CONTACT-URI'   => 'Contact Link',
+    GEO             => 'Location',
+);
+
+my @ADR_DISPLAY_ORDER = (ADR_STREET, ADR_CITY, ADR_SP, ADR_PC, ADR_CC);
+my %ADR_DISPLAY_NAMES = (
+    &ADR_STREET => 'Street',
+    &ADR_CITY   => 'City',
+    &ADR_SP     => 'State/Province',
+    &ADR_PC     => 'Postal Code',
+    &ADR_CC     => 'Country',
+);
 
 my $rdap;
 
@@ -71,12 +117,8 @@ my $err = \*STDERR;
 $out->binmode(':utf8');
 $err->binmode(':utf8');
 
-$Text::Wrap::columns = min(
-    (Term::Size::chars)[0] - 5,
-    75,
-);
-
-$Text::Wrap::huge = 'overflow';
+$Text::Wrap::columns    = max((Term::Size::chars)[0], 75);
+$Text::Wrap::huge       = 'overflow';
 
 sub main {
     my $package = shift;
@@ -87,6 +129,8 @@ sub main {
         'use_cache' => !$bypass,
         'cache_ttl' => 300,
     );
+
+    $registrar ||= $both;
 
     $object = shift(@_) if (!$object);
 
@@ -144,7 +188,7 @@ sub main {
 
     } elsif ('tld' eq $type) {
         $response = $rdap->fetch(URI->new(IANA_BASE_URL.'domain/'.$object), %args);
-        
+       
     } elsif ('url' eq $type) {
         my $uri = URI->new($object);
 
@@ -167,7 +211,7 @@ sub show_usage {
     my $package = shift;
 
     pod2usage(
-        '-input'    => __FILE__, 
+        '-input'    => __FILE__,
         '-verbose'  => 99,
         '-sections' => [qw(SYNOPSIS OPTIONS)],
     );
@@ -185,114 +229,126 @@ sub display {
     if ($object->isa('Net::RDAP::Error')) {
         if ($nofatal) {
             $package->warning('%03u (%s)', $object->errorCode, $object->title);
-            return undef;
 
         } else {
             $package->error('%03u (%s)', $object->errorCode, $object->title);
 
         }
+        return undef;
+    }
 
-    } elsif ($registrar) {
+    if ($registrar) {
         # avoid recursing infinitely
         $registrar = undef;
 
-        my $link = (grep { 'related' eq $_->rel && 'application/rdap+json' eq $_->type } $object->links)[0];
+        my $link = (grep { 'related' eq $_->rel && $_->is_rdap } $object->links)[0];
 
-        if ($link && $package->display($rdap->fetch($link->href), $indent, 1)) {
-            return 1;
-
-        } else {
+        if (!$link) {
+            $package->warning('No registrar link found, displaying the registry record...');
             return $package->display($object, $indent);
-
         }
 
-    } elsif ($raw) {
+        my $result = $rdap->fetch($link);
+
+        if ($result->isa('Net::RDAP::Error')) {
+            return $package->display($result, $indent, 1);
+
+            $package->warning('Unable to retrieve registrar record, displaying the registry record...');
+            return $package->display($object, $indent);
+        }
+
+        if ($both) {
+            $package->display($object, $indent, 1);
+        }
+
+        return $package->display($result, $indent);
+    }
+
+    if ($raw) {
         $out->print(to_json({%{$object}}));
 
         return 1;
-
-    } elsif (!defined($funcs{$object->class})) {
-        $package->print_kv('Unknown object type', $object->class || '(missing objectClassName)', $indent);
-
-        return undef;
-
-    } else {
-        #
-        # generic properties
-        #
-        $package->print_kv('Object type', $object->class, $indent) if ($indent < 1);
-        $package->print_kv('URL', u($object->self->href), $indent) if ($indent < 1 && $object->self);
-
-        if ($object->can('name')) {
-            my $name = $object->name;
-
-            if ($name) {
-                my $xname;
-
-                if ('Net::DNS::Domain' eq ref($name)) {
-                    $xname = $name->xname;
-                    $name  = $name->name;
-
-                } else {
-                    $xname = $name;
-
-                }
-
-                if ($xname ne $name) {
-                    $package->print_kv('Name', sprintf('%s (%s)', uc($xname), uc($name)));
-
-                } else {
-                    $package->print_kv('Name', uc($name));
-
-                }
-            }
-        }
-
-        #
-        # object-specific properties
-        #
-        &{$funcs{$object->class}}($object, $indent);
-
-        #
-        # more generic properties
-        #
-        $package->print_events($object, $indent);
-        $package->print_status($object, $indent, ('domain' eq $object->class));
-        $package->print_entities($object, $indent);
-
-        #
-        # links, remarks, notices and redactions, unless --short has been passed
-        #
-        if (!$short) {
-            foreach my $link (grep { 'self' ne $_->rel } $object->links) {
-                $package->print_link($link, $indent);
-            }
-
-            foreach my $remark ($object->remarks) {
-                $package->print_remark_or_notice($remark, $indent);
-            }
-
-            foreach my $notice ($object->notices) {
-                $package->print_remark_or_notice($notice, $indent);
-            }
-
-            my @fields = $object->redactions;
-            if (scalar(@fields) > 0) {
-                $package->print_kv('Redacted Fields', '', $indent);
-                foreach my $field (@fields) {
-                    $out->print(wrap(
-                        (INDENT x ($indent + 1)),
-                        (INDENT x ($indent + 2)),
-                        sprintf("%s %s (reason: %s)\n", b('*'), $field->name, $field->reason)
-                    ));
-                }
-            }
-        }
-
-        $out->print("\n") if ($indent < 1);
-
-        return 1;
     }
+
+    $package->error("JSON response does not include the 'objectClassName' properties") unless ($object->class);
+    $package->error(sprintf("Unknown object type '%s'", $object->class)) unless ($funcs{$object->class});
+
+    #
+    # generic properties
+    #
+    $package->print_kv('Object type', $object->class, $indent) if ($indent < 1);
+    $package->print_kv('URL', u($object->self->href), $indent) if ($indent < 1 && $object->self);
+
+    if ($object->can('name')) {
+        my $name = $object->name;
+
+        if ($name) {
+            my $xname;
+
+            if ('Net::DNS::Domain' eq ref($name)) {
+                $xname = $name->xname;
+                $name  = $name->name;
+
+            } else {
+                $xname = $name;
+
+            }
+
+            if ($xname ne $name) {
+                $package->print_kv('Name', sprintf('%s (%s)', uc($xname), uc($name)));
+
+            } else {
+                $package->print_kv('Name', uc($name));
+
+            }
+        }
+    }
+
+    #
+    # object-specific properties
+    #
+    &{$funcs{$object->class}}($object, $indent);
+
+    #
+    # more generic properties
+    #
+    $package->print_events($object, $indent);
+    $package->print_status($object, $indent, ('domain' eq $object->class));
+
+    $package->print_entities($object, $indent);
+
+    #
+    # links, remarks, notices and redactions, unless --short has been passed
+    #
+    if (!$short) {
+        foreach my $link (grep { 'self' ne $_->rel } $object->links) {
+            $package->print_link($link, $indent);
+        }
+
+        foreach my $remark ($object->remarks) {
+            $package->print_remark_or_notice($remark, $indent);
+        }
+
+        foreach my $notice ($object->notices) {
+            $package->print_remark_or_notice($notice, $indent);
+        }
+
+        my @fields = $object->redactions;
+        if (scalar(@fields) > 0) {
+            $package->print_kv('Redacted Fields', '', $indent);
+            foreach my $field (@fields) {
+                $out->print(wrap(
+                    (INDENT x ($indent + 1)),
+                    (INDENT x ($indent + 2)),
+                    sprintf("%s %s (reason: %s)\n", b('*'), $field->name, $field->reason)
+                ));
+            }
+        }
+    }
+
+    $out->print("\n") if ($indent < 1);
+
+    return 1;
 }
 
 sub print_ip {
@@ -370,7 +426,58 @@ sub print_entity {
         $package->print_kv($id->type, $id->identifier, $indent);
     }
 
-    $package->print_vcard($entity->vcard, $indent) if ($entity->vcard);
+    my $jcard = $entity->jcard;
+    if ($jcard) {
+        foreach my $type (@VCARD_DISPLAY_ORDER) {
+            foreach my $property (grep { $_->value } $jcard->properties($type)) {
+                if ('ADR' eq $type) {
+                    $package->print_kv('Address', '', $indent);
+
+                    if ($property->param('label')) {
+                        $out->print(wrap(
+                            INDENT x ($indent + 1),
+                            INDENT x ($indent + 1),
+                            $property->param('label'),
+                        )."\n");
+
+                    } else {
+                        foreach my $i (@ADR_DISPLAY_ORDER) {
+                            if ($property->value->[$i]) {
+                                if ('ARRAY' eq ref($property->value->[$i])) {
+                                    foreach my $v (grep { $_ } @{$property->value->[$i]}) {
+                                        $package->print_kv($ADR_DISPLAY_NAMES{$i}, $v, $indent+1);
+                                    }
+
+                                } else {
+                                    $package->print_kv($ADR_DISPLAY_NAMES{$i}, $property->value->[$i], $indent+1);
+
+                                }
+                            }
+                        }
+                    }
+
+                } else {
+                    my $label = $VCARD_NODE_NAMES{$type} || ucfirst(lc($type));
+
+                    if ('TEL' eq $type) {
+                        if (any { 'fax' eq lc($_) } @{$property->param('type')}) {
+                            $label = 'Fax';
+
+                        } else {
+                            $label = 'Phone';
+
+                        }
+                    }
+
+                    $package->print_kv(
+                        $label,
+                        'uri' eq $property->value_type ? u($property->value) : $property->value,
+                        $indent
+                    );
+                }
+            }
+        }
+    }
 }
 
 sub print_nameserver {
@@ -386,7 +493,7 @@ sub print_nameserver {
 sub print_events {
     my ($package, $object, $indent) = @_;
 
-    foreach my $event ($object->events) {
+    foreach my $event (sort { $EVENT_DISPLAY_ORDER{$a->action} - $EVENT_DISPLAY_ORDER{$b->action} } $object->events) {
         if ($event->actor) {
             $package->print_kv(ucfirst($event->action), sprintf('%s (by %s)', scalar($event->date), $event->actor), $indent);
 
@@ -418,7 +525,7 @@ sub print_entities {
     my @entities = $object->entities;
 
     my %seen;
-    foreach my $role (@role_order) {
+    foreach my $role (@ROLE_DISPLAY_NAMES_ORDER) {
         for (my $i = 0 ; $i < scalar(@entities) ; $i++) {
             next if ($seen{$i});
 
@@ -426,7 +533,7 @@ sub print_entities {
             if (any { $role eq $_ } $entity->roles) {
                 $seen{$i} = 1;
 
-                my $rstring = join(', ', map { sprintf('%s Contact', $role_display{$_} || ucfirst($_)) } $entity->roles);
+                my $rstring = join(', ', map { sprintf('%s Contact', $ROLE_DISPLAY_NAMES{$_} || ucfirst($_)) } $entity->roles);
 
                 if ($entity->handle && 'not applicable' ne $entity->handle && 'HANDLE REDACTED FOR PRIVACY' ne $entity->handle) {
                     $package->print_kv($rstring, $entity->handle, $indent);
@@ -477,52 +584,6 @@ sub print_link {
     );
 }
 
-sub print_vcard {
-    my ($package, $card, $indent) = @_;
-
-    if ($card->full_name || $card->organization) {
-        $package->print_kv('Name', $card->full_name, $indent) if ($card->full_name);
-        $package->print_kv('Organization', $card->organization, $indent) if ($card->organization);
-
-    } else {
-        $package->print_kv('Name/Organization', '(not available)', $indent);
-
-    }
-
-    foreach my $address (map { $_->{'address'} } @{$card->addresses}) {
-        if ('ARRAY' eq ref($address->[ADR_STREET])) {
-            foreach my $street (@{$address->[ADR_STREET]}) {
-                $package->print_kv('Street', $street, $indent) if ($street);
-            }
-
-        } elsif ($address->[ADR_STREET]) {
-            $package->print_kv('Street', $address->[ADR_STREET], $indent);
-
-        }
-
-        $package->print_kv('City',            $address->[ADR_CITY], $indent)  if ($address->[ADR_CITY]);
-        $package->print_kv('State/Province',  $address->[ADR_SP], $indent)    if ($address->[ADR_SP]);
-        $package->print_kv('Postal Code',     $address->[ADR_PC], $indent)    if ($address->[ADR_PC]);
-        $package->print_kv('Country',         $address->[ADR_CC], $indent)    if ($address->[ADR_CC]);
-    }
-
-    foreach my $email (@{$card->email_addresses}) {
-        if ($email->{'type'}) {
-            $package->print_kv('Email', sprintf('%s (%s)', u($email->{'address'}), $email->{'type'}), $indent);
-
-        } else {
-            $package->print_kv('Email', u($email->{'address'}), $indent);
-
-        }
-    }
-
-    foreach my $number (@{$card->phones}) {
-        my @types = ('ARRAY' eq ref($number->{'type'}) ? @{$number->{'type'}} : ($number->{'type'}));
-        my $type = ((any { lc($_) eq 'fax' } @types) ? 'Fax' : 'Phone');
-        $package->print_kv($type, u($number->{'number'}), $indent);
-    }
-}
-
 sub print_kv {
     my ($package, $name, $value, $indent) = @_;
 
@@ -569,7 +630,7 @@ __END__
 
 =head1 NAME
 
-App::rdapper - a simple console-based RDAP client.
+App::rdapper - a simple console-based L<RDAP|https://about.rdap.org> client.
 
 =head1 INSTALLATION
 
@@ -594,15 +655,10 @@ Alternatively, you can pull the L<image from Docker Hub|https://hub.docker.com/r
 
 =head1 DESCRIPTION
 
-C<rdapper> is a simple RDAP client. It uses L<Net::RDAP> to retrieve
-data about internet resources (domain names, IP addresses, and
-autonymous systems) and outputs the information in a human-readable
-format. If you want to consume this data in your own program you
-should use L<Net::RDAP> directly.
-
-C<rdapper> was originally conceived as a full RDAP client (back
-when the RDAP specification was still in draft form) but is now
-just a very thin front-end to L<Net::RDAP>.
+C<rdapper> is a simple RDAP client. It uses L<Net::RDAP> to retrieve data about
+internet resources (domain names, IP addresses, and autonymous systems) and
+outputs the information in a human-readable format. If you want to consume this
+data in your own program you should use L<Net::RDAP> directly.
 
 =head1 OPTIONS
 
@@ -616,55 +672,53 @@ You can pass any internet resource as an argument; this may be:
 
 =item * a "reverse" domain name such as C<168.192.in-addr.arpa>;
 
-=item * a IPv4 or IPv6 address or CIDR prefix, such as C<192.168.0.1>
-or C<2001:DB8::/32>;
+=item * a IPv4 or IPv6 address or CIDR prefix, such as C<192.168.0.1> or
+C<2001:DB8::/32>;
 
 =item * an Autonymous System Number such as C<AS65536>.
 
 =item * the URL of an RDAP resource such as
 C<https://example.com/rdap/domain/example.com>.
 
-=item * the "tagged" handle of an entity, such as an LIR, registrar,
-or domain admin/tech contact. Because these handles are difficult
-to distinguish from domain names, you must use the C<--type> argument
-to explicitly tell C<rdapper> that you want to perform an entity query,
-.e.g C<rdapper --type=entity ABC123-EXAMPLE>.
+=item * the "tagged" handle of an entity, such as an LIR, registrar, or domain
+admin/tech contact. Because these handles are difficult to distinguish from
+domain names, you must use the C<--type> argument to explicitly tell C<rdapper>
+that you want to perform an entity query, .e.g C<rdapper --type=entity
+ABC123-EXAMPLE>.
 
 =back
 
-C<rdapper> also implements limited support for in-bailiwick nameservers,
-but you must use the C<--type=nameserver> argument to disambiguate
-from domain names. The RDAP server of the parent domain's registry will
-be queried.
-
-=head1 ADDITIONAL ARGUMENTS
+C<rdapper> also implements limited support for in-bailiwick nameservers, but you
+must use the C<--type=nameserver> argument to disambiguate from domain names. The
+RDAP server of the parent domain's registry will be queried.
 
 =over
 
-=item * C<--registrar> - follow referral to the registrar's RDAP record
-(if any) which will be displayed instead of the registry record.
+=item * C<--registrar> - follow referral to the registrar's RDAP record (if any)
+which will be displayed instead of the registry record.
 
-=item * C<--reverse> - if you provide an IP address or CIDR prefix, then
-this option causes C<rdapper> to display the record of the corresponding
+=item * C<--both> - display both the registry and (if any) registrar RDAP
+records (implies C<--registrar>).
+
+=item * C<--reverse> - if you provide an IP address or CIDR prefix, then this
+option causes C<rdapper> to display the record of the corresponding
 C<in-addr.arpa> or C<ip6.arpa> domain.
 
-=item * C<--type=TYPE> - explicitly set the object type. C<rdapper>
-will guess the type by pattern matching the value of C<OBJECT> but
-you can override this by explicitly setting the C<--type> argument
-to one of : C<ip>, C<autnum>, C<domain>, C<nameserver>, C<entity>
-or C<url>.
+=item * C<--type=TYPE> - explicitly set the object type. C<rdapper> will guess
+the type by pattern matching the value of C<OBJECT> but you can override this by
+explicitly setting the C<--type> argument to one of : C<ip>, C<autnum>,
+C<domain>, C<nameserver>, C<entity> or C<url>.
 
 =over
 
-=item * If C<--type=url> is used, C<rdapper> will directly fetch the
-specified URL and attempt to process it as an RDAP response. If the URL
-path ends with C</help> then the response will be treated as a "help"
-query response (if you want to see the record for the .help TLD, use
-C<--type=tld help>).
+=item * If C<--type=url> is used, C<rdapper> will directly fetch the specified
+URL and attempt to process it as an RDAP response. If the URL path ends with
+C</help> then the response will be treated as a "help" query response (if you
+want to see the record for the .help TLD, use C<--type=tld help>).
 
-=item * If C<--type=entity> is used, C<OBJECT> must be a a string
-containing a "tagged" handle, such as C<ABC123-EXAMPLE>, as per
-RFC 8521.
+=item * If C<--type=entity> is used, C<OBJECT> must be a a string containing a
+"tagged" handle, such as C<ABC123-EXAMPLE>, as per L<RFC
+8521|https://datatracker.ietf.org/doc/html/rfc8521>.
 
 =back
 
@@ -678,10 +732,10 @@ RFC 8521.
 
 =item * C<--bypass-cache> - disable local cache of RDAP objects.
 
-=item * C<--auth=USER:PASS> - HTTP Basic Authentication credentials
-to be used when accessing the specified resource. This option
-B<SHOULD NOT> be used unless you explicitly specify a URL, otherwise
-your credentials may be sent to servers you aren't expecting them to.
+=item * C<--auth=USER:PASS> - HTTP Basic Authentication credentials to be used
+when accessing the specified resource. This option B<SHOULD NOT> be used unless
+you explicitly specify a URL, otherwise your credentials may be sent to servers
+you aren't expecting them to.
 
 =item * C<--nocolor> - disable ANSI colors in the formatted output.
 

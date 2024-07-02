@@ -13,7 +13,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Hobo;
 
-our $VERSION = '1.887';
+our $VERSION = '1.891';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -85,6 +85,17 @@ sub _max_workers {
 
 bless my $_SELF = { MGR_ID => "$$.$_tid", WRK_ID => $$ }, __PACKAGE__;
 
+sub MCE::Hobo::_guard::DESTROY {
+   my ($pkg, $id) = @{ $_[0] };
+
+   if (defined $pkg && $id eq "$$.$_tid") {
+      @{ $_[0] } = ();
+      MCE::Hobo->finish($pkg);
+   }
+
+   return;
+}
+
 sub init {
    shift if ( defined $_[0] && $_[0] eq __PACKAGE__ );
 
@@ -114,8 +125,9 @@ sub init {
       $_LIST->{ $pkg } = MCE::Hobo::_ordhash->new();
       $_DELY->{ $pkg } = MCE::Hobo::_delay->new( $chnl );
       $_DATA->{ $pkg } = MCE::Hobo::_hash->new();
-      $_DATA->{"$pkg:seed"} = int(rand() * 1e9);
-      $_DATA->{"$pkg:id"  } = 0;
+      $_DATA->{"$pkg:id"} = 0;
+
+      $_DATA->{"$pkg:seed"} = int(CORE::rand() * 1e9);
 
       $MCE::_GMUTEX->unlock() if ( $_tid && $MCE::_GMUTEX );
    }
@@ -141,7 +153,9 @@ sub init {
    require POSIX
       if ( $mngd->{on_finish} && !$INC{'POSIX.pm'} && !$_is_MSWin32 );
 
-   return;
+   defined wantarray
+      ? bless([$pkg, "$$.$_tid"], MCE::Hobo::_guard::)
+      : ();
 }
 
 ###############################################################################
@@ -247,18 +261,22 @@ sub create {
          $_DATA->{ $_SELF->{PKG} }->set('S'.$$, '') unless $self->{IGNORE};
          CORE::kill($killed, $$) if $killed;
 
-         # Sets the seed of the base generator uniquely between workers.
+         MCE::Child->_clear() if $INC{'MCE/Child.pm'};
+         MCE::Hobo->_clear() if $INC{'MCE/Hobo.pm'};
+
+         # Set the seed of the base generator uniquely between workers.
          # The new seed is computed using the current seed and ID value.
          # One may set the seed at the application level for predictable
-         # results. Ditto for Math::Prime::Util, Math::Random, and
+         # results. Ditto for PDL, Math::Prime::Util, Math::Random, and
          # Math::Random::MT::Auto.
 
-         srand( abs($_DATA->{"$pkg:seed"} - ($id * 100000)) % 2147483560 );
+         {
+            my $seed = abs($_DATA->{"$pkg:seed"} - ($id * 100000)) % 2147483560;
 
-         if ( $INC{'Math/Prime/Util.pm'} ) {
-            Math::Prime::Util::srand(
-                abs($_DATA->{"$pkg:seed"} - ($id * 100000)) % 2147483560
-            );
+            CORE::srand($seed);
+            PDL::srand($seed) if $INC{'PDL.pm'} && PDL->can('srand'); # PDL 2.062 ~ 2.089
+            PDL::srandom($seed) if $INC{'PDL.pm'} && PDL->can('srandom'); # PDL 2.089_01+
+            Math::Prime::Util::srand($seed) if $INC{'Math/Prime/Util.pm'};
          }
 
          if ( $INC{'Math/Random.pm'} ) {
@@ -345,7 +363,7 @@ sub finish {
    _croak('Usage: MCE::Hobo->finish()') if ref($_[0]);
    shift if ( defined $_[0] && $_[0] eq __PACKAGE__ );
 
-   my $pkg = defined($_[0]) ? $_[0] : caller();
+   my $pkg = defined($_[0]) ? shift : "$$.$_tid.".caller();
 
    if ( $pkg eq 'MCE' ) {
       for my $key ( keys %{ $_LIST } ) { MCE::Hobo->finish($key); }
@@ -556,6 +574,13 @@ sub result {
 
    _croak('Hobo already joined') unless exists( $self->{RESULT} );
    wantarray ? @{ delete $self->{RESULT} } : delete( $self->{RESULT} )->[-1];
+}
+
+sub seed {
+   _croak('Usage: MCE::Hobo->seed()') if ref($_[0]);
+   my $pkg = exists $_SELF->{PKG} ? $_SELF->{PKG} : "$$.$_tid.".caller();
+
+   return $_DATA->{"$pkg:seed"};
 }
 
 sub self {
@@ -985,7 +1010,7 @@ MCE::Hobo - A threads-like parallelization module
 
 =head1 VERSION
 
-This document describes MCE::Hobo version 1.887
+This document describes MCE::Hobo version 1.891
 
 =head1 SYNOPSIS
 
@@ -1274,7 +1299,10 @@ processes not yet joined.
 
 The init function accepts a list of MCE::Hobo options.
 
- MCE::Hobo->init(
+In scalar context (API available since 1.891), call C<MCE::Hobo->finish>
+automatically upon leaving the scope or program.
+
+ my $guard = MCE::Hobo->init(
      max_workers => 'auto',   # default undef, unlimited
 
      # Specify a percentage. MCE::Hobo 1.874+.
@@ -1513,6 +1541,13 @@ C<wantarray> aware.
 
  my @res2 = $hobo2->result();  # ( foo )
  my $res2 = $hobo2->result();  #   foo
+
+=item MCE::Hobo->seed()
+
+Class method that returns the internal random generated seed or undefined.
+The seed is generated once during init or initial create.
+
+Current API available since 1.890.
 
 =item MCE::Hobo->self()
 

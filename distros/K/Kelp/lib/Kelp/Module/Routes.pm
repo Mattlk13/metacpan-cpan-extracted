@@ -5,23 +5,20 @@ use Plack::Util;
 
 my $DEFAULT_ROUTER = 'Kelp::Routes';
 
-sub build {
-    my ( $self, %args ) = @_;
+sub build
+{
+    my ($self, %args) = @_;
 
     my $router = delete($args{router}) // ('+' . $DEFAULT_ROUTER);
 
-    # A module name with a leading + indicates it's already fully
-    # qualified (i.e., it does not need the Kelp::Routes:: prefix).
-    my $prefix = $router =~ s/^\+// ? undef : $DEFAULT_ROUTER;
-
-    my $router_class = Plack::Util::load_class( $router, $prefix );
-    my $r = $router_class->new( %args );
+    my $router_class = Plack::Util::load_class($router, $DEFAULT_ROUTER);
+    my $r = $router_class->new(%args);
 
     # Register two methods:
     # * routes - contains the routes instance
     # * add_route - a shortcut to the 'add' method
     $self->register(
-        routes    => $r,
+        routes => $r,
         add_route => sub {
             my $app = shift;
             return $r->add(@_);
@@ -99,18 +96,10 @@ prefix it with a plus sign.
 
     router => '+My::Special::Router
 
-See L<Kelp::Routes::Controller> for a router class that reblesses the
-application instance.
+=head3 configuration of the router
 
-=head3 base
-
-Specifies the base class of each route. This saves a lot of typing when writing
-the routes definitions.
-
-    base => 'MyApp'
-
-Now when defining a route you can only type C<myroute> to denote
-C<MyApp::myroute>.
-
+All other configuration is passed to the router. For the configuration of the
+default router, see L<Kelp::Routes/ATTRIBUTES>.
 
 =cut
+

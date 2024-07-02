@@ -1,5 +1,5 @@
 package App::plackbench::Stats;
-$App::plackbench::Stats::VERSION = '0.5';
+$App::plackbench::Stats::VERSION = '0.7';
 use strict;
 use warnings;
 use autodie;
@@ -17,18 +17,15 @@ sub insert {
     my $self = shift;
     my $n = shift;
 
-    my $index = $self->count();
+    push @{$self}, $n;
+    return $self->count();
+}
 
-    for (my $i = 0; $i < $self->count(); $i++) {
-        if ($n < $self->[$i]) {
-            $index = $i;
-            last;
-        }
-    }
+sub finalize {
+    my $self = shift;
 
-    splice(@{$self}, $index, 0, $n);
-
-    return $index;
+    @{$self} = sort { $a <=> $b } @{$self};
+    return $self;
 }
 
 sub count {
@@ -40,7 +37,7 @@ sub mean {
     my $self = shift;
 
     return unless $self->count();
-    return sum(@{$self}) / $self->count();
+    return $self->elapsed() / $self->count();
 }
 
 sub median {
@@ -96,6 +93,19 @@ sub percentile {
     return $self->[$n];
 }
 
+sub elapsed {
+    my $self = shift;
+
+    return sum(@$self) || 0;
+}
+
+sub rate {
+    my $self = shift;
+
+    return 0 unless $self->elapsed();
+    return $self->count() / $self->elapsed();
+}
+
 1;
 
 __END__
@@ -120,6 +130,14 @@ Inserts a number into the collection. The number will be inserted in order.
 =head2 count
 
 Returns the number of items in the collection.
+
+=head2 elapsed
+
+Returns the total time took waiting for the requests to complete.
+
+=head2 rate
+
+Returns the rate at which the requests were made (number of requests per second)
 
 =head2 mean
 
@@ -148,3 +166,4 @@ Returns the number at percentile C<$n>.
 =head2 SEE ALSO
 
 L<plackbench>
+

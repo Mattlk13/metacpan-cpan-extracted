@@ -27,6 +27,25 @@ sub skippable {
 
 
 my %tests = (
+    '5.040' => [
+        [ '^^',
+          '1 ^^ 0', 1 ],
+        [ '__CLASS__',
+          'use experimental qw{ class };
+           class MyClass1 {
+               method cl { __CLASS__ }
+           }
+           class MyChild1 :isa(MyClass1) {}
+           my $o = MyChild1->new;
+           $o->cl',
+          'MyChild1' ],
+        [ ':reader',
+          'use experimental qw{ class };
+           class MyClass2 { field $x :reader :param }
+           my $o = MyClass2->new(x => 2);
+           $o->x',
+          '2' ]
+    ],
     '5.038' => [
         [ 'unicode15.0',
           '"\N{MOOSE}" eq "\N{U+1FACE}"', 1 ],
@@ -96,8 +115,13 @@ my %tests = (
           q("\N{ORIYA DIGIT FOUR}" =~ m'\N{ORIYA DIGIT FOUR}'), 1 ],
         [ 'turkic-casing',
           'use locale; use POSIX "locale_h";' . skippable(
-              'eval{setlocale(LC_ALL, "tr_TR.UTF-8") eq "tr_TR.UTF-8" or die;'
-                  . ' lc "I" eq "\N{LATIN SMALL LETTER DOTLESS I}"}',
+              'my $o = setlocale(LC_CTYPE);'
+              . 'eval {'
+              .    '(setlocale(LC_CTYPE, "tr_TR.UTF-8") || "") eq "tr_TR.UTF-8"'
+              .        'or die;'
+              .    'my $r = lc "I" eq "\N{LATIN SMALL LETTER DOTLESS I}";'
+              .    'setlocale(LC_CTYPE, $o);'
+              . '$r }',
               '": testing locale not supported"',
               "", '1'),
           1 ],
@@ -324,6 +348,12 @@ my $count = 0;
 for my $version (keys %tests) {
     my @triples = @{ $tests{$version} };
     my $can = eval { require (0 + "$version") };
+    if (! Syntax::Construct::_is_stable($])
+        && Syntax::Construct::_nearest_stable() == $version
+    ) {
+        warn "Faking next stable version $version";
+        $can = 1;
+    }
     $count += @triples;
     for my $triple (@triples) {
         my $removed_version = Syntax::Construct::removed($triple->[0]);
@@ -342,7 +372,7 @@ for my $version (keys %tests) {
                 like($load_error,
                      qr/\Q$triple->[0] removed in $removed_version/,
                      "$triple->[0] removed message");
-                ok($run_error, "$triple->[0] doens't run");
+                ok($run_error, "$triple->[0] doesn't run");
                 $count += 2;
             } else {
                 if ('SKIPPED' ne ($value || "")) {

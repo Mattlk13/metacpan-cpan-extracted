@@ -2,9 +2,9 @@ package Linux::Info::Distribution::Custom::Amazon;
 
 use warnings;
 use strict;
-use parent 'Linux::Info::Distribution::Custom';
+use base 'Linux::Info::Distribution::Custom';
 
-our $VERSION = '2.16'; # VERSION
+our $VERSION = '2.19'; # VERSION
 # ABSTRACT: a subclass of Linux::Info::Distribution::Custom
 
 
@@ -35,7 +35,7 @@ Linux::Info::Distribution::Custom::Amazon - a subclass of Linux::Info::Distribut
 
 =head1 VERSION
 
-version 2.16
+version 2.19
 
 =head1 EXPORTS
 

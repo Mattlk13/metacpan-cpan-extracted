@@ -7,7 +7,7 @@
 
 package Couch::DB::Cluster;
 use vars '$VERSION';
-$VERSION = '0.002';
+$VERSION = '0.005';
 
 
 use Couch::DB::Util  qw/flat/;;
@@ -16,6 +16,7 @@ use Log::Report 'couch-db';
 
 use Scalar::Util  qw(weaken);
 use URI::Escape   qw(uri_escape);
+use Storable      qw(dclone);
 
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -39,9 +40,6 @@ sub couch() { $_[0]->{CDC_couch} }
 sub clusterState(%)
 {	my ($self, %args) = @_;
 
-	$args{client} || @{$args{client} || []}==1
-		or error __x"Explicitly name one client for clusterState().";
-
 	my %query;
 	my @need = flat delete $args{ensure_dbs_exists};
 	$query{ensure_dbs_exists} = $self->couch->jsonText(\@need, compact => 1)
@@ -55,28 +53,24 @@ sub clusterState(%)
 }
 
 
-sub clusterSetup(%)
-{	my ($self, %args) = @_;
+sub clusterSetup($%)
+{	my ($self, $config, %args) = @_;
 
-	$args{client} || @{$args{client} || []}==1
-		or error __x"Explicitly name one client for clusterSetup().";
-
+	$self->couch->toJSON($config, int => qw/port node_count/);
+	
 	$self->couch->call(POST => '/_cluster_setup',
 		introduced => '2.0.0',
-		send       => \%args,
+		send       => $config,
 		$self->couch->_resultsConfig(\%args),
 	);
 }
 
 #-------------
 
-#XXX The example in CouchDB API doc 3.3.3 says it returns 'reason' with /state,
-#XXX but the spec says 'state_reason'.
-
 sub reshardStatus(%)
 {	my ($self, %args) = @_;
 	my $path = '/_reshard';
-	$path   .= '/state' if delete $args{counts};
+	$path   .= '/state' unless delete $args{counts};
 
 	$self->couch->call(GET => $path,
 		introduced => '2.4.0',
@@ -84,9 +78,6 @@ sub reshardStatus(%)
 	);
 }
 
-
-#XXX The example in CouchDB API doc 3.3.3 says it returns 'reason' with /state,
-#XXX but the spec says 'state_reason'.
 
 sub resharding(%)
 {	my ($self, %args) = @_;
@@ -128,8 +119,7 @@ sub reshardJobs(%)
 
 	$self->couch->call(GET => '/_reshard/jobs',
 		introduced => '2.4.0',
-		$self->couch->_resultsConfig(\%args),
-		to_values  => \&__reshardJobsValues,
+		$self->couch->_resultsConfig(\%args, on_values => \&__reshardJobsValues),
 	);
 }
 
@@ -149,8 +139,7 @@ sub reshardStart($%)
 	$self->couch->call(POST => '/_reshard/jobs',
 		introduced => '2.4.0',
 		send       => $create,
-		to_values  => \&__reshardStartValues,
-		$self->couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args, on_values => \&__reshardStartValues),
 	);
 }
 
@@ -169,8 +158,7 @@ sub reshardJob($%)
 
 	$self->couch->call(GET => "/_reshard/jobs/$jobid",
 		introduced => '2.4.0',
-		$self->couch->_resultsConfig(\%args),
-		to_values  => \&__reshardJobValues,
+		$self->couch->_resultsConfig(\%args, on_values => \&__reshardJobValues),
 	);
 }
 
@@ -226,8 +214,7 @@ sub shardsForDB($%)
 
 	$self->couch->call(GET => $db->_pathToDB('_shards'),
 		introduced => '2.0.0',
-		to_values  => \&__dbshards,
-		$self->couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args, on_values => \&__dbshards),
 	);
 }
 
@@ -245,8 +232,7 @@ sub shardsForDoc($%)
 
 	$self->couch->call(GET => $db->_pathToDB('_shards/'.$doc->id),
 		introduced => '2.0.0',
-		to_values  => \&__docshards,
-		$self->couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args, on_values => \&__docshards),
 	);
 }
 
@@ -255,6 +241,7 @@ sub syncShards($%)
 {	my ($self, $db, %args) = @_;
 
 	$self->couch->call(POST => $db->_pathToDB('_sync_shards'),
+		send => {},
 		introduced => '2.3.1',
 		$self->couch->_resultsConfig(\%args),
 	);
