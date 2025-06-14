@@ -1,5 +1,19 @@
 Revision history for Datastar-SSE
 
+0.26      2025-06-13 21:00:40-0400
+          - Require at least perl 5.10.0 
+0.25      2025-06-12 17:16:25-0400
+          - Don't use post-5.12 constructs (s//r)
+0.24      2025-06-10 09:18:40-0400
+          - shift => shift(), fix for perl 5.20
+0.23      2025-06-09 20:31:28-0400
+          - Remove use of postfix derefercing
+0.22      2025-06-09 10:58:12-0400
+          - Remove "JSON::Types" unimport causing test failures
+0.21      2025-06-08 15:28:56-0400
+          - stop mbtiny from autoscanning mytypes
+0.18      2025-06-08 15:11:46-0400
+          - Let META.* reflect only actual dependencies
 0.17      2025-06-01 13:26:32-0400
           - Add eg/index.cgi single file example
 0.16      2025-06-01 12:01:26-0400

@@ -17,10 +17,12 @@ my %WriteMakefileArgs = (
   "MIN_PERL_VERSION" => "5.024",
   "NAME" => "Mojolicious::Plugin::CaptchaPNG",
   "PREREQ_PM" => {
+    "Crypt::URandom" => 0,
     "GD" => "2.83",
     "GD::Image" => 0,
     "Mojo::Base" => 0,
     "Mojo::Exception" => 0,
+    "constant" => 0,
     "strict" => 0,
     "warnings" => 0
   },
@@ -33,7 +35,7 @@ my %WriteMakefileArgs = (
     "Test2::V0" => 0,
     "Test::More" => 0
   },
-  "VERSION" => "1.04",
+  "VERSION" => "1.07",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -41,6 +43,7 @@ my %WriteMakefileArgs = (
 
 
 my %FallbackPrereqs = (
+  "Crypt::URandom" => 0,
   "File::Spec" => 0,
   "GD" => "2.83",
   "GD::Image" => 0,
@@ -52,6 +55,7 @@ my %FallbackPrereqs = (
   "Test2::MojoX" => 0,
   "Test2::V0" => 0,
   "Test::More" => 0,
+  "constant" => 0,
   "strict" => 0,
   "warnings" => 0
 );
