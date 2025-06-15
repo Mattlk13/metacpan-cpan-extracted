@@ -11,9 +11,9 @@ if($^O eq 'darwin') {
 
 WriteMakefile(
 	NAME		 => 'Log::Abstraction',
+	ABSTRACT_FROM => 'lib/Log/Abstraction.pm',
 	VERSION_FROM => 'lib/Log/Abstraction.pm', # finds $VERSION
 	AUTHOR	 => 'Nigel Horne <njh@nigelhorne.com>',
-	ABSTRACT	 => 'A flexible logging class for Perl',
 	((defined($ExtUtils::MakeMaker::VERSION) && ($ExtUtils::MakeMaker::VERSION >= 6.3002))
 		? ('LICENSE'=> 'GPL')
 		: ()),
@@ -24,7 +24,7 @@ WriteMakefile(
 		'Log::Log4perl' => 0,
 		'Params::Get' => 0.05,
 		'Readonly::Values::Syslog' => 0.02,
-		'Sys::Syslog' => 0,
+		'Sys::Syslog' => 0.28,
 		'Scalar::Util'=> 0
 	},
 	TEST_REQUIRES => {

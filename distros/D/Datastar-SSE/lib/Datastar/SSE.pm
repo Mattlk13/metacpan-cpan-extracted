@@ -1,8 +1,9 @@
 package Datastar::SSE;
 use strict;
 use warnings;
+use 5.10.0;
 
-our $VERSION = '0.17';
+our $VERSION = '0.26';
 
 use JSON ();
 use HTTP::ServerEvent;
@@ -70,7 +71,8 @@ BEGIN {
 		after
 		upsertAttributes
 	/;
-	%DATASTAR_EVENTS = +map +( "\U$_" => s/_/-/rg ), @datastar_events;
+	@DATASTAR_EVENTS{map uc, @datastar_events} = @datastar_events;
+	s/_/-/g for values %DATASTAR_EVENTS;
 	%MERGEMODES = +map +( "FRAGMENT_MERGEMODE_\U$_" => $_ ), @merge_mode;
 }
 		
@@ -548,7 +550,7 @@ sub _datastar_event {
 	return "" unless is_Datastar( $event );
 	my @event_data;
 	for my $data (@data) {
-		push @event_data, join(' ', $data->%*);
+		push @event_data, join(' ', %$data);
 	}
 	$options ||= {};
 	$options = {} unless is_HashRef( $options );
@@ -561,7 +563,7 @@ sub _datastar_event {
 
 # 0/1 to false/true
 sub _bool($) {
-	shift ? "true" : "false";
+	shift() ? "true" : "false";
 }
 
 =head1 AUTHOR
@@ -577,6 +579,5 @@ the same terms as the Perl 5 programming language system itself.
 
 =cut
 
-no JSON::Types;
 no Scalar::Util; 
 1;
