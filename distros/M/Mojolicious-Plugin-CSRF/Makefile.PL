@@ -17,7 +17,7 @@ my %WriteMakefileArgs = (
   "MIN_PERL_VERSION" => "5.016",
   "NAME" => "Mojolicious::Plugin::CSRF",
   "PREREQ_PM" => {
-    "Crypt::Random" => 0,
+    "Crypt::URandom" => 0,
     "Mojo::Base" => 0,
     "Mojo::DOM" => 0,
     "Mojo::Util" => 0,
@@ -33,7 +33,7 @@ my %WriteMakefileArgs = (
     "Test2::V0" => 0,
     "Test::More" => 0
   },
-  "VERSION" => "1.02",
+  "VERSION" => "1.05",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -41,7 +41,7 @@ my %WriteMakefileArgs = (
 
 
 my %FallbackPrereqs = (
-  "Crypt::Random" => 0,
+  "Crypt::URandom" => 0,
   "File::Spec" => 0,
   "IO::Handle" => 0,
   "IPC::Open3" => 0,

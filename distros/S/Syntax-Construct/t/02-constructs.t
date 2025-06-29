@@ -235,6 +235,12 @@ my %tests = (
         [ 'charnames',
           'require Encode; Encode::encode("UTF-8", "\N{PILL}")',
           "\xf0\x9f\x92\x8a" ],
+        [ '__FILE__()',
+          '__FILE__ eq __FILE__()'
+          . ' && __LINE__ eq __LINE__()'
+          . '  && __PACKAGE__ eq __PACKAGE__()',
+          1
+        ]
     ],
 
     '5.014' => [
@@ -263,6 +269,15 @@ my %tests = (
         [ 'prototype+',
           'sub proto_plus (+) { $_[0][0] }; my @ar = qw( a b ); proto_plus(@ar)',
           'a' ],
+        [ 'sig-warn-obj',
+          'sub My::Warn::value { 42 }
+           my $out;
+           my $w = bless {}, "My::Warn";
+           local $SIG{__WARN__} = sub { $out = shift->value };
+           warn $w;
+           $out',
+           42
+        ],
     ],
 
     '5.012' => [
