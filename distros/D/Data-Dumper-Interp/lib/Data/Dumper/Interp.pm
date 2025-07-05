@@ -27,8 +27,8 @@ package
 package Data::Dumper::Interp;
 
 { no strict 'refs'; ${__PACKAGE__."::VER"."SION"} = 997.999; }
-our $VERSION = '7.016'; # VERSION from Dist::Zilla::Plugin::OurPkgVersion
-our $DATE = '2025-06-03'; # DATE from Dist::Zilla::Plugin::OurDate
+our $VERSION = '7.019'; # VERSION from Dist::Zilla::Plugin::OurPkgVersion
+our $DATE = '2025-06-22'; # DATE from Dist::Zilla::Plugin::OurDate
 
 # Arrgh!  Moose forcibly enables experimental feature warnings!
 # So import Moose first and then adjust warnings...
@@ -54,7 +54,7 @@ use POSIX qw(INT_MAX);
 use Scalar::Util qw(blessed reftype refaddr looks_like_number weaken);
 use List::Util 1.45 qw(min max first none all any sum0);
 use Data::Structure::Util qw/circular_off/;
-use Regexp::Common qw/RE_balanced/;
+use Regexp::Common qw/RE_balanced RE_quoted/;
 use Term::ReadKey ();
 use Sub::Identify qw/sub_name sub_fullname get_code_location/;
 use File::Basename qw/basename/;
@@ -77,8 +77,8 @@ our @EXPORT    = qw( visnew
 
 our @EXPORT_OK = qw(addrvis_digits
 
-                    $Debug $MaxStringwidth $Truncsuffix $Objects $Foldwidth
-                    $Useqq $Quotekeys $Sortkeys
+                    $Debug $MaxStringwidth $Trunctailwidth $Truncsuffix
+                    $Objects $Foldwidth $Useqq $Quotekeys $Sortkeys
                     $Maxdepth $Maxrecurse $Deparse $Deepcopy);
 
 our %EXPORT_TAGS = (
@@ -252,30 +252,56 @@ sub _dbstrposn($$) {
 
 #################### Configuration Globals #################
 
-our ($Debug, $MaxStringwidth, $Truncsuffix, $Objects,
+our ($Debug, $MaxStringwidth, $Truncsuffix, $Trunctailwidth, $Objects,
      $Refaddr, $Foldwidth, $Foldwidth1,
      $Useqq, $Quotekeys, $Sortkeys,
      $Maxdepth, $Maxrecurse, $Deparse, $Deepcopy);
 
-$Debug          = 0            unless defined $Debug;
-$MaxStringwidth = 0            unless defined $MaxStringwidth;
-$Truncsuffix    = "..."        unless defined $Truncsuffix;
-$Objects        = 1            unless defined $Objects;
-$Refaddr        = 0            unless defined $Refaddr;
-$Foldwidth      = undef        unless defined $Foldwidth;  # undef auto-detects
-$Foldwidth1     = undef        unless defined $Foldwidth1; # override for 1st
+sub _reset_defaults() {
+  $Debug          = 0            unless defined $Debug;
+  $MaxStringwidth = 0            unless defined $MaxStringwidth;
+  $Truncsuffix    = "..."        unless defined $Truncsuffix;
+  $Trunctailwidth = 0            unless defined $Trunctailwidth;
+  $Objects        = 1            unless defined $Objects;
+  $Refaddr        = 0            unless defined $Refaddr;
+  $Foldwidth      = undef        unless defined $Foldwidth;  # undef auto-detects
+  $Foldwidth1     = undef        unless defined $Foldwidth1; # override for 1st
 
-# The following override Data::Dumper defaults
-# Initial D::D values are captured once when we are first loaded.
+  # The following override Data::Dumper defaults
+  # Initial D::D values are captured once when we are first loaded.
 
-#$Useqq          = "<unicode:controlpic>" unless defined $Useqq;
-$Useqq          = "<unicode>"    unless defined $Useqq;
-$Quotekeys      = 0            unless defined $Quotekeys;
-$Sortkeys       = \&__sortkeys unless defined $Sortkeys;
-$Maxdepth       = $Data::Dumper::Maxdepth   unless defined $Maxdepth;
-$Maxrecurse     = $Data::Dumper::Maxrecurse unless defined $Maxrecurse;
-$Deparse        = 0            unless defined $Deparse;
-$Deepcopy       = 0            unless defined $Deepcopy;
+  #$Useqq          = "<unicode:controlpic>" unless defined $Useqq;
+  $Useqq          = "<unicode>"    unless defined $Useqq;
+  $Quotekeys      = 0            unless defined $Quotekeys;
+  $Sortkeys       = \&__sortkeys unless defined $Sortkeys;
+  $Maxdepth       = $Data::Dumper::Maxdepth   unless defined $Maxdepth;
+  $Maxrecurse     = $Data::Dumper::Maxrecurse unless defined $Maxrecurse;
+  $Deparse        = 0            unless defined $Deparse;
+  $Deepcopy       = 0            unless defined $Deepcopy;
+}
+_reset_defaults(); # at startup
+
+# This user-callable function (or method) restores default defaults
+# Mainly useful after calling visnew->set_defaults()
+sub reset_defaults() {
+  undef $Debug;
+  undef $MaxStringwidth;
+  undef $Truncsuffix;
+  undef $Trunctailwidth;
+  undef $Objects;
+  undef $Refaddr;
+  undef $Foldwidth;  # undef auto-detects
+  undef $Foldwidth1; # override for 1st
+
+  undef $Useqq;
+  undef $Quotekeys;
+  undef $Sortkeys;
+  undef $Maxdepth;
+  undef $Maxrecurse;
+  undef $Deparse;
+  undef $Deepcopy;
+  _reset_defaults();
+}
 
 #################### Methods #################
 
@@ -306,6 +332,7 @@ has dd => (
 has Debug          => (is=>'rw', default => sub{ $Debug                 });
 has MaxStringwidth => (is=>'rw', default => sub{ $MaxStringwidth        });
 has Truncsuffix    => (is=>'rw', default => sub{ $Truncsuffix           });
+has Trunctailwidth => (is=>'rw', default => sub{ $Trunctailwidth        });
 has Objects        => (is=>'rw', default => sub{ $Objects               });
 has Refaddr        => (is=>'rw', default => sub{ $Refaddr               });
 has Foldwidth      => (is=>'rw', default => sub{
@@ -317,11 +344,33 @@ has Foldwidth      => (is=>'rw', default => sub{
 has Foldwidth1     => (is=>'rw', default => sub{ $Foldwidth1            });
 has _Listform      => (is=>'rw');
 
+sub _SetDefaults {
+    my $self = shift;
+    $Debug = $self->Debug();
+    $MaxStringwidth = $self->MaxStringwidth();
+    $Truncsuffix = $self->Truncsuffix();
+    $Trunctailwidth = $self->Trunctailwidth();
+    $Objects = $self->Objects();
+    $Refaddr = $self->Refaddr();
+    $Foldwidth = $self->Foldwidth();
+    $Foldwidth1 = $self->Foldwidth1();
+    $Quotekeys = $self->Quotekeys();
+    # These from from the Data::Dumper object, via wrappers
+    $Useqq = $self->Useqq();
+    $Quotekeys = $self->Quotekeys();
+    $Maxdepth = $self->Maxdepth();
+    $Maxrecurse = $self->Maxrecurse();
+    $Sortkeys = $self->Sortkeys();
+    $Deparse = $self->Deparse();
+    $Deepcopy = $self->Deepcopy();
+    return $self
+}
+
 # Make "setters" return the outer object $self
 around       [qw/Values Useqq Quotekeys Trailingcomma Pad Varname Quotekeys
                  Maxdepth Maxrecurse Useperl Sortkeys Deparse Deepcopy
 
-                 Debug MaxStringwidth Truncsuffix Objects Refaddr
+                 Debug MaxStringwidth Truncsuffix Trunctailwidth Objects Refaddr
                  Foldwidth Foldwidth1 _Listform
                 /] => sub{
   my $orig = shift;
@@ -362,8 +411,8 @@ sub _refaddrdechex($) {  # Returns just "<hex:dec>" (possibly marked as shared)
   my $refstr = ref($arg);
   my $addr;
   if ($refstr ne "") {
-    if (threads::shared->can("is_shared")
-           && defined(my $id = threads::shared::is_shared($arg))) {
+    if ($INC{"threads/shared.pm"}
+                    && defined(my $id = threads::shared::is_shared($arg))) {
       $addr = _ADDRVIS_SHARED_MARK.$id;
     } else {
       $addr = refaddr($arg)
@@ -550,7 +599,7 @@ sub _generate_sub($;$) {
   # Discontinued because NOW visl means something else.
   #s/^[^diha]*\K(?:lvis|visl)/avisl/; # 'visl' same as 'avisl' for bw compat.
 
-  s/([ahid]?vis)// or error "can not infer the basic function";
+  s/([ahid]?vis|set_defaults)// or error "can not infer the basic function";
   my $basename = $1;  # avis, hvis, ivis, dvis, or vis
   my $N = s/(\d+)// ? $1 : undef;
   my %mod = map{$_ => 1} split //, $_;
@@ -590,14 +639,17 @@ sub _generate_sub($;$) {
     my $listform = delete($mod{l}) ? 'l' : 'h';
     $code .= " { &__getself_h->_Listform('${listform}')";
   }
+  elsif ($basename eq "set_defaults") {
+    $code .= " { &__getself" ;
+  }
   elsif ($basename eq "ivis") {
     $code .= " { \@_ = ( &__getself" ;
   }
   elsif ($basename eq "dvis") {
-    $code .= " { \@_ = ( &__getself->_EnabUseqqFeature(_utfoutput() ? ':spacedots:condense' : ':condense')" ;
-    #$code .= " { \@_ = ( &__getself->_EnabUseqqFeature(':spacedots')" ;
+    $code .= " { \@_ = ( &__getself->_EnabUseqqFeature(_utfoutput() ? ':showspaces:condense' : ':condense')" ;
+    #$code .= " { \@_ = ( &__getself->_EnabUseqqFeature(':showspaces')" ;
   }
-  else { oops }
+  else { oops "basename=",u($basename) }
 
   my $useqq = "";
   $useqq .= ":unicode:controlpics" if delete $mod{c};
@@ -611,7 +663,7 @@ sub _generate_sub($;$) {
 
   $code .= "->Useqq(\$Useqq.'${useqq}')" if $useqq ne "";
 
-  $code .= "->_EnabUseqqFeature(_utfoutput() ? ':spacedots:condense' : ':condense')" if delete($mod{d}) or $basename eq "dvis";
+  $code .= "->_EnabUseqqFeature(_utfoutput() ? ':showspaces:condense' : ':condense')" if delete($mod{d}) or $basename eq "dvis";
 
   $code .= "->Useqq(0)"     if delete $mod{q};
 
@@ -619,6 +671,9 @@ sub _generate_sub($;$) {
 
   if ($basename =~ /^([id])vis/) {
     $code .= ", shift, '$1' ); goto &_Interpolate }";
+  }
+  elsif ($basename eq 'set_defaults') {
+    $code .= "->_SetDefaults }";
   } else {
     $code .= "->_Do }";
   }
@@ -680,8 +735,8 @@ sub _get_terminal_width() {  # returns undef if unknowable
       # such messages to /dev/null.  So we have to do it here.
       require Capture::Tiny;
       () = Capture::Tiny::capture_merged(sub{
-        delete local $INC{__WARN__};
-        delete local $INC{__DIE__};
+        delete local $SIG{__WARN__};
+        delete local $SIG{__DIE__};
         ($width, $height) = eval{ Term::ReadKey::GetTerminalSize($fh) };
       });
     }
@@ -708,7 +763,8 @@ use constant {
 my  $my_maxdepth;
 our $my_visit_depth = 0;
 
-my ($maxstringwidth, $truncsuffix, $objects, $opt_refaddr, $listform, $debug);
+my ($maxstringwidth, $truncsuffix, $trunctailwidth, $objects,
+    $opt_refaddr, $listform, $debug);
 my ($sortkeys, $ovopt);
 
 sub _Do {
@@ -718,12 +774,13 @@ sub _Do {
   local $_;
   &_SaveAndResetPunct;
 
-  ($maxstringwidth, $truncsuffix, $objects, $opt_refaddr, $listform, $debug)
-    = @$self{qw/MaxStringwidth Truncsuffix Objects Refaddr _Listform Debug/};
+  ($maxstringwidth, $truncsuffix, $trunctailwidth, $objects, $opt_refaddr, $listform, $debug)
+    = @$self{qw/MaxStringwidth Truncsuffix Trunctailwidth Objects Refaddr _Listform Debug/};
   $sortkeys = $self->Sortkeys;
 
   $maxstringwidth = 0 if ($maxstringwidth //= 0) >= INT_MAX;
   $truncsuffix //= "...";
+  $trunctailwidth = min($trunctailwidth//0, $maxstringwidth);
   $ovopt = "tagged";
   if (ref($objects) eq "HASH") {
     foreach my $key (keys %$objects) {
@@ -962,8 +1019,10 @@ btw '@@@repl prefixed item:',$item if $debug;
   # Truncacte overly-long strings
   elsif ($maxstringwidth && !_show_as_number($item)
          && length($item) > $maxstringwidth + length($truncsuffix)) {
-btw '@@@repl truncating ',substr($item,0,10),"..." if $debug;
-    $item = "".substr($item,0,$maxstringwidth).$truncsuffix;
+    my $tail_offset = length($item) - $trunctailwidth;
+btw '@@@repl truncating ',substr($item,0,10),"...","[ msw=$maxstringwidth l=",length($item)," ttw=$trunctailwidth to=$tail_offset]" if $debug;
+    #$item = "".substr($item,0,$maxstringwidth).$truncsuffix;
+    $item = "".substr($item,0,$maxstringwidth-$trunctailwidth).$truncsuffix.substr($item,$tail_offset,$trunctailwidth);
   }
   $item
 }#visit_value
@@ -1303,6 +1362,8 @@ sub __sortkeys {
   $r
 }
 
+my $quoted_re = RE_quoted(-delim => q{'"});
+
 my $balanced_re = RE_balanced(-parens=>'{}[]()');
 
 # cf man perldata
@@ -1423,10 +1484,11 @@ sub __subst_controlpic_backesc() {  # edits $_
       $qqesc2controlpic{$1} // $1
     }xesg;
 }
-sub __subst_spacedots() {  # edits $_
+sub __subst_visiblespaces() {  # edits $_
   if (/^"/) {
-    s{\N{MIDDLE DOT}}{\N{BLACK LARGE CIRCLE}}g;
-    s{ }{\N{MIDDLE DOT}}g;
+    #s{\N{MIDDLE DOT}}{\N{BLACK LARGE CIRCLE}}g;
+    #s{ }{\N{MIDDLE DOT}}g;
+    s{ }{\N{OPEN BOX}}g;  # ␣
   }
 }
 
@@ -1487,7 +1549,7 @@ sub _postprocess_DD_result {
     if $useqq =~ /[^\x{0}-\x{7F}]/ && !utf8::is_utf8($useqq);
 
   my ($unesc_unicode,$condense_strings,$octet_strings,$nums_in_hex,
-      $controlpics,$spacedots,$underscores,$q_pfx,$q_lq,$q_rq);
+      $controlpics,$showspaces,$underscores,$q_pfx,$q_lq,$q_rq);
   if ($useqq && $useqq ne "1") {
     my @useqq = split /(?<!\\):/, $useqq;
     foreach (@useqq) {
@@ -1496,7 +1558,7 @@ sub _postprocess_DD_result {
       $octet_strings    = 1,next if /octet/;
       $nums_in_hex      = 1,next if /hex/;
       $controlpics      = 1,next if /pic/;
-      $spacedots        = 1,next if /space/;
+      $showspaces        = 1,next if /space/;
       $underscores      = 1,next if /under/;
       $_ = "qq={}" if $_ eq "qq"; # deprecated
       if (/^qq=(.)(.)$/) { # deprecated
@@ -1552,7 +1614,7 @@ sub _postprocess_DD_result {
     __unesc_unicode          if $unesc_unicode;
     __unesc_nonoctal         if $octet_strings;
     __subst_controlpic_backesc      if $controlpics;
-    __subst_spacedots        if $spacedots;
+    __subst_visiblespaces    if $showspaces;
     __condense_strings(8)    if $condense_strings;
     __change_quotechars($q_pfx, $q_lq, $q_rq) if defined($q_pfx);
     __nums_in_hex            if $nums_in_hex;
@@ -1914,10 +1976,14 @@ sub _postprocess_DD_result {
   }
   elsif (index($listform,'l') >= 0) {
     # show as a bare list without brackets; the brackets might be on own lines.
-    $outstr =~ s/\A(?:${addrvis_re})?\[\s*(.*?)\s*\]\z/$1/s;
-    $outstr =~ s/\A(?:${addrvis_re})?\{\s*(.*?)\s*\}\z/$1/s;
-    # or a single string without "quote marks"
-    $outstr =~ s/\A"(.*)"\z/$1/s;
+    $outstr =~ s/\A(?:${addrvis_re})?\[\s*(.*?)\s*\]\z/$1/s
+    or
+    $outstr =~ s/\A(?:${addrvis_re})?\{\s*(.*?)\s*\}\z/$1/s
+    or
+    $outstr =~ s/\A(?:${addrvis_re})?\(\s*(.*?)\s*\)\z/$1/s # from 'a' conversion above
+    or
+    $outstr =~ s/\A${quoted_re}\z/substr($&,1,length($&)-2)/es # a single string without "quote marks"
+    ;
   }
 
   # Insert user-specified padding after each embedded newline
@@ -2196,7 +2262,7 @@ sub DB_Vis_Eval($$) {
               );
   }
 
-  wantarray ? @result : (do{die "bug" if @result>1}, $result[0])
+  wantarray ? @result : (do{Carp::confess("bug",Data::Dumper::Interp::_dbavis(@result)) if @result>1}, $result[0])
 }# DB_Vis_Eval
 
 1;
@@ -2507,9 +2573,8 @@ Like C<addrvis> but omits the <angle brackets>.
 
 =head2 visnew()
 
-These create an object initialized from the global configuration
+These synonyms create an object initialized from the global configuration
 variables listed below.  No arguments are permitted.
-C<visnew> is simply a shorthand.
 
 B<All the functions described above> and any variations
 may be called as I<methods> on an object
@@ -2528,7 +2593,7 @@ returns the same string as
 
    $msg = visnew->Foldwidth(40)->vis_r2($x); # show addresses; Maxdepth 2
 
-=head1 Configuration Variables / Methods
+=head1 Configuration Methods & Variables
 
 These work the same way as variables/methods in Data::Dumper.
 
@@ -2543,8 +2608,13 @@ the object is returned so that calls can be chained.
 
 =head2 Truncsuffix(I<"...">)
 
+=head2 Trunctailwidth(I<INTEGER>)
+
 Longer strings are truncated and I<Truncsuffix> appended.
-MaxStringwidth=0 (the default) means no limit.
+MaxStringwidth=0 (the default) means no length limit.
+
+If I<Trunctailwidth> is set, characters are deleted from the middle, leaving
+that many characters from the end of the string.
 
 =head2 Foldwidth(I<INTEGER>)
 
@@ -2643,9 +2713,11 @@ set C<Useqq> to just "unicode";
 Optimize for viewing binary strings (i.e. strings of octets, not "wide"
 characters).  Octal escapes are shown instead of \n, \r, etc.
 
-=item "spacedots"
+=item "showspaces"
 
-Space characters are shown as '·' (Middle Dot).
+Make space characters visible (as '␣').
+
+(An older "spacedots" option used Middle Dot for this purpose)
 
 =item "condense"
 
@@ -2679,7 +2751,7 @@ contain multiple characters. Escape , or : with backslash(E<92>).
 =back
 
 The default is C<Useqq('unicode')> except for C<dvis> which also
-enables 'condense' and possibly 'spacedots'.
+enables 'condense' and possibly 'showspaces'.
 Functions/methods with 'q' in their name force C<Useqq(0)>;
 
 =head2 Quotekeys
@@ -2693,6 +2765,23 @@ Functions/methods with 'q' in their name force C<Useqq(0)>;
 =head2 Deepcopy
 
 See C<Data::Dumper> documentation.
+
+=head1 B<set_defaults> Method
+
+As an alternative to directly setting the global variables listed above,
+the corresponding I<methods> can be called on an object
+and finally the C<set_defaults> method, which stores whatever settings are in the
+object back into the global variables.  For example
+
+  visnew->MaxStringwidth(50)->Refaddr(1)->set_defaults();
+
+would set the C<$Data::Dumper::Interp::MaxStringwidth>
+and <$Data::Dumper::Interp::Refaddr>
+variables, without risk of uncaught spelling errors.
+
+=head2 B<reset_defaults>
+
+The C<reset_defaults> method sets all Configuration variables to original default values.
 
 =head1
 
@@ -2784,6 +2873,21 @@ Data::Dumper::Interp simply passes through these annotations.
 However with I<Refaddr(true)>, multiple references to the same thing
 will all show the address of the referenced thing.
 
+=item threads::shared support
+
+When the address of a shared variable is shown
+(e.d. when the B<Refaddr> option is enabled or if calling B<addrvis()>),
+the variable's I<globally unique ID> shown instead of the C<refaddr>.
+
+(The C<refaddr> of a shared variable is misleading it refers
+to a thread-local intermediary and may be different in
+each thread even though the same shared object is being referenced).
+
+Relatedly, the C<$VAR> references in default Data::Dumper output are
+generally incorrect when shared variables are involved because Data::Dumper
+uses only C<refaddr> values to identify refs to the same item.
+Enabling I<Refaddr(true)> will show linkage correctly, albiet in a different way.
+
 =item The special "_" stat filehandle may not be preserved
 
 Data::Dumper::Interp queries the operating
@@ -2866,6 +2970,12 @@ as numbers not 'quoted strings' and similarly for stringified objects.
 
 Although such differences might be immaterial to Perl during execution,
 they may be important when communicating to a human.
+
+=item *
+
+References to shared variables (see L<threads::shared>) are shown correctly
+with the C<Refaddr> feature.  Data::Dumper's C<$VAR> expressions are usually
+incorrect when shared variables are involved.
 
 =back
 

@@ -8,11 +8,11 @@ Poker::Eval::Chinese - Evaluate and score Chinese poker hands.
 
 =head1 VERSION
 
-Version 0.01
+Version 0.09
 
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '0.09';
 
 
 =head1 INTRODUCTION

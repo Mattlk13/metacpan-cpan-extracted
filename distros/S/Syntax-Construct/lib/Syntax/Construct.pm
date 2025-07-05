@@ -4,10 +4,13 @@ use 5.006002;
 use strict;
 use warnings;
 
-our $VERSION = '1.040';
+our $VERSION = '1.043';
 
 my %introduces = do { no warnings 'qw';
-                 ( '5.040' => [qw[
+                 ( '5.042' => [qw[
+                                  :writer my_method ->& unicode16.0 ^^=
+                             ]],
+                   '5.040' => [qw[
                                   ^^ __CLASS__ :reader
                              ]],
                    '5.038' => [qw[
@@ -54,12 +57,12 @@ my %introduces = do { no warnings 'qw';
                                  split-space
                               ]],
                    '5.016' => [qw[
-                                 charnames
+                                 charnames __FILE__()
                               ]],
                    '5.014' => [qw[
                                  ?^ /r /d /l /u /a auto-deref
                                  ^GLOBAL_PHASE \o package-block
-                                 srand-return prototype+
+                                 srand-return prototype+ sig-warn-obj
                               ]],
                    '5.012' => [qw[
                                  package-version ... each-array
@@ -126,6 +129,9 @@ my %alias = (
     'regex-compile-as-unicode-strings' => '/u',
     'global-phase' => '^GLOBAL_PHASE',
     'octal-escape' => '\o',
+    # 5.016
+    '__LINE__()' => '__FILE__()',
+    '__PACKAGE__()' => '__FILE__()',
     # 5.020
     'hash-slice' => '%slice',
     'attribute-prototype' => 'attr-prototype',
@@ -182,6 +188,9 @@ my %alias = (
     'optimistic-eval' => '*{}',
     # 5.040
     'logical-xor' => '^^',
+    # 5.042
+    'lexical-method-invocation-operator' => '->&',
+    'assign-logical-xor' => '^^=',
 );
 
 my %_introduced = map {
@@ -302,7 +311,7 @@ Syntax::Construct - Explicitly state which non-feature constructs are used in th
 
 =head1 VERSION
 
-Version 1.040
+Version 1.043
 
 =head1 SYNOPSIS
 
@@ -635,11 +644,21 @@ See B<srand() now returns the seed> under L<perl5140delta/Other Enhancements>.
 
 See L<perl5140delta/Single-term-prototype>.
 
+=head3 sig-warn-obj
+
+See the second bullet in L<perl5140delta/Exception Handling>.
+
 =head2 5.016
 
 =head3 charnames
 
 See L<perl5160delta/use charnames is no longer needed for \N{name}>.
+
+=head3 __FILE__()
+
+See L<perl5160delta/__FILE__() Syntax>.
+
+Aliases: __LINE__() __PACKAGE__()
 
 =head2 5.018
 
@@ -975,6 +994,32 @@ L<perl5400delta/New __CLASS__ Keyword>.
 =head3 :reader
 
 L<perl5400delta/:reader attribute for field variables>
+
+=head2 5.042
+
+=head3 :writer
+
+L<perldelta/New :writer attribute on field variables>
+
+=head3 my_method
+
+L<perldelta/Lexical method declaration using my method>
+
+=head3 ->&
+
+L<< perldelta/Lexical method invocation operator ->& >>
+
+Alias: lexical-method-invocation-operator
+
+=head3 unicode16.0
+
+L<perldelta/Unicode 16.0 supported>
+
+=head3 ^^=
+
+L<perldelta/Assigning logical xor ^^= operator>
+
+Alias: assign-logical-xor
 
 =for completeness
 =head2 old

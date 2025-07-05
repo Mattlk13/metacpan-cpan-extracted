@@ -2,6 +2,7 @@ ChangeLog
 MANIFEST
 Makefile.PL
 README
+README.md
 dump/60complex/answer.dd
 dump/60complex/msgsent
 dump/encrkey/read.dd
@@ -45,6 +46,7 @@ t/20any.wsdl
 t/20cert.pem
 t/20privkey.pem
 t/20signature.t
+t/21enckey.t
 t/30signedinfo.t
 t/31keyinfo.t
 t/example.wsdl

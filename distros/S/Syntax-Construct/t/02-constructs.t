@@ -27,6 +27,34 @@ sub skippable {
 
 
 my %tests = (
+    '5.042' => [
+        [ ':writer',
+          'use experimental qw{ class };
+           class MyClass3 { field $x :writer :reader }
+           my $o = MyClass3->new;
+           $o->set_x(2);
+           $o->x',
+          '2' ],
+        [ 'my_method',
+          'use experimental qw{ class };
+           class MyClass4 { my method x { "x" }; method p { $self->&x() } }
+           my $o = MyClass4->new;
+           $o->p',
+          'x' ],
+        [ '->&',
+          'use experimental qw{ class };
+           class MyClass5 { my method x { "x" }; method p { $self->&x() } }
+           my $o = MyClass5->new;
+           $o->p',
+          'x' ],
+        [ 'unicode16.0',
+          '"\N{HARP}" eq "\N{U+1FA89}"', 1],
+        [ '^^=',
+         'my $x = 1;
+          $x ^^= 0;
+          $x',
+          1 ]
+    ],
     '5.040' => [
         [ '^^',
           '1 ^^ 0', 1 ],
@@ -235,6 +263,12 @@ my %tests = (
         [ 'charnames',
           'require Encode; Encode::encode("UTF-8", "\N{PILL}")',
           "\xf0\x9f\x92\x8a" ],
+        [ '__FILE__()',
+          '__FILE__ eq __FILE__()'
+          . ' && __LINE__ eq __LINE__()'
+          . '  && __PACKAGE__ eq __PACKAGE__()',
+          1
+        ]
     ],
 
     '5.014' => [
@@ -263,6 +297,15 @@ my %tests = (
         [ 'prototype+',
           'sub proto_plus (+) { $_[0][0] }; my @ar = qw( a b ); proto_plus(@ar)',
           'a' ],
+        [ 'sig-warn-obj',
+          'sub My::Warn::value { 42 }
+           my $out;
+           my $w = bless {}, "My::Warn";
+           local $SIG{__WARN__} = sub { $out = shift->value };
+           warn $w;
+           $out',
+           42
+        ],
     ],
 
     '5.012' => [

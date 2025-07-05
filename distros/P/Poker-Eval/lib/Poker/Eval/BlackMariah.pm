@@ -7,11 +7,11 @@ Poker::Eval::BlackMariah - Evaluate and score hole cards in the game of Black Ma
 
 =head1 VERSION
 
-Version 0.03
+Version 0.09
 
 =cut
 
-our $VERSION = '0.03';
+our $VERSION = '0.09';
 
 
 =head1 INTRODUCTION
