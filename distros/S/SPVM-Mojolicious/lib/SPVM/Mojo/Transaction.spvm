@@ -10,34 +10,41 @@ class Mojo::Transaction extends Mojo::EventEmitter {
   use Hash;
   
   # Fields
-  has kept_alive : ro byte;
+  has kept_alive : rw byte;
   
-  has local_address : ro string;
+  has local_address : rw string;
   
-  has local_port : ro int;
+  has local_port : rw int;
   
-  has original_remote_address : ro string;
+  has original_remote_address : rw string;
   
-  has remote_port : ro int;
+  has remote_port : rw int;
   
-  has req : ro Mojo::Message::Request;
+  has req : rw Mojo::Message::Request;
   
-  has res : ro Mojo::Message::Response;
+  has res : rw Mojo::Message::Response;
   
   has completed : byte;
   
   has connection : ro int;
+  
+  has handle : rw IO::Socket;
   
   # Class Methods
   static method new : Mojo::Transaction () {
     
     my $self = new Mojo::Transaction;
     
+    $self->init;
+    
+    return $self;
+  }
+  
+  protected method init : void ($options : object[] = undef) {
+    
     $self->{req} = Mojo::Message::Request->new;
     
     $self->{res} = Mojo::Message::Response->new;
-    
-    return $self;
   }
   
   # Instance Methods
@@ -62,17 +69,6 @@ class Mojo::Transaction extends Mojo::EventEmitter {
     
     $self->emit(connection => $id);
     
-  }
-  
-  method error : Hash () {
-    
-    my $error = $self->{req}->error;
-    
-    unless ($error) {
-      $error = $self->{res}->error;
-    }
-    
-    return $error;
   }
   
   method is_finished : int () {
@@ -128,11 +124,6 @@ class Mojo::Transaction extends Mojo::EventEmitter {
   }
   
   method result : Mojo::Message::Response () {
-    my $err  = $self->error;
-    
-    if (!$err || $err->get_int("code")) {
-      die $err->get_string("message");
-    }
     
     my $result = $self->res;
     

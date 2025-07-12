@@ -1,9 +1,11 @@
 Changes
+CONTRIBUTING.md
 lib/Text/Table/Read/RelationOn/Tiny.pm
 LICENSE
 Makefile.PL
 MANIFEST			This list of files
 README
+SECURITY.md
 t/00-load.t
 t/01-can.t
 t/02-simple.t
@@ -13,7 +15,6 @@ t/05-set_subarrays.t
 t/06-set_eqs.t
 t/07-set_ext.t
 t/08-set_ext_eqs.t
-
 t/manifest.t
 t/pod-coverage.t
 t/pod.t
@@ -23,7 +24,8 @@ t/test-data/02-table-weird.txt
 t/test-data/02-table.txt
 
 xt/boilerplate.t
-xt/pod.t
 xt/pod-spell.t
-META.yml                                 Module YAML meta-data (added by MakeMaker)
+
+META.yml                                 Module meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)
+

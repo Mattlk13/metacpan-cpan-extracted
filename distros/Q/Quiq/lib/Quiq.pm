@@ -3,7 +3,7 @@ package Quiq;
 use strict;
 use warnings;
 
-our $VERSION = '1.226';
+our $VERSION = '1.228';
 
 =encoding utf8
 
@@ -13,7 +13,7 @@ Quiq - Class library for rapid development
 
 =head1 DESCRIPTION
 
-Diese Klassenbibliothek enthält 247 anwendungsunabhängige Klassen,
+Diese Klassenbibliothek enthält 249 anwendungsunabhängige Klassen,
 die ich in Projekten nutze. Die Klassen sind nach
 einheitlichen Prinzipien konzipiert. Die Bibliothek befindet
 sich unter kontinuierlicher Weiterentwicklung.
@@ -393,6 +393,10 @@ L<Quiq::Html::Form::Layout> - HTML-Formular mit freiem Layout
 =item *
 
 L<Quiq::Html::Form::Matrix> - HTML-Formular mit Matrix-Layout
+
+=item *
+
+L<Quiq::Html::FrameSet> - HTML-Frameset
 
 =item *
 
@@ -868,6 +872,10 @@ L<Quiq::Storable> - Perl-Datenstrukturen persistent speichern
 
 =item *
 
+L<Quiq::StreamServe::Block> - Inhalt eines StreamServe Blocks
+
+=item *
+
 L<Quiq::StreamServe::Stream> - Inhalt einer StreamServe Stream-Datei
 
 =item *
@@ -1004,7 +1012,7 @@ L<Quiq::Xml::LibXml> - Funktionale Erweiterungen von XML::LibXML
 
 =item *
 
-L<Quiq::Zugferd> - Generiere/Akzeptiere XML einer ZUGFeRD-Rechnung
+L<Quiq::Zugferd> - Generiere das XML von ZUGFeRD-Rechnungen
 
 =item *
 
@@ -1018,7 +1026,7 @@ L<Quiq::Zugferd::Tree> - Operatonen auf ZUGFeRD-Baum
 
 =head1 VERSION
 
-1.226
+1.228
 
 =head1 AUTHOR
 

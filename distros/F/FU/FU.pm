@@ -1,4 +1,4 @@
-package FU 1.0;
+package FU 1.2;
 use v5.36;
 use Carp 'confess', 'croak';
 use IO::Socket;
@@ -217,17 +217,12 @@ sub monitor_path { push @monitor_paths, @_ }
 sub monitor_check :prototype(&) { $monitor_check = $_[0] }
 
 sub _monitor {
-    state %data;
     return 1 if $monitor_check && $monitor_check->();
 
     require File::Find;
     eval {
         File::Find::find({
-            wanted => sub {
-                my $m = (stat)[9];
-                $data{$_} //= $m;
-                die if $m > $data{$_};
-            },
+            wanted => sub { die if (-M) < 0 },
             no_chdir => 1
         }, grep -e, $scriptpath, values %INC, @monitor_paths);
         0
@@ -508,6 +503,7 @@ sub _supervisor($c) {
             die $! if !defined $pid;
             if (!$pid) { # child
                 $SIG{CHLD} = $SIG{HUP} = $SIG{INT} = $SIG{TERM} = undef;
+                $0 = sprintf '%s: starting', $procname if $procname;
                 # In error state, wait with loading the script until we've received a request.
                 # Otherwise we'll end up in an infinite spawning loop if the script doesn't start properly.
                 $client = $c->{listen_sock}->accept() or die $! if !$client && $err;
@@ -994,7 +990,7 @@ FU - A Lean and Efficient Zero-Dependency Web Framework.
   }
 
   FU::get qr{/hello/(.+)}, sub($who) {
-      my_html_ "Website title", sub {
+      myhtml_ "Website title", sub {
           h1_ "Hello, $who!";
       };
   };
@@ -1097,7 +1093,7 @@ returning strings deal with perl Unicode strings, not raw bytes.
 =item use FU -procname => $name
 
 When the C<-procname> import option is set, FU automatically updates the
-process name (as displayed in L<top(1)> and L<ps(1)>, see `$0`) with
+process name (as displayed in L<top(1)> and L<ps(1)>, see C<$0>) with
 information about the current process, prefixed with the given C<$name>.
 
 =item FU::init_db($info)

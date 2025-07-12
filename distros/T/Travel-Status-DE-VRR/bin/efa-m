@@ -4,7 +4,7 @@ use warnings;
 use 5.010;
 use utf8;
 
-our $VERSION = '3.09';
+our $VERSION = '3.13';
 
 binmode( STDOUT, ':encoding(utf-8)' );
 
@@ -99,12 +99,15 @@ if ($use_cache) {
 my ( $place, $input, $coord, $stopseq, $stopfinder );
 
 if ( @ARGV == 1 ) {
-	if ( $ARGV[0] =~ m{ ^ ([^@]*) @ ([^@]*) [(] ([^)]*) [)] (.*)  $ }x ) {
+	if ( $ARGV[0]
+		=~ m{ ^ ([^@]*) @ ([^@]*) [(] ([^T]*) T ([^)]*) [)] (.*)  $ }x )
+	{
 		$stopseq = {
 			stateless => $1,
 			stop_id   => $2,
 			date      => $3,
-			key       => $4
+			time      => $4,
+			key       => $5
 		};
 	}
 	elsif ( $ARGV[0] =~ m{ ^ [?] (?<name> .*) $ }x ) {
@@ -233,7 +236,13 @@ sub format_route {
 		if ( $stop->delay ) {
 			$delay = sprintf( '(%+3d)', $stop->delay );
 		}
-		if ( defined $stop->arr and defined $stop->dep ) {
+		if ( $stop->is_cancelled ) {
+			$output .= sprintf(
+				"   --:--     %s %s %35s %s\n",
+				$delay, $occupancy, $stop->full_name, $stop->platform // q{},
+			);
+		}
+		elsif ( defined $stop->arr and defined $stop->dep ) {
 			if ( $stop->arr->epoch == $stop->dep->epoch ) {
 				$output .= sprintf(
 					"    %5s      %s %s %35s %s\n",
@@ -347,6 +356,7 @@ sub show_stopseq {
 	);
 	say q{};
 
+	my $occupancy_len   = 0;
 	my $delay_len       = 0;
 	my $inner_delay_len = 0;
 	my $max_delay       = max map { abs( $_->delay // 0 ) } $trip->route;
@@ -354,16 +364,28 @@ sub show_stopseq {
 		$inner_delay_len = length($max_delay) + 1;
 		$delay_len       = length( sprintf( '(%+d)', $max_delay ) ) + 1;
 	}
+	if ( first { $_->occupancy } $trip->route ) {
+		$occupancy_len = 2;
+	}
+
+	if ( first { $_->is_cancelled } $trip->route and $delay_len < 3 ) {
+		$delay_len = 3;
+	}
 
 	for my $stop ( $trip->route ) {
 		printf(
-			"%s → %s%${delay_len}s  %s (%s) %s\n",
+			"%s → %s%${delay_len}s %-${occupancy_len}s%s (%s) %s\n",
 			$stop->arr ? $stop->arr->strftime('%H:%M')
 			: q{     },
 			$stop->dep ? $stop->dep->strftime('%H:%M')
 			: q{     },
-			$stop->delay ? sprintf( " (%+${inner_delay_len}d)", $stop->delay )
-			: q{},
+			$stop->is_cancelled ? 'XX'
+			: (
+				$stop->delay
+				? sprintf( " (%+${inner_delay_len}d)", $stop->delay )
+				: q{}
+			),
+			$stop->occupancy ? format_occupancy( $stop->occupancy ) : q{},
 			$stop->full_name,
 			$stop->niveau,
 			$stop->platform
@@ -555,11 +577,15 @@ if ( my $err = $efa->errstr ) {
 
 	if ( $efa->place_candidates ) {
 		say 'You might want to try one of the following places:';
-		say join( "\n", $efa->place_candidates );
+		for my $candidate ( $efa->place_candidates ) {
+			printf( "%d  %s\n", $candidate->id_num, $candidate->name );
+		}
 	}
 	elsif ( $efa->name_candidates ) {
 		say 'You might want to try one of the following names:';
-		say join( "\n", $efa->name_candidates );
+		for my $candidate ( $efa->name_candidates ) {
+			printf( "%d  %s\n", $candidate->id_num, $candidate->name );
+		}
 	}
 
 	exit 2;
@@ -610,7 +636,7 @@ B<efa-m> [B<-s> I<service>] I<tripid>
 
 =head1 VERSION
 
-version 3.09
+version 3.13
 
 =head1 DESCRIPTION
 

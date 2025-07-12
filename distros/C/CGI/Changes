@@ -1,3 +1,14 @@
+4.70 2025-06-11
+
+    [ META ]
+    - remove github/coveralls/travis badges, no meaningful any more
+    - add github actions for CI (GH #273, thanks to esabol)
+
+4.69 2025-06-11
+
+    [ REVERT ]
+    - changes in 4.68 - this breaks backwards compatibility clearly not sufficiently covered by tests (see GH #271)
+
 4.68 2025-04-01
 
     [ FIX ]

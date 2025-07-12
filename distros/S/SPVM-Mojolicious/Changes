@@ -1,3 +1,15 @@
+0.003 2025-07-05
+  [Changes]
+    Working on many classes.
+  [Requirement Changes]
+    * Require SPVM 0.990077.
+    * Require SPVM::FindBin 0.035.
+0.002 2025-06-28
+  [Requirement Changes]
+    * Require SPVM 0.990075.
+  [New Features]
+    * Add Mojo::UserAgent class, but it has many bugs.
+
 0.001 2025-05-06
   [Changes]
     * First release.

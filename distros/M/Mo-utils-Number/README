@@ -2,7 +2,7 @@ NAME
     Mo::utils::Number - Mo number utilities.
 
 SYNOPSIS
-     use Mo::utils::number qw(check_int check_natural check_number check_percent check_positive_natural);
+     use Mo::utils::Number qw(check_int check_natural check_number check_percent check_positive_natural);
 
      check_int($self, $key);
      check_natural($self, $key);
@@ -188,10 +188,85 @@ EXAMPLE6
      # Output like:
      # #Error [...Number.pm:?] Parameter 'key' must be a number.
 
+EXAMPLE7
+     use strict;
+     use warnings;
+
+     use Mo::utils::Number qw(check_percent);
+
+     my $self = {
+             'key' => '10%',
+     };
+     check_percent($self, 'key');
+
+     # Print out.
+     print "ok\n";
+
+     # Output:
+     # ok
+
+EXAMPLE8
+     use strict;
+     use warnings;
+
+     $Error::Pure::TYPE = 'Error';
+
+     use Mo::utils::Number qw(check_percent);
+
+     my $self = {
+             'key' => 'foo',
+     };
+     check_percent($self, 'key');
+
+     # Print out.
+     print "ok\n";
+
+     # Output like:
+     # #Error [...Number.pm:?] Parameter 'key' has bad percent value.
+
+EXAMPLE9
+     use strict;
+     use warnings;
+
+     use Mo::utils::Number qw(check_positive_natural);
+
+     my $self = {
+             'key' => '3',
+     };
+     check_positive_natural($self, 'key');
+
+     # Print out.
+     print "ok\n";
+
+     # Output:
+     # ok
+
+EXAMPLE10
+     use strict;
+     use warnings;
+
+     $Error::Pure::TYPE = 'Error';
+
+     use Mo::utils::Number qw(check_positive_natural);
+
+     my $self = {
+             'key' => -1,
+     };
+     check_positive_natural($self, 'key');
+
+     # Print out.
+     print "ok\n";
+
+     # Output like:
+     # #Error [...Number.pm:?] Parameter 'key' must be a positive natural number.
+
 DEPENDENCIES
     Error::Pure, Exporter, Readonly, Scalar::Util.
 
 SEE ALSO
+    Mo::utils::Number::Range
+        Mo number utilities for ranges.
+
     Mo  Micro Objects. Mo is less.
 
     Mo::utils
@@ -214,5 +289,5 @@ LICENSE AND COPYRIGHT
     BSD 2-Clause License
 
 VERSION
-    0.02
+    0.04
 

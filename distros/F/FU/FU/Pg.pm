@@ -1,4 +1,4 @@
-package FU::Pg 1.0;
+package FU::Pg 1.2;
 use v5.36;
 use FU::XS;
 
@@ -10,7 +10,11 @@ package FU::Pg::conn {
     sub Q {
         require FU::SQL;
         my $s = shift;
-        my($sql, $params) = FU::SQL::SQL(@_)->compile(placeholder_style => 'pg', in_style => 'pg');
+        my($sql, $params) = FU::SQL::SQL(@_)->compile(
+            placeholder_style => 'pg',
+            in_style          => 'pg',
+            quote_identifier  => sub { $s->conn->escape_identifier(@_) },
+        );
         $s->q($sql, @$params);
     }
 
@@ -208,7 +212,8 @@ used.
 =item $conn->Q(@args)
 
 Same as C<< $conn->q() >> but uses L<FU::SQL> to construct the query and bind
-parameters.
+parameters. Uses the 'pg' C<in_style> and C<< $conn->escape_identifier() >> for
+identifier quoting.
 
 =back
 
@@ -626,10 +631,12 @@ Some built-in types deserve a few additional notes:
 
 =item bool
 
-Boolean values are converted to C<builtin::true> and C<builtin::false>. As bind
-parameters, Perl's idea of truthiness is used: C<0>, C<false> and C<""> are
-false, everything else is true. Objects that overload I<bool> are also
-supported. C<undef> always converts to SQL C<NULL>.
+Boolean values are converted to C<builtin::true> and C<builtin::false>.
+
+As bind parameters, values recognized by C<to_bool()> in L<FU::Util> are
+accepted, in addition to C<0>, C<"f"> and C<""> for false and C<1>, and C<"t">
+for true.  C<undef> always converts to SQL C<NULL>. Everything else throws an
+error.
 
 =item bytea
 

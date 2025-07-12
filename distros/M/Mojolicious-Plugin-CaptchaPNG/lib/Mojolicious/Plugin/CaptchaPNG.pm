@@ -4,11 +4,13 @@ package Mojolicious::Plugin::CaptchaPNG;
 use 5.024;
 use strict;
 use warnings;
+use Crypt::URandom;
+use Data::Password::Entropy 'password_entropy';
 use GD::Image;
 use Mojo::Base 'Mojolicious::Plugin';
 use Mojo::Exception;
 
-our $VERSION = '1.04'; # VERSION
+our $VERSION = '1.08'; # VERSION
 
 my $settings = {
     method      => 'any',
@@ -23,19 +25,49 @@ my $settings = {
     y_rotate    => 100,
     noise       => 1_250,
     background  => [ 255, 255, 255 ],
-    text_color  => [ 'rand(128)', 'rand(128)', 'rand(128)' ],
-    noise_color => [ 'rand(128) + 128', 'rand(128) + 128', 'rand(128) + 128' ],
-    value       => sub { int( rand( 10_000_000 - 1_000_000 ) ) + 1_000_000 },
+    text_color  => [ 'urand(128)', 'urand(128)', 'urand(128)' ],
+    noise_color => [ 'urand(128) + 128', 'urand(128) + 128', 'urand(128) + 128' ],
+    min_entropy => 40,
+    value       => sub { int( urand( 10_000_000 - 1_000_000 ) ) + 1_000_000 },
     display     => sub {
         my ($display) = @_;
         $display =~ s/^(\d{2})(\d{3})/$1-$2-/;
         $display =~ s/(.)/ $1/g;
         return $display;
     },
+    encrypt => undef,
+    decrypt => undef,
 };
+
+use constant SIZE => 1 << 31;
+use constant MASK => SIZE - 1;
+
+sub urand(;$) {
+    my $a = shift || 1;
+    my ($b) = unpack( 'N', Crypt::URandom::urandom(4) ) & MASK;
+    return $a * $b / SIZE;
+}
 
 sub register {
     my ( $self, $app, $overrides ) = @_;
+
+    unless ( ref $settings->{encrypt} eq 'CODE' and ref $settings->{decrypt} eq 'CODE' ) {
+        if (
+            my $below_min_entropy = grep { password_entropy($_) < $settings->{min_entropy} } $app->secrets->@*
+        ) {
+            $app->log->warn(
+                $below_min_entropy . ' Mojolicious application secret' .
+                ( $below_min_entropy > 1 ? 's are' : ' is' ) .
+                q{ below CaptchaPNG's minimum entropy}
+            );
+        }
+
+        $app->log->warn(
+            q{Application's Mojolicious::Sessions encryption is not active } .
+            q{and there's not both encrypt and decrypt methods provided in CaptchaPNG's settings. } .
+            q{Reverting to unsecured CaptchaPNG use, which is likely undesirable.}
+        ) unless ( $app->sessions->can('encrypted') and $app->sessions->encrypted );
+    }
 
     if ($overrides) {
         $settings->{$_} = $overrides->{$_} for ( keys %$overrides );
@@ -47,7 +79,7 @@ sub register {
         my ($c) = @_;
 
         my $image  = GD::Image->new( $settings->{width}, $settings->{height} );
-        my $rotate = rand() / $settings->{rotation} * ( ( rand() > 0.5 ) ? 1 : -1 );
+        my $rotate = urand() / $settings->{rotation} * ( ( urand() > 0.5 ) ? 1 : -1 );
         my $value  = $settings->{value}->();
 
         $app->log->warn(
@@ -69,9 +101,12 @@ sub register {
 
         for ( 1 .. 10 ) {
             my $index = $image->colorAllocate( map { eval $_ } $settings->{noise_color}->@* );
-            $image->setPixel( rand( $settings->{width} ), rand( $settings->{width} ), $index )
+            $image->setPixel( urand( $settings->{width} ), urand( $settings->{width} ), $index )
                 for ( 1 .. $settings->{noise} );
         }
+
+        $value = $settings->{encrypt}->($value)
+            if ( ref $settings->{encrypt} eq 'CODE' and ref $settings->{decrypt} eq 'CODE' );
 
         $c->session( $settings->{key} => $value );
         return $c->render( data => $image->png(9), format => 'png' );
@@ -79,13 +114,19 @@ sub register {
 
     $app->helper(
         get_captcha_value => sub {
-            return $_[0]->session( $settings->{key} );
+            my $value = $_[0]->session( $settings->{key} );
+            $value = $settings->{decrypt}->($value)
+                if ( ref $settings->{encrypt} eq 'CODE' and ref $settings->{decrypt} eq 'CODE' );
+            return $value;
         }
     );
 
     $app->helper(
         set_captcha_value => sub {
-            $_[0]->session( $settings->{key} => $_[1] );
+            my ( $this, $value ) = @_;
+            $value = $settings->{encrypt}->($value)
+                if ( ref $settings->{encrypt} eq 'CODE' and ref $settings->{decrypt} eq 'CODE' );
+            $this->session( $settings->{key} => $value );
             return;
         }
     );
@@ -130,7 +171,7 @@ Mojolicious::Plugin::CaptchaPNG - PNG captcha generation and validation Mojolici
 
 =head1 VERSION
 
-version 1.04
+version 1.08
 
 =for markdown [![test](https://github.com/gryphonshafer/Mojo-Plugin-CaptchaPNG/workflows/test/badge.svg)](https://github.com/gryphonshafer/Mojo-Plugin-CaptchaPNG/actions?query=workflow%3Atest)
 [![codecov](https://codecov.io/gh/gryphonshafer/Mojo-Plugin-CaptchaPNG/graph/badge.svg)](https://codecov.io/gh/gryphonshafer/Mojo-Plugin-CaptchaPNG)
@@ -147,7 +188,6 @@ version 1.04
     $app->clear_captcha_value;
 
     # Customized Mojolicious
-    use Math::Random::Secure 'rand';
     $app->plugin( CaptchaPNG => {
         routes      => $app->routes,
         method      => 'any',
@@ -163,10 +203,17 @@ version 1.04
         y_rotate    => 100,
         noise       => 1_250,
         background  => [ 255, 255, 255 ],
-        text_color  => [ 'rand(128)', 'rand(128)', 'rand(128)' ],
-        noise_color => [ 'rand(128) + 128', 'rand(128) + 128', 'rand(128) + 128' ],
-        value       => sub { int( rand( 10_000_000 - 1_000_000 ) ) + 1_000_000 },
-        display     => sub {
+        text_color  => [ 'urand(128)', 'urand(128)', 'urand(128)' ],
+        noise_color => [ 'urand(128) + 128', 'urand(128) + 128', 'urand(128) + 128' ],
+        min_entropy => 40,
+        value       => sub {
+            return int(
+                Mojolicious::Plugin::CaptchaPNG::urand(
+                    10_000_000 - 1_000_000
+                )
+            ) + 1_000_000;
+        },
+        display => sub {
             my ($display) = @_;
             $display =~ s/^(\d{2})(\d{3})/$1-$2-/;
             $display =~ s/(.)/ $1/g;
@@ -187,6 +234,13 @@ During registration (when C<plugin> is called), the plugin will setup a route
 The image is generated using L<GD::Image>. The plugin will also setup helper
 methods to get, check, and clear the captcha value, which is stored in the
 session.
+
+Note that the assumption herein is that you're using Mojolicious verison 9.39 or
+higher with L<Mojolicious::Sessions>'s C<encrypted> on. If so, the application's
+Mojolicious secrets are checked for strong entropy and a warning is issued if
+any have low entropy. (See C<min_entropy> below.) If not, then its expected
+you'll provide your own captcha value encryption. (See C<encrypt> and C<decrypt>
+below.)
 
 =head1 SETTINGS
 
@@ -266,7 +320,9 @@ An array reference of 3 expressions, which will be used to set the color of the
 text in the image. Values will be evaluated before used. If not set, it defaults
 to:
 
-    [ 'rand(128)', 'rand(128)', 'rand(128)' ]
+    [ 'urand(128)', 'urand(128)', 'urand(128)' ]
+
+Note that C<urand> is provided by this library. See below.
 
 =head2 noise_color
 
@@ -274,14 +330,29 @@ An array reference of 3 valexpressionses, which will be used to set the color of
 the noise color in the image. Values will be evaluated before used. If not set,
 it defaults to:
 
-    [ 'rand(128) + 128', 'rand(128) + 128', 'rand(128) + 128' ]
+    [ 'urand(128) + 128', 'urand(128) + 128', 'urand(128) + 128' ]
+
+Note that C<urand> is provided by this library. See below.
+
+=head2 min_entropy
+
+This is the minimum entropy level the application's Mojolicious secrets need to
+achieve to avoid this plugin logging a warning. The default threshold is 40.
+
+Note that C<min_entropy> is ignored if C<encrypt> and C<decrypt> are provided.
 
 =head2 value
 
 A subroutine reference that will be called to generate the value used for the
 text of the captcha. If not set, it defaults to:
 
-    sub { int( rand( 10_000_000 - 1_000_000 ) ) + 1_000_000 }
+    sub {
+        return int(
+            Mojolicious::Plugin::CaptchaPNG::urand(
+                10_000_000 - 1_000_000
+            )
+        ) + 1_000_000;
+    }
 
 =head2 display
 
@@ -295,6 +366,12 @@ or dashes or other such things. If not set, it defaults to:
         $display =~ s/(.)/ $1/g;
         return $display;
     }
+
+=head2 encrypt, decrypt
+
+If these are set to subroutine references, they will be called to encrypt and
+decrypt the value into and out of the session. They are passed the value to
+encrypt or decrypt.
 
 =head1 HELPER METHODS
 
@@ -327,6 +404,13 @@ On success, the captcha value is removed from the session.
 Removes the captcha value from the session.
 
     $app->clear_captcha_value;
+
+=head1 OTHER METHOD
+
+=head2 urand
+
+This method is a functional replacement of the core C<rand> but using
+L<Crypt::URandom> for randomness.
 
 =head1 SEE ALSO
 

@@ -7,13 +7,13 @@ use warnings;
 
 use base 'Class::Accessor';
 
-use Digest::HMAC_SHA1 'hmac_sha1_hex';
-use Math::Random::MT 'rand';
-use URI::Escape 'uri_escape';
-use Convert::Base32 qw( encode_base32 decode_base32 );
 use Carp 'croak';
+use Convert::Base32 qw( encode_base32 decode_base32 );
+use Crypt::PRNG 'rand';
+use Digest::HMAC_SHA1 'hmac_sha1_hex';
+use URI::Escape 'uri_escape';
 
-our $VERSION = '1.07'; # VERSION
+our $VERSION = '1.09'; # VERSION
 
 my @accessors = qw( secret secret32 issuer key_id );
 __PACKAGE__->mk_accessors(@accessors);
@@ -140,7 +140,7 @@ Auth::GoogleAuth - Google Authenticator TBOT Abstraction
 
 =head1 VERSION
 
-version 1.07
+version 1.09
 
 =for markdown [![test](https://github.com/gryphonshafer/Auth-GoogleAuth/workflows/test/badge.svg)](https://github.com/gryphonshafer/Auth-GoogleAuth/actions?query=workflow%3Atest)
 [![codecov](https://codecov.io/gh/gryphonshafer/Auth-GoogleAuth/graph/badge.svg)](https://codecov.io/gh/gryphonshafer/Auth-GoogleAuth)
@@ -345,11 +345,6 @@ for setup.
 To authenticate, present the user with a way to provide you a code (which will
 be a series of 6-digits). Verify that code (C<verify>) with either no range
 or some small range like 1.
-
-=head1 DEPENDENCIES
-
-L<Digest::HMAC_SHA1>, L<Math::Random::MT>, L<URI::Escape>, L<Convert::Base32>,
-L<Class::Accessor>, L<Carp>.
 
 =head1 SEE ALSO
 

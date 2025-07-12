@@ -1,15 +1,19 @@
-# Copyrights 2012-2016 by [Mark Overmeer].
+# Copyrights 2012-2025 by [Mark Overmeer <markov@cpan.org>].
 #  For other contributors see ChangeLog.
 # See the manual pages for details on the licensing terms.
-# Pod stripped from pm file by OODoc 2.02.
-use warnings;
-use strict;
+# Pod stripped from pm file by OODoc 2.03.
+# This code is part of distribution XML-Compile-WSS-Signature.
+# Meta-POD processed with OODoc into POD and HTML manual-pages.  See README.md
+# Copyright Mark Overmeer.  Licensed under the same terms as Perl itself.
 
-package XML::Compile::WSS::SecToken::EncrKey;
-use vars '$VERSION';
-$VERSION = '2.02';
+package XML::Compile::WSS::SecToken::EncrKey;{
+our $VERSION = '2.04';
+}
 
 use base 'XML::Compile::WSS::SecToken';
+
+use warnings;
+use strict;
 
 use Log::Report 'xml-compile-wss-sig';
 
@@ -119,35 +123,6 @@ sub getKey($%)
         # xenc_CipherReference not (yet) supported
         $h->{xenc_CipherData}{xenc_CipherValue}
             or error __x"cipher data not understood for {id}", id => $encr->id;
-    };
-}
-
-
-sub getChecker($%)
-{   my ($class, $wss, %args) = @_;
-    my $get_encr = $class->getEncrypter($wss, %args);
-
-    sub {
-        my ($h, $sec, $value) = @_;
-        my $encr = $get_encr->($h, $sec);
-        my $id   = $encr->id;
-
-        # xenc_CipherReference not (yet) supported
-        my $outcome = $h->{xenc_CipherData}{xenc_CipherValue}
-            or error __x"cipher data not understood for {id}", id => $id;
-
-        my $got = $encr->signer->encrypt($value);
-
-#use MIME::Base64;
-#warn "OUT=", encode_base64 $outcome;
-#warn "GOT=", encode_base64 $got;
-# This warning is currently produced in t/21enckey.t, but that example
-# may be wrong... or something else... no idea yet.
-
-        $got eq $outcome
-            or warning __x"check of crypto checksum failed {id}", id => $id;
-
-        1;
     };
 }
 

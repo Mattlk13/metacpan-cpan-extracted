@@ -7,7 +7,7 @@ use IO::File;
 use vars qw(@ISA $VERSION);
 
 @ISA = qw();
-$VERSION = '0.21';
+$VERSION = '0.23';
 
 ###############
 # create a new Object

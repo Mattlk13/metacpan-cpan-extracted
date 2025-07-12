@@ -7,7 +7,7 @@ use warnings;
 use Error::Pure qw(err);
 use Graphics::ColorNames::CSS;
 use List::Util 1.33 qw(any none);
-use Mo::utils 0.06 qw(check_array);
+use Mo::utils 0.31 qw(check_array);
 use Mo::utils::Number::Utils qw(sub_check_percent);
 use Readonly;
 
@@ -20,7 +20,7 @@ Readonly::Array our @BORDER_WIDTHS => qw(thin medium thick);
 Readonly::Array our @RELATIVE_LENGTHS => qw(em ex ch rem vw vh vmin vmax %);
 Readonly::Array our @COLOR_FUNC => qw(rgb rgba hsl hsla);
 
-our $VERSION = 0.10;
+our $VERSION = 0.12;
 
 sub check_array_css_color {
 	my ($self, $key) = @_;
@@ -568,7 +568,7 @@ Returns undef.
  print "ok\n";
 
  # Output like:
- # #Error [...utils.pm:?] Parameter 'key' has bad color name.
+ # #Error [...CSS.pm:?] Parameter 'key' has bad color name.
 
 =head1 EXAMPLE3
 
@@ -611,7 +611,7 @@ Returns undef.
  print "ok\n";
 
  # Output like:
- # #Error [...utils.pm:?] Parameter 'key' has bad border style.
+ # #Error [...CSS.pm:?] Parameter 'key' has bad border style.
 
 =head1 EXAMPLE5
 
@@ -654,7 +654,7 @@ Returns undef.
  print "ok\n";
 
  # Output like:
- # #Error [...utils.pm:?] Parameter 'key' has bad CSS class name (number of begin).
+ # #Error [...CSS.pm:?] Parameter 'key' has bad CSS class name (number of begin).
 
 =head1 EXAMPLE7
 
@@ -697,7 +697,7 @@ Returns undef.
  print "ok\n";
 
  # Output like:
- # #Error [...utils.pm:?] Parameter 'key' has bad color name.
+ # #Error [...CSS.pm:?] Parameter 'key' has bad color name.
 
 =head1 EXAMPLE9
 
@@ -740,7 +740,7 @@ Returns undef.
  print "ok\n";
 
  # Output like:
- # #Error [...utils.pm:?] Parameter 'key' doesn't contain unit name.
+ # #Error [...CSS.pm:?] Parameter 'key' doesn't contain unit name.
 
 =head1 DEPENDENCIES
 
@@ -749,6 +749,7 @@ L<Exporter>,
 L<Graphics::ColorNames::CSS>,
 L<List::Util>,
 L<Mo::utils>,
+L<Mo::utils::Number::Utils>,
 L<Readonly>.
 
 =head1 SEE ALSO
@@ -791,6 +792,6 @@ BSD 2-Clause License
 
 =head1 VERSION
 
-0.10
+0.12
 
 =cut

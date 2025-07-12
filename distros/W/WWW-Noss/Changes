@@ -1,0 +1,64 @@
+Revision history for noss (WWW::Noss)
+
+1.04  Jul 04 2025
+  - Skip lynx tests if lynx is not installed.
+  - nossui: Clean up temporary files that were forgotten in some menus.
+
+1.03  Jun 27 2025
+  - Add cat command: Basically just an alias to `read --stdout`.
+  - Add --html option read command: Read the unformatted HTML contents of a
+    post.
+  - Add '%z' formatting code for feed and post formatting, and the --time-format
+    option: Print post/feed dates using the strftime format specified by
+    --time-format.
+  - nossui: Add 'Read' button to posts selection menu.
+  - nossui: Allow updating/reloading by group or feed.
+  - If a post does not have a specific author, use the feed's author if present.
+    Existing databases will have to be reloaded to reflect this change.
+  - Don't leak open directory handles in clean command.
+  - No longer maintain META files manually.
+
+1.02  Jun 24 2025
+  - Add nossui: dialog-based frontend to noss.
+  - Fix documentation errors.
+
+1.01  Jun 23 2025
+  - Include read status of post in default post command output.
+  - feeds command now accepts group names as argument.
+  - feeds will no longer print the same feed more than once.
+  - Fix updating by group.
+  - Fix reloading by group.
+  - Fix group listing in list command.
+  - Fix feeds not being included in the default update when they are a part of
+    a group.
+  - Fix list when no valid groups are given.
+
+1.00  Jun 22 2025
+  - Add --read-format option for the read command: Specify the format to use for
+    the HTML contents of a post to format when reading.
+  - Add --list-format option for the list command: Specify the format to use for
+    posts in the list command.
+  - Add --post-format option for the post command: Specify the format to use for
+    printing post information.
+  - Add --feeds-option option for the feeds command: Specify the format to use
+    for printing feed information.
+  - Add --autoclean option: Automatically run the clean command after performing
+    an operation.
+  - Add --width option for the read command: Specify the line width to use for
+    formatted text.
+  - Changed default content formatting for the read command.
+  - list command now prints 'r' for read posts.
+  - The clean command now VACUUMs databases, which dramatically increases the
+    amount of space shaved off.
+  - noss no longer aborts when it fails to read a feed file in the update
+    command, it will just throw a warning and continue processing subsequent
+    feeds.
+  - Have --sort take priority over the "sort" configuration field.
+  - strftime is now used for formatting timestamps, which adds support for
+    non-English locales.
+  - Local time zone is now used for timestamps.
+  - Fix typos in documentation.
+  - Fix POD errors in developer documentation.
+
+0.01  Jun 20 2025
+  - Initial release.

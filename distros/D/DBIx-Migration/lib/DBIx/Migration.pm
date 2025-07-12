@@ -1,6 +1,6 @@
 package DBIx::Migration;
 
-our $VERSION = '0.28';
+our $VERSION = '0.31';
 
 use feature qw( state );
 
@@ -128,6 +128,8 @@ sub migrate {
 
   $target = $self->latest unless defined $target;
 
+  $Logger->debugf( "Will use DBI DSN '%s'", $self->dsn );
+
   my $fatal_error;
   my $return_value = try {
 
@@ -249,7 +251,7 @@ sub _files {
     no warnings 'uninitialized';
     $self->dir->visit(
       sub {
-        return unless m/\D*${i}_$type\.sql\z/;
+        return unless $_->basename =~ m/(?:\A|\D+)${i}_$type\.sql\z/;
         $Logger->debugf( "Found migration '%s'", $_ );
         push @files, { name => $_, version => $i };
       }

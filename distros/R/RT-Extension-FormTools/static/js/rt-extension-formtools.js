@@ -62,6 +62,12 @@ formTools = {
                 area.insertBefore(source_copy, area.children[area.children.length-2]);
             }
 
+            jQuery('#' + old_id + '-modal .selectpicker').each(function() {
+                if ( this.tomselect ) {
+                    this.tomselect?.destroy();
+                    this.classList.remove('tomselected', 'ts-hidden-accessible');
+                }
+            });
             const modal_copy = jQuery('#' + old_id + '-modal').clone(true);
             jQuery('div.modal-wrapper:visible').append(modal_copy);
             modal_copy.attr('id', source_copy.id + '-modal' );
@@ -73,9 +79,8 @@ formTools = {
                 const input = jQuery(this);
                 input.attr('name', input.attr('name').replace(/^template-/, ''));
             });
-            modal_copy.find('select:not(.combobox)').selectpicker();
 
-            modal_copy.find('.custom-checkbox, .custom-radio').each(function() {
+            modal_copy.find('.form-check').each(function() {
                 const input = jQuery(this).find('input');
                 const label = jQuery(this).find('label');
                 label.attr('for', source_copy.id + label.attr('for').replace(/^template-/, ''));
@@ -84,6 +89,8 @@ formTools = {
 
             // combobox dropdown icon doesn't work after drag&drop, hide it for now
             modal_copy.find('.combobox-container .input-group-append').hide();
+            modal_copy.find('select').addClass('selectpicker');
+            initializeSelectElements(modal_copy.get(0));
         }
         formTools.submit();
     },
@@ -359,6 +366,60 @@ formTools = {
         else {
             jQuery('.formtools-component-menu').find('hr').show();
             jQuery('.formtools-component-menu').find('.formtools-element').show();
+        }
+    },
+
+    ckeOnChangeAdded: {},
+    validateRequiredFields: function (e) {
+        let missingRequiredRichtext = false;
+        const form = jQuery(e.target);
+        form.find('.cfhints.required').each( function() {
+            const cfhints = jQuery(this);
+            if ( cfhints.parent().find('textarea.richtext').length ) {
+                const textarea = cfhints.parent().find('textarea.richtext');
+                const editor   = RT.CKEditor.instances[textarea.attr('id')];
+                // add change handler to show/hide invalid feedback
+                if ( ! formTools.ckeOnChangeAdded.hasOwnProperty( textarea.attr('id') ) ) {
+                    editor.ui.focusTracker.on('change:isFocused', function ( evt, name, isFocused ) {
+                        if ( !isFocused ) {
+                            if ( editor.getData() ) {
+                                cfhints.addClass('hidden');
+                            }
+                            else {
+                                cfhints.removeClass('hidden');
+                            }
+                        }
+                    });
+                    formTools.ckeOnChangeAdded[ textarea.attr('id') ] = 1;
+                }
+                cfhints.addClass('invalid-feedback');
+                if ( editor.getData() ) {
+                    cfhints.addClass('hidden');
+                }
+                else {
+                    // only scroll to the first missing richtext
+                    if ( ! missingRequiredRichtext ) {
+                        editor.focus();
+                        textarea.get(0).scrollIntoView();
+                    }
+                    cfhints.removeClass('hidden');
+                    missingRequiredRichtext = true;
+                }
+            }
+            else {
+                cfhints.removeClass().addClass('invalid-feedback');
+            }
+        });
+
+        form.addClass('was-validated');
+        if ( e.target.checkValidity() && ( ! missingRequiredRichtext ) ) {
+            return;
+        }
+        else {
+            e.preventDefault();
+            form.removeClass('rt-form-submitted');
+            jQuery('div.main-container.refreshing').removeClass('refreshing');
+            jQuery('div#hx-boost-spinner').addClass('invisible');
         }
     }
 };

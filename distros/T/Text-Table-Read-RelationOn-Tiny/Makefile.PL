@@ -3,6 +3,23 @@ use strict;
 use warnings;
 use ExtUtils::MakeMaker;
 
+use File::Spec::Functions;
+use autodie;
+
+my $PM_File = catfile(qw(lib Text Table Read RelationOn Tiny.pm));
+
+open(my $h, '<', $PM_File);
+my $Version;
+foreach my $line (<$h>) {
+  if ($line =~ /\bour\s+\$VERSION\s+.*?["'](v[^"']+)["']/) {
+    $Version = $1;
+    last;
+  }
+}
+close($h);
+die("VERSION not found in $PM_File") if !$Version;
+
+
 my %WriteMakefileArgs = (
     NAME             => 'Text::Table::Read::RelationOn::Tiny',
     AUTHOR           => q{Abdul al Hazred <451@gmx.eu>},
@@ -12,6 +29,26 @@ my %WriteMakefileArgs = (
     MIN_PERL_VERSION => '5.010001',
     CONFIGURE_REQUIRES => {
         'ExtUtils::MakeMaker' => '0'
+    },
+    META_MERGE => {
+        "meta-spec" => { version => 2 },
+        dynamic_config => 0,
+        resources => {
+            repository => {
+                type => 'git',
+                url  => 'https://github.com/AAHAZRED/perl-Text-Table-Read-RelationOn-Tiny.git',
+                web  => 'https://github.com/AAHAZRED/perl-Text-Table-Read-RelationOn-Tiny',
+            },
+            bugtracker => {
+                web => 'https://github.com/AAHAZRED/perl-Text-Table-Read-RelationOn-Tiny/issues'
+            },
+
+        },
+                   provides => { 'Text::Table::Read::RelationOn::Tiny' => {file => $PM_File,
+                                                                           version => $Version
+                                                               },
+                    },
+        no_index => {package => 'Text::Table::Read::RelationOn::Tiny::_Relation_Matrix'}
     },
     TEST_REQUIRES => {
         'Test::More' => '0',

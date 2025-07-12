@@ -287,7 +287,7 @@ __PACKAGE__->method_documentation({
     'prefer_ipv6' => {
         datatype => 'boolean',
         base_name => 'prefer_ipv6',
-        description => 'Prefer IPv6 connections for DNS hostname lookups.',
+        description => 'Prefer IPv6 connections to origins for hostname backends. Default is &#39;false&#39; for Delivery services and &#39;true&#39; for Compute services.',
         format => '',
         read_only => 'false',
             },
@@ -308,7 +308,7 @@ __PACKAGE__->method_documentation({
     'shield' => {
         datatype => 'string',
         base_name => 'shield',
-        description => 'Identifier of the POP to use as a [shield](https://docs.fastly.com/en/guides/shielding).',
+        description => 'Identifier of the POP to use as a [shield](https://www.fastly.com/documentation/guides/getting-started/hosts/shielding/).',
         format => '',
         read_only => 'false',
             },

@@ -149,10 +149,13 @@ if(!$ENV{'NO_NETWORK_TESTING'}) {
 
 my $pm;
 if(scalar(keys(%urls)) > 1) {
-	require Parallel::ForkManager;
-	Parallel::ForkManager->import();
+	if(eval { require Parallel::ForkManager; }) {
+		Parallel::ForkManager->import();
 
-	$pm = Parallel::ForkManager->new(10);
+		$pm = Parallel::ForkManager->new(10);
+	} else {
+		print "Consider installing Parallel::Forkmanager to speed up downloads\n";
+	}
 }
 
 foreach my $url(keys %urls) {
@@ -264,16 +267,17 @@ my $build_requires = {
 	'CHI' => 0,
 	'CHI::Driver::RawMemory' => 0,
 	'Cwd' => 0,
-	'Config::Auto' => 0,
+	'Config::Abstraction' => 0,
 	'Database::Abstraction' => 0,
 	'Devel::Size' => 0,
 	'File::Basename' => 0,
 	'File::Copy' => 0,
+	'File::Find' => 0,
 	'File::Slurp' => 0,
 	'File::Spec' => 0,
 	'autodie' => 0,
 	'Geo::Coder::Abbreviations' => 0.03,
-	'Geo::Location::Point' => 0.02,
+	'Geo::Location::Point' => 0.14,
 	'IPC::System::Simple' => 0,
 	'JSON::MaybeXS' => 0,
 	'LWP::ConnCache' => 0,
@@ -283,7 +287,7 @@ my $build_requires = {
 	'Try::Tiny' => 0
 };
 
-if(($^O ne 'solaris') && ($^O ne 'haiku')) {
+if(($^O ne 'solaris') && ($^O ne 'haiku') && ($^O ne 'MSWin32')) {
 	$build_requires->{'File::Open::NoCache::ReadOnly'} = 0.02;
 	$build_requires->{'IO::AIO'} = 0;
 }
@@ -370,6 +374,8 @@ WriteMakefile(
 		'Module::Info' => 0,
 		'File::Spec' => 0,
 		'CHI' => 0,
+		'Object::Configure' => 0,
+		'Params::Get' => 0,
 		'Scalar::Util' => 0,
 		'Storable' => 0,
 		'Text::CSV' => 0,

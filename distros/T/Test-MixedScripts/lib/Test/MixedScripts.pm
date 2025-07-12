@@ -9,7 +9,6 @@ use warnings;
 
 use Carp          qw( croak );
 use Exporter 5.57 qw( import );
-use ExtUtils::Manifest 1.68 qw( manifind maniread maniskip );
 use File::Basename qw( basename );
 use File::Spec;
 use IO            qw( File );
@@ -17,10 +16,11 @@ use List::Util    qw( first );
 use Unicode::UCD  qw( charinfo charscripts );
 
 use Test2::API 1.302200 qw( context );
+use Test2::Util::DistFiles v0.2.0 qw( manifest_files is_perl_file );
 
 our @EXPORT_OK = qw( all_perl_files_scripts_ok file_scripts_ok );
 
-our $VERSION = 'v0.5.0';
+our $VERSION = 'v0.6.2';
 
 
 sub file_scripts_ok {
@@ -95,11 +95,11 @@ sub _check_file_scripts {
 }
 
 sub _make_regex_set {
-    state $scripts = charscripts();
+    state $scripts = { ASCII => undef, map { $_ => 1 } keys %{ charscripts() } };
     if ( my $err = first { !exists $scripts->{$_} } @_ ) {
         croak "Unknown script ${err}";
     }
-    return join( "", map { sprintf( '\p{scx=%s}', $_ ) } @_ );
+    return join( "", map { $_ eq "ASCII" ? '\x00-\x7f' : sprintf( '\p{scx=%s}', $_ ) } @_ );
 }
 
 sub _make_regex {
@@ -113,71 +113,28 @@ sub _make_negative_regex {
 }
 
 
-# This code is originally based on code from Test::EOL v2.02, originally by Tomas Doran <bobtfish@bobtfish.net>
-
 sub all_perl_files_scripts_ok {
     my $options = { };
     $options = shift if ref $_[0] eq 'HASH';
-    my @files   = _all_perl_files(@_);
+    my @files = manifest_files( \&is_perl_file);
     foreach my $file (@files) {
         file_scripts_ok( $file, $options );
     }
 }
 
-sub _all_perl_files {
-    my @files = _all_files(@_);
-    return grep { _is_perl_module($_) || _is_perl_script($_) || _is_pod_file($_) || _is_xs_file($_) || _is_template($_) } @files;
-}
-
-sub _all_files {
-    my $options = {};
-    $options = shift if ref $_[0] eq 'HASH';
-
-    my $mfile = $ExtUtils::Manifest::MANIFEST;
-
-    my $skip  = maniskip;
-    my $found = -e $mfile ? maniread($mfile) : manifind();
-
-    my $check = sub {
-        my ($file) = @_;
-        my $name = basename($file);
-        return
-          if $file =~ m{^CVS/}
-          || $file =~ m{^\.\w+/}                  # .git, .svn, .build, .mite ...
-          || $file =~ m{^blib/}                   #
-          || $file =~ m{^local/}                  # Carton
-          || $file =~ m{^inc/}                    # Module::Install
-          || $name =~ m{^\.}                      #
-          || $name =~ m{~$}
-          || $name =~ m{^#.*#$}                   #
-          || $name =~ m{\.(?:old|bak|backup)$}i
-          || $name eq "Build";
-        return 1;
-    };
-
-    my @files = grep { !$skip->($_) && $check->($_) } sort keys %{$found};
-    return File::Spec->no_upwards(@files);
-}
-
-sub _is_perl_module {
-    $_[0] =~ /\.pm$/i || $_[0] =~ /::/;
+sub _is_perl_file {
+    my ($file) = @_;
+    return is_perl_file($file) || _is_pod_file($file) || _is_perl_config($file) || _is_xs_file($file) || _is_template($file);
 }
 
 sub _is_pod_file {
     $_[0] =~ /\.pod$/i;
 }
 
-sub _is_perl_script {
+sub _is_perl_config {
     my ($file) = @_;
     my $name = basename($file);
-    return 1 if $name =~ /\.pl$/i;
-    return 1 if $name =~ /\.t$/;
-    return 1 if $name =~ /\.psgi$/;
     return 1 if $name =~ /^(?:Rexfile|cpanfile)$/;
-    my $fh = IO::File->new( $file, "r" ) or return;
-    my $first = $fh->getline;
-    return 1 if defined $first && ( $first =~ /^#!.*perl\b/ );
-    return 1 if $file =~ /[.]bat$/i && $first =~ /--[*]-Perl-[*]--/;
     return;
 }
 
@@ -205,7 +162,7 @@ Test::MixedScripts - test text for mixed and potentially confusable Unicode scri
 
 =head1 VERSION
 
-version v0.5.0
+version v0.6.2
 
 =head1 SYNOPSIS
 
@@ -279,6 +236,12 @@ When tests fail, the diagnostic message will indicate the unexpected script and 
 
     Unexpected Cyrillic character CYRILLIC SMALL LETTER ER on line 286 character 45 in lib/Foo/Bar.pm
 
+You can also specify "ASCII" as a special script name for only 7-bit ASCII characters:
+
+  file_scripts_ok( $filepath, qw/ ASCII / );
+
+Note that "ASCII" is available in version v0.6.0 or later.
+
 =head2 all_perl_files_scripts_ok
 
   all_perl_files_scripts_ok();
@@ -338,9 +301,6 @@ report security vulnerabilities
 =head1 AUTHOR
 
 Robert Rothenberg <rrwo@cpan.org>
-
-The file traversing code used in L</all_perl_files_scripts_ok> is based on code from L<Test::EOL> by Tomas Doran
-<bobtfish@bobtfish.net> and others.
 
 =head1 COPYRIGHT AND LICENSE
 

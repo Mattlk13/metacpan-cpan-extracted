@@ -1,5 +1,25 @@
 Revision history for Perl module Math::MPFR
 
+4.43
+  - More changes to t/_Float16.t and t/bfloat16.t needed to address what 4.42
+    was intended to fix.
+
+4.42
+  - Fix bug in t/_Float16.t and t/bfloat16.t. Fixes (eg):
+    https://www.cpantesters.org/cpan/report/0e7804d2-5c3b-11f0-943b-9bf76d8775ea
+
+4.41
+  - Fix bug in t/new.t. Fixes (eg):
+    https://www.cpantesters.org/cpan/report/2138de96-805b-1014-9104-da8c93be5a9b
+  - Add Rmpfr_set_bfloat16, Rmpfr_get_bfloat16 and Rmpfr_buildopt_bfloat16_p.
+  - Add unpack_float32, unpack_float16 and unpack_bfloat16.
+
+4.39
+  - Rewrite parts of "OPERATOR OVERLOADING" and "FORMATTED OUTPUT" sections in
+    MPFR.pod.
+  - Make correction and expansion in decimalize() documentation in MPFR.pod
+  - Add new test file t/overload_op_eq.t
+
 4.38
   - Enable the Rmpf_*_uj and Rmpfr_*_sj functions (except for Rmpfr_get_uj and
     Rmpfr_get_sj) for all perl configurations. Also enable Rmpfr_pown.

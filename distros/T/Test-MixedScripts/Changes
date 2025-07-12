@@ -1,5 +1,20 @@
 Revision history for Test-MixedScripts:
 
+v0.6.2    2025-07-11 21:32:00+01:00 Europe/London
+  [Bug Fixes]
+  - Updated the minimum Test2::Util::DistFiles version to fix a bug handling scaffolding files.
+
+v0.6.1    2025-07-07 20:52:38+01:00 Europe/London
+  [Enhancements]
+  - Use Test2::Util::DistFiles to gather files for testing.
+
+v0.6.0    2025-07-05 12:50:00+01:00 Europe/London
+  [Enhancements]
+  - Allow testing for ASCII characters.
+
+  [Tests]
+  - Updated author and release tests.
+
 v0.5.0    2025-05-22 22:30:33+01:00 Europe/London
   [Enhancements]
   - Various kinds of scripts and templates are tested by all_perl_files_scripts_ok.
