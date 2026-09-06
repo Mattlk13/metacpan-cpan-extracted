@@ -4,7 +4,7 @@
       "Andrew Speer <andrew.speer@isolutions.com.au>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 7.70, CPAN::Meta::Converter version 2.150010",
+   "generated_by" : "ExtUtils::MakeMaker version 7.76, CPAN::Meta::Converter version 2.150010",
    "license" : [
       "perl_5"
    ],
@@ -32,6 +32,8 @@
       },
       "runtime" : {
          "requires" : {
+            "Future::IO" : "0",
+            "Future::XS" : "0",
             "PAGI::Server" : "0",
             "PAGI::Tools" : "0",
             "WebDyne" : "0",
@@ -47,12 +49,15 @@
    "release_status" : "stable",
    "resources" : {
       "homepage" : "https://github.com/aspeer/pm-Task-WebDyne-PAGI",
+      "license" : [
+         "http://dev.perl.org/licenses/"
+      ],
       "repository" : {
          "type" : "git",
          "url" : "https://github.com/aspeer/pm-Task-WebDyne-PAGI.git",
          "web" : "https://github.com/aspeer/pm-Task-WebDyne-PAGI"
       }
    },
-   "version" : "0.004",
+   "version" : "0.006",
    "x_serialization_backend" : "JSON::PP version 4.16"
 }

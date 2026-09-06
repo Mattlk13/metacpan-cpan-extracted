@@ -9,10 +9,10 @@ use Scalar::Util ();
 use Catalyst::Seal ();
 use Catalyst::Seal::Guard ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.04';
 
-my %PATH;       # "$base\0$rel_path" => [ $action, \@extra_args ]
-my %ACTIONS;    # "$name\0$namespace" => [ @actions ]
+my %PATH;
+my %ACTIONS;
 
 our $MAX_KEYS = 2048;
 my $CAPPED = 0;
@@ -52,8 +52,6 @@ sub _invoke_as_path {
                 last;
             }
             else {
-                # A failed match on the global namespace fails the whole
-                # lookup, and the stock code returns without touching @$args.
                 last unless $path;
             }
             unshift @extra_args, $tail;
@@ -92,8 +90,8 @@ sub _get_actions {
     return @$hit;
 }
 
-my %PLAN;        # "_DISPATCH namespace" => { steps => [...], end => $action }
-my %DISPATCH;    # action namespace      => the _DISPATCH action, or 0
+my %PLAN;
+my %DISPATCH;
 
 sub _clear_chain { %PLAN = (); %DISPATCH = (); return }
 
@@ -136,7 +134,6 @@ sub _state_or_one { my $c = shift; $c->state($c->state || 1); return 1 }
 sub _build_plan {
     my ($c, $self, $ns) = @_;
 
-    # What _BEGIN and _AUTO would find. Fixed for a namespace after setup.
     my $begin = ( $c->get_actions('begin', $ns) )[-1];
     my @autos = $c->get_actions('auto', $ns);
     my $end   = ( $c->get_actions('end',  $ns) )[-1];
@@ -185,7 +182,6 @@ sub _controller_dispatch {
     for my $step (@{ $plan->{steps} }) {
         last unless ref $step eq 'CODE' ? $step->($c) : _run($c, $step);
     }
-    # _END runs whether or not a step stopped the chain, exactly as stock.
     my $end = $plan->{end};
     ref $end eq 'CODE' ? $end->($c) : _run($c, $end);
     return;
@@ -194,40 +190,6 @@ sub _controller_dispatch {
 my %COMPONENT;
 
 sub _clear_components { %COMPONENT = (); return }
-
-# ------------------------------------------------------------ route lookup
-#
-# ------------------------------------------------------------ route lookup
-#
-# There is deliberately no route memo here. 0.02 had one, keyed on the request
-# path, and it was CVE-2026-85491.
-#
-# The premise it rested on was that "which level matched, which dispatch type
-# matched it, and what ended up in the arguments are a pure function of the
-# path once the action table is frozen". That is false.
-# Catalyst::ActionRole::HTTPMethods, ConsumesContent, Scheme and QueryMatching
-# each wrap match() with a test on request state that is not the path, so the
-# same path matches a different action, or none, depending on the method, the
-# content type, the scheme or the query.
-#
-# Two things followed. A request that legitimately failed to match wrote a
-# negative entry, and replaying it returned without consulting any dispatch
-# type, so $c->action was never set: one unauthenticated GET of a
-# :Method('POST') path disabled that path for the life of the worker. And a
-# positive entry recorded the level an earlier request had descended to, so a
-# GET that fell past a deep POST-only action onto a shallow any-method one
-# would route a later POST to the shallow action, with whatever guarded the
-# deep one never running.
-#
-# It cannot be repaired by widening the key. match() is wrapped by whatever
-# roles an application applies, so what the decision depends on is not
-# knowable from here, and there is no reliable way to detect that an action is
-# matched on the path alone. Anything remembered about a routing decision has
-# to key on all of the request state or not be remembered.
-#
-# The memos that remain in this file do not have this problem: get_action and
-# get_containers are lookups in _action_hash and _container_hash, and consult
-# no request state at all. t/61-dispatch-method.t is the regression.
 
 sub _component {
     my ($c, $name, @args) = @_;
@@ -243,8 +205,6 @@ sub _component {
     if (defined $name && !ref $name && !@args && @out == 1) {
         my $comps = eval { $c->components } || {};
         my $raw   = $comps->{$name};
-        # Only an exact-name hit on a blessed component with no ACCEPT_CONTEXT.
-        # A coderef entry is built lazily, and ACCEPT_CONTEXT is per request.
         if (defined $raw && Scalar::Util::blessed($raw)
             && !$raw->can('ACCEPT_CONTEXT')
             && Scalar::Util::blessed($out[0])
@@ -303,7 +263,6 @@ Catalyst::Seal::register_step('dispatch' => sub {
     Catalyst::Seal::Guard::replace(
         'Catalyst::component'               => \&_component);
 
-    
     my $register = Catalyst::Dispatcher->can('register');
     if ($register) {
         no warnings 'redefine';
@@ -394,4 +353,3 @@ This is free software, licensed under:
   The Artistic License 2.0 (GPL Compatible)
 
 =cut
-

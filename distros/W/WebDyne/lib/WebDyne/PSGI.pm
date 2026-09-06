@@ -1,7 +1,7 @@
 #
 #  This file is part of WebDyne.
 #
-#  This software is copyright (c) 2026 by Andrew Speer <andrew.speer.com.au>.
+#  This software is copyright (c) 2026 by Andrew Speer <andrew.speer@isolutions.com.au>.
 #
 #  This is free software; you can redistribute it and/or modify it under
 #  the same terms as the Perl 5 programming language system itself.
@@ -63,7 +63,7 @@ my %ENV_BASE=(
 
 #  Version information
 #
-$VERSION='3.024';
+$VERSION='3.026';
 
 
 #==================================================================================================
@@ -237,6 +237,7 @@ sub handler {
     #  Get env
     #
     my ($self, $env_hr, @param)=@_;
+    $env_hr={%{$env_hr}};
     debug('in handler, self: %s, env: %s, param:%s', Dumper($self, $env_hr, \@param));
     
     
@@ -261,6 +262,26 @@ sub handler {
         return err('unable to create new WebDyne::Request::PSGI object: %s', 
     			$@ || errclr() || 'unknown error');
     debug("r: $r");
+
+    #  Bound the complete body before page execution. Replay it for CGI and
+    #  Plack readers, including API redispatch, without rewriting caller metadata.
+    #  CGI needs a byte length even when the original request omitted one.
+    #
+    my ($body, $error);
+    {
+        #  Input failures are handled here, not by the page exception hook.
+        local $SIG{__DIE__};
+        $body=eval { $r->body() };
+        $error=$@;
+    }
+    if ($error) {
+        return psgi_error($r, $r->{'body_status'} || HTTP_BAD_REQUEST, $error);
+    }
+    $env_hr->{'webdyne.psgi.body'}=\$body;
+    $env_hr->{'psgi.input'}=IO::String->new($body);
+    $env_hr->{'CONTENT_LENGTH'}=length($body) unless defined($env_hr->{'CONTENT_LENGTH'});
+    $ENV{'CONTENT_LENGTH'}=$env_hr->{'CONTENT_LENGTH'};
+    $r->{'req'}=Plack::Request->new($env_hr);
     
     
     #  Get handler
@@ -386,7 +407,7 @@ sub handler {
     #
     my @return=(
         $r->status() || HTTP_INTERNAL_SERVER_ERROR,
-        [ %{$r->headers_out()} ],
+        $r->headers_out()->psgi_flatten_without_sort(),
         [ $html ]
     );
 
@@ -555,7 +576,7 @@ Andrew Speer <andrew.speer@isolutions.com.au>
 
 This file is part of WebDyne.
 
-This software is copyright (c) 2026 by Andrew Speer <andrew.speer.com.au>.
+This software is copyright (c) 2026 by Andrew Speer <andrew.speer@isolutions.com.au>.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

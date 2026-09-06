@@ -46,5 +46,4 @@ for my $i (1 .. $t->bars) {
   $t->rest($t->quarter) unless $i == $t->bars;
 }
 
-$t->play_with_timidity;
-# $t->write;
+$t->write;

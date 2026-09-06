@@ -22,16 +22,12 @@ This module allows one to validate a robot user-agent string against the IP addr
 
 # RECENT CHANGES
 
-Changes for version v0.4.1 (2026-09-03)
+Changes for version v0.4.2 (2026-09-05)
 
 - Enhancements
-    - Added robot rule for Piperic.
-- Bug Fixes
-    - Specified a minimum version of List::Util.
-- Documentation
-    - Updated the wording of the AI\_POLICY.
-- Tests
-    - Fixed warnings in Perl v5.24.
+    - Skip duplicate checks for relaxed and strict validation.
+    - Added robot rules for 2ip bot, IntentBeamBot and MetaJobBot.
+    - Updated configution for archive.org\_bot.
 
 See the `Changes` file for more details.
 
@@ -49,6 +45,7 @@ This module lists the following modules as runtime dependencies:
 - [Net::Patricia](https://metacpan.org/pod/Net%3A%3APatricia)
 - [PerlX::Maybe](https://metacpan.org/pod/PerlX%3A%3AMaybe)
 - [Ref::Util](https://metacpan.org/pod/Ref%3A%3AUtil)
+- [Scalar::Util](https://metacpan.org/pod/Scalar%3A%3AUtil) version 1.18 or later
 - [Sub::Util](https://metacpan.org/pod/Sub%3A%3AUtil) version 1.40 or later
 - [TOML::XS](https://metacpan.org/pod/TOML%3A%3AXS)
 - [Try::Tiny](https://metacpan.org/pod/Try%3A%3ATiny)

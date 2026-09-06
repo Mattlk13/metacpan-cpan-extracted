@@ -21,7 +21,7 @@ my $V_version    = '0.77'; # version
 
 my $UUID_version = get_uuidpm_version();
 
-my $no_mymeta = -e '.no-my-meta';
+my $no_mymeta = -e '.no-mymeta';
 
 my ($libs, $defines) = check_flags();
 my $has_threads      = check_threads();
@@ -512,7 +512,7 @@ sub dist_test {
 
 
 #
-# make TEST_VERBOSE=1 when AUTOMATED_TESTING=1.
+# make TEST_VERBOSE=1 when AUTOMATED_TESTING=1 and dev release.
 # add t/*/*.t to tests.
 # add TEST_LIB variable, set to t/lib.
 # insert TEST_LIB before other libs.
@@ -521,12 +521,14 @@ sub dist_test {
 sub test {
     my $t = shift->SUPER::test(@_);
     #
-    # make TEST_VERBOSE=1 when AUTOMATED_TESTING=1.
+    # make TEST_VERBOSE=1 when AUTOMATED_TESTING=1 and dev release.
     if ( $ENV{AUTOMATED_TESTING}
-        or $ENV{NONINTERACTIVE_TESTING}
-        or $ENV{PERL_CPAN_REPORTER_CONFIG}
+        ||  $ENV{NONINTERACTIVE_TESTING}
+        ||  $ENV{PERL_CPAN_REPORTER_CONFIG}
+        and $UUID_version =~ /_/
     ) {
-        $t =~ s{TEST_VERBOSE\s*=\s*0}{TEST_VERBOSE = 1}msg;
+        # turn this off for now.. its stable enough to not need
+        $t =~ s{__XXX__TEST_VERBOSE\s*=\s*0}{TEST_VERBOSE = 1}msg;
     }
     #
     # add t/*/*.t to tests.

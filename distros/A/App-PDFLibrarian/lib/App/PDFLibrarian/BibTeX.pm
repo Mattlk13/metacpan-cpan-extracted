@@ -15,11 +15,14 @@
 # You should have received a copy of the GNU General Public License
 # along with App::PDFLibrarian. If not, see <http://www.gnu.org/licenses/>.
 
+use v5.18;
 use strict;
 use warnings;
+use utf8;
+use open qw(:std :encoding(UTF-8));
 
 package App::PDFLibrarian::BibTeX;
-$App::PDFLibrarian::BibTeX::VERSION = '6.2.4';
+$App::PDFLibrarian::BibTeX::VERSION = '6.3.1';
 use parent 'Exporter';
 
 use Capture::Tiny;
@@ -30,6 +33,7 @@ use File::ShareDir qw(dist_file);
 use File::Temp;
 use FindBin qw($Script);
 use List::Util qw(max);
+use PDF::API2;
 use Scalar::Util qw(blessed);
 use Text::BibTeX qw(:nameparts :joinmethods :macrosubs);
 use Text::BibTeX::Bib;
@@ -40,8 +44,10 @@ use URI::Encode qw(uri_encode uri_decode);
 use XML::LibXML;
 use XML::LibXSLT;
 
+require Encode::Detect;
+
 use App::PDFLibrarian qw(%bibtex_macros);
-use App::PDFLibrarian::Util qw(unique_list keyword_display_str parallel_loop remove_tex_markup remove_short_words);
+use App::PDFLibrarian::Util qw(unique_list keyword_display_str parallel_loop remove_tex_markup remove_short_words replace_accents_with_latex);
 
 our @EXPORT_OK = qw(bib_checksum read_bib_from_str read_bib_from_file read_bib_from_pdf format_bib write_bib_to_fh write_bib_to_pdf edit_bib_in_fh find_dup_bib_keys format_bib_authors generate_bib_keys);
 
@@ -85,7 +91,8 @@ sub bib_checksum {
   $digest->add($bibentry->type, $bibentry->key);
   foreach my $bibfield (sort { $a cmp $b } $bibentry->fieldlist()) {
     next if grep /^$bibfield$/, @exclude;
-    $digest->add($bibfield, $bibentry->get($bibfield));
+    my $bibfieldvalue = $bibentry->get($bibfield);
+    $digest->add($bibfield, encode('ascii', $bibfieldvalue));
   }
 
   return $digest->hexdigest;
@@ -114,7 +121,7 @@ sub read_bib_from_file {
   # check that the file contains non-comment, non-empty lines
   {
     my $nonempty = 1;
-    open(my $fh, $filename) or croak "$Script: could not open file '$filename': $!";
+    open(my $fh, "<:raw", $filename) or croak "$Script: could not open file '$filename': $!";
     while (<$fh>) {
       next if /^%/;
       next if /^\s*$/;
@@ -135,12 +142,17 @@ sub read_bib_from_file {
   my $errmsgs;
   {
     croak "$Script: file '$filename' does not exist" unless -r $filename;
-    my $bib = new Text::BibTeX::File $filename or croak "$Script: could not open file '$filename'";
+    my $bib = Text::BibTeX::File->new($filename, "<:raw") or croak "$Script: could not open file '$filename'";
     $bib->{structure} = $structure;
     $errmsgs = Capture::Tiny::capture_merged {
-      while (my $bibentry = new Text::BibTeX::BibEntry $bib) {
+      while (my $bibentry = Text::BibTeX::BibEntry->new($bib)) {
         next unless $bibentry->parse_ok;
         next unless $bibentry->check();
+        foreach my $bibfield ($bibentry->fieldlist()) {
+          my $bibfieldvalue = $bibentry->get($bibfield);
+          $bibfieldvalue = decode("Detect", $bibfieldvalue);
+          $bibentry->set($bibfield, $bibfieldvalue);
+        }
         push @$bibentries, $bibentry;
       }
     };
@@ -182,10 +194,11 @@ sub read_bib_from_pdf {
 
     # open PDF file and read XMP metadata
     my $pdf = PDF::API2->open($pdffile);
-    my $xmp = "";
+    my $xmpbytes = "";
     eval {
-      $xmp = $pdf->xmpMetadata() // "";
+      $xmpbytes = $pdf->xml_metadata() // "";
     };
+    my $xmp = decode('utf-8', $xmpbytes);
     $xmp = "" unless $xmp =~ /<\?xpacket /;
     $xmp =~ s/\s*<\?xpacket .*\?>\s*//g;
     $pdf->end();
@@ -257,6 +270,22 @@ sub format_bib {
       }
     }
 
+    # remove wrapping braces
+    foreach my $bibfield ($bibentry->fieldlist()) {
+      my $bibfieldvalue = $bibentry->get($bibfield);
+      while ($bibfieldvalue =~ /^(\{(?:[^{}]++|(?1))*\})$/) {
+        $bibfieldvalue = substr($1, 1, -1);
+      };
+      $bibentry->set($bibfield, $bibfieldvalue);
+    }
+
+    # replace accented characters with LaTeX accents
+    foreach my $bibfield ($bibentry->fieldlist()) {
+      my $bibfieldvalue = $bibentry->get($bibfield);
+      $bibfieldvalue = replace_accents_with_latex($bibfieldvalue);
+      $bibentry->set($bibfield, $bibfieldvalue);
+    }
+
     # uniformly format authors, editors, and collaborations
     foreach my $bibfield (qw(author editor collaboration)) {
       if ($bibentry->exists($bibfield)) {
@@ -278,7 +307,7 @@ sub format_bib {
         foreach my $author (@authors) {
 
           # sanitise author string
-          $author =~ s/~/ /g;
+          $author =~ s/([^\\])~/$1 /g;
           $author =~ s/\.\s-/.-/g;
           $author =~ s/\bet\sal\.?/others/;
 
@@ -317,6 +346,15 @@ sub format_bib {
         # set BibTeX field to concatenated authors
         $bibentry->set($bibfield, join(" and ", @authors));
 
+      }
+    }
+
+    # remove trailing periods from title fields
+    foreach my $bibfield ($bibentry->fieldlist()) {
+      if ($bibfield =~ /title$/) {
+        my $bibfieldvalue = $bibentry->get($bibfield);
+        $bibfieldvalue =~ s/\.+$//;
+        $bibentry->set($bibfield, $bibfieldvalue);
       }
     }
 
@@ -380,24 +418,6 @@ sub format_bib {
           }
         }
         $bibentry->set('edition', $field);
-      }
-    }
-
-    # remove braces and trailing periods in BibTeX 'title' fields
-    # - except where required for LaTeX commands
-    foreach my $bibfield ($bibentry->fieldlist()) {
-      if ($bibfield =~ /title$/) {
-        my $title = $bibentry->get($bibfield);
-        $title =~ s/\.+$//;
-        my @words = split /\s+/, $title;
-        foreach my $word (@words) {
-          $word =~ s/[{}]//g;
-          $word =~ s/((?:\\.)?[A-Z]+)/\{$1\}/g;
-          $word =~ s/\$\{([A-Z]+)\}\$/{\$$1\$}/g;
-          $word =~ s/^\{([A-Z])\}/$1/
-        }
-        $title = join(" ", @words);
-        $bibentry->set($bibfield, $title);
       }
     }
 
@@ -513,7 +533,11 @@ sub write_bib_to_fh {
     my $bibstr = $bibentry->print_s();
     $bibstr =~ s/^\s+//g;
     $bibstr =~ s/\s+$//g;
-    print $fh "\n", $pdf_file_comment, encode('iso-8859-1', $bibstr, Encode::FB_CROAK), "\n";
+    eval {
+      no warnings 'utf8';
+      no warnings 'io';
+      print $fh "\n", $pdf_file_comment, $bibstr, "\n";
+    };
 
   }
 
@@ -594,21 +618,12 @@ sub write_bib_to_pdf {
     $pdf->preferences(-displaytitle => 1);
 
     # write XMP metadata to PDF file
-    my $xmp = "";
-    eval {
-      $xmp = $pdf->xmpMetadata() // "";
-    };
     my $xmphead = "<?xpacket begin='﻿' id='W5M0MpCehiHzreSzNTczkc9d'?>\n";
-    my $xmpdata = encode('utf-8', $xml->documentElement()->toString(0), Encode::FB_CROAK);
+    my $xmpdata = $xml->documentElement()->toString(0);
     my $xmptail = "\n<?xpacket end='w'?>";
-    my $xmplen = length($xmphead) + length($xmpdata) + length($xmptail);
-    my $xmppadlen = length($xmp) - $xmplen;
-    if ($xmppadlen <= 0) {
-      $xmppadlen = max(4096, 2*length($xmp), 2*length($xmpdata)) - $xmplen;
-    }
-    my $xmppad = ((" " x 99) . "\n") x int(1 + $xmppadlen / 100);
-    my $newxmp = $xmphead . $xmpdata . substr($xmppad, 0, $xmppadlen) . $xmptail;
-    $pdf->xmpMetadata($newxmp);
+    my $newxmp = $xmphead . $xmpdata . $xmptail;
+    my $newxmpbytes = encode('utf-8', $newxmp);
+    $pdf->xml_metadata($newxmpbytes);
 
     # write PDF file
     eval {
@@ -646,7 +661,6 @@ sub edit_bib_in_fh {
 
       # open new temporary file for editing BibTeX entries
       my $fh = File::Temp->new(SUFFIX => '.bib', EXLOCK => 0) or croak "$Script: could not create temporary file";
-      binmode($fh, ":encoding(iso-8859-1)");
 
       # write header message
       if (@errors > 0) {
@@ -754,6 +768,15 @@ EOF
             push @errors, { msg => "entry '@{[$bibentry->key]}' contains duplicate fields '${bibfield}' and '${bibfield}s'" };
           }
         }
+
+        # error if BibTeX fields are not UTF-8 strings
+        foreach my $bibfield ($bibentry->fieldlist()) {
+          my $bibfieldvalue = $bibentry->get($bibfield);
+          if ($bibfieldvalue =~ /\x{fffd}/) {
+            push @errors, { msg => "entry '@{[$bibentry->key]}' field '${bibfield}' contains non-Unicode characters" };
+          }
+        }
+
       }
 
       # BibTeX entries have been successfully read
@@ -764,7 +787,6 @@ EOF
     {
       # open new temporary file for editing BibTeX entries
       my $fh = File::Temp->new(SUFFIX => '.bib', EXLOCK => 0) or croak "$Script: could not create temporary file";
-      binmode($fh, ":encoding(iso-8859-1)");
 
       # format and print BibTeX entries
       write_bib_to_fh({ fh => $fh }, format_bib({}, @bibentries));

@@ -1,5 +1,29 @@
 Revision history for Catalyst-Seal
 
+0.04	2026-09-05
+	- 92.3 to 70.6 us per request on a bare application, best of five.
+	- ADDS: the query string is parsed, percent-decoded and UTF-8 decoded
+	  in C. Four pairs 12.90 to 1.29 us, an empty query 1.93 to 0.78.
+	  The decoder accepts exactly what Encode accepts, noncharacters
+	  included, and hands anything else back to Encode to be refused.
+	- ADDS: XS constructors for the context, request and response classes,
+	  built from a template resolved at seal time. 8.0 to 4.3 us a request.
+	  A trigger, a coercion, a failed type check, a missing required
+	  attribute, a subclass or an odd argument list takes the stock one.
+	- ADDS: Catalyst::Seal::Execute. execute reads its stack, state and
+	  args as slots rather than through nine accessor calls a time, nine
+	  times a request; Catalyst::Action::execute and ::dispatch are XSUBs;
+	  use_stats is a constant and depth counts the array in C.
+	- ADDS: a write through a sealed accessor is answered in XS where the
+	  attribute is plain: 132 to 51 ns.
+	- ADDS: the header pass is in C, 1.54 to 0.94 us.
+	- FIX: t/lib's /query action called get_all on a plain hash, so both
+	  sides died the same way and the query comparisons proved nothing.
+	  The parity table now covers separator runs, empty names and values,
+	  repeats, isindex, bad escapes, surrogates, overlongs and
+	  noncharacters.
+	- prepare_path reaches the request once instead of five times.
+
 0.03	2026-09-04
 	- SECURITY: CVE-2026-85491. Remove the dispatch route memo added in 0.01.
 	  It was keyed on the request path alone, on the premise that which action

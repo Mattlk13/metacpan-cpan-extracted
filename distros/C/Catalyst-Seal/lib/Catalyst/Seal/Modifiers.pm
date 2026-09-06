@@ -9,7 +9,7 @@ use Sub::Util 1.40 ();
 use Catalyst::Seal ();
 use Catalyst::Seal::Guard ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.04';
 
 our @SKIP_CLASS = (qr/\A Catalyst::Log (?: :: | \z ) /x);
 
@@ -70,7 +70,6 @@ sub _candidate_classes {
     }
     return @classes;
 }
-
 
 sub _wrapped_methods {
     my ($meta) = @_;
@@ -198,6 +197,11 @@ sub _install_unflatten_hook {
         no warnings 'redefine';
         *{$sym} = sub {
             unflatten_method($_[0]);
+            if (Scalar::Util::blessed($_[0]) && $_[0]->can('name')
+                && $_[0]->name eq 'BUILD') {
+                require Catalyst::Seal::Construct;
+                Catalyst::Seal::Construct::_unseal_constructors();
+            }
             goto &$orig;
         };
     }
@@ -379,4 +383,3 @@ This is free software, licensed under:
   The Artistic License 2.0 (GPL Compatible)
 
 =cut
-

@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use Punk (); 
 
-our $VERSION = '0.43';
+our $VERSION = '0.44';
 
 1;
 
@@ -100,6 +100,32 @@ marks it required for C<create>, and the schema keywords C<type>,
 C<format>, C<pattern>, C<enum>, C<minLength>/C<maxLength>,
 C<minimum>/C<maximum>, C<multipleOf>, C<minItems>/C<maxItems> flow into
 the validator. With no field marked primary an C<id> field is assumed.
+
+=head2 Subclassing a model
+
+    package MyApp::Model::PushSubscription;
+    use parent 'Punk::Model::PushSubscription';
+    use Punk::Model;                       # only if you declare something
+
+    field team_id => { type => 'integer' };
+
+A subclass inherits its parent's table and fields. C<use Punk::Model> in the
+subclass is needed only when it declares something of its own: another field,
+a different C<table>, or a C<field> redeclared to change its spec.
+
+Nearest wins. A redeclared field keeps the position the parent gave it, so
+adding a subclass does not shift the column order. Declaring nothing needs no
+C<use Punk::Model> at all - C<< use parent 'Some::Model' >> is a complete
+model.
+
+This is how a plugin's shipped model is adapted: L<Punk::Plugin::Push> ships
+L<Punk::Model::PushSubscription>, and an application that wants an extra
+column subclasses it rather than copying the table out.
+
+The metadata is merged when it is read, not when the subclass is compiled.
+C<table> and C<field> are statements in the package body and run when the
+class loads, which is after C<use Punk::Model> has already returned - a
+subclass that copied its parent at C<use> time would copy an empty one.
 
 =head2 validate $bool
 

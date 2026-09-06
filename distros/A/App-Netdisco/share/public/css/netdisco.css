@@ -462,7 +462,14 @@ a:hover, a:focus {
   margin-top: 0;
   margin-left: var(--bs-dropdown-spacer);
 }
-.dropend:hover > .dropdown-menu {
+/* Keyboard as well as pointer: the category anchors carry no data-bs-toggle
+   (see above), so focus arriving on one is all there is to open a submenu.
+   Not :focus-visible, tidier though that would be, because Bootstrap moves
+   focus between items with a script call, which Chromium does not treat as
+   visible focus: the menu would hide in the same recalc that focuses an item
+   inside it. A pointer click leaves focus behind, so netdisco.js blurs it. */
+.dropend:hover > .dropdown-menu,
+.dropend:focus-within > .dropdown-menu {
   display: block;
 }
 
@@ -1300,6 +1307,13 @@ ul ul, ul ol, ol ol, ol ul {
   margin-top: -14px;
 }
 
+/* The pull-up above closes the gap between one node block and the next. The
+   first block in a collapsed list has the "N nodes" header above it instead,
+   so there it lands on the Show and Hide control and takes the click. */
+.nd_collapsing > .nd_div-closer:first-child {
+  margin-top: 0;
+}
+
 @-moz-document url-prefix() {
   .nd_div-closer-last {
     margin-bottom: 14px;
@@ -2028,4 +2042,13 @@ td.nd_nowrap {
 .htmx-request .htmx-indicator,
 .htmx-request.htmx-indicator {
   display: block;
+}
+/* netdisco.js holds both of these until a swapped pane stops changing. Hidden
+   rather than display:none, because a table measures its column widths while
+   this is on. */
+.nd_indicator-held.htmx-indicator {
+  display: block;
+}
+.nd_pane-settling {
+  visibility: hidden;
 }

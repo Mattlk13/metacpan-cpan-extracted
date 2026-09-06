@@ -46,5 +46,5 @@ requires:
   Template::Stencil: '0.10'
   YAML::XS: '0'
   perl: '5.010000'
-version: '0.43'
+version: '0.45'
 x_serialization_backend: 'CPAN::Meta::YAML version 0.020'

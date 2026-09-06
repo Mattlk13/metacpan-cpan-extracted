@@ -8,8 +8,7 @@ use Scalar::Util ();
 use Catalyst::Seal ();
 use Catalyst::Seal::Guard ();
 
-our $VERSION = '0.01';
-
+our $VERSION = '0.04';
 
 my %DECISION;
 
@@ -42,7 +41,6 @@ sub _decide {
     return { encodable => $encodable, charset => $charset, ct => $ct };
 }
 
-# Catalyst.pm:2324 as of 5.90132.
 sub _finalize_encoding {
     my $c = shift;
     my $res = $c->res || return;
@@ -144,8 +142,6 @@ Catalyst::Seal::register_step('finalize' => sub {
         'Catalyst::finalize_encoding' => \&_finalize_encoding);
 
     my $destroy = 0;
-    # _response_destroy calls both of these by full name, so this module is
-    # what has to make sure they are loaded, not whoever happened to load Moose.
     require Devel::GlobalDestruction;
     require Scalar::Util;
     if (_destroy_is_stock()) {
@@ -224,4 +220,3 @@ This is free software, licensed under:
   The Artistic License 2.0 (GPL Compatible)
 
 =cut
-

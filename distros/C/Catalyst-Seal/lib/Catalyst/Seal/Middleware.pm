@@ -11,9 +11,8 @@ use Scalar::Util ();
 use Catalyst::Seal ();
 use Catalyst::Seal::Guard ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.04';
 
-# Plack::Middleware::ContentLength 1.0051.
 sub _content_length_call {
     my $self = shift;
     my $res  = $self->app->(@_);
@@ -21,7 +20,6 @@ sub _content_length_call {
     return $self->response_cb($res, sub {
         my $r = shift;
 
-        # Plack::Util::status_with_no_entity_body, inline.
         my $status = $r->[0];
         return if $status < 200 || $status == 204 || $status == 304;
 
@@ -38,8 +36,6 @@ sub _content_length_call {
             $len += length $_ for @$body;
         }
         else {
-            # A real filehandle, or nothing at all. Plack knows the rules for
-            # both and they are not on the hot path.
             $len = Plack::Util::content_length($body);
         }
 
@@ -48,15 +44,11 @@ sub _content_length_call {
     });
 }
 
-# Plack::Middleware::HTTPExceptions 1.0051.
 sub _http_exceptions_call {
     my ($self, $env) = @_;
 
     my $res;
     unless (eval { $res = $self->app->($env); 1 }) {
-        # transform_error is called outside the eval on purpose: it rethrows
-        # for an unrecognised code or when rethrow is set, and that die has to
-        # propagate exactly as it did through Try::Tiny's catch.
         $res = $self->transform_error($@, $env);
     }
 
@@ -91,7 +83,6 @@ sub _rrb_filter {
     return;
 }
 
-# Plack::Middleware::FixMissingBodyInRedirect 0.12.
 sub _fix_filter {
     my ($r) = @_;
     return unless $r->[0] >= 300 && $r->[0] < 400;
@@ -123,7 +114,6 @@ sub _fix_filter {
     return;
 }
 
-# Plack::Middleware::ContentLength 1.0051, the lean body from above.
 sub _cl_filter {
     my ($r) = @_;
     my $status = $r->[0];
@@ -192,7 +182,6 @@ sub _fused_call {
     our @ISA = ('Plack::Middleware');
     sub call { goto &Catalyst::Seal::Middleware::_fused_call }
 }
-
 
 sub _default_middleware {
     my $class = shift;
@@ -339,4 +328,3 @@ This is free software, licensed under:
   The Artistic License 2.0 (GPL Compatible)
 
 =cut
-

@@ -7,7 +7,7 @@ use Carp ();
 
 use InternetData::Error;
 
-our $VERSION = '1.0.0';
+our $VERSION = '1.1.1';
 
 # Every database this organization may see, with where each one stands.
 #
@@ -274,7 +274,7 @@ version of itself:
         name => 'Bogon IP',
         summary => 'IP ranges that cannot legitimately appear on the internet.',
         standing => 'licensed',          # licensed, expired or unlicensed
-        redistribution => 'internal',    # evaluation, internal, redistribute or undef
+        license_type => 'standard',    # evaluation, standard, redistribute or undef
         starts => '2026-09-04T07:49:45.118Z',
         expires => undef,                # undef when the licence has no end date
         versions => [

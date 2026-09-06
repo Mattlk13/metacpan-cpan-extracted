@@ -65,10 +65,9 @@ my %WriteMakefileArgs = (
         'JSON' => '0',
         # for any, none, all
         'List::Util' => '1.45',
-        # for retrieving data structures from children
-        'Parallel::ForkManager' => '0.7.6',
         'Pod::Usage' => '0',
         'POSIX' => '0',
+        'Storable' => '0',
         'Term::ANSIColor' => '0',
         'Time::Piece' => '0',
         # for load_xml()

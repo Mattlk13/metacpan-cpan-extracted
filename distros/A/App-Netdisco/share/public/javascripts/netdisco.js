@@ -15,7 +15,7 @@ function nd_submit (form_selector) {
 // with the htmx path, which does not call do_search.
 function nd_apply_sidebar (tab) {
   if (has_sidebar[tab] == 0) {
-    $('.nd_sidebar, #nd_sidebar-toggle-img-out').hide();
+    hideWithTooltip('.nd_sidebar, #nd_sidebar-toggle-img-out');
     $('.content').css('margin-right', '10px');
   }
   else {
@@ -30,9 +30,9 @@ function nd_apply_sidebar (tab) {
 }
 
 // Nothing shipped calls this. It is here for site-local copies of
-// share/views/js/common.js, which call it from their own submit handlers.
-// htmx.ajax() rather than nd_submit(), which would re-enter the caller's own
-// submit handler and recurse.
+// share/views/js/common.js, which call it from their own submit handlers. It
+// forwards with htmx.ajax() rather than nd_submit(), which would re-enter the
+// caller's own submit handler and recurse.
 function do_search (event, tab) {
   event.preventDefault();
   nd_apply_sidebar(tab);
@@ -124,10 +124,13 @@ function device_form_state(e) {
   var with_text = $.grep(form_inputs.not('select'),
                           function(n,i) {return($(n).val() != "")}).length;
 
+  // by id rather than a selector built from DOM text, which $() may read as
+  // markup
+  var clear_btn = document.getElementById(e.attr('name') + '_clear_btn');
+
   if (e.prop('value') == "") {
     e.parent(".clearfix").removeClass('success');
-    var id = '#' + e.attr('name') + '_clear_btn';
-    $(id).hide();
+    hideWithTooltip(clear_btn);
 
     // if form has no field val, clear strikethough
     if (with_val == 0) {
@@ -141,8 +144,7 @@ function device_form_state(e) {
   }
   else {
     e.parent(".clearfix").addClass('success');
-    var id = '#' + e.attr('name') + '_clear_btn';
-    $(id).show();
+    $(clear_btn).show();
 
     // if form still has any field val, set strikethough
     if (e.parents('form[action$="/search"]').length > 0 && with_val != 0) {
@@ -170,10 +172,89 @@ function retitleTooltip(element, title) {
   if (instance) { instance.dispose(); }
 }
 
+// Hide an element that may be showing a tooltip, and any tooltip-carrying
+// element inside it. Bootstrap dismisses a tip when the pointer leaves its
+// trigger, but macOS Chrome fires no boundary event when the trigger is hidden
+// under a pointer that has not moved, so nothing dismisses the tip and popper
+// then anchors it to a zero sized rectangle at the window origin. Linux
+// Chromium and Firefox both fire it, which is why #1667 only ever reproduced
+// on a Mac and why leaving this to the mouseleave handler below is not enough.
+function hideWithTooltip(target) {
+  var elements = $(target);
+  elements.find('[rel=tooltip]').addBack('[rel=tooltip]').each(function () {
+    var instance = bootstrap.Tooltip.getInstance(this);
+    if (instance) { instance.dispose(); }
+  });
+  elements.hide();
+}
+
+// A pointer click focuses the category, which :focus-within then holds open
+// after the pointer has left. detail is 0 for a keyboard-generated click, which
+// must not close what it just opened.
+document.addEventListener('click', function (event) {
+  var category = event.target.closest('li.dropend > a.dropdown-toggle');
+  if (category && event.detail > 0) { category.blur() }
+});
+
+// Bootstrap's own Escape handler builds a Dropdown from the nested list, finds
+// no toggle beside it and throws, leaving the menu open. On window rather than
+// document because Bootstrap registers its delegated handlers as capture
+// listeners on document and loads first, so nothing there can precede them.
+window.addEventListener('keydown', function (event) {
+  if (event.key !== 'Escape') { return }
+  if (!event.target.closest('li.dropend > .dropdown-menu')) { return }
+  event.stopPropagation();
+  var toggle = event.target.closest('.nav-item.dropdown');
+  toggle = toggle && toggle.querySelector(':scope > .dropdown-toggle');
+  if (!toggle) { return }
+  toggle.focus();
+  bootstrap.Dropdown.getOrCreateInstance(toggle).hide();
+}, true);
+
+// htmx takes the indicator down when the response arrives, but the fragment's
+// own script builds its table from a ready callback afterwards, so the raw
+// full-length table would paint with no indicator until that finishes.
+//
+// Quiet DOM rather than a table library's own event, so this outlives the move
+// off jQuery. Quiet is not enough on its own: the build has gaps of several
+// hundred milliseconds where nothing changes because the thread is busy
+// computing, and revealing in one of those shows a table that is still moving.
+// A frame that took far longer than a frame should is the evidence of that, so
+// both conditions have to hold, twice running.
+//
+// The deadline is an escape hatch for a pane that never goes quiet rather than
+// a budget: it starts at the swap, so it covers only the browser's own work,
+// never the fetch.
+function holdUntilSettled(pane, indicator) {
+  if (!pane || !indicator) return;
+  pane.classList.add('nd_pane-settling');
+  indicator.classList.add('nd_indicator-held');
+
+  var SMOOTH_FRAME = 50; // ms; a 60Hz frame is 16, and a busy one runs to 800
+  var settledFrames = 0;
+  var mutated = false;
+  var previousFrame = null;
+  var deadline = Date.now() + 60000;
+  var watcher = new MutationObserver(function () { mutated = true });
+  watcher.observe(pane, { childList: true, subtree: true, attributes: true });
+
+  requestAnimationFrame(function frame(now) {
+    var smooth = (previousFrame !== null) && ((now - previousFrame) < SMOOTH_FRAME);
+    previousFrame = now;
+    settledFrames = (smooth && !mutated) ? (settledFrames + 1) : 0;
+    mutated = false;
+
+    if (settledFrames < 2 && Date.now() < deadline) { requestAnimationFrame(frame); return }
+    watcher.disconnect();
+    pane.classList.remove('nd_pane-settling');
+    indicator.classList.remove('nd_indicator-held');
+  });
+}
+
 $(document).ready(function() {
   // sidebar form fields should change colour and have bin/copy icon
   $('.nd_field-copy-icon').hide();
-  $('.nd_field-clear-icon').hide();
+  hideWithTooltip('.nd_field-clear-icon');
 
   // activate typeahead on the main search box, for device names only
   // the backend has already filtered, and jQuery UI does no client-side
@@ -448,6 +529,7 @@ $(document).ready(function() {
         '<div class="col-md-2 alert alert-info">No matching records.</div>';
       return;
     }
+    holdUntilSettled(target, document.getElementById(tab + '_indicator'));
     $('div.content > div.tab-content table.nd_floatinghead').floatThead({
       top: 40
       ,position: 'fixed'

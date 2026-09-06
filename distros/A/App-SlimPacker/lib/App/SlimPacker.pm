@@ -3,8 +3,8 @@ use strict;
 use warnings;
 use PPI;
 use Exporter 'import';
-our $VERSION = '0.02';
-our @EXPORT_OK = qw(process name_gen needs_space perl_switches plugin_search_paths inline_plugins module_deps);
+our $VERSION = '0.03';
+our @EXPORT_OK = qw(process process_deps minify_file name_gen needs_space perl_switches plugin_search_paths inline_plugins module_deps);
 
 sub needs_space {
     my ($l, $r) = @_;
@@ -45,8 +45,16 @@ my %KEEP = map { $_ => 1 } qw(
 
 sub process {
     my ($src, %opts) = @_;
-    my $rename_vars = $opts{rename} // 1;
     my $doc = PPI::Document->new(\$src) or return $src;
+    return _minify_doc($doc, %opts);
+}
+
+# Minification core shared by process() and process_deps(): apply the PPI
+# comment/POD prune and the rename/whitespace passes to an already-parsed
+# document.  Returns the serialized, minified string.
+sub _minify_doc {
+    my ($doc, %opts) = @_;
+    my $rename_vars = $opts{rename} // 1;
     $doc->prune('PPI::Token::Comment');
     $doc->prune('PPI::Token::Pod');
 
@@ -154,6 +162,18 @@ sub process {
     return $doc->serialize;
 }
 
+sub minify_file {
+    my ($path, %opts) = @_;
+    open my $fh, '<', $path or die "Cannot read $path: $!";
+    my $src = do { local $/; <$fh> };
+    close $fh;
+    # The #! line is a PPI comment, so process() strips it like any other;
+    # a minified script must stay runnable, so put it back.
+    my ($bang) = $src =~ m{^(\#![^\n]*(?:\n|\z))};
+    my $min = process($src, %opts);
+    return $bang && $min !~ /^\#/ ? $bang . $min : $min;
+}
+
 # Build a perl program from -m/-M/-e/-E switch arguments, perl-binary style.
 #   perl_switches(\@m, \@M, \@e, \@E) -> program text
 #   -m Foo          -> use Foo ();
@@ -224,9 +244,25 @@ sub _quoted_values {
 # Returns a list of module names found via `use`, `require`, `use base`,
 # `use parent`, and string-form `require "Foo/Bar.pm"`.  Pragmas (strict,
 # warnings, lib, etc.) are skipped.
-sub module_deps {
-    my ($src) = @_;
-    my $doc = PPI::Document->new(\$src) // die "PPI parse failed";
+# Minify and extract dependencies in a single PPI parse.  Returns
+# ($minified, @deps) where the minified string is what process() would return
+# and @deps is what module_deps() would return on the same source.  Like
+# process(), a source that PPI cannot parse is passed through unchanged and
+# yields no dependencies.
+sub process_deps {
+    my ($src, %opts) = @_;
+    my $doc = PPI::Document->new(\$src);
+    return ($src) unless $doc;
+    my @deps = _deps_from_document($doc);
+    my $min = _minify_doc($doc, %opts);
+    return ($min, @deps);
+}
+
+# Extract the statically-declared module dependencies from an already-parsed
+# PPI document.  Shared by module_deps() and process_deps() so both report the
+# same dependency list.
+sub _deps_from_document {
+    my ($doc) = @_;
     my @deps;
     my $incs = $doc->find('PPI::Statement::Include') || [];
     for my $i (@$incs) {
@@ -259,6 +295,12 @@ sub module_deps {
         }
     }
     return @deps;
+}
+
+sub module_deps {
+    my ($src) = @_;
+    my $doc = PPI::Document->new(\$src) // die "PPI parse failed";
+    return _deps_from_document($doc);
 }
 
 # Inline a plugin class list into plugins() based on the Module::Pluggable
@@ -296,7 +338,7 @@ App::SlimPacker - PPI-based minifier and fatpack-style bundler for standalone Pe
 
 =head1 VERSION
 
-Version 0.02
+Version 0.03
 
 =head1 SYNOPSIS
 
@@ -373,6 +415,22 @@ C<fatlib> core modules).
 
 Variable renaming skips names used inside strings, regexes, heredocs, readlines,
 backticks, C<%KEEP> names, ALL_CAPS names, and single-character names.
+
+=head2 process_deps($source, %options)
+
+Minifies and resolves dependencies in a single PPI parse.  Returns
+C<< ($minified, @deps) >> where C<$minified> is what L</process($source, %options)> would return
+for the same source and C<@deps> is what L</module_deps($source)> would return.  Use it
+when both quantities are needed for the same file to avoid parsing it twice;
+this is what the bundler does for every reachable module.
+
+=head2 minify_file($path, %options)
+
+Reads the file at C<$path> and runs it through L</process($source, %options)> with the given
+options.  Dies if the file cannot be read.  Returns the minified string.
+
+A leading C<#!> shebang line is preserved: C<process> strips it as a comment,
+and a minified script must stay runnable.
 
 =head2 module_deps($source)
 

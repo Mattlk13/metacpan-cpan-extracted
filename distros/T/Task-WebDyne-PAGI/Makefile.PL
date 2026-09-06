@@ -19,7 +19,9 @@ my %WriteMakefile=(
     PREREQ_PM        => {
         'WebDyne' => 0,
         'PAGI::Server'   => 0,
-        'PAGI::Tools'    => 0
+        'PAGI::Tools'    => 0,
+        'Future::IO'     => 0,
+        'Future::XS'     => 0
     },
     TEST_REQUIRES    => {
         'Test::More' => 0,

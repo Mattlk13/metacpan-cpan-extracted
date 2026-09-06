@@ -18,4 +18,4 @@ for my $p (@patches) {
     $t->rest($t->half);
 }
 
-$t->play_with_timidity;
+$t->write;

@@ -30,6 +30,7 @@ use App::Netdisco::Util::Web qw/
   request_is_api_search
 /;
 use App::Netdisco::Util::Permission qw/acl_matches acl_matches_only/;
+use App::Netdisco::Util::SiteLocal qw/scan_shadowed_files site_local_paths/;
 
 BEGIN {
   no warnings 'redefine';
@@ -57,6 +58,19 @@ BEGIN {
               message => $body,
               code => $status || 500)->render()
       )->throw;
+  };
+
+  # behind_proxy is documented as a setting nobody needs, since
+  # Plack::Middleware::ReverseProxy is always in the stack, but a site that
+  # sets it makes Dancer answer with the X-Forwarded-For header verbatim, and
+  # more than one proxy makes that a chain rather than an address. Take the
+  # last element, as ReverseProxy does: anything left of it is client supplied.
+  *Dancer::Request::address = sub {
+      my $self = shift;
+      return $self->env->{REMOTE_ADDR} unless setting('behind_proxy');
+      my $forwarded = $self->forwarded_for_address;
+      my ($client) = (defined $forwarded ? ($forwarded =~ m/([^,\s]+)\s*$/) : ());
+      return ($client || $self->env->{REMOTE_ADDR});
   };
 
   # to insert /t/$tenant if set
@@ -214,6 +228,13 @@ if (setting('template_paths') and ref [] eq ref setting('template_paths')) {
     }
     unshift @{ config->{engines}->{netdisco_template_toolkit}->{INCLUDE_PATH} },
       @{setting('template_paths')};
+}
+
+# here rather than earlier because template_paths is only resolved above
+foreach my $finding (scan_shadowed_files({ paths => [ site_local_paths() ] })) {
+    warning sprintf
+      '%s predates %s and its tab will render empty. Run "netdisco-do checksitelocal".',
+      $finding->{path}, $finding->{release};
 }
 
 # load cookie key from database
@@ -603,7 +624,10 @@ any '/t/*/**' => sub {
     forward (join '/', '', @$path, (request->path =~ m{/$} ? '' : ()));
 };
 
-any qr{.*} => sub {
+# /ajax/ is excluded so a non-XHR request to one falls through to no route at
+# all. Dancer caches the route it matched, keyed on the path alone, so letting
+# this one answer would make that path 404 for every later XHR.
+any qr{^(?!/ajax/).*} => sub {
     var('notfound' => true);
     status 'not_found';
     template 'index', {}, { layout => 'main' };

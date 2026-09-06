@@ -8,11 +8,17 @@ use Scalar::Util ();
 use Catalyst::Seal ();
 use Catalyst::Seal::Guard ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.04';
 
 my $DONE = 0;
 
-# Catalyst.pm:3685 as of 5.90132
+sub _is_strict_utf8 {
+    my ($enc) = @_;
+    return 0 unless $enc;
+    my $name = eval { $enc->name };
+    return defined $name && $name eq 'utf-8-strict';
+}
+
 sub _handle_param_unicode_decoding {
     my ( $self, $value, $check ) = @_;
     return unless defined $value;
@@ -21,6 +27,11 @@ sub _handle_param_unicode_decoding {
     my $enc = $self->encoding;
 
     return $value unless $enc;
+
+    if (_is_strict_utf8($enc)) {
+        my @fast = Catalyst::Seal::_decode_param($value, 0, 1);
+        return wantarray ? @fast : $fast[0] if @fast;
+    }
 
     $check ||= $self->_encode_check;
 
@@ -38,15 +49,6 @@ sub _handle_param_unicode_decoding {
 
 use constant _FIELD_MAX => 256;
 
-# env key => 0 to skip, 1 to use the stock path, or [ $lc_field, $std_case ]
-#
-# Nothing a remembered answer depends on can change while the process runs.
-# HTTP::Headers' list of known spellings is a lexical fixed at compile time,
-# and C<$HTTP::Headers::TRANSLATE_UNDERSCORE>, which anyone may set at any
-# point, cannot reach this: Catalyst translates the underscores itself before
-# calling C<header>, so the field name HTTP::Headers is given never has one
-# left to translate. That was written as a reset of the memo first, and the
-# reset was removed when no test could tell it from its absence.
 my %FIELD;
 
 sub _learn_field {
@@ -66,8 +68,6 @@ sub _learn_field {
     my @keys = keys %$probe;
     return 1 unless @keys == 1;
 
-    # One plain string, stored under one key. Anything else is a version of
-    # HTTP::Headers that keeps its state differently and this cannot write it.
     my $stored = $probe->{ $keys[0] };
     return 1 if ref $stored;
     return 1 unless defined $stored && $stored eq 'probe';
@@ -76,7 +76,6 @@ sub _learn_field {
     return [ $keys[0], $std ? $std->{ $keys[0] } : undef ];
 }
 
-# Catalyst/Request.pm:78 as of 5.90132
 sub _prepare_headers {
     my ($self) = @_;
 
@@ -84,12 +83,13 @@ sub _prepare_headers {
     my $headers = HTTP::Headers->new();
     my %std;
 
-    for my $key (keys %$env) {
+    my $todo = ref $env eq 'HASH'
+        ? Catalyst::Seal::_build_headers($env, \%FIELD, $headers, \%std)
+        : [ keys %$env ];
+
+    for my $key (@$todo) {
         my $field = $FIELD{$key};
         unless (defined $field) {
-            # Past the cap an unrecognised key is not learned at all, because
-            # learning is itself the expensive path and a client choosing the
-            # key must not be able to ask for it.
             if (keys(%FIELD) >= _FIELD_MAX) {
                 next unless $key =~ /^(HTTP|CONTENT|COOKIE)/i;
                 $field = 1;
@@ -102,10 +102,6 @@ sub _prepare_headers {
 
         my $value = $env->{$key};
 
-        # An undefined value is a delete rather than a store, and it still
-        # leaves the ::std_case entry behind. An arrayref is flattened, and a
-        # one element one is stored as its element rather than as itself. PSGI
-        # says these are strings, so both are handed back rather than handled.
         if (!ref $field || !defined $value || ref $value) {
             (my $name = $key) =~ s/^HTTPS?_//;
             $name =~ tr/_/-/;
@@ -118,7 +114,6 @@ sub _prepare_headers {
     }
 
     if (%std) {
-        # header() may have created some of its own on the slow path above.
         my $existing = $headers->{'::std_case'};
         @std{ keys %$existing } = values %$existing if $existing;
         $headers->{'::std_case'} = \%std;
@@ -133,7 +128,6 @@ sub _probe_canonical {
     require URI;
     require URI::http;
 
-    # Already canonical: canonical must hand back the very same object.
     for my $str ('http://127.0.0.1/', 'http://example.com:8080/a/b?x=Y',
                  'https://example.com/') {
         my $uri = $str;
@@ -142,7 +136,6 @@ sub _probe_canonical {
         return 0 unless $out && Scalar::Util::refaddr($out) == Scalar::Util::refaddr($obj);
     }
 
-    # Not canonical: it must not, or the check above proves nothing.
     for my $str ('http://EXAMPLE.com/', 'http://example.com:80/', 'http://example.com/%2f') {
         my $uri = $str;
         my $obj = bless \$uri, 'URI::http';
@@ -153,18 +146,17 @@ sub _probe_canonical {
     return 1;
 }
 
-# Catalyst/Engine.pm:511 as of 5.90132
 sub _prepare_path {
     my ($self, $ctx) = @_;
 
-    my $env = $ctx->request->env;
+    my $req = $ctx->request;
+    my $env = $req->env;
 
-    my $scheme    = $ctx->request->secure ? 'https' : 'http';
+    my $scheme    = $req->secure ? 'https' : 'http';
     my $host      = $env->{HTTP_HOST} || $env->{SERVER_NAME};
     my $port      = $env->{SERVER_PORT} || 80;
     my $base_path = $env->{SCRIPT_NAME} || "/";
 
-    # set the request URI
     my $path;
     if (!$ctx->config->{use_request_uri_for_path}) {
         my $path_info = $env->{PATH_INFO};
@@ -175,7 +167,7 @@ sub _prepare_path {
         $path = $base_path . $path_info;
         $path =~ s{^/+}{};
         $path =~ s/([^$URI::uric])/$URI::Escape::escapes{$1}/go;
-        $path =~ s/\?/%3F/g; # STUPID STUPID SPECIAL CASE
+        $path =~ s/\?/%3F/g;
     }
     else {
         my $req_uri = $env->{REQUEST_URI};
@@ -186,7 +178,6 @@ sub _prepare_path {
 
     my $uri_class = "URI::$scheme";
 
-    # HTTP_HOST will include the port even if it's 80/443
     $host =~ s/:(?:80|443)$//;
 
     if ($port !~ /^(?:80|443)$/ && $host !~ /:/) {
@@ -197,7 +188,7 @@ sub _prepare_path {
     my $uri   = $scheme . '://' . $host . '/' . $path . $query;
     my $obj   = bless \$uri, $uri_class;
 
-    $ctx->request->uri(
+    $req->uri(
         (        $uri !~ /%[0-9A-Fa-f]{2}/
               && $uri =~ m{\A[a-z][a-z0-9+.\-]*://([^/?\#]*)}
               && $1 !~ /[A-Z:]/ )
@@ -205,19 +196,43 @@ sub _prepare_path {
             : $obj->canonical
     );
 
-    # set the base URI
-    # base must end in a slash
     $base_path .= '/' unless $base_path =~ m{/$};
 
     my $base_uri = $scheme . '://' . $host . $base_path;
 
-    $ctx->request->base( bless \$base_uri, $uri_class );
+    $req->base( bless \$base_uri, $uri_class );
 
     return;
 }
 
-# Every site here lives in a module shared by every application in the process,
-# so the patches are global and idempotent rather than per application.
+sub _prepare_query_parameters {
+    my ($self, $c) = @_;
+
+    my $stock = $Catalyst::Seal::Guard::ORIGINAL{
+        'Catalyst::Engine::prepare_query_parameters'};
+
+    my $req    = $c->request;
+    my $config = $c->config;
+
+    goto &$stock if $config->{do_not_decode_query}
+                 || $config->{default_query_encoding}
+                 || $config->{do_not_check_query_encoding}
+                 || $req->_use_hash_multivalue;
+
+    my $enc = $c->encoding;
+    goto &$stock if $enc && !_is_strict_utf8($enc);
+
+    my $env = $req->env;
+    my $qs  = exists $env->{QUERY_STRING} ? $env->{QUERY_STRING} : '';
+
+    my ($params, $keywords) = Catalyst::Seal::_parse_query($qs, $enc ? 1 : 0);
+    goto &$stock unless $params;
+
+    $req->query_keywords($keywords) if defined $keywords;
+    $req->query_parameters($params);
+    return;
+}
+
 Catalyst::Seal::register_step('prepare' => sub {
     return if $DONE++;
 
@@ -227,6 +242,9 @@ Catalyst::Seal::register_step('prepare' => sub {
 
     Catalyst::Seal::Guard::replace(
         'Catalyst::_handle_param_unicode_decoding' => \&_handle_param_unicode_decoding);
+
+    Catalyst::Seal::Guard::replace(
+        'Catalyst::Engine::prepare_query_parameters' => \&_prepare_query_parameters);
 
     Catalyst::Seal::Guard::replace(
         'Catalyst::Request::prepare_headers' => \&_prepare_headers);
@@ -363,6 +381,69 @@ Whether the C<prepare_path> patch was installed. For the test suite.
 
 =cut
 
+=head2 The query string
+
+The stock C<prepare_query_parameters> builds a decoder closure, a
+L<Hash::MultiValue> and a regex before it has looked at the query string,
+splits it in Perl, and puts the name and the value of every pair through
+C<unescape_uri> and then through C<_handle_param_unicode_decoding> - eight
+calls a pair, each of them with an C<eval> in it. Measured, best of five:
+
+    query string          stock      here
+    (empty)             1.93 us   0.78 us
+    a=1&b=2&c=3&d=4    12.90 us   1.29 us
+    a=caf%C3%A9&b=one+two 8.86 us  1.08 us
+
+The C parser does the split, the percent-decode and the UTF-8 decode in one
+pass and hands back the hash Catalyst was going to build - a value for a name
+that appeared once, an array reference for one that appeared more than once.
+
+It hands the whole query to the stock parser rather than half-answering it,
+for any of: C<do_not_decode_query>, C<default_query_encoding> or
+C<do_not_check_query_encoding> in the configuration; an encoding that is not
+UTF-8; a request asking for L<Hash::MultiValue>, whose key order this does not
+promise to reproduce; or a byte sequence the decoder will not vouch for.
+
+=head2 What the decoder calls UTF-8
+
+Exactly what Encode calls UTF-8, which is not the same as what perl calls
+C<utf8> and not quite what the encoding's shape alone would suggest. No
+overlong form, no surrogate, nothing above U+10FFFF, nothing truncated - and
+none of the sixty-six noncharacters, U+FDD0 to U+FDEF and U+xFFFE and U+xFFFF
+in every plane, which Encode refuses and a validator written from the bit
+patterns would accept.
+
+That list was measured against Encode 3.21 rather than read off a
+specification, and F<t/56-query.t> re-measures it: it walks the boundary of
+every branch and asks both Encode and the decoder, and fails if they ever
+disagree.
+
+Being wrong in one direction costs a slow path, and in the other it admits a
+request that should have been refused. Anything the decoder will not vouch for
+goes to Encode, which refuses it and words the refusal the way Catalyst's
+C<handle_unicode_encoding_exception> expects.
+
+=cut
+
+=head2 The header pass
+
+C<prepare_headers> asks HTTP::Headers for the spelling of each field once, the
+first time a request carries it, and remembers it. What is left after that is a
+loop over the environment doing a hash lookup and two stores per key, and that
+loop is in C: 1.54 us to 0.94, against the 4.28 the stock body costs.
+
+The C pass hands back the keys it could not place - one never seen before, one
+marked for the long way, or one whose value is not a plain string - and the
+Perl above finishes those. After the first request of a given shape there are
+none.
+
+An environment that is not a hash reference at all is left to Perl too. Reading
+C<parameters> off a bare L<Catalyst::Request> does exactly that, and what the
+stock body does about it is what C<keys %$env> does: autovivify an empty one
+and return empty headers.
+
+=cut
+
 =head1 AUTHOR
 
 LNATION <email@lnation.org>
@@ -376,4 +457,3 @@ This is free software, licensed under:
   The Artistic License 2.0 (GPL Compatible)
 
 =cut
-

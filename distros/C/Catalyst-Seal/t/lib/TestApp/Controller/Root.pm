@@ -18,11 +18,22 @@ sub book :Path('/books') :Args(1) {
     $c->res->body("book $id");
 }
 
+# query_parameters is a plain hash unless the application asked for
+# Hash::MultiValue, so a repeated name is an array reference and a single one
+# is not. This used to call get_all on it, which dies on a plain hash - both
+# sides died the same way and the comparison proved nothing about parsing.
 sub query :Path('/query') :Args(0) {
     my ($self, $c) = @_;
     my $p = $c->req->query_parameters;
     $c->res->content_type('text/plain');
-    $c->res->body(join ',', map { "$_=" . join('|', $p->get_all($_)) } sort keys %$p);
+    my $out = join ',', map {
+        my $v = $p->{$_};
+        my @v = ref $v eq 'ARRAY' ? @$v : ($v);
+        "$_=" . join '|', map { defined $_ ? $_ : '(undef)' } @v;
+    } sort keys %$p;
+    my $kw = $c->req->query_keywords;
+    $out .= ' keywords=' . (defined $kw ? $kw : '(undef)');
+    $c->res->body($out);
 }
 
 sub headers :Path('/headers') :Args(0) {

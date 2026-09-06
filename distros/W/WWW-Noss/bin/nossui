@@ -1,15 +1,17 @@
 #!/bin/sh
 
 # TODO: If feeds/config file does not exist, create default stub file
+# TODO: Fix editing failing on NetBSD
 
 PRGNAM=nossui
 
 NOSSUI_CONFIG=
 NOSSUI_FEEDS=
 NOSSUI_DATA=
+NOSSUI_DIALOG_RC=
 
 export DIALOG_CANCEL=1
-export DIALOG_ERROR=-1
+export DIALOG_ERROR=254
 export DIALOG_ESC=255
 export DIALOG_EXTRA=3
 export DIALOG_HELP=2
@@ -20,6 +22,10 @@ export DIALOG_OK=0
 export DIALOGOPTS="--backtitle $PRGNAM"
 
 SORT_OPT='--reverse --sort date'
+
+NOSSUI_TMPDIR="$(mktemp -d)"
+
+trap 'rm -rf "$NOSSUI_TMPDIR"' 0
 
 # Disable globbing
 set -f
@@ -33,6 +39,7 @@ Options:
   -c <file>   Specify path to configuration file
   -D <dir>    Specify path to data directory
   -f <file>   Specify path to feeds file
+  -r <file>   Specify path to dialog config file
 
   -h   Print this usage message
   -v   Print nossui version/copyright info
@@ -49,6 +56,18 @@ print_version() {
 die() {
     printf "%s\n" "$1" 1>&2
     exit 1
+}
+
+nossui_tmpfile() {
+
+    mktemp "$NOSSUI_TMPDIR/nossui.XXXXXX"
+
+}
+
+nossui_tmpdir() {
+
+    mktemp -d "$NOSSUI_TMPDIR/nossui.XXXXXX"
+
 }
 
 verify_json() {
@@ -188,6 +207,57 @@ get_default_editor() {
 
 }
 
+generate_default_dialogrc() {
+
+    cat <<HERE
+aspect = 0
+separate_widget = ""
+tab_len = 0
+visit_items = OFF
+use_scrollbar = OFF
+use_shadow = OFF
+use_colors = ON
+screen_color = (WHITE,BLACK,ON)
+dialog_color = (WHITE,BLACK,OFF)
+title_color = (WHITE,BLACK,ON)
+border_color = (WHITE,BLACK,ON)
+button_active_color = (WHITE,BLACK,ON)
+button_inactive_color = (WHITE,BLACK,ON)
+button_key_active_color = button_active_color
+button_key_inactive_color = (WHITE,BLACK,ON)
+button_label_active_color = (BLACK,WHITE,ON)
+button_label_inactive_color = (WHITE,BLACK,ON)
+inputbox_color = dialog_color
+inputbox_border_color = dialog_color
+searchbox_color = dialog_color
+searchbox_title_color = title_color
+searchbox_border_color = border_color
+position_indicator_color = title_color
+menubox_color = dialog_color
+menubox_border_color = border_color
+item_color = dialog_color
+item_selected_color = button_active_color
+tag_color = title_color
+tag_selected_color = button_label_active_color
+tag_key_color = button_key_inactive_color
+tag_key_selected_color = (BLACK,WHITE,ON)
+check_color = dialog_color
+check_selected_color = button_active_color
+uarrow_color = (WHITE,BLACK,ON)
+darrow_color = uarrow_color
+itemhelp_color = (WHITE,BLACK,OFF)
+form_active_text_color = button_active_color
+form_text_color = (WHITE,BLACK,ON)
+form_item_readonly_color = (CYAN,WHITE,ON)
+gauge_color = title_color
+border2_color = dialog_color
+inputbox_border2_color = dialog_color
+searchbox_border2_color = dialog_color
+menubox_border2_color = dialog_color
+HERE
+
+}
+
 wnoss() {
 
     if [ -n "$NOSSUI_CONFIG" ]
@@ -210,6 +280,26 @@ wnoss() {
 
 }
 
+wdialog() {
+
+    wdialog_err="$(nossui_tmpfile)"
+
+    dialog "$@" 2>"$wdialog_err"
+    wdialog_code="$?"
+    if [ "$wdialog_code" = "$DIALOG_ERROR" ]; then
+        # TODO: properly clean up temporary files in calling function
+        die "error running dialog: $(sed '1q' "$wdialog_err"; rm "$wdialog_err")"
+    fi
+
+    # Write to fd3 to not potentially interfere with die's stderr stream
+    # We have to wrap cat in '{}' to send any shell errors about an unopened
+    # fd3 to /dev/null, we don't care if fd3 is open or not.
+    { cat "$wdialog_err" 1>&3; } 2>/dev/null
+    rm "$wdialog_err"
+    return "$wdialog_code"
+
+}
+
 dialog_read_post() {
 
     wnoss read $(printf "%s" "$1" | sed -e 's/:/ /')
@@ -224,7 +314,7 @@ dialog_open_post() {
 
 dialog_update() {
 
-    wnoss update "$@" 2>&1 | dialog \
+    wnoss update "$@" 3>&1 | wdialog \
         --title 'Updating' \
         --programbox 'Updating...' -1 -1
 
@@ -232,7 +322,7 @@ dialog_update() {
 
 dialog_reload() {
 
-    wnoss reload "$@" 2>&1 | dialog \
+    wnoss reload "$@" 3>&1 | wdialog \
         --title 'Reloading' \
         --programbox 'Reloading...' -1 -1
 
@@ -244,9 +334,9 @@ dialog_mark_read() {
 
     if [ "$?" = '0' ]
     then
-        dialog --msgbox "$* has been marked as read." 0 0
+        wdialog --msgbox "$* has been marked as read." 0 0
     else
-        dialog --msgbox "Could not mark $* as read." 0 0
+        wdialog --msgbox "Could not mark $* as read." 0 0
     fi
 
 }
@@ -257,9 +347,9 @@ dialog_mark_unread() {
 
     if [ "$?" = '0' ]
     then
-        dialog --msgbox "$* has been marked as unread." 0 0
+        wdialog --msgbox "$* has been marked as unread." 0 0
     else
-        dialog --msgbox "Could not mark $* as unread." 0 0
+        wdialog --msgbox "Could not mark $* as unread." 0 0
     fi
 
 
@@ -267,7 +357,7 @@ dialog_mark_unread() {
 
 dialog_info_post() {
 
-    dialog \
+    wdialog \
         --no-collapse \
         --msgbox "$(wnoss post $(printf "%s" "$1" | sed -e 's/:/ /'))" 0 0
 
@@ -275,11 +365,11 @@ dialog_info_post() {
 
 dialog_select_post() {
 
-    dialog_select_post_tmpsel="$(mktemp)"
+    dialog_select_post_tmpsel="$(nossui_tmpfile)"
 
     while true; do
 
-        dialog \
+        wdialog \
             --title "$1" \
             --erase-on-exit \
             --menu 'Please select an action for this post.' 0 0 0 \
@@ -288,7 +378,7 @@ dialog_select_post() {
             'Mark Read'   'Mark post as read' \
             'Mark Unread' 'Mark post as unread' \
             'Info'        'View more post information' \
-            2> "$dialog_select_post_tmpsel"
+            3> "$dialog_select_post_tmpsel"
 
         if [ "$?" != "$DIALOG_OK" ]
         then
@@ -321,14 +411,14 @@ dialog_select_post() {
 
 dialog_select_sort() {
 
-    dialog_select_sort_tmpsel="$(mktemp)"
+    dialog_select_sort_tmpsel="$(nossui_tmpfile)"
 
-    dialog \
+    wdialog \
         --menu "How would you like $PRGNAM to sort posts?" 0 0 0 \
         'Date'  'Sort posts by date (default)' \
         'Feed'  'Sort posts by their feed alphabetically' \
         'Title' 'Sort posts by their titles alphabetically' \
-        2> "$dialog_select_sort_tmpsel"
+        3> "$dialog_select_sort_tmpsel"
 
     if [ "$?" != "$DIALOG_OK" ]
     then
@@ -354,8 +444,8 @@ dialog_select_sort() {
 
 dialog_posts() {
 
-    dialog_posts_tmpposts="$(mktemp)"
-    dialog_posts_tmpsel="$(mktemp)"
+    dialog_posts_tmpposts="$(nossui_tmpfile)"
+    dialog_posts_tmpsel="$(nossui_tmpfile)"
 
     remember_post=
 
@@ -370,12 +460,12 @@ dialog_posts() {
 
         if [ ! -s "$dialog_posts_tmpposts" ]
         then
-            dialog --msgbox 'No posts were found' 0 0
+            wdialog --msgbox 'No posts were found' 0 0
             rm -f "$dialog_posts_tmpposts" "$dialog_posts_tmpsel"
             return
         fi
 
-        dialog \
+        wdialog \
             --erase-on-exit \
             --ok-label 'Read' \
             --extra-button --extra-label 'Actions' \
@@ -384,7 +474,7 @@ dialog_posts() {
             $remember_post \
             --menu 'Please select a post to view' 0 0 0 \
             --file "$dialog_posts_tmpposts" \
-            2> "$dialog_posts_tmpsel"
+            3> "$dialog_posts_tmpsel"
 
         case "$?" in
             "$DIALOG_OK")
@@ -419,11 +509,11 @@ dialog_search() {
     search_status=
     search_hidden='0'
 
-    dialog_search_tmpform="$(mktemp)"
+    dialog_search_tmpform="$(nossui_tmpfile)"
 
     while true; do
 
-        dialog \
+        wdialog \
             --ok-label 'Search' \
             --form 'Please enter your search parameters.' 0 0 0 \
             'Title'      1 0 "$search_title"     1 12 18 255 \
@@ -432,7 +522,7 @@ dialog_search() {
             'Tags'       4 0 "$search_tags"      4 12 18 255 \
             'Status'     5 0 "$search_status"    5 12 18 255 \
             'Hidden'     6 0 "$search_hidden"    6 12 18 1 \
-            2> "$dialog_search_tmpform"
+            3> "$dialog_search_tmpform"
 
         if [ "$?" != "$DIALOG_OK" ]
         then
@@ -479,7 +569,7 @@ dialog_search() {
             set -- "$@" '--status' 'unread'
         elif [ -n "$search_status" ]
         then
-            dialog --msgbox "'status' must either be 'read' or 'unread'." 0 0
+            wdialog --msgbox "'status' must either be 'read' or 'unread'." 0 0
             continue
         fi
 
@@ -488,7 +578,7 @@ dialog_search() {
             set -- "$@" '--hidden'
         elif [ -n "$search_hidden" ] && [ "$search_hidden" != '0' ]
         then
-            dialog --msgbox "'hidden' must either be '1' or '0'" 0 0
+            wdialog --msgbox "'hidden' must either be '1' or '0'" 0 0
             continue
         fi
 
@@ -509,7 +599,7 @@ dialog_search() {
 
 dialog_info_feed() {
 
-    dialog \
+    wdialog \
         --no-collapse \
         --msgbox "$(wnoss feeds "$1")" 0 0
 
@@ -517,13 +607,13 @@ dialog_info_feed() {
 
 dialog_open_feed() {
 
-    dialog_open_feed_err="$(mktemp)"
+    dialog_open_feed_err="$(nossui_tmpfile)"
 
-    wnoss open "$1" 2> "$dialog_open_feed_err"
+    wnoss open "$1" 3> "$dialog_open_feed_err"
 
     if [ "$?" != '0' ]
     then
-        dialog \
+        wdialog \
             --title "Failed to open $1" \
             --msgbox "$(cat "$dialog_open_feed_err")" 0 0
     fi
@@ -534,11 +624,11 @@ dialog_open_feed() {
 
 dialog_select_feed() {
 
-    dialog_select_feed_tmpsel="$(mktemp)"
+    dialog_select_feed_tmpsel="$(nossui_tmpfile)"
 
     while true; do
 
-        dialog \
+        wdialog \
             --title "$1" \
             --ok-label 'Select' \
             --menu 'Please select an action to perform.' 0 0 0 \
@@ -549,7 +639,7 @@ dialog_select_feed() {
             'Update'      "Update $1" \
             'Reload'      "Reload $1" \
             'Info'        "View $1 feed information" \
-            2> "$dialog_select_feed_tmpsel"
+            3> "$dialog_select_feed_tmpsel"
 
         if [ "$?" != '0' ]
         then
@@ -570,7 +660,7 @@ dialog_select_feed() {
                 dialog_mark_unread "$1"
             ;;
             'Update')
-                dialog --yesno "Would you like to update $1?" 0 0
+                wdialog --yesno "Would you like to update $1?" 0 0
                 if [ "$?" != '0' ]
                 then
                     continue
@@ -578,7 +668,7 @@ dialog_select_feed() {
                 dialog_update "$1"
             ;;
             'Reload')
-                dialog --yesno "Would you like to reload $1?" 0 0
+                wdialog --yesno "Would you like to reload $1?" 0 0
                 if [ "$?" != '0' ]
                 then
                     continue
@@ -598,8 +688,8 @@ dialog_select_feed() {
 
 dialog_feeds() {
 
-    dialog_feeds_tmpsel="$(mktemp)"
-    dialog_feeds_tmpfeeds="$(mktemp)"
+    dialog_feeds_tmpsel="$(nossui_tmpfile)"
+    dialog_feeds_tmpfeeds="$(nossui_tmpfile)"
 
     while true; do
 
@@ -610,16 +700,16 @@ dialog_feeds() {
 
         if [ ! -s "$dialog_feeds_tmpfeeds" ]
         then
-            dialog --msgbox 'No feeds were found' 0 0
+            wdialog --msgbox 'No feeds were found' 0 0
             break
         fi
 
-        dialog \
+        wdialog \
             --ok-label 'Posts' \
             --extra-button --extra-label 'Actions' \
             --menu 'Please select a feed to view' 0 0 0 \
             --file "$dialog_feeds_tmpfeeds" \
-            2> "$dialog_feeds_tmpsel"
+            3> "$dialog_feeds_tmpsel"
 
         case "$?" in
             "$DIALOG_OK")
@@ -641,11 +731,11 @@ dialog_feeds() {
 
 dialog_select_group() {
 
-    dialog_select_group_tmpsel="$(mktemp)"
+    dialog_select_group_tmpsel="$(nossui_tmpfile)"
 
     while true; do
 
-        dialog \
+        wdialog \
             --ok-label 'Select' \
             --menu 'Please select an action to perform for this group.' 0 0 0 \
             'Posts'       'View list of posts from this group' \
@@ -654,7 +744,7 @@ dialog_select_group() {
             'Mark Unread' 'Mark all posts in this group as unread' \
             'Update'      'Update all feeds in this group' \
             'Reload'      'Reload all feeds in this group' \
-            2> "$dialog_select_group_tmpsel"
+            3> "$dialog_select_group_tmpsel"
 
         if [ "$?" != "$DIALOG_OK" ]
         then
@@ -675,7 +765,7 @@ dialog_select_group() {
                 dialog_mark_unread "$1"
             ;;
             'Update')
-                dialog --yesno "Would you like to update the feeds in $1?" 0 0
+                wdialog --yesno "Would you like to update the feeds in $1?" 0 0
                 if [ "$?" != '0' ]
                 then
                     continue
@@ -683,7 +773,7 @@ dialog_select_group() {
                 dialog_update "$1"
             ;;
             'Reload')
-                dialog --yesno "Would you like to reload the feeds in $1?" 0 0
+                wdialog --yesno "Would you like to reload the feeds in $1?" 0 0
                 if [ "$?" != '0' ]
                 then
                     continue
@@ -700,8 +790,8 @@ dialog_select_group() {
 
 dialog_groups() {
 
-    dialog_groups_tmpsel="$(mktemp)"
-    dialog_groups_tmpgroups="$(mktemp)"
+    dialog_groups_tmpsel="$(nossui_tmpfile)"
+    dialog_groups_tmpgroups="$(nossui_tmpfile)"
 
     while true; do
 
@@ -709,17 +799,17 @@ dialog_groups() {
 
         if  [ ! -s "$dialog_groups_tmpgroups" ]
         then
-            dialog --msgbox 'No feed groups were found' 0 0
+            wdialog --msgbox 'No feed groups were found' 0 0
             break
         fi
 
-        dialog \
+        wdialog \
             --ok-label 'Posts' \
             --extra-button --extra-label 'Actions' \
             --no-items \
             --menu 'Please select a group to view.' 0 0 0 \
             --file "$dialog_groups_tmpgroups" \
-            2> "$dialog_groups_tmpsel"
+            3> "$dialog_groups_tmpsel"
 
         case "$?" in
             "$DIALOG_OK")
@@ -741,11 +831,11 @@ dialog_groups() {
 
 dialog_edit_feeds() {
 
-    dialog_edit_feeds_err="$(mktemp)"
+    dialog_edit_feeds_err="$(nossui_tmpfile)"
     dialog_edit_feeds_file="$(default_feeds_file)"
     dialog_edit_feeds_editor="$(get_default_editor)"
     if [ "$?" != "0" ]; then
-        dialog --msgbox 'Could not determine default text editor' 0 0
+        wdialog --msgbox 'Could not determine default text editor' 0 0
         return 1
     fi
 
@@ -755,7 +845,7 @@ dialog_edit_feeds() {
         if [ "$?" = "0" ]; then
             break
         fi
-        dialog --msgbox "Error in JSON file: $(cat "$dialog_edit_feeds_err")" 0 0
+        wdialog --msgbox "Error in JSON file: $(cat "$dialog_edit_feeds_err")" 0 0
     done
 
     rm -f "$dialog_edit_feeds_err"
@@ -764,21 +854,21 @@ dialog_edit_feeds() {
 
 dialog_edit_config() {
 
-    dialog_edit_config_err="$(mktemp)"
+    dialog_edit_config_err="$(nossui_tmpfile)"
     dialog_edit_config_file="$(default_config_file)"
     dialog_edit_config_editor="$(get_default_editor)"
     if [ "$?" != "0" ]; then
-        dialog --msgbox 'Could not determine default text editor' 0 0
+        wdialog --msgbox 'Could not determine default text editor' 0 0
         return 1
     fi
 
     while true; do
         "$dialog_edit_config_editor" "$dialog_edit_config_file"
-        verify_json "$dialog_edit_config_file" 2>"$dialog_edit_config_err"
+        verify_json "$dialog_edit_config_file" 3>"$dialog_edit_config_err"
         if [ "$?" = "0" ]; then
             break
         fi
-        dialog --msgbox "Error in JSON file: $(cat "$dialog_edit_config_err")" 0 0
+        wdialog --msgbox "Error in JSON file: $(cat "$dialog_edit_config_err")" 0 0
     done
 
     rm -f "$dialog_edit_config_err"
@@ -787,27 +877,27 @@ dialog_edit_config() {
 
 dialog_clean() {
 
-    dialog --infobox 'Cleaning up...' 0 0
+    wdialog --infobox 'Cleaning up...' 0 0
 
     wnoss clean
 
-    dialog --msgbox 'Finished cleanup.' 0 0
+    wdialog --msgbox 'Finished cleanup.' 0 0
 
 }
 
 dialog_extra() {
 
-    dialog_extra_tmpsel="$(mktemp)"
+    dialog_extra_tmpsel="$(nossui_tmpfile)"
 
     while true; do
 
-        dialog \
+        wdialog \
             --erase-on-exit \
             --menu 'Please select a menu item.' 0 0 0 \
             'Edit Config' 'Edit configuration flie' \
             'Reload' 'Reload feed cache' \
             'Clean' 'Clean up feed cache and database' \
-            2> "$dialog_extra_tmpsel"
+            3> "$dialog_extra_tmpsel"
 
         if [ "$?" != "$DIALOG_OK" ]
         then
@@ -820,7 +910,7 @@ dialog_extra() {
                 dialog_edit_config
             ;;
             'Reload')
-                dialog --yesno "Would you like to reload all of your feeds?" 0 0
+                wdialog --yesno "Would you like to reload all of your feeds?" 0 0
                 if [ "$?" != '0' ]
                 then
                     continue
@@ -839,11 +929,11 @@ dialog_extra() {
 
 dialog_main() {
 
-    dialog_main_tmpsel="$(mktemp)"
+    dialog_main_tmpsel="$(nossui_tmpfile)"
 
     while true; do
 
-        dialog \
+        wdialog \
             --erase-on-exit \
             --menu 'Please select a menu item.' 0 0 0 \
             'Posts' 'View all posts' \
@@ -854,7 +944,7 @@ dialog_main() {
             'Update' 'Fetch and load feed updates' \
             'Edit Feeds' 'Edit feeds file' \
             'Extra' 'Extra commands' \
-            2> "$dialog_main_tmpsel"
+            3> "$dialog_main_tmpsel"
 
         if [ "$?" != "$DIALOG_OK" ]
         then
@@ -879,7 +969,7 @@ dialog_main() {
                 dialog_groups
             ;;
             'Update')
-                dialog --yesno "Would you like to update all of your feeds?" 0 0
+                wdialog --yesno "Would you like to update all of your feeds?" 0 0
                 if [ "$?" != '0' ]
                 then
                     continue
@@ -912,7 +1002,7 @@ main() {
         die "dialog is not installed or is not in PATH"
     fi
 
-    while getopts 'c:D:f:hv' opt
+    while getopts 'c:D:f:r:hv' opt
     do
         case "$opt" in
             'c')
@@ -923,6 +1013,9 @@ main() {
             ;;
             'f')
                 NOSSUI_FEEDS="$OPTARG"
+            ;;
+            'r')
+                NOSSUI_DIALOG_RC="$OPTARG"
             ;;
             'h')
                 print_help
@@ -947,6 +1040,20 @@ main() {
     if [ -n "$NOSSUI_FEEDS" ] && [ ! -f "$NOSSUI_FEEDS" ]
     then
         die "$NOSSUI_FEEDS does not exist"
+    fi
+    if [ -n "$NOSSUI_DIALOG_RC" ] && [ ! -f "$NOSSUI_DIALOG_RC" ]
+    then
+        die "$NOSSUI_DIALOG_RC does not exist"
+    fi
+
+    if [ -n "$NOSSUI_DIALOG_RC" ]
+    then
+        export DIALOGRC="$NOSSUI_DIALOG_RC"
+    elif [ -z "$DIALOGRC" ]
+    then
+        tmp_dialogrc="$(nossui_tmpfile)"
+        generate_default_dialogrc > "$tmp_dialogrc"
+        export DIALOGRC="$tmp_dialogrc"
     fi
 
     dialog_main

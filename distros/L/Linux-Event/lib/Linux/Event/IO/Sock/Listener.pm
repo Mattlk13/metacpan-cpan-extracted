@@ -3,7 +3,7 @@ use v5.36;
 use strict;
 use warnings;
 
-our $VERSION = '0.111';
+our $VERSION = '0.112';
 
 use parent 'Linux::Event::_Socket::Listener';
 use Carp qw(croak);
@@ -28,27 +28,23 @@ Linux::Event::IO::Sock::Listener - asynchronous listening C<SOCK_STREAM> socket
 
 =head1 SYNOPSIS
 
-  package ServerConnection;
-  use parent 'Linux::Event::IO::Sock::Stream';
+  use v5.36;
+  use Linux::Event::Loop;
+  use Linux::Event::IO::Sock::Listener;
+  use Linux::Event::IO::Sock::Stream;
 
-  sub on_data ($stream, $bytes) {
-      $stream->write($bytes);
-  }
-
-  package ServerListener;
-  use parent 'Linux::Event::IO::Sock::Listener';
-
-  sub on_accept ($listener, $stream) {
-      $listener->data->{connections}{ $stream->fd } = $stream;
-  }
-
-  package main;
-  my $listener = $loop->add(ServerListener->new(
-      stream_class => 'ServerConnection',
-      host         => '0.0.0.0',
+  my $loop = Linux::Event::Loop->new;
+  my $listener = Linux::Event::IO::Sock::Listener->new(
+      loop         => $loop,
+      stream_class => 'Linux::Event::IO::Sock::Stream',
+      host         => '127.0.0.1',
       port         => 9999,
-      data         => { connections => {} },
-  ));
+      on_data      => sub ($stream, $bytes) {
+          $stream->write($bytes);
+      },
+  );
+
+  $loop->run;
 
 =head1 DESCRIPTION
 
@@ -59,6 +55,80 @@ bind/listen/accept lifecycle is different from connected byte-stream I/O.
 
 TCP and Unix-domain listeners share this class. Socket family is selected by
 constructor options, not by subclass hierarchy.
+
+=head1 ACCEPTED STREAM SUBCLASS POLICY AND TUNING
+
+C<stream_class> is a prominent part of the Listener design. The selected
+L<Linux::Event::IO::Sock::Stream> subclass gives every accepted connection the
+same native framer, TLS server identity and verification policy, socket policy,
+and C<stream_options> tuning for fairness, batching, limits, watermarks, and
+deadlines. Linux::Event validates and caches that policy once per stream class.
+
+Listener constructor callbacks are complementary: C<on_data>, C<on_message>,
+and the other accepted-Stream callback templates can capture lexical server
+state, override same-named stream methods, and are shared rather than rebuilt
+for every accept. This keeps reusable protocol and tuning policy in the Stream
+subclass while preserving ordinary closure scope for a particular listener.
+
+The Listener's own C<on_accept> and listener-error policy remain named subclass
+methods because C<on_error> in the constructor belongs to accepted Streams.
+
+=head2 Listener acceptance tuning
+
+Listener tuning is constructor policy; it is distinct from the accepted
+class's C<stream_options> and C<socket_options>:
+
+  my $listener = Linux::Event::IO::Sock::Listener->new(
+      loop                => $loop,
+      stream_class        => 'ServerConnection',
+      host                => '0.0.0.0',
+      port                => 9999,
+      backlog             => 8_192,
+      max_accept_per_tick => 512,
+  );
+
+These settings are passed directly to C<new>; Listener does not define a
+class-level tuning method. The complete set is:
+
+=over 4
+
+=item * C<backlog> (default 4,096)
+
+Positive listen backlog requested from the kernel.
+
+=item * C<max_accept_per_tick> (default 256)
+
+Non-negative accept fairness limit. Zero drains until C<EAGAIN> and is required
+when C<edge_triggered> is enabled.
+
+=item * C<edge_triggered> (default 0)
+
+Boolean C<0> or C<1> selecting edge-triggered accept readiness.
+
+=item * C<reuseaddr> (default 1)
+
+Boolean C<0> or C<1> controlling C<SO_REUSEADDR> for a created listener.
+
+=item * C<reuseport> (default 0)
+
+Boolean C<0> or C<1> controlling C<SO_REUSEPORT> for a created listener.
+
+=item * C<v6only> (default unspecified)
+
+Optional boolean C<0> or C<1> controlling C<IPV6_V6ONLY> for a created IPv6
+listener.
+
+=item * C<bind_device> (default unspecified)
+
+Optional non-empty interface name used with C<SO_BINDTODEVICE> for a created
+Internet listener.
+
+=back
+
+Unix listener ownership controls are C<unlink> (default C<0>),
+C<unlink_on_close> (default C<1>), and optional C<permissions> from C<0> through
+C<07777>. C<owns_socket> controls ownership of an adopted C<fh> and is not a
+throughput-tuning option.
 
 =head1 CONSTRUCTION
 
@@ -84,6 +154,27 @@ each accepted connection. Exactly one listener source is selected:
 C<loop =E<gt> $loop> attaches immediately; otherwise add the detached object
 with C<< $loop->add($listener) >>. Listener C<data> is supplied to each accepted
 connection as its initial C<data> value.
+
+The Listener may also receive accepted-Stream callback templates directly:
+
+  my $database = ...;
+  my $listener = Listener->new(
+      stream_class => 'Linux::Event::IO::Sock::Stream',
+      host         => '0.0.0.0',
+      port         => 9999,
+      on_data      => sub ($stream, $bytes) {
+          persist($database, $stream, $bytes);
+      },
+  );
+
+Supported templates and signatures are C<on_data($stream, $bytes)>,
+C<on_message($stream, $message)>, C<on_messages($stream, $messages)>,
+C<on_ready($stream)>, C<on_transport_ready($stream)>, C<on_drain($stream)>,
+C<on_eof($stream)>, C<on_error($stream, $error)>, and C<on_close($stream)>.
+These constructor options belong to each accepted Stream;
+C<on_error($listener, $error)> for the Listener itself remains a Listener
+subclass method. One template CV is retained by the Listener and passed to
+every accepted Stream. Linux::Event does not create a new closure per accept.
 
 TCP listener policy includes C<backlog>, C<reuseaddr>, C<reuseport>, optional
 C<v6only>, and C<bind_device>. Unix listeners support path ownership controls
@@ -131,6 +222,7 @@ policy.
 =head1 SEE ALSO
 
 L<Linux::Event::IO::Sock::Stream>, L<Linux::Event::TLS>,
-F<docs/LISTENER-DESIGN.md>, F<docs/SOCKET-CONFIGURATION.md>.
+F<docs/LISTENER-DESIGN.md>, F<docs/SOCKET-CONFIGURATION.md>,
+F<docs/FIRST-CLASS-STREAM-CALLBACKS.md>.
 
 =cut

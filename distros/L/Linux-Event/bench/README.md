@@ -85,16 +85,50 @@ The fairness contract keeps TCP loopback, connection setup, registration,
 warmup, payload size, request/reply behavior, correctness checks, teardown, and
 execution-order rotation comparable across systems.
 
-## Stream-socket competitor plan
+## Stream-socket competitor comparison
 
-`STREAM-COMPETITOR-PLAN.md` defines the high-level comparison contract for
-`Linux::Event::IO::Sock::Stream` against framework stream abstractions such as
-AnyEvent::Handle, IO::Async::Stream, Mojo stream facilities, Node.js
-`net.Socket`, and Python asyncio streams/protocols.
+`run-stream-competitor-comparison.pl` implements the high-level comparison
+contract in `STREAM-COMPETITOR-PLAN.md`. It compares
+`Linux::Event::IO::Sock::Stream` constructor closures with `AnyEvent::Handle`,
+`UV::TCP`, `IO::Async::Stream`, and `Mojo::IOLoop::Stream`. Every row uses the
+framework's normal buffered Stream write API. The common client workers verify
+the exact response bytes before the measured server loop stops.
 
-Raw and delimiter-framed rankings remain separate. Framework buffering and
+Check the optional modules and selected backends first:
+
+```bash
+perl bench/run-stream-competitor-comparison.pl --build --check-deps
+```
+
+Publish raw and delimiter-framed rankings as separate result sets:
+
+```bash
+ulimit -n 100000
+perl bench/run-stream-competitor-comparison.pl --build \
+  --workload raw --clients 100,500,1000,2500 \
+  --warmup 10 --messages 100 --bytes 64 \
+  --client-workers 4 --repeats 5 --timeout 90 \
+  --out bench/results/stream-competitor-raw.html \
+  --json bench/results/stream-competitor-raw.json
+
+perl bench/run-stream-competitor-comparison.pl \
+  --workload delimiter --clients 100,500,1000,2500 \
+  --warmup 10 --messages 100 --bytes 64 \
+  --client-workers 4 --repeats 5 --timeout 90 \
+  --out bench/results/stream-competitor-delimiter.html \
+  --json bench/results/stream-competitor-delimiter.json
+```
+
+Run on the same idle host and publish the companion JSON with each HTML report.
+The default five repeats rotate every system through every execution position.
+Do not combine raw and delimiter rows into one ranking. Framework buffering and
 backpressure are part of the measurement because they are part of what an
-application actually uses.
+application actually uses. The harness still writes diagnostic reports when a
+case fails, but exits nonzero and excludes that row from the ranking summary.
+
+For payload sensitivity, repeat both commands with `--bytes` set to 16, 4096,
+and 65536. Treat 200 KB as a dedicated longer run (more messages or repeats),
+not as one row in the ordinary short-message run.
 
 ## Ordered-byte payload sweep
 
@@ -128,6 +162,35 @@ classes remain `IO::Pipe`, `IO::TTY`, and `IO::Sock::Stream`:
 
 These are implementation diagnostics. Do not copy private class names from a
 benchmark row into application code.
+
+## First-class callback regression
+
+The first-class callback harnesses preserve the production invariants established
+by the cached-closure experiment:
+
+- `run-first-class-framed-callback-bench.pl` compares a cached subclass method
+  with constructor coderefs and lexical closures through native framing.
+- `run-first-class-raw-callback-bench.pl` performs the equivalent raw-delivery
+  comparison with read batching disabled.
+- `run-first-class-callback-construction-bench.pl` compares accepted Stream
+  construction for a subclass method, one Listener-shared closure, and a
+  diagnostic fresh closure per accepted Stream.
+
+Use repeated paired runs. For the accepted-connection harness, parent process
+CPU per accept is more reliable than wall throughput because client scheduling
+affects the latter. The fresh-closure row is diagnostic; production Listener
+callbacks are shared.
+
+```bash
+perl -Mblib bench/run-first-class-callback-construction-bench.pl \
+  --clients=100 --connections=10000 --repeats=9 \
+  --json=bench/results/first-class-callback-construction.json
+```
+
+The raw and framed harnesses retain small-message dispatch diagnostics plus
+larger convergence rows. They are regression checks, not a request to reopen
+the already-answered question of whether lexical capture is intrinsically
+slow.
 
 ## Callback batching
 

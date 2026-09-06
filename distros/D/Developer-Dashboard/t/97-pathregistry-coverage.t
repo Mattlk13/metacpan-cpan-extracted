@@ -384,7 +384,28 @@ is( $paths->cwd, $home, 'the public cwd compatibility accessor delegates to the 
         skip "unable to symlink /dev/full: $!", 1
           if !symlink( '/dev/full', $write_pending );
 
-        my $write_err = eval { $reg->atomic_write_secure( $write_pending, $write_target, 'x' x 200_000 ); 1 } ? '' : $@;
+        # DD-725. The print to /dev/full fails with ENOSPC and atomic_write_secure
+        # dies, so $fh goes out of scope unflushed and perl warns about the
+        # IMPLICIT close - attributing it to the print on PathRegistry.pm line
+        # 1104, not to the explicit close on 1105, which is never reached. That
+        # warning is expected here and was leaking to the suite's stderr on every
+        # run, on a project where warnings are errors and a permanently noisy
+        # stderr trains the reader to skim past the next real one.
+        #
+        # Tolerated in t/103's shape rather than t/89's: the match names BOTH the
+        # close-filehandle phrase and the device clause, and anything else is
+        # rethrown. t/89 filters on /unable to close filehandle/i alone, which is
+        # safe inside its collect-and-assert structure but would, here, silently
+        # absorb a close failure from EIO or EBADF at the same site.
+        my $write_err;
+        {
+            local $SIG{__WARN__} = sub {
+                my ($w) = @_;
+                return if defined $w && $w =~ /unable to close filehandle.*No space left on device/;
+                die $w;
+            };
+            $write_err = eval { $reg->atomic_write_secure( $write_pending, $write_target, 'x' x 200_000 ); 1 } ? '' : $@;
+        }
         like( $write_err, qr/\AUnable to (?:write|close) \Q$write_pending\E/,
             'atomic_write_secure dies when the staging write cannot be flushed to the device' );
         unlink $write_pending if -l $write_pending;
@@ -395,7 +416,20 @@ is( $paths->cwd, $home, 'the public cwd compatibility accessor delegates to the 
     my $chmod_pending = "$chmod_target.pending-devnull";
     symlink( File::Spec->devnull, $chmod_pending ) or die "Unable to symlink devnull: $!";
     my $chmod_err = eval { $reg->atomic_write_secure( $chmod_pending, $chmod_target, 'x' ); 1 } ? '' : $@;
-    like( $chmod_err, qr/\AUnable to chmod \Q$chmod_pending\E/, 'atomic_write_secure dies when the staging file cannot be chmod-ed' );
+  SKIP: {
+        # CAP_FOWNER, not CAP_DAC_OVERRIDE: chmod is refused to a process that
+        # does not own the file, and CAP_FOWNER overrides that. The staging path
+        # is a symlink to /dev/null, which this process does not own. Probe with
+        # a NO-OP chmod to the device's existing mode - it answers the question
+        # and changes nothing.
+        my $devnull   = File::Spec->devnull;
+        my $null_mode = ( stat $devnull )[2];
+        skip 'cannot stat the null device to probe chmod ownership', 1 if !defined $null_mode;
+        skip 'this process can chmod a device it does not own, so the chmod failure cannot occur', 1
+          if chmod( $null_mode & 07777, $devnull );
+
+        like( $chmod_err, qr/\AUnable to chmod \Q$chmod_pending\E/, 'atomic_write_secure dies when the staging file cannot be chmod-ed' );
+    }
     unlink $chmod_pending;
 
     # Rename failure: the final destination is an existing directory.
@@ -768,6 +802,26 @@ is( $paths->cwd, $home, 'the public cwd compatibility accessor delegates to the 
     my $aliases = $paths->all_path_aliases;
     ok( $aliases->{home}, 'all_path_aliases reports the home alias' );
     ok( $paths->_state_root_key( $paths->home_runtime_root ), 'state root key hashes the runtime identity' );
+}
+
+
+# DD-616: File.pm and Folder.pm each carried their own byte-identical copy of the
+# alias cache key computation. The shared implementation lives here, on the registry
+# whose roots it reads, because both callers already load this module and the value
+# is derived entirely from a paths object.
+{
+    can_ok( 'Developer::Dashboard::PathRegistry', 'alias_cache_key' );
+
+    my $paths = Developer::Dashboard::PathRegistry->new;
+    my $key   = Developer::Dashboard::PathRegistry::alias_cache_key($paths);
+    ok( defined $key, 'alias_cache_key returns a defined value for a real registry' );
+
+    is( Developer::Dashboard::PathRegistry::alias_cache_key(undef), '',
+        'alias_cache_key is empty for an undefined registry' );
+    is( Developer::Dashboard::PathRegistry::alias_cache_key('not-an-object'), '',
+        'alias_cache_key is empty for an unblessed scalar' );
+    is( Developer::Dashboard::PathRegistry::alias_cache_key( {} ), '',
+        'alias_cache_key is empty for an unblessed hash reference' );
 }
 
 done_testing;

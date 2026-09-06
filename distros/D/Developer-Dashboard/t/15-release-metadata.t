@@ -81,7 +81,7 @@ my $skills_pod = _extract_pod($skills_pm);
 
 like( $pm, qr/our \$VERSION = '([^']+)'/, 'main module declares a version' );
 my ($version) = $pm =~ /our \$VERSION = '([^']+)'/;
-is( $version, '4.29', 'repo version bumped for DD-562..DD-594, dominated by the $?-exit-status-leak bug class (DD-585, DD-589..DD-593) plus DD-594' );
+is( $version, '4.30', 'repo version bumped for the 30-card queue spanning DD-616..DD-776, dominated by gate-instrument correctness (DD-744, DD-746, DD-750, DD-729, DD-734) plus the DD-764 session-expiry fail-closed fix' );
 like( $pm, qr/^\Q$version\E$/m, 'main POD version matches the module version' );
 {
     my @module_files;
@@ -338,8 +338,29 @@ my @operator_local_files = qw(
         dogfood-output/screenshot.png
         .worktrees/dd-432/lib/Developer/Dashboard.pm
         node_modules/left-pad/index.js
+        bin/jq
+        .claude/rules/tira-board-contract.md
+        docs/gate-map.md
+        examples/sample-dashboard.pl
+        .github/workflows/test.yml
+        OLD_CODE/legacy-helper.pl
+        test_by_michael/Dockerfile
+        updates/2026-01-01-migrate.pl
+        blogs/2026-release-notes.md
     );
     ok( $excluded->($_), "dist.ini exclusions actually match $_ so it cannot be gathered" ) for @must_be_excluded;
+
+    # DERIVE BOTH HALVES, NOT ONE. The patterns above are compiled out of
+    # dist.ini, so a new exclusion is picked up automatically - but the sample
+    # paths are a hardcoded list, so a pattern nothing samples is compiled,
+    # applied to nothing, and passes in silence. Nine of seventeen were in that
+    # state, including ^docs/, ^\.claude/ and ^OLD_CODE/ (DD-766). This asserts
+    # every declared exclusion is exercised, so adding an exclude_match without
+    # a sample FAILS instead of quietly reducing what this block covers.
+    for my $pat (@exclude_match) {
+        ok( scalar( grep { $_ =~ $pat } @must_be_excluded ),
+            "at least one sample path exercises the exclusion $pat" );
+    }
 
     my @must_be_shipped = qw(
         lib/Developer/Dashboard.pm

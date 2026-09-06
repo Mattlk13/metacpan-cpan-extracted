@@ -1,0 +1,22 @@
+Revision history for Configd
+
+0.002 2026-09-06 TEODESIAN
+    - postfix: accumulate sender_dependent_relayhost_maps and
+      smtpd_sender_login_maps, which are lists of lookup tables like the rest of
+      the *_maps family and were missed.  Not accumulating the second one is
+      dangerous rather than merely wrong: it is what
+      reject_authenticated_sender_login_mismatch reads, so a host with two
+      domains ends up naming one domain's table and refuses the other domain's
+      users when they send.
+    - postfix: document what adopting main.cf does not reach -- the lookup
+      tables it names, and what to do about the ones behind a restriction list.
+    - An empty value on an accumulating directive now resets it, the way a
+      systemd drop-in does.  Without it a fragment could only ever add to what
+      00-original held, and 00-original is sometimes wrong rather than
+      incomplete: a guest whose hostname is a domain it hosts has the package's
+      own mydestination naming a domain that must be a virtual mailbox domain
+      instead, postfix refuses to have it in both, and nothing could take it out.
+
+0.001 2026-09-05 TEODESIAN
+    - Initial Release
+    - Languages: postfix (main.cf, master.cf), opendkim, opendmarc, redis

@@ -3,7 +3,7 @@ use v5.36;
 use strict;
 use warnings;
 
-our $VERSION = '0.111';
+our $VERSION = '0.112';
 
 use Socket qw(
     AF_INET AF_INET6 AF_UNIX
@@ -70,9 +70,13 @@ Linux::Event::Address - lazy socket-address value
 
 =head1 SYNOPSIS
 
-  my $peer = $stream->peer;
-  if ($peer && $peer->family eq 'inet') {
-      say $peer->host . ':' . $peer->port;
+  use v5.36;
+
+  sub show_peer ($stream) {
+      my $peer = $stream->peer;
+      if ($peer && $peer->family eq 'inet') {
+          say $peer->host . ':' . $peer->port;
+      }
   }
 
 =head1 DESCRIPTION

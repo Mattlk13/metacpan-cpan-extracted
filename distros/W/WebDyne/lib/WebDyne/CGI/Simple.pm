@@ -1,7 +1,7 @@
 #
 #  This file is part of WebDyne.
 #
-#  This software is copyright (c) 2026 by Andrew Speer <andrew.speer.com.au>.
+#  This software is copyright (c) 2026 by Andrew Speer <andrew.speer@isolutions.com.au>.
 #
 #  This is free software; you can redistribute it and/or modify it under
 #  the same terms as the Perl 5 programming language system itself.
@@ -39,7 +39,7 @@ $CGI::Simple::MOD_PERL=0;
 
 #  Version information
 #
-$VERSION='3.024';
+$VERSION='3.026';
 
 
 #  CGI upload vars
@@ -72,7 +72,14 @@ sub new {
         
         #  Need to construct
         #
-        if (($r->headers_in('content-type') eq 'application/x-www-form-urlencoded') && $r->content_length()) {
+        #  Match the media type independently of optional charset parameters.
+        #
+        if (
+            ($r->headers_in('content-type') || '') =~ m{\Aapplication/x-www-form-urlencoded(?:\s*;|\s*\z)}i
+            #  Apache can supply a decoded body without Content-Length.
+            #
+            #&& $r->content_length()
+        ) {
         
             #  Normal form POST so can read body in 
             #
@@ -82,15 +89,29 @@ sub new {
             debug("args: %s, body:$body", $r->args);
             $cgi_or=CGI::Simple->new(join('&', grep {$_} $r->args, $body));
         }
-        elsif ($r->content_length()) {
+        elsif ($r->content_length() ||
+            ($r->headers_in('content-type') || '') =~ m{\Amultipart/form-data(?:\s*;|\s*\z)}i) {
         
             #  Need to read in some other POST content, e.g. file upload. Need to manipulate CGI::Simple internals here, pretty ugly.
             #
-            my $fh=$r->input();
+            my $length=$r->content_length();
+            my $fh;
+            if (defined($length)) {
+                $fh=$r->input();
+            }
+            else {
+                #  CGI::Simple requires a length for multipart parsing. Buffer
+                #  through the bounded adapter reader only when it is absent.
+                #
+                require IO::String;
+                my $body=$r->body();
+                $length=length($body);
+                $fh=IO::String->new($body);
+            }
             debug('detected other POST submission, reading body from %s', $fh);
             local $ENV{'REQUEST_METHOD'}='GET';
             $cgi_or=CGI::Simple->new($r->args);
-            local $ENV{'CONTENT_LENGTH'} ||= $r->content_length();
+            local $ENV{'CONTENT_LENGTH'}=$length;
             local $ENV{'CONTENT_TYPE'} ||= ($r->headers_in('Content-Type') || 'multipart/form-data');
             local $ENV{'REQUEST_METHOD'} ||= ($r->method() || 'POST');
             debug('fh: %s, content_length: %s, content_type: %s, request_method: %s', $fh, @ENV{qw(CONTENT_LENGTH CONTENT_TYPE REQUEST_METHOD)});
@@ -295,7 +316,7 @@ Andrew Speer <andrew.speer@isolutions.com.au>
 
 This file is part of WebDyne.
 
-This software is copyright (c) 2026 by Andrew Speer <andrew.speer.com.au>.
+This software is copyright (c) 2026 by Andrew Speer <andrew.speer@isolutions.com.au>.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

@@ -9,7 +9,7 @@ WriteMakefile(
     LICENSE          => 'artistic_2',
     AUTHOR           => 'Nicolas Mendoza <mendoza@pvv.ntnu.no>',
     MIN_PERL_VERSION => '5.010',
-    EXE_FILES        => ['bin/slimpack'],
+    EXE_FILES        => ['bin/slimpack', 'bin/minify'],
     PREREQ_PM        => {
         'PPI'              => 0,
         'App::FatPacker'   => 0,

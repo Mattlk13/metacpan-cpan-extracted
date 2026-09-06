@@ -1,7 +1,7 @@
 #
 #  This file is part of WebDyne.
 #
-#  This software is copyright (c) 2026 by Andrew Speer <andrew.speer.com.au>.
+#  This software is copyright (c) 2026 by Andrew Speer <andrew.speer@isolutions.com.au>.
 #
 #  This is free software; you can redistribute it and/or modify it under
 #  the same terms as the Perl 5 programming language system itself.
@@ -65,7 +65,7 @@ my %ENV_BASE=(
 
 #  Version information
 #
-$VERSION='3.024';
+$VERSION='3.026';
 
 
 #==================================================================================================
@@ -270,50 +270,80 @@ sub local_constant_load {
 
 sub handler_sse {
 
+    my $self=shift();
+    return async sub {
+        my ($scope, $receive, $send)=@_;
+        my ($size, $disconnected)=(0, 0);
+        my $req_or=PAGI::Request->new($scope, async sub {
+            my $event_hr=await $receive->();
+            if ($event_hr->{'type'} eq 'sse.disconnect') {
+                $disconnected=1;
+                return {%{$event_hr}, type => 'http.disconnect'};
+            }
+            die "unexpected event while reading SSE form" unless $event_hr->{'type'} eq 'sse.request';
+            $size += length(defined($event_hr->{'body'}) ? $event_hr->{'body'} : '');
+            die "SSE form exceeds upload limit" if $size > $WEBDYNE_CGI_POST_MAX;
+            return $event_hr;
+        });
 
-    #  Get request
-    #
-    my ($self, $scope, $receive, $send)=@_;
-    debug('in handler_sse, scope:%s receive:%s, send:%s', Dumper($scope, $receive, $send));
+        #  Only URL-encoded forms need staging here. EventSource GETs keep
+        #  their existing path; multipart SSE submissions are not supported.
+        #  Use PAGI's buffered helper so CGI can read synchronously below.
+        #
+        if ($req_or->content_type() eq 'application/x-www-form-urlencoded') {
+            my $length=$req_or->content_length();
+            $size=$length if defined($length) && $length =~ /\A[0-9]+\z/;
+            unless ($size > $WEBDYNE_CGI_POST_MAX) {
+                $size=0;
+                my $read=eval { await $req_or->body(); 1 };
+                die $@ unless $read || $size > $WEBDYNE_CGI_POST_MAX;
+            }
+            if ($size > $WEBDYNE_CGI_POST_MAX) {
+                await $send->({type => 'sse.http.response.start', status => HTTP_REQUEST_ENTITY_TOO_LARGE,
+                    headers => [['content-type', 'text/plain']]});
+                await $send->({type => 'sse.http.response.body', body => "Request body exceeds upload limit\n", more => 0});
+                return;
+            }
+            return if $disconnected;
+        }
 
+        my ($sse_cr, $status);
+        {
+            #  Confine localized process state to synchronous page setup.
+            #  POST fields are buffered before CGI builds the parameter hash.
+            #
+            local *ENV=\%ENV_BASE;
+            my $res_or=PAGI::Response->new($scope);
+            my $sse_or=PAGI::SSE->new($scope, $receive, $send);
+            my $r=WebDyne::Request::PAGI->new(
+                document_root => $self->{'root'}, document_default => $self->{'index'},
+                scope => $scope, req => $req_or, res => $res_or, sse => $sse_or,
+                receive => $receive, send => $send,
+            ) || return err('unable to create SSE request');
+            $status=WebDyne->handler($r);
+            $sse_cr=$r->custom_response($status) if $status eq HTTP_CONTINUE;
+        }
 
-    #  Setup %ENV
-    #
-    local *ENV=\%ENV_BASE;
-
-
-    #  Create helper objects
-    #
-    my $req_or=PAGI::Request->new($scope, $receive) ||
-        return err('unable to get PAGI::Request object');
-    my $res_or=PAGI::Response->new($scope) ||
-        return err('unable to get PAGI::Response object');
-    my $sse_or=PAGI::SSE->new($scope, $receive, $send) ||
-        return err('unable to get PAGI::SSE object');
-    debug("req_or: $req_or, res_or: $res_or, sse_or: $sse_or");
-
-
-    #  Get main WebDyne handler request object
-    #
-    my $r=WebDyne::Request::PAGI->new( document_root => $self->{'root'}, document_default => $self->{'index'}, scope=>$scope, req=>$req_or, res=>$res_or, sse=>$sse_or,
-        receive => $receive, send=> $send) ||
-            return err('unable to create new WebDyne::Request::PAGI object: %s', 
-                $@ || errclr() || 'unknown error');
-    debug("r: $r");
-    
-    
-    #  Call handler. No point error checking but log errors
-    #
-    debug('calling WebDyne handler');
-    my $status=WebDyne->handler($r);
-    debug("status: $status");
-    if ($status eq HTTP_CONTINUE) {
-        my $sse_cr=$r->custom_response($status);
-        return $sse_cr;
-    }
-    else {
-        return err();
-    }
+        #  Decline before starting a stream. Preserve HTTP error statuses;
+        #  other results without an SSE callback indicate a setup failure.
+        #  Send outside the localized environment and await both events.
+        #
+        unless (ref($sse_cr) eq 'CODE') {
+            $status=HTTP_INTERNAL_SERVER_ERROR
+                unless defined($status) && $status =~ /\A[45][0-9]{2}\z/;
+            my $message=HTTP::Status::status_message($status) || 'Request failed';
+            await $send->({
+                type => 'sse.http.response.start', status => $status,
+                headers => [['content-type', 'text/plain']],
+            });
+            await $send->({
+                type => 'sse.http.response.body',
+                body => "$status $message\n", more => 0,
+            });
+            return;
+        }
+        await $sse_cr->($scope, $receive, $send);
+    };
 
 }
 
@@ -386,11 +416,16 @@ sub handler_ws {
     debug("status: $status");
     if ($status eq HTTP_CONTINUE) {
         my $ws_cr=$r->custom_response($status);
-        return $ws_cr;
+        return $ws_cr if ref($ws_cr) eq 'CODE';
     }
-    else {
-        return err();
-    }
+
+    #  Reject before accepting the socket. The server converts this into
+    #  an HTTP 403 handshake response; no optional extension is required.
+    #
+    return async sub {
+        my ($scope, $receive, $send)=@_;
+        await $send->({type => 'websocket.close'});
+    };
 
 }
 
@@ -418,43 +453,75 @@ sub handler_http {
         #
         my ($r, $html, $html_fh, $status, $req_or, $res_or);
 
-        #  CGI::Simple parses request bodies synchronously. Read URL-encoded
-        #  bodies through PAGI's buffered helper, and stage bounded multipart
-        #  bodies while still inside this async request handler, before
-        #  entering the localized %ENV scope below.
+        #  WebDyne page code reads synchronously. Buffer HTTP bodies before
+        #  dispatch, bounded by the existing 512 KiB default upload limit.
+        #  Count actual bytes even when Content-Length is absent or inaccurate.
+        #  Wrapping receive preserves PAGI's buffered body/json helpers; using
+        #  body_stream for every request would disable those helpers.
         #
-        $req_or=PAGI::Request->new($scope, $receive) ||
+        my ($body_bytes, $body_oversize, $body_disconnected)=(0, 0, 0);
+        my $bounded_receive_cr=async sub {
+            my $event_hr=await $receive->();
+            if ($event_hr->{'type'} eq 'http.disconnect') {
+                $body_disconnected=1;
+                return $event_hr;
+            }
+            die "unexpected event while reading HTTP body" unless $event_hr->{'type'} eq 'http.request';
+            $body_bytes += length(defined($event_hr->{'body'}) ? $event_hr->{'body'} : '');
+            if ($body_bytes > $WEBDYNE_CGI_POST_MAX) {
+                $body_oversize=1;
+                die "request body exceeds upload limit";
+            }
+            return $event_hr;
+        };
+        $req_or=PAGI::Request->new($scope, $bounded_receive_cr) ||
             return err('unable to get PAGI::Request object');
         $res_or=PAGI::Response->new($scope) ||
             return err('unable to get PAGI::Response object');
-        if (
-            ($req_or->content_type() || '') =~ m{\Aapplication/x-www-form-urlencoded\b}i
-            && $req_or->content_length()
-        ) {
-            await $req_or->body();
-        }
-        elsif (
-            ($req_or->content_type() || '') =~ m{\Amultipart/form-data(?:\s*;|\z)}i
-            && $req_or->content_length()
-        ) {
-            my $multipart_body='';
+
+        #  Reject a declared oversize body before consuming any input. The
+        #  receive counter remains authoritative for bodies we do accept.
+        #
+        my $content_length=$req_or->content_length();
+        $body_oversize=1 if defined($content_length) && $content_length =~ /\A[0-9]+\z/
+            && $content_length > $WEBDYNE_CGI_POST_MAX;
+        unless ($body_oversize) {
             my $staged=eval {
-                my $stream_or=$req_or->body_stream(max_bytes => $WEBDYNE_CGI_POST_MAX);
-                await $stream_or->stream_to(sub { $multipart_body .= shift() });
+                if (
+                    ($req_or->content_type() || '') =~ m{\Aapplication/x-www-form-urlencoded\b}i
+                    #  PAGI form data need not declare Content-Length.
+                    # && $req_or->content_length()
+                ) {
+                    await $req_or->body();
+                }
+                elsif (
+                    ($req_or->content_type() || '') =~ m{\Amultipart/form-data(?:\s*;|\z)}i
+                    #  Stage chunked uploads too, with the independent limit.
+                    # && $req_or->content_length()
+                ) {
+                    my $multipart_body='';
+                    my $stream_or=$req_or->body_stream(max_bytes => $WEBDYNE_CGI_POST_MAX);
+                    await $stream_or->stream_to(sub { $multipart_body .= shift() });
+                    $scope->{'webdyne.pagi.multipart_body'}=\$multipart_body;
+                }
+                else {
+                    await $req_or->body();
+                }
                 1;
             };
-            unless ($staged) {
-                my $error=$@;
-                if ($error =~ /\ARequest body max_bytes exceeded\b/) {
-                    return await $res_or
-                        ->status(HTTP_REQUEST_ENTITY_TOO_LARGE)
-                        ->send("Request body exceeds upload limit\n")
-                        ->respond($send);
-                }
-                die $error;
-            }
-            $scope->{'webdyne.pagi.multipart_body'}=\$multipart_body;
+            die $@ unless $staged || $body_oversize;
         }
+        if ($body_oversize) {
+            return await $res_or
+                ->status(HTTP_REQUEST_ENTITY_TOO_LARGE)
+                ->send("Request body exceeds upload limit\n")
+                ->respond($send);
+        }
+
+        #  PAGI's helpers may return partial bytes on disconnect. Never run
+        #  page code with an incomplete upload or synthesize a response for it.
+        #
+        return if $body_disconnected;
 
         {
             #  Keep the request environment localized only while WebDyne is
@@ -462,10 +529,11 @@ sub handler_http {
             #  localized global %ENV across an asynchronous response await.
             #
             local *ENV=\%ENV_BASE;
-            @ENV{qw(PATH_INFO QUERY_STRING REQUEST_METHOD)}=(
-                $scope->{'path'} || '',
+            @ENV{qw(PATH_INFO QUERY_STRING REQUEST_METHOD SCRIPT_NAME)}=(
+                WebDyne::Request::PAGI::scope_path($scope),
                 $scope->{'query_string'} || '',
                 $scope->{'method'} || '',
+                $scope->{'root_path'} || '',
             );
 
             #  If the requested path is not a file, an API PSP may own a path
@@ -576,9 +644,16 @@ sub handler_http {
         $r->res->status($final_status);
         my $headers_ar=$r->headers_out->psgi_flatten_without_sort();
         debug('sending headers: %s', Dumper($headers_ar));
+        my $cookie_seen;
         for (my $i=0; $i<@{$headers_ar}; $i+=2) {
             my ($header, $value)=@{$headers_ar}[$i, $i+1];
-            $r->res->header_try($header => $value);
+            if (lc($header) eq 'set-cookie') {
+                $r->res->remove_header('set-cookie') unless $cookie_seen++;
+                $r->res->header('set-cookie' => $value);
+            }
+            else {
+                $r->res->header_try($header => $value);
+            }
         }
         
         
@@ -592,7 +667,28 @@ sub handler_http {
             debug('sending html to client via await()');
             $r->res->content_type($r->content_type() || $WEBDYNE_CONTENT_TYPE_HTML);
         }
-        my $respond_status=await $r->res->send($body)->respond($send);
+
+        #  PAGI requires lowercase names in response events. Normalize only
+        #  the outgoing header pairs, preserving values, order and duplicates.
+        #
+        my $respond_or=$r->res->send($body)->respond(sub {
+            my $event_hr=shift();
+            if ($event_hr->{'type'} eq 'http.response.start') {
+                $event_hr={
+                    %{$event_hr},
+                    headers => [
+                        map { [lc($_->[0]), $_->[1]] }
+                            @{$event_hr->{'headers'} || []}
+                    ],
+                };
+            }
+            return $send->($event_hr);
+        });
+
+        #  Retain the response Future across await. Awaiting the temporary can
+        #  crash Devel::Confess stack tracing on send failure with Perl 5.38.
+        #
+        my $respond_status=await $respond_or;
         $r->DESTROY();
         return $respond_status;
 
@@ -608,7 +704,7 @@ sub api_filename {
     my ($self, $scope)=@_;
     return unless WEBDYNE_API_ENABLE;
 
-    my $path=$scope->{'path'} || '';
+    my $path=WebDyne::Request::PAGI::scope_path($scope);
     return unless length($path);
 
     my @part=grep { length($_) } split(m{/+}, $path);
@@ -749,7 +845,7 @@ Andrew Speer <andrew.speer@isolutions.com.au>
 
 This file is part of WebDyne.
 
-This software is copyright (c) 2026 by Andrew Speer <andrew.speer.com.au>.
+This software is copyright (c) 2026 by Andrew Speer <andrew.speer@isolutions.com.au>.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

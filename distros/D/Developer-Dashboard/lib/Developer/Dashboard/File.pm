@@ -3,7 +3,7 @@ package Developer::Dashboard::File;
 use strict;
 use warnings;
 
-our $VERSION = '4.29';
+our $VERSION = '4.30';
 
 use File::Spec;
 use Scalar::Util qw(blessed);
@@ -155,10 +155,7 @@ sub _configured_alias_cache_key {
     my ($files) = @_;
     return '' if !$files || !blessed($files);
     my $paths = $files->paths;
-    return '' if !$paths || !blessed($paths);
-    my $project_root = eval { $paths->current_project_root } || '';
-    my @runtime_roots = eval { $paths->runtime_roots } || ();    # uncoverable condition right an empty list literal is never true
-    return join "\n", $project_root, @runtime_roots;
+    return Developer::Dashboard::PathRegistry::alias_cache_key($paths);
 }
 
 # _load_configured_aliases()

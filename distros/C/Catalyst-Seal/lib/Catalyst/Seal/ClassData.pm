@@ -8,7 +8,7 @@ use Scalar::Util ();
 use Catalyst::Seal ();
 use Catalyst::Seal::Guard ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.04';
 
 sub _classdata_accessors {
     my ($class) = @_;
@@ -31,7 +31,6 @@ sub _classdata_accessors {
             my ($alias) = grep { $_->[0] =~ /\A_.+_accessor\z/ } @$pair;
             next unless $plain && $alias;
             next unless $alias->[0] eq "_$plain->[0]_accessor";
-            # A nearer class in the ISA wins, which is the order we are walking.
             $found{ $plain->[0] } ||= $plain->[1];
         }
     }
@@ -55,7 +54,6 @@ sub _seal_class {
     my $sealed = 0;
 
     for my $name (sort keys %accessors) {
-        # Resolve exactly the way a read would, through the accessor itself.
         my $value = eval { $class->$name };
         if ($@) {
             Catalyst::Seal::note("$class\::$name croaked while resolving, not sealed: $@");
@@ -187,4 +185,3 @@ This is free software, licensed under:
   The Artistic License 2.0 (GPL Compatible)
 
 =cut
-

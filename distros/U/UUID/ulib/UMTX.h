@@ -78,25 +78,28 @@ https://www.codestudy.net/blog/why-are-sem-init-sem-getvalue-sem-destroy-depreca
 */
 /* For OSX and archlinux but arch seems to have a working sem_init/wait */
 /* dispatch_semaphore_t is a pointer type */
-#define UMTX_init SMEM->LOCK = dispatch_semaphore_create(0)
+#define UMTX_init SMEM->LOCK = dispatch_semaphore_create(1)
 #define UMTX_lock dispatch_semaphore_wait(SMEM->LOCK, DISPATCH_TIME_FOREVER)
 #define UMTX_unlock dispatch_semaphore_signal(SMEM->LOCK)
 
 #else
 
-#define UMTX_init \
-    if (sem_init(&SMEM->LOCK, 1, 1)) \
-        Perl_croak_nocontext("panic: sem_init (%d) [%s:%d]", errno, __FILE__, __LINE__)
-#define UMTX_lock do { \
-    if (sem_wait(&SMEM->LOCK) == 0) break; \
-    if (errno == EINVAL) \
-        Perl_croak_nocontext("panic: sem_wait (EINVAL) [%s:%d]", __FILE__, __LINE__); \
+#define UMTX_init   do { \
+    if (sem_init(&SMEM->LOCK, 1, 1) == 0) break; \
+    if (errno == EINVAL) Perl_croak_nocontext("panic: sem_init (EINVAL) at %s line %d\n", __FILE__, __LINE__); \
+    Perl_croak_nocontext("panic: sem_init (%d) at %s line %d\n", errno, __FILE__, __LINE__); \
 } while (1);
-#define UMTX_unlock { \
-    int r = sem_post(&SMEM->LOCK); \
-    if (r != 0) \
-        Perl_croak_nocontext("panic: sem_post (TRUE) [%s:%d]", __FILE__, __LINE__); \
-}
+#define UMTX_lock   do { \
+    if (sem_wait(&SMEM->LOCK) == 0) break; \
+    if (errno == EINTR)  continue; \
+    if (errno == EINVAL) Perl_croak_nocontext("panic: sem_wait (EINVAL) at %s line %d\n", __FILE__, __LINE__); \
+    Perl_croak_nocontext("panic: sem_wait (%d) at %s line %d\n", errno, __FILE__, __LINE__); \
+} while (1);
+#define UMTX_unlock do { \
+    if (sem_post(&SMEM->LOCK) == 0) break; \
+    if (errno == EINVAL) Perl_croak_nocontext("panic: sem_post (EINVAL) at %s line %d\n", __FILE__, __LINE__); \
+    Perl_croak_nocontext("panic: sem_post (%d) at %s line %d\n", errno, __FILE__, __LINE__); \
+} while (1);
 
 #endif
 

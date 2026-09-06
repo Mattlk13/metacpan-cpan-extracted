@@ -105,5 +105,55 @@ I32 Perl_my_ibcmp(pTHX_ const char *s1, const char *s2, register I32 len) {
 #define croak_caller  my_croak_caller
 #endif
 
+#ifndef PERL_VERSION
+# undef SUBVERSION /* OS/390 */
+# include <patchlevel.h>
+# ifndef SUBVERSION
+#   define SUBVERSION 0
+# endif
+# if !defined(PATCHLEVEL)))
+#   include <could_not_find_Perl_patchlevel.h>
+# endif
+# define PERL_REVISION    5
+# define PERL_VERSION     PATCHLEVEL
+# define PERL_SUBVERSION  SUBVERSION
+#endif
+
+#ifndef PERL_VERSION_DECIMAL
+# define PERL_VERSION_DECIMAL(r,v,s) (r*1000000 + v*1000 + s)
+#endif
+#ifndef PERL_DECIMAL_VERSION
+# define PERL_DECIMAL_VERSION \
+    PERL_VERSION_DECIMAL(PERL_REVISION,PERL_VERSION,PERL_SUBVERSION)
+#endif
+
+#ifndef PERL_VERSION_LT
+# define PERL_VERSION_LT(r,v,s) \
+    (PERL_DECIMAL_VERSION < PERL_VERSION_DECIMAL(r,v,s))
+#endif
+
+#ifndef PERL_VERSION_EQ
+# define PERL_VERSION_EQ(r,v,s) \
+    (PERL_DECIMAL_VERSION == PERL_VERSION_DECIMAL(r,v,s))
+#endif
+
+#ifdef SvPVbyte
+# if PERL_VERSION_EQ(5,6,1)
+    /* SvPVbyte does not work in perl-5.6.1, borrowed version for 5.7.3 */
+#   undef SvPVbyte
+#   define SvPVbyte(sv, lp) \
+      ((SvFLAGS(sv) & (SVf_POK|SVf_UTF8)) == (SVf_POK) \
+      ? ((lp = SvCUR(sv)), SvPVX(sv)) : my_sv_2pvbyte(aTHX_ sv, &lp))
+
+      static char *
+      my_sv_2pvbyte(pTHX_ register SV *sv, STRLEN *lp) {
+        sv_utf8_downgrade(sv,0);
+        return SvPV(sv,*lp);
+      }
+# endif
+#else
+# define SvPVbyte SvPV
+#endif
+
 #endif
 /* ex:set ts=2 sw=2 itab=spaces: */

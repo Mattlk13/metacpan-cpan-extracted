@@ -2,7 +2,7 @@ package MyTest;
 use strict;
 use warnings;
 require Exporter;
-require UUID;
+#require UUID;  # require'd in note() to enable coverage testing
 use vars qw(@EXPORT $TMPDIR $TMPFILE $TESTS_RUN);
 use constant USE_ITHREADS => !!$ENV{USE_ITHREADS};
 
@@ -37,15 +37,30 @@ BEGIN {
 *import = \&Exporter::import;
 sub _err;
 
+# Apparently earlier versions of IO::File didn't have flush(),
+# so we'll just do this instead. And yea, we need both.
+select STDERR; $|=1;
+select STDOUT; $|=1;
+
 our $PLAN_SENT = 0;
 our $TESTS_PLANNED = 0;
 
-my $realnode = UUID::_realnode();
-substr $realnode, 0, 24, '' if $realnode;
+my $realnode;  # defined in note() or diag()
 
 sub note {
     my $work = join '', map { defined($_) ? $_ : '<UNDEF>' } @_;
     chomp $work;
+
+    # done this way so we dont automatically pull in UUID
+    # at compile time. there is one coverage test that uses
+    # this module but relies on it not doing that. it is
+    # careful not to call note() or diag().
+    $realnode ||= do {
+        require UUID;
+        my $rn = UUID::_realnode();
+        substr $rn, 0, 24, '' if $rn;
+        $rn;
+    };
 
     # hide the real node anywhere it appears.
     $work =~ s/$realnode/XXXXXXXXXXXX/ig
@@ -56,7 +71,31 @@ sub note {
 }
 
 sub diag {
-    print "#DIAG FIX ME!\n";
+    my $work = join '', map { defined($_) ? $_ : '<UNDEF>' } @_;
+    chomp $work;
+
+    # see note in note().
+    $realnode ||= do {
+        require UUID;
+        my $rn = UUID::_realnode();
+        substr $rn, 0, 24, '' if $rn;
+        $rn;
+    };
+
+    # hide the real node anywhere it appears.
+    $work =~ s/$realnode/XXXXXXXXXXXX/ig
+        if $realnode;
+
+    warn '# ', $work, "\n";
+    undef;
+}
+
+sub diag_no_hide {
+    my $work = join '', map { defined($_) ? $_ : '<UNDEF>' } @_;
+    chomp $work;
+
+    warn '# ', $work, "\n";
+    undef;
 }
 
 # some of the tests call these from within threads,
@@ -290,7 +329,7 @@ USE
         chomp $eval_error;
         $@ =~ s{^BEGIN failed--compilation aborted at .*$}
                 {BEGIN failed--compilation aborted at $filename line $line.}m;
-        diag(<<DIAGNOSTIC);
+        diag_no_hide(<<DIAGNOSTIC);
     Tried to use '$module'.
     Error:  $eval_error
 DIAGNOSTIC

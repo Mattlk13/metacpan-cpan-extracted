@@ -1,3 +1,6 @@
+2.005 2026-09-05
+- fix for HDF 4.4 (#1 #2) - thanks @sebastic
+
 2.004 2026-08-17
 - update doc-installing
 

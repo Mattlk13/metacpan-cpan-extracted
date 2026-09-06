@@ -1,0 +1,21 @@
+Revision history for Perl-Unix-Keywords
+
+0.03 2026-09-06
+     - fixed Win32 xargs argument handling for spaces, quotes, backslashes,
+       and shell metacharacters using Win32::ShellQuote
+     - added a dedicated MSWin32 argv regression test for tricky command-line
+       argument combinations
+     - fixed Windows portability in xargs and composition tests by using
+       helper scripts instead of multiline perl -e command strings
+     - added GitHub Actions CI across Linux and native MSWin32 Perl versions
+     - added Win32::ShellQuote as the Windows runtime dependency for xargs
+
+0.02 2026-09-06
+     - attempted ci fix
+
+0.01 2026-09-05
+     - initial release
+     - added prototype-based walk, group, uniq, and xargs operations
+     - added POD describing semantics, context behavior, composition, and limitations
+     - added regression tests for prototypes, traversal, grouping, canonicalization,
+       subprocess execution, errors, and composition

@@ -5,7 +5,7 @@ use warnings;
 
 use Catalyst::Seal ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.04';
 
 sub _classes_for {
     my ($app) = @_;
@@ -93,4 +93,3 @@ This is free software, licensed under:
   The Artistic License 2.0 (GPL Compatible)
 
 =cut
-

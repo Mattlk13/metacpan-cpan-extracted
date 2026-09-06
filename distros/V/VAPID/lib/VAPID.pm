@@ -1,5 +1,5 @@
 package VAPID;
-use 5.006; use strict; use warnings; our $VERSION = '1.06';
+use 5.006; use strict; use warnings; our $VERSION = '2.00';
 use Crypt::JWT qw(encode_jwt); use Crypt::PK::ECC; use URI; use MIME::Base64 qw/encode_base64url decode_base64url/; 
 use Crypt::AuthEnc::GCM qw(gcm_encrypt_authenticate); use Crypt::KeyDerivation qw(hkdf); use Crypt::PRNG qw(random_bytes); 
 use HTTP::Request; use LWP::UserAgent; use JSON qw(decode_json);
@@ -17,7 +17,6 @@ BEGIN {
 		validate_subject => [qw/all validate/],
 		validate_public_key => [qw/all validate/],
 		validate_private_key => [qw/all validate/],
-		validate_expiration_key => [qw/all validate/],
 		validate_expiration => [qw/all validate/],
 		validate_subscription => [qw/all validate/],
 		encrypt_payload => [qw/all encrypt/],
@@ -34,12 +33,12 @@ sub generate_vapid_keys {
 	
 	if (length($priv) < 32) {
 		my $padding = 32 - length $priv;
-		$priv = (0 x $padding) . $priv;
+		$priv = ("\0" x $padding) . $priv;
 	}
-	
+
 	if (length($pub) < 65) {
 		my $padding = 65 - length $pub;
-		$pub = (0 x $padding) . $pub;
+		$pub = ("\0" x $padding) . $pub;
 	}
 
 	return (
@@ -93,9 +92,9 @@ sub generate_vapid_header {
 		key => \$key
 	);
 
-	return $enc 
+	return $enc
 		? {
-			Authorization => "vapit t=${jwt_token}, k=${pub}"
+			Authorization => "vapid t=${jwt_token}, k=${pub}"
 		}
 		: {
 			Authorization => 'WebPush ' . $jwt_token,
@@ -217,11 +216,19 @@ sub validate_subscription {
 		die "Subscription must have an auth key";
 	}
 
+	if (length(decode_base64url($subscription->{keys}{p256dh})) != 65) {
+		die "Subscription p256dh should be 65 bytes long when decoded";
+	}
+
+	if (length(decode_base64url($subscription->{keys}{auth})) != 16) {
+		die "Subscription auth should be 16 bytes long when decoded";
+	}
+
 	return $subscription;
 }
 
 sub encrypt_payload {
-	my ($payload, $subscription) = @_;
+	my ($payload, $subscription, %opts) = @_;
 
 	if (!defined $payload) {
 		die "No payload passed to encrypt_payload";
@@ -229,47 +236,44 @@ sub encrypt_payload {
 
 	validate_subscription($subscription);
 
-	my $user_public_key = decode_base64url($subscription->{keys}{p256dh});
-	my $user_auth = decode_base64url($subscription->{keys}{auth});
+	my $ua_public = decode_base64url($subscription->{keys}{p256dh});
+	my $auth_secret = decode_base64url($subscription->{keys}{auth});
 
-	my $salt = random_bytes(16);
+	my $salt = $opts{salt} || random_bytes(16);
+	if (length $salt != 16) {
+		die "salt must be 16 bytes";
+	}
 
-	my $local_key = Crypt::PK::ECC->new();
-	$local_key->generate_key('prime256v1');
-	my $local_public_key = $local_key->export_key_raw('public');
+	my $local_key = $opts{local_key};
+	if (!$local_key) {
+		$local_key = Crypt::PK::ECC->new();
+		$local_key->generate_key('prime256v1');
+	} elsif (!ref $local_key) {
+		$local_key = Crypt::PK::ECC->new->import_key_raw($local_key, 'prime256v1');
+	}
+	my $as_public = $local_key->export_key_raw('public');
 
-	my $user_key = Crypt::PK::ECC->new();
-	$user_key->import_key_raw($user_public_key, 'prime256v1');
-	my $shared_secret = $local_key->shared_secret($user_key);
+	my $ua_key = Crypt::PK::ECC->new->import_key_raw($ua_public, 'prime256v1');
+	my $ecdh_secret = $local_key->shared_secret($ua_key);
 
-	my $auth_info = "Content-Encoding: auth\x00";
-	my $prk = hkdf($shared_secret, $user_auth, 'SHA256', 32, $auth_info);
+	my $key_info = "WebPush: info\x00" . $ua_public . $as_public;
+	my $ikm = hkdf($ecdh_secret, $auth_secret, 'SHA256', 32, $key_info);
 
-	my $context = "P-256\x00" 
-		. pack('n', length($user_public_key)) . $user_public_key
-		. pack('n', length($local_public_key)) . $local_public_key;
+	my $cek   = hkdf($ikm, $salt, 'SHA256', 16, "Content-Encoding: aes128gcm\x00");
+	my $nonce = hkdf($ikm, $salt, 'SHA256', 12, "Content-Encoding: nonce\x00");
 
-	my $cek_info = "Content-Encoding: aesgcm\x00" . $context;
-	my $content_encryption_key = hkdf($prk, $salt, 'SHA256', 16, $cek_info);
-
-	my $nonce_info = "Content-Encoding: nonce\x00" . $context;
-	my $nonce = hkdf($prk, $salt, 'SHA256', 12, $nonce_info);
-
-	my $padded_payload = pack('n', 0) . $payload;
+	my $rs = $opts{record_size} || 4096;
 
 	my ($ciphertext, $tag) = gcm_encrypt_authenticate(
-		'AES',
-		$content_encryption_key,
-		$nonce,
-		'',
-		$padded_payload
+		'AES', $cek, $nonce, '', $payload . "\x02"
 	);
 
-	return {
-		ciphertext => $ciphertext . $tag,
-		salt => $salt,
-		local_public_key => $local_public_key
-	};
+	my $header = $salt
+		. pack('N', $rs)
+		. pack('C', length $as_public)
+		. $as_public;
+
+	return $header . $ciphertext . $tag;
 }
 
 sub build_push_request {
@@ -282,13 +286,21 @@ sub build_push_request {
 	my $subject = $args{subject};
 	my $ttl = $args{ttl} // 60;
 	my $expiration = $args{expiration};
-	my $enc = $args{enc};
+
+	if (defined $args{encoding} && $args{encoding} ne 'aes128gcm') {
+		die "Unsupported encoding '$args{encoding}': VAPID 2.00 sends "
+		  . "RFC 8291 aes128gcm only";
+	}
 
 	validate_subscription($subscription);
 
 	my $endpoint = $subscription->{endpoint};
 	my $uri = URI->new($endpoint);
 	my $audience = $uri->scheme . '://' . $uri->host;
+	if (defined $uri->port && defined $uri->default_port
+		&& $uri->port != $uri->default_port) {
+		$audience .= ':' . $uri->port;
+	}
 
 	my $vapid_headers = generate_vapid_header(
 		$audience,
@@ -296,37 +308,17 @@ sub build_push_request {
 		$vapid_public,
 		$vapid_private,
 		$expiration,
-		$enc
+		1
 	);
 
 	my $req = HTTP::Request->new(POST => $endpoint);
 	$req->header(TTL => $ttl);
 	$req->header(Authorization => $vapid_headers->{Authorization});
 
-	if ($vapid_headers->{"Crypto-Key"}) {
-		my $crypto_key = $vapid_headers->{"Crypto-Key"};
-
-		if (defined $payload && length $payload) {
-			my $encrypted = encrypt_payload($payload, $subscription);
-			
-			$crypto_key .= ';dh=' . encode_base64url($encrypted->{local_public_key});
-			$req->header(Encryption => 'salt=' . encode_base64url($encrypted->{salt}));
-			$req->header('Content-Encoding' => 'aesgcm');
-			$req->header('Content-Type' => 'application/octet-stream');
-			$req->content($encrypted->{ciphertext});
-		}
-
-		$req->header('Crypto-Key' => $crypto_key);
-	} else {
-		if (defined $payload && length $payload) {
-			my $encrypted = encrypt_payload($payload, $subscription);
-			
-			$req->header('Crypto-Key' => 'dh=' . encode_base64url($encrypted->{local_public_key}));
-			$req->header(Encryption => 'salt=' . encode_base64url($encrypted->{salt}));
-			$req->header('Content-Encoding' => 'aesgcm');
-			$req->header('Content-Type' => 'application/octet-stream');
-			$req->content($encrypted->{ciphertext});
-		}
+	if (defined $payload && length $payload) {
+		$req->header('Content-Encoding' => 'aes128gcm');
+		$req->header('Content-Type' => 'application/octet-stream');
+		$req->content(encrypt_payload($payload, $subscription));
 	}
 
 	$req->header('Content-Length' => length($req->content // ''));
@@ -360,7 +352,7 @@ VAPID - Voluntary Application Server Identification
 
 =head1 VERSION
 
-Version 1.06
+Version 2.00
 
 =cut
 
@@ -463,9 +455,37 @@ Validate a push subscription object. Expects a hash reference with:
 
 =head2 encrypt_payload
 
-Encrypt a message payload for web push using ECDH key agreement and AES-GCM.
+Encrypt a message payload for web push, as RFC 8291 over the RFC 8188
+C<aes128gcm> content encoding. This is what browsers implement.
 
-	my $encrypted = encrypt_payload($message, $subscription);
+	my $body = encrypt_payload($message, $subscription);
+
+The whole body is returned as one string. RFC 8188 carries the salt and the
+sender's public key B<inside> the body, as an 86-octet record header, so there
+is nothing to lift into C<Encryption:> and C<Crypto-Key:> headers. Send it
+with C<Content-Encoding: aes128gcm>:
+
+	POST $subscription->{endpoint}
+	Authorization:    vapid t=..., k=...
+	TTL:              60
+	Content-Encoding: aes128gcm
+	Content-Type:     application/octet-stream
+
+RFC 8291 guarantees a push service will accept only 4096 octets of encrypted
+payload, and the encoding spends 86 bytes on the header, one on the padding
+delimiter and 16 on the authentication tag before any of your message.
+
+B<This changed in 2.00.> Before it, this function produced
+C<Content-Encoding: aesgcm> - draft-ietf-webpush-encryption-04, which RFC 8291
+replaced - and returned a hash of C<ciphertext>, C<salt> and
+C<local_public_key>, because that draft carried the last two in HTTP headers.
+It now returns a single string and the draft is gone. If you were reading
+those three keys, you no longer need to: pass the string as the body.
+
+C<salt> and C<local_key> may be passed to reproduce the worked example in RFC
+8291 section 5, and exist for that. Do not pass them in production: the
+ephemeral key must be fresh for every message, or the relationship between two
+messages to the same subscription leaks.
 
 =head2 build_push_request
 
@@ -479,6 +499,15 @@ Build a complete HTTP::Request object for sending a push notification.
 		subject => 'mailto:email@example.com',
 		ttl => 60
 	);
+
+The request carries C<Content-Encoding: aes128gcm> and the RFC 8292
+single-header C<Authorization: vapid t=..., k=...> form.
+
+B<This changed in 2.00.> Before it the request was C<aesgcm>, with the salt in
+an C<Encryption:> header and the sender key in C<Crypto-Key:>. Passing
+C<< encoding => 'aesgcm' >> now dies rather than being ignored, because a
+caller asking for it has expectations about the body that this no longer
+meets.
 
 =head2 send_push_notification
 

@@ -3,7 +3,7 @@ use v5.36;
 use strict;
 use warnings;
 
-our $VERSION = '0.111';
+our $VERSION = '0.112';
 
 1;
 
@@ -20,5 +20,8 @@ over Linux kernel notification and state facilities. Applications choose a
 concrete leaf such as L<Linux::Event::Kernel::Timer>,
 L<Linux::Event::Kernel::Signal>, L<Linux::Event::Kernel::Event>, or
 L<Linux::Event::Kernel::Process>.
+
+Each leaf accepts its application callbacks as constructor coderefs or cached
+subclass methods. Process subclasses may also centralize cached pipe-I/O tuning.
 
 =cut

@@ -3,7 +3,7 @@ use v5.36;
 use strict;
 use warnings;
 
-our $VERSION = '0.111';
+our $VERSION = '0.112';
 
 use parent 'Linux::Event::_Socket::Stream';
 
@@ -17,24 +17,42 @@ Linux::Event::IO::Sock::Stream - asynchronous Linux C<SOCK_STREAM> connections
 
 =head1 SYNOPSIS
 
-  package EchoConnection;
-  use parent 'Linux::Event::IO::Sock::Stream';
-  use Linux::Event::Framer 'Delimiter', "\n";
+  use v5.36;
+  use Linux::Event::Loop;
+  use Linux::Event::IO::Sock::Listener;
+  use Linux::Event::IO::Sock::Stream;
 
-  sub on_ready ($stream) {
-      $stream->send('hello');
-  }
+  my $loop = Linux::Event::Loop->new;
+  my $server = Linux::Event::IO::Sock::Listener->new(
+      loop         => $loop,
+      stream_class => 'Linux::Event::IO::Sock::Stream',
+      host         => '127.0.0.1',
+      port         => 0,
+      on_data      => sub ($stream, $bytes) {
+          $stream->write($bytes);
+      },
+  );
 
-  sub on_message ($stream, $message) {
-      say $message;
-      $stream->close;
-  }
+  my $prefix = 'received';
+  my $client = Linux::Event::IO::Sock::Stream->connect(
+      loop    => $loop,
+      host    => '127.0.0.1',
+      port    => $server->port,
+      on_ready => sub ($stream) {
+          $stream->write('hello');
+      },
+      on_data => sub ($stream, $bytes) {
+          say "$prefix: $bytes";
+          $stream->close;
+          $server->close;
+          $loop->stop;
+      },
+      on_error => sub ($stream, $error) {
+          die "connection failed: $error\n";
+      },
+  );
 
-  package main;
-  my $connection = $loop->add(EchoConnection->connect(
-      host => '127.0.0.1',
-      port => 9999,
-  ));
+  $loop->run;
 
 =head1 DESCRIPTION
 
@@ -45,8 +63,175 @@ separate type hierarchy.
 
 The class combines the common ordered-byte engine with socket acquisition,
 addresses, socket policy, kernel half-close semantics, and optional TLS. A
-concrete protocol subclass supplies named callbacks and, when appropriate, a
-native framer.
+concrete protocol subclass can supply named callbacks and declare class policy;
+constructor callbacks are an equally supported way to provide application
+behavior with normal Perl lexical scope.
+
+=head1 CALLBACKS, SUBCLASSING, AND TUNING
+
+Constructor callbacks make the public Stream leaf directly useful and preserve
+ordinary lexical scope. Subclassing remains one of Linux::Event's important
+distinguishing features because a protocol class can declare, once:
+
+=over 4
+
+=item * a native L<Linux::Event::Framer> and its wire format;
+
+=item * L<Linux::Event::TLS> identity, verification, ALPN, and role policy;
+
+=item * C<stream_options> tuning for reads, fairness, batching, buffers,
+watermarks, limits, and established deadlines; and
+
+=item * socket policy and named, reusable callbacks.
+
+=back
+
+Class policy and method callbacks are validated and cached once per subclass.
+A constructor callback overrides a same-named method for one connection and is
+retained once in that object's effective descriptor. This makes it natural to
+combine reusable high-performance protocol policy with per-connection lexical
+state without adding event-time method lookup or callback-style selection.
+
+=head2 stream_options
+
+Define C<stream_options> as a class method on the Stream subclass. It returns
+key/value pairs, or one hash reference:
+
+  package TunedConnection;
+  use parent 'Linux::Event::IO::Sock::Stream';
+
+  sub stream_options ($class) {
+      return (
+          read_size         => 131_072,
+          read_budget_bytes => 524_288,
+          high_watermark    => 2_097_152,
+          low_watermark     => 524_288,
+          idle_timeout      => 60,
+      );
+  }
+
+These options also apply to Pipe and TTY subclasses. The complete Stream option
+set is:
+
+=over 4
+
+=item * C<read_size> (default 65,536)
+
+Maximum bytes requested by one native read; a positive integer.
+
+=item * C<read_budget_bytes> (default 0)
+
+Maximum bytes read during one readiness drain. Zero drains until the socket
+would block.
+
+=item * C<read_batch_bytes> (default 0)
+
+For an unframed class, combine successful reads before C<on_data> up to this
+non-negative byte target. Partial batches flush when the current drain ends;
+zero preserves normal read callback boundaries. It is invalid with framing.
+
+=item * C<message_batch_size> (default 0)
+
+For a framed class, deliver arrays of at most this many messages to
+C<on_messages>. Partial batches flush when the current drain ends; zero uses
+C<on_message>. A positive value requires C<on_messages> and framing.
+
+=item * C<max_buffer> (default 8,388,608)
+
+Positive hard byte bound for retained input, an incomplete frame, and the
+aggregate payload retained for one message batch.
+
+=item * C<high_watermark> (default 1,048,576)
+
+Non-negative pending-output byte level at which C<write> or C<send> begins
+returning false while still accepting the data.
+
+=item * C<low_watermark> (default 262,144)
+
+Non-negative pending-output byte level at or below which C<on_drain> fires
+after high-watermark backpressure. It must not exceed C<high_watermark>.
+
+=item * C<max_pending_bytes> (default 0)
+
+Hard non-negative pending-output byte limit. Zero means unbounded.
+
+=item * C<idle_timeout> (default 0 seconds)
+
+Maximum inactivity interval since successful established input or output
+progress. Zero disables it.
+
+=item * C<read_timeout> (default 0 seconds)
+
+Maximum interval without inbound progress while reading is active. Pausing
+input suspends it; zero disables it.
+
+=item * C<write_timeout> (default 0 seconds)
+
+Maximum interval without output progress while data is queued. Zero disables
+it.
+
+=back
+
+Byte counts are integers. Timeout values are finite non-negative seconds and
+may be fractional. Constructor timeout values override class defaults for one
+Stream; the other values are class policy.
+
+=head2 socket_options
+
+Define C<socket_options> as another class method on a Stream subclass. It also
+returns key/value pairs or one hash reference:
+
+  sub socket_options ($class) {
+      return (
+          tcp_nodelay      => 1,
+          keepalive        => 1,
+          tcp_user_timeout => 15,
+      );
+  }
+
+Unspecified options retain kernel defaults. The complete set is:
+
+=over 4
+
+=item * C<tcp_nodelay>
+
+Boolean C<0> or C<1> controlling C<TCP_NODELAY>; TCP only.
+
+=item * C<keepalive>
+
+Boolean C<0> or C<1> controlling C<SO_KEEPALIVE>; TCP only.
+
+=item * C<keepalive_idle>
+
+Positive integer seconds before the first TCP keepalive probe.
+
+=item * C<keepalive_interval>
+
+Positive integer seconds between TCP keepalive probes.
+
+=item * C<keepalive_count>
+
+Positive integer number of failed TCP keepalive probes allowed.
+
+=item * C<tcp_user_timeout>
+
+Finite non-negative seconds for C<TCP_USER_TIMEOUT>; fractional values are
+rounded up to milliseconds. TCP only.
+
+=item * C<send_buffer>
+
+Positive integer requested C<SO_SNDBUF> size.
+
+=item * C<receive_buffer>
+
+Positive integer requested C<SO_RCVBUF> size.
+
+=back
+
+Positive socket integers are at most 2,147,483,647. Constructor values override
+class policy for one connection. C<bind_device> is a constructor option, not a
+C<socket_options> key. C<configure_socket> is the cached cold-path hook for
+Linux options not covered above.
 
 =head1 OUTBOUND CONNECTIONS
 
@@ -83,17 +268,45 @@ cannot infer client versus server role.
 
 =head1 CALLBACKS
 
-C<on_ready($stream)> runs once when the connection is application-ready. For
-TLS that means after handshake and verification, not merely after TCP connect.
+Callbacks may be methods, constructor coderefs, or a mixture:
 
-A raw subclass defines C<on_data($stream, $bytes)>. A framed subclass uses
-L<Linux::Event::Framer> and defines C<on_message> or, with explicit batching,
-C<on_messages>.
+  my $database = ...;
+  my $stream = RawConnection->new(
+      fh      => $socket,
+      on_data => sub ($stream, $bytes) {
+          process_bytes($database, $stream, $bytes);
+      },
+  );
+
+A constructor callback overrides the corresponding class method for that
+object. Supported names and signatures are C<on_data($stream, $bytes)>,
+C<on_message($stream, $message)>, C<on_messages($stream, $messages)>,
+C<on_ready($stream)>, C<on_transport_ready($stream)>, C<on_drain($stream)>,
+C<on_eof($stream)>, C<on_error($stream, $error)>, and C<on_close($stream)>.
+C<connect> accepts the same callback options as C<new>.
+
+C<on_ready($stream)> runs once when an outbound or accepted connection becomes
+application-ready. For TLS that means after handshake and verification, not
+merely after TCP connect. C<new(fh =E<gt> ...)> adopts a connection that is
+already ready and does not emit a later readiness callback.
+
+C<on_transport_ready($stream)> is the lower transport notification used by TLS
+or another native transport and runs immediately before C<on_ready>. Plain
+connections have no separate transport phase.
+
+A raw object requires C<on_data($stream, $bytes)> as a method or constructor
+callback. The public Stream leaf can therefore be constructed directly for raw
+I/O. A framed class uses L<Linux::Event::Framer> and requires C<on_message> or,
+with explicit batching, C<on_messages>; either may be supplied by the class or
+constructor.
 
 Optional lifecycle callbacks include C<on_drain>, C<on_eof>, C<on_error>,
 C<on_close>, and C<on_transport_ready> for transport-specific observation.
-Callback methods and class policy are resolved into an immutable descriptor so
-steady-state I/O does not perform method lookup.
+Method defaults are resolved into an immutable class descriptor. Constructor
+input callbacks are retained once in native Stream state, producing one
+effective cached CV with no event-time lookup or method-versus-coderef branch.
+Lifecycle callbacks are likewise resolved once during construction. Closing or
+detaching the Stream releases its retained constructor callbacks.
 
 =head1 FRAMING AND OUTPUT
 
@@ -109,29 +322,18 @@ transition rules in F<docs/FRAMING.md>.
 
 =head1 SOCKET POLICY
 
-A subclass may define C<socket_options> for acquisition-time socket policy:
-
-  sub socket_options ($class) {
-      return (
-          tcp_nodelay      => 1,
-          keepalive        => 1,
-          tcp_user_timeout => 15,
-      );
-  }
-
-Supported policy includes TCP_NODELAY, keepalive tuning, TCP_USER_TIMEOUT,
-send/receive buffers, and interface binding where applicable. Constructor
-values override class policy for one connection. C<configure_socket> is an
-optional cached cold-path hook for Linux options not covered by the built-ins.
-See F<docs/SOCKET-CONFIGURATION.md>.
+A subclass may define C<socket_options> for acquisition-time socket policy.
+The method shape and complete option contract appear near the top of this
+document. See
+F<docs/SOCKET-CONFIGURATION.md> for application order and failure behavior.
 
 =head1 ORDERED-BYTE POLICY AND DEADLINES
 
-C<stream_options> configures read size and fairness, batching, input/output
-limits, watermarks, and established C<idle_timeout>, C<read_timeout>, and
-C<write_timeout>. One explicit operation C<deadline> may also be set or changed
-at runtime. These policies begin when the application transport is usable; DNS,
-connect, TLS handshake, and TLS shutdown retain their own lifecycle deadlines.
+C<stream_options> has the complete option contract listed near the top of this
+document. One explicit operation C<deadline> may also be set or changed at
+runtime. Established timeout policy begins when the application transport is
+usable; DNS, connect, TLS handshake, and TLS shutdown retain separate lifecycle
+deadlines.
 
 =head1 TLS
 
@@ -162,6 +364,7 @@ only when no output is pending; encrypted transports cannot be detached safely.
 
 L<Linux::Event::IO::Sock::Listener>, L<Linux::Event::IO::Sock::Dgram>,
 L<Linux::Event::Framer>, L<Linux::Event::TLS>,
-F<docs/SOCKET-CONNECTIONS.md>, F<docs/ORDERED-BYTE-IO-DESIGN.md>.
+F<docs/SOCKET-CONNECTIONS.md>, F<docs/ORDERED-BYTE-IO-DESIGN.md>,
+F<docs/FIRST-CLASS-STREAM-CALLBACKS.md>.
 
 =cut

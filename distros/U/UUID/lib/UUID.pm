@@ -10,7 +10,7 @@ require DynaLoader;
 use vars qw(@ISA %EXPORT_TAGS @EXPORT_OK $VERSION);
 @ISA = qw(DynaLoader);
 
-$VERSION = '0.38';
+$VERSION = '0.39';
 
 %EXPORT_TAGS = (
     'all' => [qw(
@@ -216,7 +216,7 @@ is requested (see B<:mac> in B<EXPORTS>), a random address is used. The
 multicast bit of this address is set to avoid conflict with addresses
 returned from network cards.
 
-=head2 B<generate_v3(> I<$uuid>, I<NAMESPACE> => I<NAME> B<)>
+=head2 B<generate_v3(> I<$uuid>, I<NAMESPACE> =E<gt> I<NAME> B<)>
 
 Generate a new version 3 binary UUID using the given namespace and name
 hashed through the MD5 algorithm.
@@ -233,7 +233,7 @@ text.
 Generates a new version 4 binary UUID using mostly random data. There
 are 6 bits used for the UUID format, leaving 122 bits for randomness.
 
-=head2 B<generate_v5(> I<$uuid>, I<NAMESPACE> => I<NAME> B<)>
+=head2 B<generate_v5(> I<$uuid>, I<NAMESPACE> =E<gt> I<NAME> B<)>
 
 Generate a new version 5 binary UUID using the given namespace and name
 hashed through the SHA1 algorithm.
@@ -323,7 +323,7 @@ Returns a new string format version 1 UUID. Functionally the equivalent
 of calling B<generate_v1()> then B<unparse()>, but throwing away the
 intermediate binary UUID.
 
-=head2 B<uuid3(NAMESPACE => NAME)>
+=head2 B<uuid3(NAMESPACE =E<gt> NAME)>
 
 Same as B<uuid1()> but version 3. See B<generate_v3()>.
 
@@ -331,7 +331,7 @@ Same as B<uuid1()> but version 3. See B<generate_v3()>.
 
 Same as B<uuid1()> but version 4.
 
-=head2 B<uuid5(NAMESPACE => NAME)>
+=head2 B<uuid5(NAMESPACE =E<gt> NAME)>
 
 Same as B<uuid1()> but version 5. See B<generate_v5()>.
 
@@ -357,7 +357,7 @@ Known variants:
     2  Microsoft
     3  Other
 
-=head2 B<version(> I<$uuid>> B<)>
+=head2 B<version(> I<$uuid> B<)>
 
 Returns the version of binary I<$uuid>.
 
@@ -595,13 +595,13 @@ Current maintainer:
 
 Authors and/or previous maintainers:
 
-  Lukas Zapletal <lzap@cpan.org>
+  Lukas Zapletal
 
-  Joseph N. Hall <joseph.nathan.hall@gmail.com>
+  Joseph N. Hall
 
-  Colin Faber <cfaber@clusterfs.com>
+  Colin Faber
 
-  Peter J. Braam <braam@mountainviewdata.com>
+  Peter J. Braam
 
 =head1 CONTRIBUTORS
 
@@ -618,6 +618,10 @@ twata
 Christopher Rasch-Olsen Raa
 
 Petr Pisar
+
+Kurt Starsinic
+
+Matt Martini
 
 =head1 SEE ALSO
 

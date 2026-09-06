@@ -32,6 +32,7 @@ pp_addhdr(<<'EOH');
 
 #include <hdf.h>
 #include <mfhdf.h>
+#include <hfile.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -197,11 +198,18 @@ SV *
 _Vgetname(vgroup_id);
                 int vgroup_id
         CODE:
+#if LIBVER_MAJOR == 4 && LIBVER_MINOR >= 4
+                char vgroup_name[VGNAMELENMAX];
+                size_t buf_size = sizeof(vgroup_name);
+                Vgetname(vgroup_id,vgroup_name,&buf_size);
+                RETVAL = newSVpvn(vgroup_name,buf_size);
+#else
                 uint16 len;
                 if (Vgetnamelen(vgroup_id, &len)) croak("Failed to get Vgetnamelen for ID=%d", vgroup_id);
                 char vgroup_name[len+1];
                 Vgetname(vgroup_id,vgroup_name);
                 RETVAL = newSVpvn(vgroup_name,len);
+#endif
         OUTPUT:
                 RETVAL
 
@@ -219,11 +227,18 @@ SV *
 _Vgetclass(vgroup_id);
                 int vgroup_id
         CODE:
+#if LIBVER_MAJOR == 4 && LIBVER_MINOR >= 4
+                char vgroup_class[VGNAMELENMAX];
+                size_t buf_size = sizeof(vgroup_class);
+                Vgetclass(vgroup_id,vgroup_class,&buf_size);
+                RETVAL = newSVpvn(vgroup_class,buf_size);
+#else
                 uint16 len;
                 if (Vgetclassnamelen(vgroup_id, &len)) croak("Failed to get Vgetclassnamelen for ID=%d", vgroup_id);
                 char vgroup_class[len+1];
                 Vgetclass(vgroup_id,vgroup_class);
                 RETVAL = newSVpvn(vgroup_class,len);
+#endif
         OUTPUT:
                 RETVAL
 

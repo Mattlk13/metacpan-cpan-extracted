@@ -21,3 +21,21 @@ Revision history for VAPID
 1.06    2026/07/01
 	- Fix PAX headers
 
+2.00	2026/09/05
+	- encrypt_payload now produces RFC 8291 message encryption over the
+	  RFC 8188 aes128gcm content encoding, which is what browsers
+	  implement. It previously produced Content-Encoding: aesgcm -
+	  draft-ietf-webpush-encryption-04, the scheme RFC 8291 replaced 
+	- build_push_request sends aes128gcm with the RFC 8292 single-header
+	  Authorization form. encoding => 'aesgcm' now dies rather than being
+	  ignored.
+	- The RFC 8292 single-header form spelled "vapid t=" as "vapit t=", so
+	  a conformant push service refused it. t/01-test.t asserted the typo.
+	- generate_vapid_keys padded a short key with the character "0" (0x30)
+	  instead of a NUL byte, producing a different key
+	- The JWT audience dropped a non-default port from the endpoint
+	- validate_expiration_key was exported and never defined
+	- validate_subscription now checks that p256dh decodes to 65 bytes and
+	  auth to 16, before either reaches import_key_raw
+	- t/02-rfc-vectors.t carries the worked examples from RFC 8291 section
+	  5 and appendix A, and RFC 8292 section 2.4

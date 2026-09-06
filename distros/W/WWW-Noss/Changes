@@ -1,5 +1,17 @@
 Revision history for noss (WWW::Noss)
 
+2.04  Sep 05 2026
+  - Performance improvements.
+  - Remove Parallel::ForkManager dependency, forking is now handled by noss
+    itself.
+  - Allow negative post arguments to the `mark` command.
+  - Add "open" feed configuration setting: specify the command to use for
+    opening URLs for the specific feed.
+  - nossui now uses its own custom dialog theme that is completely black and
+    white.
+  - Add `-r` option to nossui: specify path to dialog configuration file to use.
+  - Improve how nossui handles and cleans up temporary files.
+
 2.03  Mar 27 2026
   - noss list `--list-limit` with `--sort date` now shows the *last* N posts
     instead of first posts (except with --reverse).

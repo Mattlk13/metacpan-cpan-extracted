@@ -1,5 +1,5 @@
 ---
-abstract: 'freeze a Catalyst application at setup and make it 4x faster'
+abstract: 'freeze a Catalyst application at setup and make it 5x faster'
 author:
   - 'LNATION <email@lnation.org>'
 build_requires:
@@ -30,5 +30,5 @@ requires:
   perl: '5.014'
 resources:
   repository: https://github.com/ThisUsedToBeAnEmail/Catalyst-Seal.git
-version: '0.03'
+version: '0.04'
 x_serialization_backend: 'CPAN::Meta::YAML version 0.020'

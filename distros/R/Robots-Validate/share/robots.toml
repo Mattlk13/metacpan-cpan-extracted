@@ -1,6 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Robert Rothenberg <perl@rhizomnic.com>
 # SPDX-License-Identifier: Artistic-2.0
 
+[2ipbot]
+## About: https://2ip.io/bot/
+
+agents="2ip bot"
+domain=".2ip.io"
+
 [ahrefs]
 ## Date: 2026-08-26
 ## About: https://ahrefs.com/robot
@@ -2233,9 +2239,11 @@ network=[
 ]
 
 [archive-org]
+## About: http://archive-it.org/files/site-owners.html
 domain=".archive.org"
 agents=[
   "archive.org_bot",
+  "Archive-It",
   "IAHarvester",
   "ia_archiver",
 ]
@@ -6054,6 +6062,13 @@ ignore=true
 agents="InfoTigerBot"
 domain=".infotiger.com"
 
+[intentbeam]
+## Date: 2026-09-04
+## About: https://intentbeam.com/bot
+
+agents=" IntentBeamBot"
+network=[ "91.98.156.201", "167.233.62.207" ]
+
 [ionos]
 ## About: https://www.ionos.de/terms-gtc/faq-crawler-en/
 
@@ -6148,6 +6163,14 @@ network=[
 [mail-ru]
 agents="Mail.RU_Bot"
 domain=".mail.ru"
+
+[metajob]
+## Date: 2026-09-04
+## About: https://www.metajob.de/the/crawler
+
+agents="MetaJobBot"
+domain=".metajobs.de"
+network=[ "157.90.179.220", "157.90.179.228", "157.90.179.241" ]
 
 [mistral-user]
 ## Date: 2026-08-26

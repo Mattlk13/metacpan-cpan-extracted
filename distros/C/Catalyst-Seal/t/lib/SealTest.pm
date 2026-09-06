@@ -51,6 +51,30 @@ sub requests {
         { name => 'query-bare',  env => { PATH_INFO => '/query', QUERY_STRING => 'a' } },
         { name => 'query-plus',  env => { PATH_INFO => '/query', QUERY_STRING => 'a=one+two' } },
         { name => 'query-utf8',  env => { PATH_INFO => '/query', QUERY_STRING => 'a=caf%C3%A9' } },
+        # The parser's own edges: separator runs, an empty value, an empty
+        # name, three of the same name, an isindex keyword ahead of a pair,
+        # a percent that begins nothing, a truncated one, and bytes that are
+        # not UTF-8 at all.
+        { name => 'query-seps',   env => { PATH_INFO => '/query', QUERY_STRING => '&&a=1;;b=2' } },
+        { name => 'query-empty-v',env => { PATH_INFO => '/query', QUERY_STRING => 'a=' } },
+        { name => 'query-empty-n',env => { PATH_INFO => '/query', QUERY_STRING => '=v' } },
+        { name => 'query-triple', env => { PATH_INFO => '/query', QUERY_STRING => 'a=1&a=2&a=3' } },
+        { name => 'query-isindex',env => { PATH_INFO => '/query', QUERY_STRING => 'isidx&b=2' } },
+        { name => 'query-badpct', env => { PATH_INFO => '/query', QUERY_STRING => 'a=%zz%2' } },
+        { name => 'query-trunc',  env => { PATH_INFO => '/query', QUERY_STRING => 'a=%C3' } },
+        { name => 'query-surrogate',
+          env => { PATH_INFO => '/query', QUERY_STRING => 'a=%ED%A0%80' } },
+        { name => 'query-overlong',
+          env => { PATH_INFO => '/query', QUERY_STRING => 'a=%C0%AF' } },
+        { name => 'query-4byte',  env => { PATH_INFO => '/query',
+                                           QUERY_STRING => 'a=%F0%9F%92%A9' } },
+        # A noncharacter. Encode's strict UTF-8 refuses all sixty-six of them,
+        # which a validator written from the shape of the encoding alone would
+        # happily accept.
+        { name => 'query-noncharacter',
+          env => { PATH_INFO => '/query', QUERY_STRING => 'a=%EF%BF%BF' } },
+        { name => 'query-noncharacter-fdd0',
+          env => { PATH_INFO => '/query', QUERY_STRING => 'a=%EF%B7%90' } },
         { name => 'headers',     env => { PATH_INFO => '/headers', HTTP_X_THING => 'yes' } },
         { name => 'redirect',    env => { PATH_INFO => '/redirect' } },
         { name => 'no-content',  env => { PATH_INFO => '/nobody' } },

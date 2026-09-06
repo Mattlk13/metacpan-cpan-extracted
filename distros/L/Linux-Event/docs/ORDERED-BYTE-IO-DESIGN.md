@@ -75,8 +75,8 @@ expensive mutable mechanisms:
 - instrumentation counters.
 
 The ordinary plain path calls `read`, `write`, and `writev` directly. No
-reader/writer object pair, constructor closure, duplicate output queue, or
-extra Perl dispatch layer is introduced.
+reader/writer object pair, engine-generated closure, duplicate output queue,
+or extra Perl dispatch layer is introduced.
 
 ## Cached class policy
 
@@ -88,22 +88,45 @@ Each concrete subclass receives one immutable descriptor containing:
 - optional native consumer definition;
 - native descriptor configuration.
 
-Per-object state retains only changing fd, parser, queue, deadline, transport,
-and lifecycle data.
+Per-object state retains changing fd, parser, queue, deadline, transport, and
+lifecycle data plus any constructor-supplied effective callback CVs.
 
-This is a performance-critical design choice. Callback lookup and tuning-policy
-assembly occur at the class descriptor boundary, not for every readiness event
-or every connection instance.
+This is a performance-critical design choice. Method lookup and tuning-policy
+assembly occur at the class descriptor boundary. Constructor callbacks are
+validated and installed once per object, not selected for every readiness
+event or message.
 
 The method name `stream_options()` is retained as the public ordered-byte
 tuning hook. It describes shared engine policy; it does not imply a public
 generic `Linux::Event::Stream` object.
 
+The complete cached option contract is:
+
+| Option | Default | Contract |
+| --- | ---: | --- |
+| `read_size` | 65,536 | Positive maximum bytes requested by one read |
+| `read_budget_bytes` | 0 | Bytes per readiness drain; zero drains to blocking |
+| `read_batch_bytes` | 0 | Raw `on_data` batching target; zero disables |
+| `message_batch_size` | 0 | Framed `on_messages` batch count; zero disables |
+| `max_buffer` | 8,388,608 | Positive retained-input and message-batch byte bound |
+| `high_watermark` | 1,048,576 | Cooperative output-backpressure level |
+| `low_watermark` | 262,144 | Drain level; no greater than high watermark |
+| `max_pending_bytes` | 0 | Hard output-queue limit; zero is unbounded |
+| `idle_timeout` | 0 | Seconds without read or write progress; zero disables |
+| `read_timeout` | 0 | Seconds without active read progress; zero disables |
+| `write_timeout` | 0 | Seconds without queued-write progress; zero disables |
+
+Byte settings are non-negative integers except positive `read_size` and
+`max_buffer`. Timeouts are finite non-negative seconds and may be fractional.
+`read_batch_bytes` is raw-only; `message_batch_size` is framed-only and
+requires `on_messages`.
+
 ## Read sink rules
 
 A write-only object does not need an input callback.
 
-A readable raw ordered-byte subclass defines:
+A readable raw ordered-byte object requires an `on_data` method or constructor
+callback:
 
 ```perl
 sub on_data ($self, $bytes) {
@@ -111,7 +134,8 @@ sub on_data ($self, $bytes) {
 }
 ```
 
-A readable framed subclass normally defines:
+A readable framed class normally defines an `on_message` method, which an
+instance may override with a constructor callback:
 
 ```perl
 sub on_message ($self, $message) {
@@ -119,10 +143,12 @@ sub on_message ($self, $message) {
 }
 ```
 
-or, with explicit `message_batch_size`, `on_messages`. A framed class can also
-bind a supported native consumer.
+With explicit `message_batch_size`, the corresponding sink is `on_messages`.
+A framed class can also bind a supported native consumer. A constructor
+callback may supply the required sink even when the class defines no method.
 
-These rules are validated when the class descriptor is first built.
+Class contradictions are rejected when the descriptor is built; instance
+callback types and mode compatibility are validated during construction.
 
 ## Directional lifecycle
 
@@ -288,7 +314,7 @@ existing implementation:
 - direct cached CV callback invocation;
 - direct plain `read`/`write`/`writev` syscalls;
 - no per-message framer objects;
-- no constructor callback closures required;
+- constructor closures and subclass methods share one native callback path;
 - no generic public dispatch layer;
 - one watcher for the common single-fd stream-socket path.
 

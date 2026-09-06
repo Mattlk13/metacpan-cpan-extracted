@@ -9,13 +9,11 @@ use Scalar::Util ();
 use Catalyst::Seal ();
 use Catalyst::Seal::Guard ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.04';
 
-# Catalyst.pm:2405 as of 5.90132
 sub _handle_request {
     my ( $class, @arguments ) = @_;
 
-    # Always expect worst case!
     my $status = -1;
 
     my $ok = eval {
@@ -34,7 +32,6 @@ sub _handle_request {
 
     unless ($ok) {
         my $error = $@;
-        # rethrow if this can be handled by middleware
         if ( $class->_handle_http_exception($error) ) {
             $error->can('rethrow') ? $error->rethrow : Carp::croak $error;
         }
@@ -50,7 +47,6 @@ sub _handle_request {
     return $status;
 }
 
-# Catalyst.pm:2450 as of 5.90132
 sub _prepare {
     my ( $class, @arguments ) = @_;
 
@@ -71,7 +67,6 @@ sub _prepare {
     }
 
     my $ok = eval {
-        # Allow engine to direct the prepare flow (for POE)
         if ( my $prepare = $c->engine->can('prepare') ) {
             $c->engine->$prepare( $c, @arguments );
         }
@@ -182,4 +177,3 @@ This is free software, licensed under:
   The Artistic License 2.0 (GPL Compatible)
 
 =cut
-

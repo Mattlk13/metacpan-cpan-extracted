@@ -22,6 +22,7 @@ my %BASE_PARAM = (
     autoread        => 1,
     default_update  => 0,
     hidden          => 1,
+    open            => 'lynx',
 );
 
 my $DEFAULT = WWW::Noss::GroupConfig->new(
@@ -69,6 +70,8 @@ sub base_ok {
     ok(!$base->default_update, 'default_update ok');
 
     ok($base->hidden, 'hidden ok');
+
+    is($base->open_cmd, 'lynx', 'open ok');
 
 }
 
@@ -126,6 +129,7 @@ subtest 'FeedConfig ok' => sub {
                 autoread => 1,
                 default_update => 1,
                 hidden => 1,
+                open => 'lynx',
             ),
             WWW::Noss::GroupConfig->new(
                 name => 'g2',
@@ -141,6 +145,7 @@ subtest 'FeedConfig ok' => sub {
                 autoread => 0,
                 default_update => 0,
                 hidden => 0,
+                open => 'links',
             ),
             WWW::Noss::GroupConfig->new(
                 name => 'g3',
@@ -156,6 +161,7 @@ subtest 'FeedConfig ok' => sub {
                 autoread => 0,
                 default_update => 0,
                 hidden => 0,
+                open => 'elinks',
             ),
         ],
         limit => 4,
@@ -168,6 +174,7 @@ subtest 'FeedConfig ok' => sub {
         autoread => 0,
         default_update => 1,
         hidden => 1,
+        open => 'w3m',
         retry_cache => do {
             my ($h, $p) = tempfile(UNLINK => 1);
             close $h;
@@ -232,6 +239,8 @@ subtest 'FeedConfig ok' => sub {
     $o->set_retry(0);
     is($o->retry, 0, 'retry ok');
     ok($o->can_we_retry, 'can_we_retry ok');
+
+    is($o->open_cmd, 'w3m', 'open ok');
 
 };
 

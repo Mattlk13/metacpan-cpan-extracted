@@ -1,0 +1,49 @@
+<header class="masthead">
+  <p class="wordmark" aria-label="Punk"><b>P</b><b>U</b><b>N</b><b>K</b></p>
+  <h1><a href="{% url.home %}">A Punk Blog</a></h1>
+  <p class="sticker">now with feeds</p>
+  <p class="lede">The <code>&lt;link rel="alternate"&gt;</code> tags in this
+  page&rsquo;s head came from <code>$c-&gt;feed_links</code>. A reader pointed
+  at this URL finds the feeds without being told where they are.</p>
+</header>
+
+<section>
+  <h2>Posts</h2>
+  <ul class="next">
+{% for p in posts %}    <li>
+      <strong><a href="{% p.url %}">{% p.title %}</a></strong>
+      <br>{% p.excerpt %}
+    </li>
+{% end %}  </ul>
+</section>
+
+<section>
+  <h2>What to look at</h2>
+  <ul class="next">
+    <li>
+      <strong><a href="/feed.xml">/feed.xml</a></strong> and
+      <strong><a href="/feed.rss">/feed.rss</a></strong> - the same entries in
+      Atom 1.0 and RSS 2.0. The second post&rsquo;s title has an ampersand in
+      it, so look at how it is escaped.
+    </li>
+    <li>
+      <strong><a href="/feed/releases.xml">/feed/releases.xml</a></strong> - a
+      named feed, declared with <code>feed releases =&gt; { ... }</code>, with
+      its own title and its own length.
+    </li>
+    <li>
+      <strong>Conditional GET.</strong> Fetch a feed, then ask for it again
+      with the <code>ETag</code> it gave you:
+      <pre>curl -sD- -o/dev/null http://localhost:5000/feed.xml
+curl -sD- -o/dev/null -H 'If-None-Match: "..."' http://localhost:5000/feed.xml</pre>
+      The second is a <code>304</code> with no body. A reader asks for this
+      URL every few minutes for years.
+    </li>
+    <li>
+      <strong>Dates.</strong> The second post was edited after publication, so
+      its <code>&lt;updated&gt;</code> and <code>&lt;published&gt;</code>
+      differ in Atom. RSS has one date element and shows only the publication
+      date - one of the things that format cannot say.
+    </li>
+  </ul>
+</section>

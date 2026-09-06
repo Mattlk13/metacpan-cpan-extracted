@@ -1,0 +1,57 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use Getopt::Long ();
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+# App::SlimPacker is loaded lazily so --help works without PPI installed.
+
+# minify — PPI-minify Perl source files (comments, POD, whitespace).
+#
+# Thin front-end for App::SlimPacker::minify_file: reads each file, runs it
+# through the PPI minifier and prints the result to STDOUT (or -o FILE). The
+# default renames my variables to short names; --no-rename keeps them.
+
+my ($output, $no_rename);
+Getopt::Long::Configure('no_ignorecase');
+Getopt::Long::GetOptionsFromArray(\@ARGV,
+    'o|output=s' => \$output,
+    'no-rename'  => \$no_rename,
+    'help'       => \my $help,
+) or exit 2;
+
+if ($help) {
+    print <<'USAGE';
+minify — PPI-minify Perl source files (comments, POD, whitespace).
+
+Usage: minify [OPTIONS] FILE...
+
+  -o, --output FILE  write minified FILE to FILE (needs exactly one input;
+                     default: print to STDOUT)
+  --no-rename        minify but leave variable names untouched
+  -h, --help         this help
+
+The default renames my variables to short names (a, b, ...). See
+App::SlimPacker's process() documentation for what is skipped.
+USAGE
+    exit 0;
+}
+
+require App::SlimPacker;
+App::SlimPacker->import(qw(minify_file));
+
+die "minify: missing source file\n" unless @ARGV;
+die "minify: -o needs exactly one source file\n" if $output && @ARGV > 1;
+
+my @out = map {
+    my $m = minify_file($_, rename => $no_rename ? 0 : 1);
+    $m .= "\n" unless $m =~ /\n\z/;
+    $m;
+} @ARGV;
+if ($output) {
+    open my $fh, '>', $output or die "Cannot write $output: $!";
+    print {$fh} $out[0];
+    close $fh;
+} else {
+    print for @out;
+}

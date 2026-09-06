@@ -7,7 +7,7 @@ use Carp ();
 
 use VPNDetection::Error;
 
-our $VERSION = '1.1.0';
+our $VERSION = '1.2.1';
 
 # The dataset FAMILIES your organization is licensed to download. A license
 # covers a family, while a download names one of its versions, so the ids the
@@ -252,7 +252,7 @@ itself:
         base => 'vpn_ip',               # what the license is held against
         name => 'VPN IP',
         summary => 'IP ranges observed as VPN infrastructure.',
-        redistribution => 'internal',   # evaluation, internal or redistribute
+        license_type => 'standard',   # evaluation, standard or redistribute
         starts => '2026-09-04T07:49:45.118Z',
         expires => undef,               # undef when the license does not expire
         in_term => 1,                   # false once the term has ended

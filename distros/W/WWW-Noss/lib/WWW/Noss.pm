@@ -2,7 +2,7 @@ package WWW::Noss;
 use 5.016;
 use strict;
 use warnings;
-our $VERSION = '2.03';
+our $VERSION = '2.04';
 
 use Cwd;
 use Getopt::Long qw(GetOptionsFromArray);
@@ -21,6 +21,7 @@ use WWW::Noss::Curl qw(curl curl_error http_status_string);
 use WWW::Noss::DB;
 use WWW::Noss::FeedConfig;
 use WWW::Noss::FeedReader qw(discover_feeds);
+use WWW::Noss::Forker;
 use WWW::Noss::GroupConfig;
 use WWW::Noss::Home qw(home);
 use WWW::Noss::Lynx qw(lynx_dump);
@@ -32,9 +33,6 @@ my $PRGNAM = 'noss';
 my $PRGVER = $VERSION;
 
 # TODO: Command aliases?
-# TODO: "open" feed setting? (command to use for opening post URLs)
-
-# TODO: Have list --limit ... only show the latest posts rather than earliest
 
 my %COMMANDS = (
     'update'   => \&update,
@@ -704,6 +702,10 @@ sub _feed_params {
         $params{ hidden } = !! $ref->{ hidden };
     }
 
+    if (defined $ref->{ open }) {
+        $params{ open } = $ref->{ open };
+    }
+
     return %params;
 
 }
@@ -1020,8 +1022,6 @@ sub update {
 
     my ($self) = @_;
 
-    require Parallel::ForkManager;
-
     # --hard implies --unconditional
     if ($self->{ HardReload }) {
         $self->{ Unconditional } = 1;
@@ -1063,26 +1063,26 @@ sub update {
 
     my @change;
 
-    my $pm = Parallel::ForkManager->new($self->{ Forks });
-    $pm->run_on_finish(sub {
-        push @change, ${ $_[5] } if defined $_[5];
+    my $forker = WWW::Noss::Forker->new($self->{ Forks });
+    $forker->run_on_finish(sub {
+        push @change, ${ $_[2] } if defined $_[2];
     });
     DOWNLOAD: for my $u (@updates) {
 
-        $pm->start and next DOWNLOAD;
+        $forker->start and next DOWNLOAD;
 
         my ($name, $skip) = @$u;
         my $feed = $self->{ Feeds }{ $name };
 
         if ($feed->respect_skip and !$self->{ Unconditional } and $skip) {
             say "Skipping $name";
-            $pm->finish;
+            $forker->finish;
             last;
         }
 
         if ($feed->respect_skip and !$self->{ Unconditional } and !$feed->can_we_retry) {
             say "Skipping $name; performed too many requests";
-            $pm->finish;
+            $forker->finish;
             last;
         }
 
@@ -1103,14 +1103,14 @@ sub update {
         }
 
         if ($self->{ HardReload }) {
-            $pm->finish(0, \$name);
+            $forker->finish(0, \$name);
         } else {
-            $pm->finish(0, $changed ? \$name : undef);
+            $forker->finish(0, $changed ? \$name : undef);
         }
 
     }
 
-    $pm->wait_all_children;
+    $forker->wait_all_children;
 
     my %feed_updates;
 
@@ -1359,10 +1359,11 @@ sub open_post {
         }
     }
 
-    system "$self->{ Browser } $url";
+    my $browser = $self->{ Feeds }{ $feed_name }->open_cmd // $self->{ Browser };
+    system "$browser $url";
 
     unless ($? >> 8 == 0) {
-        die "Failed to open $url with $self->{ Browser }\n";
+        die "Failed to open $url with $browser\n";
     }
 
     if (defined $id and not $self->{ NoMark }) {
@@ -1519,10 +1520,19 @@ sub mark {
     } elsif (exists $self->{ Feeds }{ $targ }) {
         @feeds = ($targ);
         for my $p (@{ $self->{ Args } }) {
-            unless ($p =~ /^(?<from>\d+)(-(?<to>\d+))?$/) {
+            unless ($p =~ /^(?<from>-?[0-9]+)(-(?<to>-?[0-9]+))?$/) {
                 die "'$p' is not a post argument\n";
             }
-            push @posts, $+{ from } .. $+{ to } // $+{ from };
+            my ($from, $to) = @+{ qw(from to) };
+            $to //= $from;
+            if ($from < 0 xor $to < 0) {
+                die "cannot mix negative and positive post arguments\n";
+            }
+            push @posts, (
+                $from < $to
+                ? ($from .. $to)
+                : ($to .. $from)
+            );
         }
     } else {
         die "'$targ' is not the name of a feed or group\n";
@@ -2050,7 +2060,7 @@ sub init {
             if (not defined $self->{ Cmd } and $_[0] !~ /^-/) {
                 $self->{ Cmd } = $_[0];
             } else {
-                if ($_[0] =~ /^-\d+$/) {
+                if ($_[0] =~ /^[\-0-9]+$/) {
                     # So that negative post arguments (-1, -2, etc.) do not get
                     # treated like CLI flags.
                     push @{ $self->{ Args } }, $_[0];

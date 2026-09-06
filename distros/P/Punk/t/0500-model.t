@@ -228,4 +228,86 @@ is($m->get(id => 3), undef, 'and the row is gone');
         'bare model; discovers the rest even alongside a named model');
 }
 
+# ---- a model class may be subclassed ---------------------------------------
+#
+# `table` and `field` are statements in the package body, so they run when the
+# class loads - long after `use Punk::Model` decided what the class knew. The
+# metadata is therefore merged at lookup, not seeded at import: a subclass
+# seeded at import time would copy a parent that was still empty.
+
+{
+    package TBase;
+    use Punk::Model;
+    table 'widgets';
+    field id   => { type => 'integer', primary => 1 };
+    field name => { type => 'string' };
+
+    package TPlain;                     # inherits everything, declares nothing
+    our @ISA = ('TBase');
+
+    package TAdds;                      # adds a field
+    our @ISA = ('TBase');
+    use Punk::Model;
+    field colour => { type => 'string' };
+
+    package TTable;                     # same fields, its own table
+    our @ISA = ('TBase');
+    use Punk::Model;
+    table 'other_widgets';
+
+    package TRetype;                    # redeclares one field's spec
+    our @ISA = ('TBase');
+    use Punk::Model;
+    field name => { type => 'integer' };
+
+    package TDeep;                      # two levels
+    our @ISA = ('TAdds');
+    use Punk::Model;
+    field extra => { type => 'string' };
+}
+
+sub meta_of { Punk::Model::_punk_model_meta($_[0]) }
+
+{
+    my $m = meta_of('TPlain');
+    ok($m, 'a subclass that declares nothing still has metadata');
+    is($m->{table}, 'widgets', '  the parent table');
+    is_deeply($m->{fields}, [qw(id name)], '  and the parent fields');
+}
+
+{
+    my $m = meta_of('TAdds');
+    is($m->{table}, 'widgets', 'a subclass that adds a field keeps the table');
+    is_deeply($m->{fields}, [qw(id name colour)],
+        '  and its field comes after the inherited ones');
+}
+
+{
+    my $m = meta_of('TTable');
+    is($m->{table}, 'other_widgets', 'a subclass may name its own table');
+    is_deeply($m->{fields}, [qw(id name)], '  and still inherit the fields');
+}
+
+{
+    my $m = meta_of('TRetype');
+    is($m->{field}{name}{type}, 'integer', 'a redeclared field wins');
+    is_deeply($m->{fields}, [qw(id name)],
+        '  and keeps the position the parent gave it, so the column order '
+      . 'does not shift');
+}
+
+{
+    my $m = meta_of('TDeep');
+    is_deeply($m->{fields}, [qw(id name colour extra)],
+        'inheritance is transitive');
+}
+
+{
+    my $m = meta_of('TBase');
+    is_deeply($m->{fields}, [qw(id name)],
+        'and none of it disturbed the parent');
+    is($m->{field}{name}{type}, 'string', '  including a field a child retyped');
+}
+
 done_testing();
+

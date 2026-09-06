@@ -1,5 +1,72 @@
 # Revision history for WebDyne
 
+## 3.026 - 2026-09-05
+
+- Required Carp 1.50 or newer so Devel::Confess preserves the original PAGI
+  send failure on older Perls instead of reporting a stack-argument copy
+  error. Installed Future::IO explicitly in CI to run the PAGI multipart
+  tests instead of skipping them.
+
+- Retained the PAGI response Future before awaiting it to avoid a Perl 5.38
+  segmentation fault when Devel::Confess builds a stack trace for a failed
+  response send. Exception tracing remains enabled.
+
+- Added regression coverage for failed PAGI response body sends, checking
+  that the original error propagates without sending additional events.
+
+## 3.025 - 2026-09-05
+
+- Preserved repeated Set-Cookie headers in PAGI responses and flattened
+  repeated PSGI response headers into separate scalar pairs. Apache header
+  snapshots now retain repeated values; their documented snapshot semantics
+  remain unchanged.
+
+- Bound PAGI and PSGI HTTP request bodies with WEBDYNE_CGI_POST_MAX (512 KiB
+  by default) before page dispatch. Added support for bodies without
+  Content-Length and robust PSGI short-read handling, with oversized bodies
+  rejected using HTTP 413 and invalid or incomplete PSGI bodies using HTTP
+  400.
+
+- Corrected PAGI mounted-path handling relative to root_path and normalized
+  outgoing HTTP header names to lowercase.
+
+- Buffered bounded URL-encoded PAGI SSE form bodies before page setup,
+  awaited SSE close sends, and returned explicit denial responses for SSE
+  setup failures and WebSocket handshakes without valid page callbacks.
+  Multipart SSE submissions remain unsupported.
+
+- Accepted URL-encoded form Content-Type parameters such as charset. Apache
+  body readers now support missing Content-Length, reject incomplete reads,
+  and enforce defensive size checks for buffered and streaming input.
+  Multipart forms without a length are buffered for CGI::Simple parsing.
+
+- Documented Apache LimitRequestBody as the primary request-size protection.
+  Adapter checks also enforce WEBDYNE_CGI_POST_MAX; uncaught defensive
+  exceptions currently produce HTTP 500.
+
+- Added regression coverage for the request-adapter fixes to MANIFEST and
+  made the new PSGI tests skip when optional Plack dependencies are
+  unavailable. Refreshed the WebDyne 3.0 release overview and upgrade
+  guidance.
+
+- Added GitHub build-provenance attestations for release distribution
+  archives, alongside existing Cosign signatures. README.md now explains
+  verification with gh attestation verify against aspeer/WebDyne, including
+  archives downloaded from CPAN mirrors. Prefixed release-script shell globs
+  with ./ to prevent filenames being interpreted as options.
+
+- Removed the Plack dependency from static-file subrequests used by
+  standalone utilities. The historical PSGI::Static helper now inherits
+  from Request::Fake; cpanfile no longer requires Plack::Request. Added
+  regression coverage for utilities without Plack/PAGI, binary and empty
+  static files, missing files, and PSGI/PAGI parent requests.
+
+- Reviewed and expanded the DocBook guide against the current code.
+  Corrected examples and runtime defaults, and added guidance on PAGI async
+  state and await boundaries, SSE and WebSocket completion, request and
+  response handling, uploads, escaping, body limits, and production
+  deployment.
+
 ## 3.024 - 2026-09-05
 
 - Fixed PAGI multipart form uploads by staging bounded request bodies before

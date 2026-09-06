@@ -1,5 +1,24 @@
 Revision history for Music-Percussion-Tabla
 
+0.0709 2026-09-05 17:44:48
+    - Fix the module ABSTRACT. Oops. :(
+
+0.0708 2026-09-05 17:40:07
+    - Return strikes from the combination routines.
+    - Improve documentation.
+    - Clean-up the eg/rt-tabla.pl program.
+
+0.0707 2026-09-05 16:20:44
+    - Fix the array-ref handling logic in the eg/rt-tabla.pl program.
+
+0.0706 2026-09-05 15:37:55
+    - Add handy instructions regarding the soundfont.
+
+0.0705 2026-09-05 15:31:17
+    - Playing with timidity is no longer a thing.
+    - Return note specifications from the `strike()` method.
+    - Add the eg/rt-tabla.pl example program.
+
 0.0704 2025-02-02 15:44:22
     - Make 'ga' a 'ge' strike.
 

@@ -14,6 +14,7 @@ lib/WWW/Noss/FeedReader.pm
 lib/WWW/Noss/FeedReader/Atom.pm
 lib/WWW/Noss/FeedReader/MediaRSS.pm
 lib/WWW/Noss/FeedReader/RSS.pm
+lib/WWW/Noss/Forker.pm
 lib/WWW/Noss/GroupConfig.pm
 lib/WWW/Noss/Home.pm
 lib/WWW/Noss/Lynx.pm
@@ -37,6 +38,7 @@ t/35_rss.t
 t/40_read_feed.t
 t/45_opml.t
 t/50_db.t
+t/55_forker.t
 t/data/atom.xml
 t/data/dir/.hidden.txt
 t/data/dir/a.txt

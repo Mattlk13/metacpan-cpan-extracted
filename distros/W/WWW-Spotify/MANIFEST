@@ -21,6 +21,7 @@ t/03-ua.t
 t/04-send-request.t
 t/05-oauth-user.t
 t/06-methods-mocked.t
+t/lib/MockUA.pm
 tidyall.ini
 weaver.ini
 xt/author/eol.t

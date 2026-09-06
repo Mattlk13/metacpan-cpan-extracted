@@ -224,6 +224,11 @@ Specify whether this feed should be included in a default update or not
 Specify whether this feed should be omitted from the C<list> command's default
 listing (the list shown when ran with no arguments). Defaults to C<false>.
 
+=item "B<open>": "I<command>"
+
+Specify command to use for opening feed's URLs. Overrides global C<open>
+command.
+
 =back
 
 A feed's specific configuration takes priority over the configuration it may

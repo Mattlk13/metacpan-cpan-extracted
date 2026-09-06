@@ -15,7 +15,8 @@ my @files = (
     't/03-ua.t',
     't/04-send-request.t',
     't/05-oauth-user.t',
-    't/06-methods-mocked.t'
+    't/06-methods-mocked.t',
+    't/lib/MockUA.pm'
 );
 
 eol_unix_ok($_, { trailing_whitespace => 1 }) foreach @files;

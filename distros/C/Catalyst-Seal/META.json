@@ -1,5 +1,5 @@
 {
-   "abstract" : "freeze a Catalyst application at setup and make it 4x faster",
+   "abstract" : "freeze a Catalyst application at setup and make it 5x faster",
    "author" : [
       "LNATION <email@lnation.org>"
    ],
@@ -57,6 +57,6 @@
          "web" : "https://github.com/ThisUsedToBeAnEmail/Catalyst-Seal"
       }
    },
-   "version" : "0.03",
+   "version" : "0.04",
    "x_serialization_backend" : "JSON::PP version 4.16"
 }

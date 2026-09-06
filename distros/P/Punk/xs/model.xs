@@ -18,8 +18,10 @@ import(class, ...)
         if (!caller || strEQ(caller, "main")) XSRETURN_EMPTY;
         caller_sv = sv_2mortal(newSVpv(caller, 0));
 
-        /* already a model (a second `use`, or a subclass): nothing to do */
-        if (pm_meta_hv(aTHX_ caller_sv)) XSRETURN_EMPTY;
+        /* a second `use` in the same class: nothing to do. Asked of the
+         * class's OWN metadata - an inherited one means this is a subclass,
+         * which does need its own entry to declare into. */
+        if (pm_meta_own(aTHX_ caller_sv)) XSRETURN_EMPTY;
 
         meta = newHV();
         (void)hv_stores(meta, "table",    newSV(0));
@@ -31,9 +33,12 @@ import(class, ...)
         meta_rv = newRV_noinc((SV *)meta);
         (void)hv_store_ent(pm_registry(aTHX), caller_sv, meta_rv, 0);
 
-        {   /* @Caller::ISA = ('Punk::Model') */
-            AV *isa = get_av(form("%s::ISA", caller), GV_ADD);
-            av_push(isa, newSVpvs("Punk::Model"));
+        {   /* @Caller::ISA = ('Punk::Model'), unless a parent already put a
+             * model there - pushing it twice would be harmless but untidy. */
+            if (!sv_derived_from(caller_sv, "Punk::Model")) {
+                AV *isa = get_av(form("%s::ISA", caller), GV_ADD);
+                av_push(isa, newSVpvs("Punk::Model"));
+            }
         }
 
         {   /* the keywords, each carrying [ $meta ] */

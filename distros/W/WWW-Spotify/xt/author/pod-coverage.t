@@ -27,7 +27,7 @@ plan tests => scalar @modules;
 
 my %trustme = (
              'WWW::Spotify' => [
-                                 qr/(build_url_base|current_oath_code|format_results|get_client_credentials|get_oauth_authorize|has_last_response|join_ids|me|next_result_set|previous_result_set|send_delete_request|send_get_request|send_post_request|send_put_request|user_playlist|user_playlist_add_tracks|user_playlist_create|user_playlists)/
+                                 qr/(format_results|get_client_credentials|me|next_result_set|previous_result_set|query_full_url|send_get_request|send_post_request)/
                                ]
            );
 

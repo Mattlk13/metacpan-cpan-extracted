@@ -1,0 +1,47 @@
+Punk-Feed
+
+Atom and RSS feeds for Punk.
+
+A feed is a window on what an application published recently, in a form a
+reader can poll. Punk::Plugin::Feed builds one, in both formats readers speak,
+from a callback the application supplies - once at to_app and again when a TTL
+has passed, served from frozen bytes in between. It is modelled on
+Punk::Plugin::Sitemap and shares its rules: the origin comes from
+configuration and never from the request's Host header, URLs are
+percent-encoded before they are XML-escaped, and a section that dies warns and
+contributes nothing rather than taking the request with it.
+
+This distribution has XS in it and needs a C compiler. It needs Punk 0.43,
+installed or present as a sibling directory.
+
+
+INSTALLATION
+
+To install this module, run the following commands:
+
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+SUPPORT AND DOCUMENTATION
+
+After installing, you can find documentation for this module with the
+perldoc command.
+
+    perldoc Punk::Feed
+    perldoc Punk::Plugin::Feed
+
+You can also look for information at:
+
+    Search CPAN
+        https://metacpan.org/release/Punk-Feed
+
+
+LICENSE AND COPYRIGHT
+
+This software is Copyright (c) 2026 by LNATION <email@lnation.org>.
+
+This is free software, licensed under:
+
+  The Artistic License 2.0 (GPL Compatible)

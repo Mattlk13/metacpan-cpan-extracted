@@ -28,6 +28,10 @@ Like the PSGI adapter, it can derive a target filename from the request path, co
 
     Construct a PAGI-backed request adapter.
 
+* **path_info() / script_name()**
+
+    Return the application-relative path and the PAGI `root_path` mount point. Filename and API lookup strip the mount prefix at a path boundary; `path()` and the original scope retain the full request path.
+
 * **env()**
 
     Return the normalized environment view used by the adapter.
@@ -44,9 +48,13 @@ Like the PSGI adapter, it can derive a target filename from the request path, co
 
     Return server identity details.
 
+* **content_length()**
+
+    Return the declared Content-Length when present. Otherwise, return the byte length of a body already buffered by the PAGI handler, or undef when no buffered length is available. Original request headers remain unchanged.
+
 * **body() / body_handle()**
 
-    Read or stream the request body.
+    Read the completed HTTP request body buffered before page execution. `body_handle()` returns a fresh binary handle positioned at the beginning of those bytes. Synchronous access requires a buffered body; it does not drive the server event loop.
 
 * **headers_in() / headers_out()**
 

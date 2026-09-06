@@ -28,5 +28,5 @@ resources:
   bugtracker: https://github.com/PDLPorters/PDL-IO-HDF/issues
   homepage: http://pdl.perl.org/
   repository: git://github.com/PDLPorters/PDL-IO-HDF.git
-version: '2.004'
+version: '2.005'
 x_serialization_backend: 'CPAN::Meta::YAML version 0.018'

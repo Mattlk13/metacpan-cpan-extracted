@@ -3,7 +3,7 @@ package Catalyst::Seal::Guard;
 use strict;
 use warnings;
 
-our $VERSION = '0.01';
+our $VERSION = '0.04';
 
 our %ORIGINAL;
 
@@ -89,4 +89,3 @@ This is free software, licensed under:
   The Artistic License 2.0 (GPL Compatible)
 
 =cut
-

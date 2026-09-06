@@ -2,7 +2,7 @@ package WWW::Noss::DB;
 use 5.016;
 use strict;
 use warnings;
-our $VERSION = '2.03';
+our $VERSION = '2.04';
 
 use List::Util qw(all any max none);
 
@@ -934,7 +934,14 @@ sub mark {
 
     my @wheres = ("feed = " . $self->{ DB }->quote($feed));
 
-    if (@post) {
+    if (any { $_ < 0 } @post) {
+        my $largest = $self->largest_id($feed);
+        push @wheres,
+            sprintf "nossid IN (%s)",
+            join ',',
+            map { $_ < 0 ? $largest + $_ + 1 : $_ }
+            @post;
+    } elsif (@post > 0) {
         push @wheres, sprintf "nossid IN (%s)", join ',', @post;
     }
 

@@ -34,7 +34,15 @@ static const char *const PM_SCHEMA_KEYS[] = {
     "multipleOf", "minItems", "maxItems", NULL
 };
 
-static HV *pm_meta_hv(pTHX_ SV *class_sv) {
+static SV *pm_get(pTHX_ HV *hv, const char *k) {
+    SV **e = hv_fetch(hv, k, (I32)strlen(k), 0);
+    return (e && *e) ? *e : NULL;
+}
+
+/* The class's OWN metadata: an exact registry hit, no inheritance. This is
+ * what `import` asks, so that a subclass gets its own entry to declare into
+ * rather than being mistaken for one that has already been set up. */
+static HV *pm_meta_own(pTHX_ SV *class_sv) {
     HE *he = hv_fetch_ent(pm_registry(aTHX), class_sv, 0, 0);
     if (!he) return NULL;
     {
@@ -44,10 +52,155 @@ static HV *pm_meta_hv(pTHX_ SV *class_sv) {
     }
 }
 
-static SV *pm_get(pTHX_ HV *hv, const char *k) {
-    SV **e = hv_fetch(hv, k, (I32)strlen(k), 0);
-    return (e && *e) ? *e : NULL;
+/* The metadata a class reads: its own, else the nearest ancestor's.
+ *
+ * A subclass that only says `use parent 'Some::Model'` declares nothing of
+ * its own and inherits the whole table, which is what a subclass of a model
+ * is for. Depth-first over @ISA, the order method resolution uses, with a
+ * depth bound so a cyclic @ISA cannot spin. */
+static HV *pm_meta_isa(pTHX_ SV *class_sv, int depth) {
+    HV *own = pm_meta_own(aTHX_ class_sv);
+    AV *isa;
+    SSize_t i, n;
+
+    if (own) return own;
+    if (depth >= 16) return NULL;
+
+    isa = get_av(form("%s::ISA", SvPV_nolen(class_sv)), 0);
+    if (!isa) return NULL;
+
+    n = av_len(isa) + 1;
+    for (i = 0; i < n; i++) {
+        SV **e = av_fetch(isa, i, 0);
+        HV *m;
+        if (!(e && *e && SvOK(*e))) continue;
+        m = pm_meta_isa(aTHX_ *e, depth + 1);
+        if (m) return m;
+    }
+    return NULL;
 }
+
+/* The class and its ancestors that declared metadata, nearest first. */
+static void pm_meta_chain(pTHX_ SV *class_sv, AV *out, int depth) {
+    HV *own;
+    AV *isa;
+    SSize_t i, n;
+
+    if (depth >= 16) return;
+    own = pm_meta_own(aTHX_ class_sv);
+    if (own) av_push(out, newRV_inc((SV *)own));
+
+    isa = get_av(form("%s::ISA", SvPV_nolen(class_sv)), 0);
+    if (!isa) return;
+    n = av_len(isa) + 1;
+    for (i = 0; i < n; i++) {
+        SV **e = av_fetch(isa, i, 0);
+        if (e && *e && SvOK(*e)) pm_meta_chain(aTHX_ *e, out, depth + 1);
+    }
+}
+
+/* The metadata a class reads, with its ancestors' merged in.
+ *
+ * This is done at LOOKUP and not at `use Punk::Model`, because `table` and
+ * `field` are statements in the package body: they run when the class is
+ * loaded, long after import decided what the class knew. A subclass seeded at
+ * import time would copy an empty parent.
+ *
+ * Nearest wins: a subclass may add fields, or redeclare one to change its
+ * spec, and names it does not mention keep the parent's. The merged hash is
+ * cached under its own registry key, so the merge happens once per class and
+ * the parent's own entry is never disturbed.
+ */
+static HV *pm_meta_merged(pTHX_ SV *class_sv) {
+    AV *chain = (AV *)sv_2mortal((SV *)newAV());
+    HV *m;
+    AV *fields;
+    HV *field;
+    SSize_t i, n;
+
+    pm_meta_chain(aTHX_ class_sv, chain, 0);
+    n = av_len(chain) + 1;
+    if (n == 0) return NULL;
+    /* the common case: nothing inherited, so nothing to merge */
+    if (n == 1) return (HV *)SvRV(*av_fetch(chain, 0, 0));
+
+    {   /* already merged for this class? */
+        SV *key = sv_2mortal(newSVsv(class_sv));
+        HE *he;
+        sv_catpvn(key, "\0merged", 7);
+        he = hv_fetch_ent(pm_registry(aTHX), key, 0, 0);
+        if (he) {
+            SV *v = HeVAL(he);
+            if (v && SvROK(v) && SvTYPE(SvRV(v)) == SVt_PVHV)
+                return (HV *)SvRV(v);
+        }
+    }
+
+    m      = newHV();
+    fields = newAV();
+    field  = newHV();
+    (void)hv_stores(m, "database", newSVpvs("default"));
+
+    /* furthest ancestor first, so the nearest overwrites */
+    for (i = n - 1; i >= 0; i--) {
+        HV *src = (HV *)SvRV(*av_fetch(chain, i, 0));
+        SV *t = pm_get(aTHX_ src, "table");
+        SV *p = pm_get(aTHX_ src, "primary");
+        SV *v = pm_get(aTHX_ src, "validate");
+        SV *d = pm_get(aTHX_ src, "database");
+        SV *f = pm_get(aTHX_ src, "fields");
+        SV *h = pm_get(aTHX_ src, "field");
+
+        if (t && SvOK(t)) (void)hv_stores(m, "table",    newSVsv(t));
+        if (p && SvOK(p)) (void)hv_stores(m, "primary",  newSVsv(p));
+        if (v && SvOK(v)) (void)hv_stores(m, "validate", newSVsv(v));
+        if (d && SvOK(d)) (void)hv_stores(m, "database", newSVsv(d));
+
+        if (h && SvROK(h) && SvTYPE(SvRV(h)) == SVt_PVHV) {
+            HV *sh = (HV *)SvRV(h);
+            HE *he;
+            hv_iterinit(sh);
+            while ((he = hv_iternext(sh))) {
+                STRLEN kl;
+                const char *k = HePV(he, kl);
+                (void)hv_store(field, k, (I32)kl, newSVsv(HeVAL(he)), 0);
+            }
+        }
+        /* declaration order, each name once: a redeclared field keeps the
+         * position the parent gave it rather than moving to the end */
+        if (f && SvROK(f) && SvTYPE(SvRV(f)) == SVt_PVAV) {
+            AV *sf = (AV *)SvRV(f);
+            SSize_t j, fn = av_len(sf) + 1;
+            for (j = 0; j < fn; j++) {
+                SV **e = av_fetch(sf, j, 0);
+                SSize_t k, kn = av_len(fields) + 1;
+                int seen = 0;
+                if (!(e && *e && SvOK(*e))) continue;
+                for (k = 0; k < kn; k++) {
+                    SV **g = av_fetch(fields, k, 0);
+                    if (g && *g && sv_eq(*g, *e)) { seen = 1; break; }
+                }
+                if (!seen) av_push(fields, newSVsv(*e));
+            }
+        }
+    }
+
+    (void)hv_stores(m, "fields", newRV_noinc((SV *)fields));
+    (void)hv_stores(m, "field",  newRV_noinc((SV *)field));
+
+    {
+        SV *key = sv_2mortal(newSVsv(class_sv));
+        sv_catpvn(key, "\0merged", 7);
+        (void)hv_store_ent(pm_registry(aTHX), key,
+                           newRV_noinc((SV *)m), 0);
+    }
+    return m;
+}
+
+static HV *pm_meta_hv(pTHX_ SV *class_sv) {
+    return pm_meta_merged(aTHX_ class_sv);
+}
+
 
 /* ---- the declaration keywords -------------------------------------------- *
  * Each is a magic CV carrying [ $meta_hashref ], installed into the model

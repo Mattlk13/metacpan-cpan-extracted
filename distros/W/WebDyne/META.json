@@ -41,6 +41,7 @@
          "requires" : {
             "CGI::Simple" : "0",
             "Capture::Tiny" : "0",
+            "Carp" : "1.50",
             "Crypt::URandom" : "0",
             "Devel::Confess" : "0",
             "Digest::MD5" : "0",
@@ -95,7 +96,7 @@
          "web" : "https://github.com/aspeer/WebDyne"
       }
    },
-   "version" : "3.024",
+   "version" : "3.026",
    "x_authority" : "cpan:ASPEER",
    "x_serialization_backend" : "JSON::PP version 4.16"
 }

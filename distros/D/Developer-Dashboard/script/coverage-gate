@@ -42,6 +42,7 @@ BEGIN {
 }
 
 use Capture::Tiny qw(capture);
+use Cwd ();
 use Digest::SHA qw(sha256_hex);
 use Fcntl qw(:flock);
 use File::Find ();
@@ -92,6 +93,43 @@ sub _gate_lock_path {
 # not unlink these, ever, and do not let a cleanup rule match them.
 use constant LEGACY_GATE_LOCK => '.coverage-gate.lock';
 
+# DD-734. THE HOST LOCK, WHICH GUARDS SOMETHING THE DATABASE LOCK DOES NOT.
+#
+# The lock above stops two gates sharing one coverage database. It does not stop
+# a full SUITE running underneath a coverage pass: run-suite takes a host-wide
+# lock at DD_SUITE_LOCK (DD-696) and this script never looked at that path, so
+# both tools locked, on different files, and neither could block the other. A
+# suite starting mid-coverage invalidates the coverage verdict silently.
+#
+# Same default as run-suite, and injectable for the same reason: this suite is
+# sometimes run BY the gate, and a test that took the real path would block or be
+# blocked by a genuine run.
+use constant HOST_GATE_LOCK => '/tmp/dd-gate-host.lock';
+
+# Purpose: the host lock this run must hold, or nothing when it must not take one.
+# Input:   none - it reads DD_SUITE_LOCK and HARNESS_ACTIVE from the environment.
+# Output:  the single host lock path, or an empty list under a harness.
+sub _host_gate_lock_paths {
+
+    # THE GUARD THAT STOPS THIS BEING DD-526 AGAIN. run-suite holds the host lock
+    # for the whole prove run, and the suite it runs invokes this script in nine
+    # test files, none of which injects a lock path. Taking the host lock
+    # unconditionally would have every one of them refused by a lock held by the
+    # suite running them - which is DD-526 word for word: the gate could never
+    # pass the suite it was running.
+    #
+    # An flock does not rescue it. Descriptors duplicated by fork are references
+    # to ONE lock and cannot self-block, but this script OPENS the path itself,
+    # and a separate open() of the same file contends.
+    #
+    # So a gate under a harness is a test FIXTURE rather than a verification run,
+    # and takes no host lock. A gate reached from coverage-run is a real run and
+    # HARNESS_ACTIVE is unset there.
+    return () if $ENV{HARNESS_ACTIVE};
+
+    return ( $ENV{DD_SUITE_LOCK} || HOST_GATE_LOCK );
+}
+
 # Purpose: list every lock path this run must hold to be sure it is alone with its
 #          database - which during a rename means the new name and the old one.
 # Input: the database this run intends to own.
@@ -107,10 +145,55 @@ sub _gate_lock_paths {
     push @paths, File::Spec->rel2abs(LEGACY_GATE_LOCK)
         if File::Spec->rel2abs($database) eq File::Spec->rel2abs('cover_db');
 
+    # The host lock is appended rather than replacing anything: the database lock
+    # keeps doing the work it was moved to the database FOR, and two gates given
+    # different --database paths must still not refuse each other.
+    push @paths, _host_gate_lock_paths();
+
     return @paths;
 }
 
 exit main(@ARGV);
+
+# Purpose: find the git checkout root containing a directory.
+# Input:   a directory path.
+# Output:  the canonical root, or undef when the path is not inside a checkout.
+#
+# Walks up looking for .git rather than shelling out to git, so the gate gains no
+# subprocess and no PATH dependency. It tests for EXISTENCE, not for a directory:
+# a linked worktree carries .git as a FILE, and this project works every ticket in
+# a worktree, so a -d test would report every sandbox as "not a checkout" and the
+# guard below would never fire where it matters most.
+sub _checkout_root {
+    my ($dir) = @_;
+    return undef if !defined $dir || $dir eq '';
+
+    # CANONICALISE FIRST, and this is not tidiness - it is the whole
+    # correctness of the comparison below. $repository arrives as
+    # "<root>/script/.." because it is built with File::Spec->updir, and
+    # rel2abs does NOT collapse "..". Testing -e on "<root>/script/../.git"
+    # succeeds, so without abs_path this returns the uncollapsed string, which
+    # then compares UNEQUAL to the caller's "<root>" and the gate refuses to
+    # run in its own checkout. Measured exactly that way before this line
+    # existed.
+    my $here = Cwd::abs_path($dir);
+    return undef if !defined $here;
+    my %seen;
+    while ( defined $here && !$seen{$here}++ ) {
+        return $here if -e File::Spec->catfile( $here, '.git' );
+        # abs_path, NOT rel2abs, and the difference is a hang. rel2abs does not
+        # collapse "..", so the walk produced "/tmp/x/..", then "/tmp/x/../..",
+        # then "/tmp/x/../../.." - a string that grows for ever and never equals
+        # its predecessor, so the loop never terminated and the %seen guard never
+        # fired because every value was new. It only bites when NOTHING is found,
+        # which is why a checkout resolved instantly and a temp directory hung.
+        my $up = Cwd::abs_path( File::Spec->catdir( $here, File::Spec->updir ) );
+        last if !defined $up || $up eq $here;
+        $here = $up;
+    }
+    return undef;
+}
+
 
 # Purpose: run the four-metric coverage gate end to end inside one environment.
 # Input: the raw @ARGV list - optional --database, --dry-run and --help, plus
@@ -145,6 +228,45 @@ sub main {
     my $repository       = File::Spec->catdir( $script_directory, File::Spec->updir );
     my $checker          = File::Spec->catfile( $script_directory, 'check-all-metric-coverage' );
     return _unusable("the coverage checker is missing: $checker") if !-f $checker;
+
+    # WHICH TREE IS ABOUT TO BE GRADED - refuse rather than choose silently (DD-744).
+    #
+    # This gate derives its repository from its OWN file location, which is
+    # deliberate: run from anywhere, "grade the repository I belong to" is the
+    # sane reading. It stops being sane when the caller is standing in a
+    # DIFFERENT checkout, because then the tool makes a choice the caller never
+    # saw - it grades another tree, succeeds, and prints a normal-looking result.
+    #
+    # THE CONDITION IS NARROW ON PURPOSE, and widening it breaks real specs.
+    # Refusing whenever the two paths differ would break every spec that copies
+    # this gate into a throwaway directory and runs it from the real checkout -
+    # t/151-coverage-gate-launch-boundary.t does exactly that six times. A
+    # temp directory is not a checkout, so requiring BOTH sides to be checkouts
+    # leaves those runs untouched and still catches the case that matters.
+    my $caller_checkout = _checkout_root( File::Spec->curdir );
+    my $repo_checkout   = _checkout_root($repository);
+
+    # COMPARE CASE-INSENSITIVELY WHERE THE FILESYSTEM IS. On Windows and on a
+    # case-tolerant macOS volume, C:\proj and c:\proj are ONE directory, and
+    # abs_path does not promise a canonical case - so a plain `ne` would report
+    # a divergence that does not exist and refuse the gate in its OWN checkout.
+    # That is a false refusal: safe in direction (it declines rather than
+    # grading the wrong tree) but it would block every legitimate run there.
+    #
+    # File::Spec->case_tolerant() is FALSE on Linux, so this leaves the
+    # behaviour on this host exactly as the specs already measure it.
+    my $diverged =
+      File::Spec->case_tolerant()
+      ? ( lc($caller_checkout) ne lc($repo_checkout) )
+      : ( $caller_checkout ne $repo_checkout );
+
+    if ( defined $caller_checkout && defined $repo_checkout && $diverged ) {
+        return _unusable(
+                  "this gate would grade $repo_checkout, but you are standing in "
+                . "$caller_checkout - two different checkouts. Run that checkout's own "
+                . 'script/coverage-gate instead, or pass --database explicitly if you '
+                . 'really mean to grade the other tree' );
+    }
 
     chdir $repository or return _unusable("cannot enter the repository root $repository: $!");
 
@@ -427,7 +549,11 @@ sub _announce {
     printf "coverage gate:   perl        : %s\n",       $^X;
     printf "coverage gate:   PERL5LIB    : %s\n",       defined $ENV{PERL5LIB} ? $ENV{PERL5LIB} : '(unset)';
     printf "coverage gate:   serializer  : %s\n",       $instrument;
-    printf "coverage gate:   database    : %s\n",       $database;
+    # ABSOLUTE, not the configured name. "cover_db" is byte-identical whichever
+    # tree this resolves in, so printing it answers nothing about which database
+    # is about to be deleted and rebuilt - the exact reason this defect survived
+    # a --dry-run inspection (DD-744).
+    printf "coverage gate:   database    : %s\n",       File::Spec->rel2abs($database);
     printf "coverage gate:   drop        : %s\n", join ' ', @{$delete};
     printf "coverage gate:   suite       : %s\n", join ' ', @{$suite};
     printf "coverage gate:   report      : %s\n", join ' ', @{$report};
@@ -518,6 +644,9 @@ sub _usage_text {
     return <<'USAGE';
 usage: perl script/coverage-gate [--database DIR] [--dry-run] [--help] [TEST_PATH...]
 
+Refuses when your working directory is inside a different git checkout from the
+one this script belongs to - run that checkout's own script/coverage-gate.
+
 Runs the whole four-metric coverage gate as one process, so every command in the
 chain inherits one environment:
 
@@ -587,10 +716,38 @@ contention.
 
 =head1 HOW TO USE
 
-Run it from anywhere; it enters the repository root itself. Give it test paths
+Run it from anywhere INSIDE its own checkout, or from outside any checkout; it
+enters the repository root itself. It will B<refuse> when the working directory
+is inside a DIFFERENT git checkout from the one it belongs to, naming both, and
+tell you to run that checkout's own copy instead - because otherwise it would
+grade a tree the caller never meant, succeed, and print a normal-looking result
+(DD-744). The refusal is narrow by design: it needs BOTH sides to be checkouts,
+so a copy running from a scratch directory is unaffected.
+
+The resolved database is reported as an ABSOLUTE path. The configured name is
+relative and therefore identical whichever tree it lands in, which is precisely
+why a C<--dry-run> inspection could not tell two trees apart. Give it test paths
 to narrow the instrumented run, C<--database> to keep the database somewhere
 other than C<cover_db>, and C<--dry-run> to see the resolved environment and the
 exact commands before spending a suite slot.
+
+It takes TWO locks, and they guard different things. The first is named after
+the coverage B<database>, so two gates conflict exactly when they would share a
+database rather than merely when they run at the same time - a gate given its
+own C<--database> contends for nothing. The second is a B<host> lock at
+C<DD_SUITE_LOCK> (default F</tmp/dd-gate-host.lock>), the same path
+C<run-suite> takes, because a full suite running underneath a coverage pass
+invalidates the coverage verdict and until DD-734 nothing stopped it: both tools
+locked, on different files, so neither could block the other.
+
+The host lock is B<not> taken when C<HARNESS_ACTIVE> is set. That is not an
+escape hatch, it is what keeps the gate able to pass the suite that runs it:
+nine test files invoke this script, and under C<run-suite> - which holds the
+host lock for the whole run - every one of them would otherwise be refused by
+its own suite. That is the DD-526 failure, in which a repository-wide lock made
+the gate refuse the very tests driving it. A gate under a harness is a test
+fixture; a gate reached from C<coverage-run> is a real run, and
+C<HARNESS_ACTIVE> is unset there.
 
 Exit statuses are the interface:
 

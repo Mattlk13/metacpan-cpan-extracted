@@ -1,7 +1,7 @@
 #
 #  This file is part of WebDyne.
 #
-#  This software is copyright (c) 2026 by Andrew Speer <andrew.speer.com.au>.
+#  This software is copyright (c) 2026 by Andrew Speer <andrew.speer@isolutions.com.au>.
 #
 #  This is free software; you can redistribute it and/or modify it under
 #  the same terms as the Perl 5 programming language system itself.
@@ -36,7 +36,7 @@ use Exporter qw(import);
 
 #  Version information
 #
-$VERSION='3.024';
+$VERSION='3.026';
 
 
 #  Debug load
@@ -195,6 +195,8 @@ sub handler_methods_check {
     
         #  Skip new, init and any private methods that start with _
         next if grep { $method eq $_ } qw(new init err_html res req sse ws);
+        #  PAGI shares this scope utility with its application dispatcher.
+        next if $class eq 'WebDyne::Request::PAGI' && $method eq 'scope_path';
         next if $method=~/^_/;;
         
         if (my $cr=*{sprintf('%s::%s', $class, $method)}{'CODE'}) {
@@ -331,7 +333,7 @@ Andrew Speer <andrew.speer@isolutions.com.au>
 
 This file is part of WebDyne.
 
-This software is copyright (c) 2026 by Andrew Speer <andrew.speer.com.au>.
+This software is copyright (c) 2026 by Andrew Speer <andrew.speer@isolutions.com.au>.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

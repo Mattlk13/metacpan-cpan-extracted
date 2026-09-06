@@ -217,13 +217,13 @@ FUNCTIONS
     of calling generate_v1() then unparse(), but throwing away the
     intermediate binary UUID.
 
-  uuid3(NAMESPACE = NAME)>
+  uuid3(NAMESPACE => NAME)
     Same as uuid1() but version 3. See generate_v3().
 
   uuid4()
     Same as uuid1() but version 4.
 
-  uuid5(NAMESPACE = NAME)>
+  uuid5(NAMESPACE => NAME)
     Same as uuid1() but version 5. See generate_v5().
 
   uuid6()
@@ -245,7 +245,7 @@ FUNCTIONS
         2  Microsoft
         3  Other
 
-  version( $uuid> )
+  version( $uuid )
     Returns the version of binary $uuid.
 
     This module only generates version 1, 3, 4, 5, 6, and version 7 UUIDs.
@@ -458,13 +458,13 @@ AUTHOR
 
     Authors and/or previous maintainers:
 
-      Lukas Zapletal <lzap@cpan.org>
+      Lukas Zapletal
 
-      Joseph N. Hall <joseph.nathan.hall@gmail.com>
+      Joseph N. Hall
 
-      Colin Faber <cfaber@clusterfs.com>
+      Colin Faber
 
-      Peter J. Braam <braam@mountainviewdata.com>
+      Peter J. Braam
 
 CONTRIBUTORS
     David E. Wheeler
@@ -480,6 +480,10 @@ CONTRIBUTORS
     Christopher Rasch-Olsen Raa
 
     Petr Pisar
+
+    Kurt Starsinic
+
+    Matt Martini
 
 SEE ALSO
     RFC4122 - <https://www.rfc-editor.org/rfc/rfc4122>

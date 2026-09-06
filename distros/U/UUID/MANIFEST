@@ -31,6 +31,7 @@ t/0ld/9compare_close.t
 t/0ld/9old_test.t
 t/0ld/9zoid22.t
 t/0ld/9zoid31.t
+t/1cover/no-time-hires.t
 t/1generate/generic.t
 t/1generate/v1.t
 t/1generate/v1_random.t

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% title | default('A Punk Blog') %}</title>
+<link rel="stylesheet" href="/static/style.css">
+{% raw feed_links %}
+</head>
+<body>
+<main>
+{% content %}
+</main>
+<p class="foot">
+  <span class="tape">Punk::Feed</span>
+  <a href="/feed.xml">Atom</a>
+  <a href="/feed.rss">RSS</a>
+  <a href="/feed/releases.xml">releases</a>
+</p>
+</body>
+</html>

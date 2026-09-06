@@ -11,6 +11,7 @@ lib/Catalyst/Seal/ClassData.pm
 lib/Catalyst/Seal/Construct.pm
 lib/Catalyst/Seal/Dispatch.pm
 lib/Catalyst/Seal/Exceptions.pm
+lib/Catalyst/Seal/Execute.pm
 lib/Catalyst/Seal/Finalize.pm
 lib/Catalyst/Seal/Guard.pm
 lib/Catalyst/Seal/Immutable.pm
@@ -32,10 +33,13 @@ t/42-modifier-late.t
 t/43-response-guard.t
 t/50-accessors.t
 t/55-prepare-parity.t
+t/56-query.t
 t/60-dispatch.t
 t/61-dispatch-method.t
+t/62-execute.t
 t/70-finalize.t
 t/80-construct.t
+t/81-constructor.t
 t/lib/SealTest.pm
 t/lib/SealTest/Acc.pm
 t/lib/SealTest/Data.pm

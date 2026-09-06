@@ -1,4 +1,4 @@
-# [<img src="https://s3.internetdata.io/internetdata-public/brand/mark.svg" alt="InternetData" width="24"/>](https://internetdata.io/) InternetData Perl Client Library
+# [<img src="https://s3.internetdata.io/internetdata-public/brand/mark.svg" alt="InternetData" height="28"/>](https://internetdata.io/) InternetData Perl Client Library
 
 [![CPAN](https://img.shields.io/cpan/v/InternetData.svg)](https://metacpan.org/dist/InternetData)
 [![CI](https://github.com/internetdata/sdk-perl/actions/workflows/ci.yml/badge.svg)](https://github.com/internetdata/sdk-perl/actions/workflows/ci.yml)
@@ -40,13 +40,11 @@ Every call lives under `$client->database`. The downloads are the whole of this 
 my ($bogon) = grep { $_->{base} eq 'bogon_ip' } @{ $client->database->list };
 
 print $bogon->{standing};             # licensed, expired or unlicensed
-print $bogon->{redistribution};       # evaluation, internal or redistribute
+print $bogon->{license_type};       # evaluation, standard or redistribute
 my $id = $bogon->{versions}[-1]{id};  # bogon_ip_v1, and this is what you download
 ```
 
 `standing` tells you where you stand against a database, so one you have not bought is still listed and you can see that it exists.
-
-Databases commissioned for a single customer are different: they are **absent entirely** from a listing for anyone else, rather than listed with an `unlicensed` standing. The server decides that per key. So what you get back is the answer for *your* key, not a catalog of everything InternetData publishes: do not rebuild one from another source, and do not hold one listing and reuse it for a different key.
 
 ### Metadata
 

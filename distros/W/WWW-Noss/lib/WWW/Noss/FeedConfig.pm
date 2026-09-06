@@ -2,11 +2,11 @@ package WWW::Noss::FeedConfig;
 use 5.016;
 use strict;
 use warnings;
-our $VERSION = '2.03';
+our $VERSION = '2.04';
 
 use parent 'WWW::Noss::BaseConfig';
 
-use List::Util qw(any min);
+use List::Util qw(any first min);
 
 sub new {
 
@@ -46,6 +46,7 @@ sub initialize {
         $self->set_autoread($default->autoread);
         $self->set_default_update($default->default_update);
         $self->set_hidden($default->hidden);
+        $self->set_open_cmd($default->open_cmd);
     }
 
     $self->set_groups($param{ groups } // []);
@@ -93,6 +94,14 @@ sub initialize {
         my $hid = any { $_->hidden } @{ $self->groups };
         $self->set_hidden($hid);
 
+        my $cmd = first { defined }
+                  map { $_->open_cmd }
+                  sort { $a->name cmp $b->name }
+                  @{ $self->groups };
+        if (defined $cmd) {
+            $self->set_open_cmd($cmd);
+        }
+
     }
 
     if (defined $param{ limit }) {
@@ -127,6 +136,9 @@ sub initialize {
     }
     if (defined $param{ hidden }) {
         $self->set_hidden($param{ hidden });
+    }
+    if (defined $param{ open }) {
+        $self->set_open_cmd($param{ open });
     }
 
     return 1;
@@ -415,6 +427,8 @@ The following fields from L<WWW::Noss::BaseConfig> are also available:
 =item default_update
 
 =item hidden
+
+=item open
 
 =back
 

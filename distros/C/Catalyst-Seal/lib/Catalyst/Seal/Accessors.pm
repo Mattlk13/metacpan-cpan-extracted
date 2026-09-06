@@ -8,14 +8,13 @@ use B ();
 use Catalyst::Seal ();
 use Catalyst::Seal::Guard ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.04';
 
 sub _seal_config {
     my ($app) = @_;
 
     my $orig = $app->can('config') or return 0;
 
-    # Resolve it the way a read would.
     my $value = eval { $app->config };
     if ($@ || !defined $value) {
         Catalyst::Seal::note("could not resolve $app->config, not sealed: $@");
@@ -78,6 +77,21 @@ sub _reader_classes {
     return grep { !$seen{$_}++ } grep { defined && length } @classes;
 }
 
+sub _plain_write {
+    my ($attr, $name) = @_;
+
+    my $write = $attr->get_write_method;
+    return 0 unless defined $write && $write eq $name;
+
+    return 0 if $attr->has_type_constraint;
+    return 0 if $attr->has_trigger;
+    return 0 if $attr->should_coerce;
+    return 0 if $attr->is_weak_ref;
+    return 0 if $attr->has_initializer;
+
+    return 1;
+}
+
 sub _seal_readers {
     my ($class) = @_;
 
@@ -104,7 +118,8 @@ sub _seal_readers {
         my $ok = eval {
             no warnings 'redefine';
             Catalyst::Seal::_install_reader(
-                $class, $name, $attr->name, $body, ($attr->is_lazy ? 1 : 0));
+                $class, $name, $attr->name, $body, ($attr->is_lazy ? 1 : 0),
+                _plain_write($attr, $name));
             1;
         };
         unless ($ok) {
@@ -260,6 +275,26 @@ nothing here ever writes a slot, a C<predicate> keeps telling the truth.
 
 =cut
 
+=head2 The writes
+
+A read through a sealed accessor costs 44 ns and a write used to cost 132,
+because a write delegated to the Moose accessor the reader shadowed. For a
+plain attribute what that accessor does is C<$_[0]{slot} = $_[1]>, so the XSUB
+now does it: 51 ns.
+
+An assignment into a hash is three things, and all three are what the XSUB
+does. It stores a B<copy>, so a caller's scalar changing afterwards does not
+change the attribute. It returns the B<stored element>, because that is what
+the assignment evaluates to. And it is B<one value> in list context.
+
+Only where the attribute is plain: no type constraint, no coercion, no trigger,
+no weak reference, no initializer, and one accessor doing both jobs. An
+attribute with a separate C<writer> keeps a read-only reader, and writing
+through that reader is something the stock reader refuses rather than performs -
+which it still does, because the write still delegates.
+
+=cut
+
 =head1 AUTHOR
 
 LNATION <email@lnation.org>
@@ -273,4 +308,3 @@ This is free software, licensed under:
   The Artistic License 2.0 (GPL Compatible)
 
 =cut
-

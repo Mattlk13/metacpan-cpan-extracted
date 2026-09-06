@@ -35,6 +35,7 @@ for my $required (
     'docs/TIMER-DESIGN.md',
     'docs/SIGNAL-DESIGN.md',
     'docs/EVENT-DESIGN.md',
+    'docs/FIRST-CLASS-STREAM-CALLBACKS.md',
     'docs/SOCKET-CONFIGURATION.md',
     'docs/DGRAM-DESIGN.md',
     'docs/PROCESS-DESIGN.md',
@@ -42,6 +43,7 @@ for my $required (
     'docs/FRAMING.md',
     'docs/INTROSPECTION.md',
     'bench/README.md',
+    'bench/LINE-RUNTIME-COMPARISON.md',
     'bench/run-async-consumer-lifetime-bench.pl',
     'bench/run-connect-microbench.pl',
     'bench/run-listen-microbench.pl',
@@ -62,6 +64,14 @@ for my $required (
     'bench/run-stream-transition-bench.pl',
     'bench/run-stream-watcher-state-bench.pl',
     'bench/run-framing-microbench.pl',
+    'bench/run-first-class-callback-construction-bench.pl',
+    'bench/run-first-class-framed-callback-bench.pl',
+    'bench/run-first-class-raw-callback-bench.pl',
+    'bench/run-line-runtime-comparison.pl',
+    'bench/runtime-line/line-asyncio.py',
+    'bench/runtime-line/line-linuxevent.pl',
+    'bench/runtime-line/line-node.js',
+    'bench/runtime-line/line-ruby.rb',
     'bench/run-native-framers-microbench.pl',
     'bench/run-performance-regression.pl',
     'bench/run-timer-microbench.pl',
@@ -129,6 +139,7 @@ for my $required (
     'examples/udp-echo-client.pl',
     'examples/wakeup-thread.pl',
     'examples/process-capture.pl',
+    'examples/first-class-line-echo-server.pl',
     't/architecture-20-native-consumer.t',
 ) {
     ok(-s File::Spec->catfile($root, split m{/}, $required), "$required is present");
@@ -149,6 +160,7 @@ for my $live (
     'docs/TIMER-DESIGN.md',
     'docs/SIGNAL-DESIGN.md',
     'docs/EVENT-DESIGN.md',
+    'docs/FIRST-CLASS-STREAM-CALLBACKS.md',
     'docs/SOCKET-CONFIGURATION.md',
     'docs/DGRAM-DESIGN.md',
     'docs/PROCESS-DESIGN.md',
@@ -156,6 +168,7 @@ for my $live (
     'docs/FRAMING.md',
     'docs/INTROSPECTION.md',
     'bench/README.md',
+    'bench/LINE-RUNTIME-COMPARISON.md',
     'bench/run-async-consumer-lifetime-bench.pl',
     'bench/run-connect-microbench.pl',
     'bench/run-listen-microbench.pl',
@@ -172,6 +185,10 @@ for my $live (
     'bench/run-stream-transition-bench.pl',
     'bench/run-stream-watcher-state-bench.pl',
     'bench/run-framing-microbench.pl',
+    'bench/run-first-class-callback-construction-bench.pl',
+    'bench/run-first-class-framed-callback-bench.pl',
+    'bench/run-first-class-raw-callback-bench.pl',
+    'bench/run-line-runtime-comparison.pl',
     'bench/run-native-framers-microbench.pl',
     'bench/run-performance-regression.pl',
     'bench/run-timer-microbench.pl',
@@ -186,12 +203,15 @@ my @bench_root = sort map { s{^.*/}{}r }
     glob(File::Spec->catfile($root, 'bench', '*'));
 my %allowed = map { $_ => 1 } qw(
     BENCHMARK-DECISIONS.md
+    LINE-RUNTIME-COMPARISON.md
     README.md
     STREAM-COMPETITOR-PLAN.md
     run-async-consumer-lifetime-bench.pl
     run-connect-microbench.pl
     run-listen-microbench.pl
+    run-line-runtime-comparison.pl
     run-reactor-comparison.pl
+    run-stream-competitor-comparison.pl
     run-resolver-microbench.pl
     run-signal-microbench.pl
     run-wakeup-microbench.pl
@@ -208,6 +228,9 @@ my %allowed = map { $_ => 1 } qw(
     run-stream-transition-bench.pl
     run-stream-watcher-state-bench.pl
     run-framing-microbench.pl
+    run-first-class-callback-construction-bench.pl
+    run-first-class-framed-callback-bench.pl
+    run-first-class-raw-callback-bench.pl
     run-framer-send-bench.pl
     run-native-framers-microbench.pl
     run-performance-regression.pl
@@ -275,6 +298,17 @@ my @root_tests = sort map { File::Spec->abs2rel($_, $root) }
     grep { -f $_ }
     glob(File::Spec->catfile($root, 't', '*.t'));
 for my $path (@root_tests) {
+    ok($manifest_entry{$path}, "$path is included in MANIFEST");
+}
+
+for my $path (qw(
+    bench/LINE-RUNTIME-COMPARISON.md
+    bench/run-line-runtime-comparison.pl
+    bench/runtime-line/line-asyncio.py
+    bench/runtime-line/line-linuxevent.pl
+    bench/runtime-line/line-node.js
+    bench/runtime-line/line-ruby.rb
+)) {
     ok($manifest_entry{$path}, "$path is included in MANIFEST");
 }
 

@@ -8,6 +8,12 @@ The listener remains a distinct public leaf because its API is accept-oriented.
 A listening `SOCK_STREAM` socket is not exposed as though it were an established
 ordered-byte connection.
 
+The selected Stream subclass is deliberately prominent policy: it declares the
+native framer, TLS server identity and verification behavior, socket policy,
+and `stream_options` tuning shared by every accepted connection. Listener
+constructor callback templates complement that reusable class policy with
+lexical state and are retained once rather than recreated per accept.
+
 ## Public API
 
 ```perl
@@ -37,9 +43,49 @@ my $listener = Linux::Event::IO::Sock::Listener->new(
 $loop->add($listener);
 ```
 
+The complete Listener tuning and socket-construction policy is:
+
+| Option | Default | Contract |
+| --- | ---: | --- |
+| `backlog` | 4,096 | Positive kernel listen backlog |
+| `max_accept_per_tick` | 256 | Non-negative fairness limit; zero drains to `EAGAIN` |
+| `edge_triggered` | 0 | Boolean; requires an unlimited per-tick drain |
+| `reuseaddr` | 1 | Boolean `SO_REUSEADDR` |
+| `reuseport` | 0 | Boolean `SO_REUSEPORT` |
+| `v6only` | unspecified | Optional boolean `IPV6_V6ONLY` |
+| `bind_device` | unspecified | Optional non-empty interface name |
+
+Unix listener policy additionally provides `unlink` (default false),
+`unlink_on_close` (default true), and optional permissions from `0` through
+`07777`. Accepted-connection tuning remains in the selected stream class's
+`stream_options()` and `socket_options()`.
+
 `stream_class` names the completed stream-socket subclass constructed for each
 accepted descriptor. The listener's `data` value is passed to each accepted
 object initially; `on_accept` can replace that connection's data if desired.
+
+The Listener constructor also accepts the ordered-byte callback names as
+templates for accepted Streams. For example:
+
+```perl
+my $listener = Linux::Event::IO::Sock::Listener->new(
+    loop => $loop,
+    stream_class => 'Linux::Event::IO::Sock::Stream',
+    host => '127.0.0.1',
+    port => 9999,
+    on_data => sub ($stream, $bytes) {
+        $stream->write($bytes);
+    },
+);
+```
+
+The template names are `on_data`, `on_message`, `on_messages`, `on_ready`,
+`on_transport_ready`, `on_drain`, `on_eof`, `on_error`, and `on_close`, with
+the signatures documented in `FIRST-CLASS-STREAM-CALLBACKS.md`. One supplied
+CV is retained and reused for every accepted Stream. The Listener does not
+manufacture a new closure per connection. These constructor options configure
+accepted Streams; the Listener's own `on_accept` and `on_error` remain Listener
+subclass methods.
 
 ## Socket type and address family
 
@@ -187,6 +233,10 @@ sub stream_options ($class) {
 sub socket_options ($class) {
     return tcp_nodelay => 1;
 }
+
+sub on_data ($stream, $bytes) {
+    $stream->write($bytes);
+}
 ```
 
 The listener then names the completed class:
@@ -203,7 +253,8 @@ my $listener = Linux::Event::IO::Sock::Listener->new(
 
 A server TLS declaration is validated before the listener begins accepting
 traffic. Each accepted connection receives fresh server-side OpenSSL state.
-There is no per-accept constructor callback layer.
+Accepted-Stream callback templates, when supplied to the Listener constructor,
+are passed directly into Stream construction and native-state seeding.
 
 Built-in accepted socket policy and the optional cached
 `configure_socket($class, $fh, 'accepted', $peer)` hook run before application

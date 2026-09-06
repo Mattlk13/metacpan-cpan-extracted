@@ -1615,6 +1615,78 @@ install_kw(self, name, code, owner = &PL_sv_undef)
     OUTPUT:
         RETVAL
 
+# keyword($name, @args): call a keyword some plugin installed, from code
+# rather than from the application's package body - how a plugin consumes a
+# sibling's declaration ($app->keyword(sitemap => blog => sub {...})) without
+# reaching into the application class by name or waiting for a method the
+# providing plugin never grew. The installed code runs with @args in the
+# caller's context and its return is passed through, exactly as the keyword
+# in the class would have done.
+#
+# A name nothing installed croaks naming it: the plugin that provides it is
+# not loaded, and silently doing nothing would be a sitemap with no section.
+# A core DSL word croaks too - those are the registrar's own methods and this
+# is not the door to them.
+void
+keyword(self, name, ...)
+        SV *self
+        SV *name
+    PPCODE:
+    {
+        HV *h = app_hv(aTHX_ self);
+        HV *kws = app_hash(aTHX_ h, K_KEYWORDS);
+        STRLEN nl; const char *n = SvPV_const(name, nl);
+        SV **have, **code = NULL;
+        I32 want = GIMME_V;
+        int count, i;
+
+        if (!nl) croak("Punk: keyword needs a name");
+        if (pki_is_dsl(n))
+            croak("Punk: keyword '%s' is part of the Punk DSL - call the "
+                  "registrar method", n);
+        have = hv_fetch(kws, n, (I32)nl, 0);
+        if (have && *have && SvROK(*have))
+            code = hv_fetchs((HV *)SvRV(*have), K_CODE, 0);
+        if (!(code && *code && SvROK(*code)
+              && SvTYPE(SvRV(*code)) == SVt_PVCV))
+            croak("Punk: no keyword '%s' is installed on this application - "
+                  "is the plugin that provides it loaded?", n);
+
+        /* SP sits at the mark below our own arguments. Push @args over
+         * them - each source is ahead of its destination, so the copy
+         * down is safe - and the callee's results land at ST(0). */
+        PUSHMARK(SP);
+        EXTEND(SP, items - 2);
+        for (i = 2; i < items; i++) PUSHs(ST(i));
+        PUTBACK;
+        count = call_sv(*code, want == G_VOID ? G_VOID : want);
+        SPAGAIN;
+        if (want == G_VOID) XSRETURN_EMPTY;
+        XSRETURN(count);
+    }
+
+# has_keyword($name): the owner of an installed keyword, or undef - how a
+# plugin asks "did this application load Sitemap?" without sniffing %INC,
+# which says a module was loaded somewhere and not that THIS app registered
+# it. Core DSL words are not keywords in this sense and answer undef.
+SV *
+has_keyword(self, name)
+        SV *self
+        SV *name
+    CODE:
+    {
+        HV *h = app_hv(aTHX_ self);
+        HV *kws = app_hash(aTHX_ h, K_KEYWORDS);
+        STRLEN nl; const char *n = SvPV_const(name, nl);
+        SV **have = nl ? hv_fetch(kws, n, (I32)nl, 0) : NULL;
+        SV **o = (have && *have && SvROK(*have))
+                 ? hv_fetchs((HV *)SvRV(*have), K_OWNER, 0) : NULL;
+        if (!(o && *o && SvOK(*o))) XSRETURN_UNDEF;
+        RETVAL = newSVsv(*o);
+    }
+    OUTPUT:
+        RETVAL
+
 # plugin($name, $opts?): load and register a plugin. Chains.
 SV *
 plugin(self, name, opts = &PL_sv_undef)

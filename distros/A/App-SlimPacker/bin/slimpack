@@ -26,6 +26,7 @@ use lib "$FindBin::Bin/../lib";
 #   slimpack packlists-for MODULE...
 #   slimpack tree [PACKLIST ...]
 #   slimpack bundle [options] script       (minify+bundle only; uses --lib/--fatlib)
+#   slimpack minify [options] script...    (minify only, no bundling)
 
 my %O;   # shared bundler options
 
@@ -37,7 +38,7 @@ sub _load_fatpacker {
 
 sub _load_slimpacker {
     require App::SlimPacker;
-    App::SlimPacker->import(qw(process perl_switches inline_plugins module_deps plugin_search_paths));
+    App::SlimPacker->import(qw(process process_deps minify_file perl_switches inline_plugins module_deps plugin_search_paths));
 }
 
 # ---------------------------------------------------------------- pack ----
@@ -80,6 +81,10 @@ sub cmd_pack {
 # resolving each from its real @INC path. Recurses into any dependency of those
 # modules that is loadable, non-core, and likewise missing a reachable packlist.
 my (%resolved, %copying);
+# Minified output and dependencies stashed per fatlib/lib path while the
+# module graph is walked, so each module is PPI-parsed exactly once instead of
+# once for dependencies and again for the minified body.
+my (%SLIMIFIED, %SLIMIFIED_DEPS);
 # Normalize a module name or module-path (e.g. `File::HomeDir`, `File/HomeDir.pm`)
 # to the filename form used in @INC lookups and as a fatlib-relative target path.
 sub _mod_to_path {
@@ -110,7 +115,18 @@ sub _bundle_unpacklisted {
         File::Copy::copy($file, $target)
             or warn "slimpack: cannot copy $file: $!\n";
         my $src = do { local $/; open my $fh, '<', $file or die "Cannot read $file: $!"; <$fh> };
-        for my $dep (module_deps($src)) {
+        # Resolve this module's dependencies and stash its minified body now;
+        # the bundle step reuses both, so the source is parsed only once.
+        my ($min, @deps);
+        if ($O{no_minify}) {
+            $min = $src;
+            @deps = module_deps($src);
+        } else {
+            ($min, @deps) = process_deps($src, rename => 0);
+        }
+        $SLIMIFIED{$target}   = $min;
+        $SLIMIFIED_DEPS{$target} = \@deps;
+        for my $dep (@deps) {
             require Module::CoreList;
             next if Module::CoreList::is_core($dep);
             local $SIG{__WARN__} = sub {};
@@ -168,6 +184,28 @@ sub cmd_tree {
     $fp->packlists_to_tree($O{fatlib}, \@args);
 }
 
+# -------------------------------------------------------------- minify ----
+sub cmd_minify {
+    my ($minout, @files) = @_;
+
+    _load_slimpacker;
+    die "slimpack minify: missing source file\n" unless @files;
+    die "slimpack minify: -o needs exactly one source file\n" if $minout && @files > 1;
+
+    my @out = map {
+        my $m = minify_file($_, rename => $O{no_rename} ? 0 : 1);
+        $m .= "\n" unless $m =~ /\n\z/;
+        $m;
+    } @files;
+    if ($minout) {
+        open my $fh, '>', $minout or die "Cannot write $minout: $!";
+        print {$fh} $out[0];
+        close $fh;
+    } else {
+        print for @out;
+    }
+}
+
 # ------------------------------------------------------------- bundle ----
 sub cmd_bundle {
     my ($script) = @_;
@@ -202,9 +240,11 @@ sub cmd_bundle {
     }
 
     # Decide which files to bundle
+    my $main;
     my @paths_to_bundle;
     if ($O{bundle_lib_all}) {
         @paths_to_bundle = sort @pm_files;
+        $main = $O{no_minify} ? $boot_text : process($boot_text);
     } else {
         my (%lib_path, %fatlib_mod);
         for my $path (@pm_files) {
@@ -236,7 +276,22 @@ sub cmd_bundle {
                 %inlined_finder = map { $_ => 1 } qw(Module::Pluggable);
             }
         }
-        my $enqueue;
+        my ($stash_and_enqueue, $enqueue);
+        # Minify a source once and enqueue its dependencies in that same parse.
+        # The minified body is stashed per path so the emit pass below never
+        # re-parses it.
+        $stash_and_enqueue = sub {
+            my ($path, $src) = @_;
+            if ($O{no_minify}) {
+                $SLIMIFIED{$path} = $src;
+                $enqueue->($_) for module_deps($src);
+            } else {
+                my $is_fat = $path =~ m{^\Q$fatlib\E/};
+                my ($min, @deps) = process_deps($src, rename => $O{no_rename} ? 0 : !$is_fat);
+                $SLIMIFIED{$path} = $min;
+                $enqueue->($_) for @deps;
+            }
+        };
         $enqueue = sub {
             my ($mod) = @_;
             return if $seen{$mod}++;
@@ -256,8 +311,12 @@ sub cmd_bundle {
                 if (-f $copied) {
                     $fatlib_mod{$mod} = 1;
                     $to_bundle{$copied} = 1;
-                    my $src = do { local $/; open my $fh, '<', $copied or die "Cannot read $copied: $!"; <$fh> };
-                    $enqueue->($_) for module_deps($src);
+                    if (exists $SLIMIFIED_DEPS{$copied}) {
+                        $enqueue->($_) for @{ $SLIMIFIED_DEPS{$copied} };
+                    } else {
+                        my $src = do { local $/; open my $fh, '<', $copied or die "Cannot read $copied: $!"; <$fh> };
+                        $stash_and_enqueue->($copied, $src);
+                    }
                 } else {
                     push @unresolved, $mod;
                 }
@@ -265,10 +324,22 @@ sub cmd_bundle {
             }
             return if $to_bundle{$path};
             $to_bundle{$path} = 1;
+            # A pack run already minified this module while copying it into the
+            # fatlib; reuse the stashed body and deps instead of re-parsing.
+            if (exists $SLIMIFIED{$path}) {
+                $enqueue->($_) for @{ $SLIMIFIED_DEPS{$path} || [] };
+                return;
+            }
             my $src = do { local $/; open my $fh, '<', $path or die "Cannot read $path: $!"; <$fh> };
-            $enqueue->($_) for module_deps($src);
+            $stash_and_enqueue->($path, $src);
         };
-        $enqueue->($_) for module_deps($boot_text);
+        if ($O{no_minify}) {
+            $main = $boot_text;
+            $enqueue->($_) for module_deps($boot_text);
+        } else {
+            ($main, my @boot_deps) = process_deps($boot_text);
+            $enqueue->($_) for @boot_deps;
+        }
         if ($O{inline_plugins}) {
             my $searched = plugin_search_paths($boot_text);
             if (%$searched) {
@@ -304,16 +375,20 @@ sub cmd_bundle {
 
     my @modules;
     for my $path (@paths_to_bundle) {
-        open my $fh, '<', $path or die "Cannot read $path: $!";
-        my $src = do { local $/; <$fh> };
-        close $fh;
-        my $out = $O{no_minify} ? $src : process($src, rename => $O{no_rename} ? 0 : !$meta{$path}{fatlib});
+        # Reuse the minified body produced while walking the graph; only
+        # modules that were never reached that way (e.g. --bundle-lib-all)
+        # fall back to reading and processing here.
+        my $out = $SLIMIFIED{$path};
+        if (!defined $out) {
+            open my $fh, '<', $path or die "Cannot read $path: $!";
+            my $src = do { local $/; <$fh> };
+            close $fh;
+            $out = $O{no_minify} ? $src : process($src, rename => $O{no_rename} ? 0 : !$meta{$path}{fatlib});
+        }
         $out =~ s/^#!\S+//;
         push @modules, $out;
     }
 
-    my $main = $boot_text;
-    $main = process($main) unless $O{no_minify};
     $main =~ s/^#!\S+//;
     $main =~ s{use lib[^;]+;}{}g;
     $main = inline_plugins($main, \%classes) if $O{inline_plugins};
@@ -383,6 +458,9 @@ Commands:
   packlists-for MODULE...
   tree        [PACKLIST ...]
   bundle      [OPTIONS] script       minify + bundle only (uses --lib/--fatlib)
+  minify      [OPTIONS] script...    minify only, no bundling (print to
+                                     STDOUT, or -o FILE)
+  --minify    script...              same as the minify subcommand
 
 Options (pack and bundle):
   -o, --output FILE    write the bundled script to FILE (default: a.out)
@@ -393,6 +471,10 @@ Options (pack and bundle):
   --no-inline-plugins  keep Module::Pluggable as a runtime dependency
   --bundle-lib-all     include every .pm under --lib, even if unreferenced
   -m/-M/-e/-E          build the boot program from perl-binary switches
+
+Options (minify):
+  -o, --output FILE    write minified output to FILE (needs one script)
+  --no-rename          minify but leave variable names untouched
 USAGE
 }
 
@@ -400,13 +482,17 @@ USAGE
 # Dispatch
 # ---------------------------------------------------------------------------
 my $subcmd = 'pack';
-if (@ARGV && $ARGV[0] =~ /^(?:pack|trace|packlists-for|tree|bundle)$/) {
+if (@ARGV && $ARGV[0] =~ /^(?:pack|trace|packlists-for|tree|bundle|minify)$/) {
     $subcmd = $ARGV[0];
+    shift @ARGV;
+} elsif (@ARGV && $ARGV[0] eq '--minify') {
+    # Minify-only flag: PPI-minify the given files, no bundling.
+    $subcmd = 'minify';
     shift @ARGV;
 }
 
 # Global bundler options are parsed here, before dispatch, so they work on
-# pack and bundle. trace / packlists-for / tree parse their own options.
+# pack and bundle. trace / packlists-for / tree / minify parse their own.
 %O = (lib => 'lib', fatlib => 'fatlib', output => 'a.out',
       inline_plugins => 1, no_minify => 0, bundle_lib_all => 0,
       no_rename => 0,
@@ -431,6 +517,17 @@ if ($subcmd eq 'pack' or $subcmd eq 'bundle') {
     if ($help) { print _usage(); exit 0; }
 }
 
+my $minify_out;
+if ($subcmd eq 'minify') {
+    Getopt::Long::Configure('no_ignorecase');
+    Getopt::Long::GetOptionsFromArray(\@ARGV,
+        'o|output=s' => \$minify_out,
+        'no-rename'  => \$O{no_rename},
+        'help'       => \my $help,
+    ) or exit 2;
+    if ($help) { print _usage(); exit 0; }
+}
+
 if ($subcmd eq 'pack') {
     cmd_pack(@ARGV);
 } elsif ($subcmd eq 'trace') {
@@ -441,6 +538,8 @@ if ($subcmd eq 'pack') {
     cmd_tree(@ARGV);
 } elsif ($subcmd eq 'bundle') {
     cmd_bundle(@ARGV);
+} elsif ($subcmd eq 'minify') {
+    cmd_minify($minify_out, @ARGV);
 }
 
 =head1 NAME
@@ -455,6 +554,8 @@ slimpack - build a fatpacked, minified standalone Perl script
   slimpack packlists-for MODULE...
   slimpack tree    [PACKLIST ...]
   slimpack bundle  [options] script
+  slimpack minify  [options] script...     # minify only, no bundling
+  slimpack --minify script...              # same, as a flag
 
 =head1 DESCRIPTION
 
@@ -467,6 +568,11 @@ standalone C<#!/usr/bin/perl> script.
 Each pipeline step is also exposed as its own subcommand with the same arguments
 as fatpack, so the individual steps can be run by hand.
 
+C<minify> (or the C<--minify> switch) runs only the minification pass: each
+file is read, PPI-minified, and printed to STDOUT (or written with C<-o>).
+Nothing is traced or bundled.  The standalone C<minify> script installed
+alongside C<slimpack> offers the same mode.
+
 =head1 OPTIONS
 
 =over 8
@@ -474,6 +580,7 @@ as fatpack, so the individual steps can be run by hand.
 =item -o, --output FILE
 
 Write the bundled script to FILE (default a.out; use C<-> for stdout).
+C<minify> prints to STDOUT unless C<-o> is given.
 
 =item --lib DIR
 
@@ -490,7 +597,8 @@ Bundle modules and boot program verbatim, skipping the PPI minification pass.
 =item --no-rename
 
 Minify but leave variable names untouched (perl C<process(..., rename => 0)>).
-The default minifies and renames C<my> variables.
+The default minifies and renames C<my> variables.  Applies to bundling and to
+the C<minify> mode.
 
 =item --no-inline-plugins
 

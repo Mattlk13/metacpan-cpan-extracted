@@ -9,7 +9,21 @@ per-packet destinations, truncation, and peer addresses must be preserved.
 
 ## Public type model
 
-A concrete subclass defines `on_datagram` once:
+A Datagram can be constructed directly with a lexical callback:
+
+```perl
+my $socket = Linux::Event::IO::Sock::Dgram->new(
+    loop => $loop,
+    host => '127.0.0.1',
+    port => 9999,
+    on_datagram => sub ($socket, $payload, $peer) {
+        $socket->send("echo:$payload", to => $peer);
+    },
+);
+```
+
+A concrete subclass remains useful for reusable packet behavior, socket policy,
+and tuning:
 
 ```perl
 package EchoDgram;
@@ -24,11 +38,38 @@ sub on_datagram ($socket, $payload, $peer) {
 sub on_error ($socket, $error) {
     warn "$error\n";
 }
+
+sub datagram_options ($class) {
+    return max_datagrams_per_tick => 128,
+        receive_buffer => 1_048_576;
+}
 ```
 
-Callbacks and immutable class policy are cached per subclass. Each instance
-owns its socket, packet queue, backpressure state, addresses, and application
-`data`.
+Callbacks and immutable class policy are cached per subclass. Constructor
+callbacks override same-named methods for one object and are retained once in
+its effective descriptor. Each instance owns its socket, packet queue,
+backpressure state, addresses, and application `data`.
+
+The complete cached `datagram_options()` policy is:
+
+| Option | Default | Contract |
+| --- | ---: | --- |
+| `max_datagram_size` | 65,535 | Integer from 1 through 16,777,216 |
+| `max_datagrams_per_tick` | 256 | Non-negative fairness limit; zero drains to `EAGAIN` |
+| `edge_triggered` | 0 | Boolean; requires an unlimited per-tick drain |
+| `high_watermark` | 1,048,576 | Cooperative queued-byte backpressure level |
+| `low_watermark` | 262,144 | Drain level; no greater than high watermark |
+| `max_pending_bytes` | 0 | Hard queued-byte limit; zero is unbounded |
+| `max_pending_datagrams` | 0 | Hard queued-packet limit; zero is unbounded |
+| `reuseaddr` | 0 | Boolean `SO_REUSEADDR` |
+| `reuseport` | 0 | Boolean `SO_REUSEPORT` |
+| `broadcast` | 0 | Boolean `SO_BROADCAST` |
+| `v6only` | unspecified | Optional boolean `IPV6_V6ONLY` |
+| `send_buffer` | unspecified | Positive integer requested `SO_SNDBUF` |
+| `receive_buffer` | unspecified | Positive integer requested `SO_RCVBUF` |
+
+Constructor values override class policy. Interface binding, Unix path
+ownership, permissions, and adopted-handle ownership are constructor-only.
 
 ## Socket type versus family
 
@@ -202,8 +243,8 @@ can be reported without automatically closing a still-valid packet socket.
 Resolver/acquisition failure before activation is terminal.
 
 `last_error` retains the most recent structured error. A subclass can define
-`on_error`; otherwise the implementation's documented default reporting policy
-applies.
+`on_error`, or construction can supply an `on_error` closure for one socket;
+otherwise the implementation's documented default reporting policy applies.
 
 ## Private implementation boundary
 

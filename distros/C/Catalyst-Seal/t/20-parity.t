@@ -66,7 +66,21 @@ sub run_in_child {
                 'destroy=' . (Catalyst::Response->can('DESTROY')
                     == \&Catalyst::Seal::Finalize::_response_destroy ? 'eval' : 'stock'),
                 'construct=' . (Catalyst::Controller->can('BUILD')
-                    == \&Catalyst::Seal::Construct::_controller_build ? 'memo' : 'stock');
+                    == \&Catalyst::Seal::Construct::_controller_build ? 'memo' : 'stock'),
+                'execute=' . (Catalyst->can('execute')
+                    == \&Catalyst::Seal::Execute::_execute ? 'hoisted' : 'stock'),
+                'action=' . (Catalyst::Seal::_is_sealed(Catalyst::Action->can('execute'))
+                    && Catalyst::Seal::_is_sealed(Catalyst::Action->can('dispatch'))
+                        ? 'xs' : 'stock'),
+                'depth=' . (Catalyst::Seal::_is_sealed(TestApp->can('depth'))
+                    ? 'xs' : 'stock'),
+                'use_stats=' . (Catalyst::Seal::_is_sealed(TestApp->can('use_stats'))
+                    ? 'sealed' : 'stock'),
+                'ctors=' . scalar(() =
+                    Catalyst::Seal::Construct::sealed_constructors()),
+                'query=' . (Catalyst::Engine->can('prepare_query_parameters')
+                    == \&Catalyst::Seal::Prepare::_prepare_query_parameters
+                        ? 'patched' : 'stock');
             Storable::nfreeze($data);
         };
         $out = Storable::nfreeze({ FATAL => "$@" }) if $@;
@@ -116,7 +130,8 @@ is(
         . 'modifiers=stock,config=stock,readers=stock,delegators=stock,'
         . 'dispatch=stock,encoding=stock,'
         . 'prepare_path=stock,prepare_headers=stock,decoder=stock,destroy=stock,'
-        . 'construct=stock',
+        . 'construct=stock,execute=stock,action=stock,depth=stock,use_stats=stock,'
+        . 'ctors=0,query=stock',
     'CATALYST_SEAL=0 really did seal nothing',
 );
 is(
@@ -125,7 +140,8 @@ is(
         . 'modifiers=flat,config=sealed,readers=sealed,delegators=aliased,'
         . 'dispatch=memo,encoding=memo,'
         . 'prepare_path=patched,prepare_headers=patched,decoder=patched,destroy=eval,'
-        . 'construct=memo',
+        . 'construct=memo,execute=hoisted,action=xs,depth=xs,use_stats=sealed,'
+        . 'ctors=3,query=patched',
     'the sealed side really was sealed, so the comparisons below mean something',
 );
 

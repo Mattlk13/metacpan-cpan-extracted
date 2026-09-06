@@ -2,7 +2,7 @@
 #
 #  This file is part of WebDyne.
 #
-#  This software is copyright (c) 2026 by Andrew Speer <andrew.speer.com.au>.
+#  This software is copyright (c) 2026 by Andrew Speer <andrew.speer@isolutions.com.au>.
 #
 #  This is free software; you can redistribute it and/or modify it under
 #  the same terms as the Perl 5 programming language system itself.
@@ -45,7 +45,7 @@ use URI;
 
 #  Version information
 #
-$VERSION='3.024';
+$VERSION='3.026';
 
 
 #  Debug load
@@ -511,7 +511,8 @@ sub lookup_file {
     if ($fn!~WEBDYNE_PSP_EXT_RE) { # fastest
 
 
-        #  Static file. Should migrate to this module but OK is PSGI for moment
+        #  Static file. The helper retains its historical PSGI name but does
+        #  not require Plack.
         #
         debug('non psp file, passing to WebDyne::Request::PSGI::Static');
         require WebDyne::Request::PSGI::Static;
@@ -1138,7 +1139,7 @@ Andrew Speer <andrew.speer@isolutions.com.au>
 
 This file is part of WebDyne.
 
-This software is copyright (c) 2026 by Andrew Speer <andrew.speer.com.au>.
+This software is copyright (c) 2026 by Andrew Speer <andrew.speer@isolutions.com.au>.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

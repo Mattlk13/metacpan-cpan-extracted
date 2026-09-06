@@ -3,7 +3,7 @@ use v5.36;
 use strict;
 use warnings;
 
-our $VERSION = '0.111';
+our $VERSION = '0.112';
 
 1;
 
@@ -18,19 +18,21 @@ Linux::Event - Linux-native reactor, I/O, and kernel event facilities
   use Linux::Event::Loop;
   use Linux::Event::IO::Sock::Stream;
 
-  package EchoClient;
-  use parent 'Linux::Event::IO::Sock::Stream';
-
-  sub on_data ($self, $bytes) {
-      print $bytes;
-  }
-
-  package main;
   my $loop = Linux::Event::Loop->new;
-  $loop->add(EchoClient->connect(
+
+  my $client = Linux::Event::IO::Sock::Stream->connect(
+      loop => $loop,
       host => '127.0.0.1',
       port => 9999,
-  ));
+      on_data => sub ($stream, $bytes) {
+          print $bytes;
+      },
+      on_error => sub ($stream, $error) {
+          warn "$error\n";
+          $loop->stop;
+      },
+  );
+
   $loop->run;
 
 =head1 DESCRIPTION
@@ -64,6 +66,25 @@ resource may instead be constructed unattached and passed to
 C<< $loop->add($object) >>. Low-level descriptor readiness remains available
 directly from L<Linux::Event::Loop>.
 
+=head1 CALLBACKS, SUBCLASSING, AND TUNING
+
+Public resources accept constructor callback coderefs, so an application can
+use the concrete leaf directly and capture ordinary lexical state. A
+constructor callback is resolved once per object and overrides a same-named
+subclass method.
+
+Subclassing is a complementary performance and organization feature, not a
+requirement imposed merely to obtain a callback. A protocol subclass can
+declare native L<Linux::Event::Framer> policy, L<Linux::Event::TLS> policy,
+socket configuration, and C<stream_options>, C<datagram_options>, or
+C<process_options> tuning once for every instance. Named callbacks and class
+policy are validated and cached once per subclass rather than rediscovered on
+each readiness event.
+
+The common pattern is therefore to put reusable protocol, transport, and
+tuning policy in a subclass while supplying closures for per-instance lexical
+state. Raw resources with no reusable class policy can be constructed directly.
+
 =head1 I/O MODULES
 
 =over 4
@@ -89,7 +110,7 @@ half-close behavior, buffering, framing, backpressure, and optional TLS.
 
 Listening C<SOCK_STREAM> sockets for TCP and Unix-domain endpoints. Accepted
 connections are constructed as a chosen C<Linux::Event::IO::Sock::Stream>
-subclass.
+class.
 
 =item * L<Linux::Event::IO::Sock::Dgram>
 
@@ -104,11 +125,11 @@ and Unix-domain datagrams.
 
 =item * L<Linux::Event::Kernel::Timer>
 
-Subclass-defined one-shot and recurring monotonic timer behavior.
+One-shot and recurring monotonic timers with constructor or subclass callbacks.
 
 =item * L<Linux::Event::Kernel::Signal>
 
-Subclass-defined signalfd subscriptions with native fan-out.
+Signalfd subscriptions with constructor or subclass callbacks and native fan-out.
 
 =item * L<Linux::Event::Kernel::Event>
 
@@ -152,10 +173,58 @@ Lazy IPv4, IPv6, and Unix socket-address values.
 
 =back
 
+=head1 ORDERED-BYTE CALLBACK MODEL
+
+C<Linux::Event::IO::Pipe>, C<Linux::Event::IO::TTY>, and
+C<Linux::Event::IO::Sock::Stream> support both subclass methods and
+constructor-supplied coderefs for application callbacks. Constructor callbacks
+are ordinary Perl closures and may capture lexical application state. They
+override same-named class methods for that object.
+
+The ordered-byte callback names are C<on_data>, C<on_message>, C<on_messages>,
+C<on_ready>, C<on_transport_ready>, C<on_drain>, C<on_eof>, C<on_error>, and
+C<on_close>. C<IO::Sock::Stream-E<gt>connect()> accepts the same callback set as
+C<new()>.
+
+Subclassing is therefore not required merely to obtain callback scope. A raw
+stream socket, Pipe, or TTY can be used directly when no class-level protocol
+policy is needed. Class declarations remain the correct place for reusable
+policy such as C<stream_options()>, a L<Linux::Event::Framer> declaration,
+socket policy, or L<Linux::Event::TLS> policy.
+
+For example, framing remains class policy while message handling may be a
+constructor closure:
+
+  package LineProtocol;
+  use parent 'Linux::Event::IO::Sock::Stream';
+  use Linux::Event::Framer 'Delimiter', "\n";
+
+  package main;
+  my $connection = LineProtocol->new(
+      fh => $socket,
+      on_message => sub ($stream, $message) {
+          process_message($message);
+      },
+  );
+
+The effective input callback is selected during construction and retained as
+one cached CV in native ordered-byte state. Steady-state input does not perform
+method lookup, object-hash callback lookup, or a method-versus-closure branch.
+
+A L<Linux::Event::IO::Sock::Listener> can provide the same ordered-byte
+callback options as templates for all accepted Streams. One supplied callback
+CV is reused for the accepted connections; the Listener's own C<on_accept> and
+Listener-error policy remain Listener subclass methods.
+
+See F<docs/FIRST-CLASS-STREAM-CALLBACKS.md> for the full callback, precedence,
+transition, and Listener-sharing contract.
+
 =head1 PUBLIC MODEL
 
-Applications subclass the concrete leaf that describes the resource being
-used. For example:
+Applications use the concrete leaf that describes the resource. Raw
+ordered-byte leaves can be constructed directly with callback coderefs; a
+subclass holds reusable framing, tuning, socket/TLS policy, or method callbacks.
+For example:
 
   package Protocol;
   use parent 'Linux::Event::IO::Sock::Stream';
@@ -165,6 +234,22 @@ used. For example:
       $self->send($message);
   }
 
+The same class method can be overridden for one object while retaining lexical
+state:
+
+  my $stream = Protocol->new(
+      fh         => $connected_socket,
+      on_message => sub ($stream, $message) {
+          store_message($database, $message);
+          $stream->send($message);
+      },
+  );
+
+Raw C<IO::Sock::Stream>, C<IO::Pipe>, and C<IO::TTY> objects similarly accept
+C<on_data>. Ordered-byte lifecycle callbacks can also be supplied to the
+constructor. See L<Linux::Event::IO::Sock::Stream> and
+F<docs/FIRST-CLASS-STREAM-CALLBACKS.md> for the complete callback matrix.
+
 A listener then names that completed stream-socket class:
 
   my $listener = Linux::Event::IO::Sock::Listener->new(
@@ -172,6 +257,9 @@ A listener then names that completed stream-socket class:
       stream_class => 'Protocol',
       host         => '0.0.0.0',
       port         => 9999,
+      on_message   => sub ($stream, $message) {
+          $stream->send($message);
+      },
   );
 
 The category names C<IO> and C<Kernel> do not imply a Perl inheritance tree.

@@ -2,7 +2,7 @@ package WWW::Noss::BaseConfig;
 use 5.016;
 use strict;
 use warnings;
-our $VERSION = '2.03';
+our $VERSION = '2.04';
 
 use List::Util qw(any all);
 
@@ -33,6 +33,7 @@ sub initialize {
     $self->set_autoread($param{ autoread } // 0);
     $self->set_default_update($param{ default_update } // 1);
     $self->set_hidden($param{ hidden } // 0);
+    $self->set_open_cmd($param{ open });
 
     return 1;
 
@@ -322,6 +323,22 @@ sub set_hidden {
 
 }
 
+sub open_cmd {
+
+    my ($self) = @_;
+
+    return $self->{ Open };
+
+}
+
+sub set_open_cmd {
+
+    my ($self, $new) = @_;
+
+    $self->{ Open } = $new;
+
+}
+
 =head1 NAME
 
 WWW::Noss::BaseConfig - Base class for feed configuration classes
@@ -463,6 +480,12 @@ Getter/setter for the C<default_update> attribute.
 =item $conf->set_hidden($hidden)
 
 Getter/setter for the C<hidden> attribute.
+
+=item $open = $conf->open_cmd()
+
+=item $conf->set_open_cmd($cmd)
+
+Getter/setter for the C<open> attribute.
 
 =item $ok = $conf->title_ok($title)
 

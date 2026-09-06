@@ -155,11 +155,13 @@ The engine owns:
 One immutable descriptor is cached for each concrete subclass. It contains the
 resolved named callback CVs, tuning policy, framing definition, optional native
 consumer definition, and native descriptor object. Per-instance state contains
-only changing transport, fd, parser, queue, deadline, and lifecycle data.
+changing transport, fd, parser, queue, deadline, and lifecycle data plus any
+constructor-supplied effective callback CVs.
 
-This preserves the performance reason Linux::Event uses subclass-defined
-policy: constructor closures and repeated method/configuration lookup are not
-added to each readiness event.
+This preserves the performance reason Linux::Event uses class-defined policy:
+repeated method/configuration lookup is not added to each readiness event. A
+constructor closure replaces the corresponding class CV once in per-object
+state and then uses the same direct native invocation path.
 
 ### Native implementation
 
@@ -191,9 +193,11 @@ Framing is an ordered-byte capability, not a socket capability. A delimiter,
 length-prefix, fixed-size, netstring, varint, or decimal-length parser is just as
 valid over a pipe or terminal input as over a stream socket.
 
-A raw descriptor caches `on_data`. A framed descriptor caches `on_message`, or
-`on_messages` when message batching is enabled. Native parsing crosses into
-Perl only at complete semantic delivery boundaries or errors.
+A raw native state caches one effective `on_data` CV. A framed state caches one
+effective `on_message` CV, or `on_messages` when message batching is enabled.
+The CV comes from the class descriptor or a constructor callback; dispatch does
+not branch on its origin. Native parsing crosses into Perl only at complete
+semantic delivery boundaries or errors.
 
 Serialization remains one layer above framing:
 
@@ -312,8 +316,10 @@ scheduled timer is attached. Active timers share an indexed native minimum
 heap ordered by monotonic deadline.
 
 Each concrete `Kernel::Timer` subclass contributes one cached callback
-descriptor. Instances contain mutable schedule, heap position, application
-data, lifecycle, and expiration count.
+descriptor. A constructor `on_timer` closure creates one effective per-object
+descriptor and overrides the class method without changing dispatch. Instances
+contain mutable schedule, heap position, application data, lifecycle, and
+expiration count.
 
 Equal deadlines preserve schedule order. Fixed-rate repeating timers advance
 from their prior deadline and coalesce missed intervals. Dispatch uses a bound
@@ -382,7 +388,8 @@ The architecture is intentionally constrained by measured performance:
 
 - no public generic dispatcher in the readiness hot path;
 - no constructor closure required for each semantic callback;
-- named subclass CVs are cached once per concrete type;
+- named subclass CVs are cached once per concrete type and optional constructor
+  CVs once per object;
 - no fd-to-Perl-hash lookup after `epoll_wait()`;
 - framing and queue work stays native until semantic delivery;
 - the plain transport uses direct syscalls;

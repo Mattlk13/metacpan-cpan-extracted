@@ -128,6 +128,42 @@ is(Catalyst::Seal::_is_sealed(SealTest::Acc->can('plain')), 1,
         'writing config after setup still croaks') or diag $err;
 }
 
+# ------------------------------------------------------------------ writes
+#
+# A plain rw attribute answers its own write instead of handing it to Moose.
+# What Moose's inlined writer does is `$_[0]{slot} = $_[1]`, so the three
+# things that assignment is - a copy into the slot, the stored element as the
+# value of the expression, and one value in list context - are what these ask.
+
+{
+    require TestApp;
+    my $c = TestApp->new;
+
+    my $x = 5;
+    my $got = $c->state($x);
+    is($got, 5, 'a write returns the value written');
+    $x = 9;
+    is($c->{state}, 5, '...and stored a copy, not the caller\'s scalar');
+    is($c->state, 5, '...which reads back');
+
+    my @list = $c->state(3);
+    is_deeply(\@list, [3], 'a write in list context is one value');
+
+    my $u = $c->state(undef);
+    ok(!defined $u, 'a write of undef returns undef');
+    ok(exists $c->{state}, '...and leaves the slot there');
+
+    # An attribute that is not a plain one keeps its writer. `headers` on the
+    # response carries the guard that warns about a write after finalize, and a
+    # store here would be a write that never reached it.
+    my $res_class = TestApp->composed_response_class;
+    my $attr = Class::MOP::class_of($res_class)->find_attribute_by_name('headers');
+    ok($attr, 'the response has a headers attribute');
+    ok($attr->has_type_constraint || !defined $attr->get_write_method
+       || $attr->get_write_method ne 'headers',
+       'and it is not one this seals writes for');
+}
+
 # The application still answers.
 {
     require SealTest;

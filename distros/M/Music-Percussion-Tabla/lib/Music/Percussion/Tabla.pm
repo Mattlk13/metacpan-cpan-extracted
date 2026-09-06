@@ -1,9 +1,9 @@
 package Music::Percussion::Tabla;
 our $AUTHORITY = 'cpan:GENE';
 
-# ABSTRACT: Play the tabla!
+# ABSTRACT: Play the tablas!
 
-our $VERSION = '0.0704';
+our $VERSION = '0.0709';
 
 use Moo;
 use File::ShareDir qw(dist_dir);
@@ -52,36 +52,38 @@ has patches => (
 
 sub BUILD {
     my ($self, $args) = @_;
-    $self->set_channel(0);
+    $self->set_channel(0); # XXX what?
 }
 
 
 sub strike {
     my ($self, $bol, $dura, $return) = @_;
     $dura ||= $self->quarter;
+    my @strikes;
     my $bols = $self->patches->{$bol};
     if (ref $bol eq 'ARRAY') {
         my $patches = $self->patches->{ $bol->[0] };
         if (any { /[a-z]/ } @$patches) {
-            _double($self, $patches, $dura);
+            push @strikes, _double($self, $patches, $dura);
         }
         else {
-            _single($self, $patches, $dura);
+            push @strikes, _single($self, $patches, $dura);
         }
         $patches = $self->patches->{ $bol->[1] };
         if (any { /[a-z]/ } @$patches) {
-            _double($self, $patches, $dura);
+            push @strikes, _double($self, $patches, $dura);
         }
         else {
-            _single($self, $patches, $dura);
+            push @strikes, _single($self, $patches, $dura);
         }
     }
     elsif (any { /[a-z]/ } @$bols) {
-        _double($self, $bols, $dura);
+        push @strikes, _double($self, $bols, $dura);
     }
     else {
-        _single($self, $bols, $dura);
+        push @strikes, _single($self, $bols, $dura);
     }
+    return \@strikes;
 }
 
 sub _double {
@@ -91,102 +93,116 @@ sub _double {
     $patches = $self->patches->{ $bols->[1] };
     my $daya = $patches->[ int rand @$patches ];
     $self->note($dura, $baya, $daya);
+    return [ $dura, $baya, $daya ];
 }
 
 sub _single {
     my ($self, $bols, $dura) = @_;
     my $patch = $bols->[ int rand @$bols ];
     $self->note($dura, $patch);
+    return [ $dura, $patch ];
 }
 
 
 sub teentaal {
     my ($self, $dura) = @_;
     $dura ||= $self->quarter;
+    my @strikes;
     for (1 .. 2) {
-        $self->strike('dha', $dura);
-        $self->strike('dhin', $dura);
-        $self->strike('dhin', $dura);
-        $self->strike('dha', $dura);
+        push @strikes, $self->strike('dha', $dura);
+        push @strikes, $self->strike('dhin', $dura);
+        push @strikes, $self->strike('dhin', $dura);
+        push @strikes, $self->strike('dha', $dura);
     }
-    $self->strike('dha', $dura);
-    $self->strike('tin', $dura);
-    $self->strike('tin', $dura);
-    $self->strike('ta', $dura);
-    $self->strike('ta', $dura);
-    $self->strike('dhin', $dura);
-    $self->strike('dhin', $dura);
-    $self->strike('dha', $dura);
+    push @strikes, $self->strike('dha', $dura);
+    push @strikes, $self->strike('tin', $dura);
+    push @strikes, $self->strike('tin', $dura);
+    push @strikes, $self->strike('ta', $dura);
+    push @strikes, $self->strike('ta', $dura);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('dha', $dura);
+    return \@strikes;
 }
 
 sub keherawa {
     my ($self, $dura) = @_;
     $dura ||= $self->quarter;
-    $self->strike('dha', $dura);
-    $self->strike('ge', $dura);
-    $self->strike('na', $dura);
-    $self->strike('tin', $dura);
-    $self->strike('na', $dura);
-    $self->strike('ke', $dura);
-    $self->strike('dhin', $dura);
-    $self->strike('na', $dura);
+    my @strikes;
+    push @strikes, $self->strike('dha', $dura);
+    push @strikes, $self->strike('ge', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('tin', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('ke', $dura);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('na', $dura);
+    return \@strikes;
 }
 
 sub jhaptaal {
     my ($self, $dura) = @_;
     $dura ||= $self->quarter;
-    $self->strike('dhin', $dura);
-    $self->strike('na', $dura);
-    $self->strike('dhin', $dura);
-    $self->strike('dhin', $dura);
-    $self->strike('na', $dura);
-    $self->strike('tin', $dura);
-    $self->strike('na', $dura);
-    $self->strike('dhin', $dura);
-    $self->strike('dhin', $dura);
-    $self->strike('na', $dura);
+    my @strikes;
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('tin', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('na', $dura);
+    return \@strikes;
 }
 
 sub dadra {
     my ($self, $dura) = @_;
     $dura ||= $self->quarter;
-    $self->strike('dha', $dura);
-    $self->strike('dhin', $dura);
-    $self->strike('na', $dura);
-    $self->strike('dha', $dura);
-    $self->strike('ti', $dura);
-    $self->strike('na', $dura);
+    my @strikes;
+    push @strikes, $self->strike('dha', $dura);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('dha', $dura);
+    push @strikes, $self->strike('ti', $dura);
+    push @strikes, $self->strike('na', $dura);
+    return \@strikes;
 }
 
 sub rupaktaal {
     my ($self, $dura) = @_;
     $dura ||= $self->quarter;
-    $self->strike('tin', $dura);
-    $self->strike('tin', $dura);
-    $self->strike('na', $dura);
-    $self->strike('dhin', $dura);
-    $self->strike('na', $dura);
-    $self->strike('dhin', $dura);
-    $self->strike('na', $dura);
+    my @strikes;
+    push @strikes, $self->strike('tin', $dura);
+    push @strikes, $self->strike('tin', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('na', $dura);
+    return \@strikes;
 }
 
 sub ektaal {
     my ($self, $dura) = @_;
     $dura ||= $self->quarter;
+    my @strikes;
     my $ticks = ticks($self->score);
     my $dura4 = 'd' . ($ticks * dura_size($dura) / 4);
-    $self->strike('dhin', $dura);
-    $self->strike('dhin', $dura);
-    $self->strike('dha', $dura);
-    $self->tirakita($dura4);
-    $self->strike('ti', $dura);
-    $self->strike('na', $dura);
-    $self->strike('ke', $dura);
-    $self->strike('ta', $dura);
-    $self->strike('dha', $dura);
-    $self->tirakita($dura4);
-    $self->strike('dhin', $dura);
-    $self->strike('na', $dura);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('dha', $dura);
+    push @strikes, $self->tirakita($dura4);
+    push @strikes, $self->strike('ti', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('ke', $dura);
+    push @strikes, $self->strike('ta', $dura);
+    push @strikes, $self->strike('dha', $dura);
+    push @strikes, $self->tirakita($dura4);
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->strike('na', $dura);
+    return \@strikes;
 }
 
 sub arachartaal {
@@ -194,29 +210,33 @@ sub arachartaal {
     $dura ||= $self->quarter;
     my $ticks = ticks($self->score);
     my $dura4 = 'd' . ($ticks * dura_size($dura) / 4);
-    $self->strike('dhin', $dura);
-    $self->tirakita($dura4);
-    $self->strike('dhit', $dura);
-    $self->strike('na', $dura);
-    $self->strike('ti', $dura);
-    $self->strike('na', $dura);
-    $self->strike('ke', $dura);
-    $self->strike('ta', $dura);
-    $self->tirakita($dura4);
-    $self->strike('dhit', $dura);
-    $self->strike('na', $dura);
-    $self->strike('dhit', $dura);
-    $self->strike('dhit', $dura);
-    $self->strike('na', $dura);
+    my @strikes;
+    push @strikes, $self->strike('dhin', $dura);
+    push @strikes, $self->tirakita($dura4);
+    push @strikes, $self->strike('dhit', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('ti', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('ke', $dura);
+    push @strikes, $self->strike('ta', $dura);
+    push @strikes, $self->tirakita($dura4);
+    push @strikes, $self->strike('dhit', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('dhit', $dura);
+    push @strikes, $self->strike('dhit', $dura);
+    push @strikes, $self->strike('na', $dura);
+    return \@strikes;
 }
 
 sub tirakita {
     my ($self, $dura) = @_;
     $dura ||= $self->quarter;
-    $self->strike('ti', $dura);
-    $self->strike('na', $dura);
-    $self->strike('ke', $dura);
-    $self->strike('ta', $dura);
+    my @strikes;
+    push @strikes, $self->strike('ti', $dura);
+    push @strikes, $self->strike('na', $dura);
+    push @strikes, $self->strike('ke', $dura);
+    push @strikes, $self->strike('ta', $dura);
+    return \@strikes;
 }
 
 1;
@@ -229,11 +249,11 @@ __END__
 
 =head1 NAME
 
-Music::Percussion::Tabla - Play the tabla!
+Music::Percussion::Tabla - Play the tablas!
 
 =head1 VERSION
 
-version 0.0704
+version 0.0709
 
 =head1 SYNOPSIS
 
@@ -242,25 +262,29 @@ version 0.0704
   my $t = Music::Percussion::Tabla->new;
 
   for (1 .. $t->bars) {
-    $t->strike('ta', $t->eighth);
+    $t->strike('ta', $t->eighth); # write to the score
     $t->strike('ta', $t->eighth);
     $t->strike('dha');
     $t->strike('ge');
     $t->rest($t->quarter);
   }
 
-  $t->strike(['ge', 'ke']); # double-strike
+  my @strikes; # optionally save the notes for other purposes
+
+  push @strikes, $t->strike(['ge', 'ke']); # double-strike
 
   for (1 .. 2) {
-    $t->strike('ke', $t->sixteenth) for 1 .. 3;
-    $t->strike('ti', $t->sixteenth) for 1 .. 4;
+    push @strikes, $t->strike('ke', $t->sixteenth) for 1 .. 3;
+    push @strikes, $t->strike('ti', $t->sixteenth) for 1 .. 4;
   }
+
+  print "Strikes: @strikes\n";
 
   $t->rest($t->quarter);
 
   $t->tirakita($t->sixteenth) for 1 .. 2;
 
-  $t->teentaal;
+  push @strikes, $t->teentaal; # as above
   $t->keherawa($t->eighth)  for 1 .. $t->bars;
   $t->jhaptaal($t->eighth)  for 1 .. $t->bars;
   $t->dadra($t->eighth)     for 1 .. $t->bars;
@@ -269,16 +293,17 @@ version 0.0704
   $t->ektaal;
   $t->arachartaal;
 
-  $t->play_with_timidity;
-  # OR:
   $t->write; # save the score as a MIDI file
-  $t->timidity_cfg('/Users/you/timidity.cfg');
-  # then run timidity with that config and MIDI file
 
 =head1 DESCRIPTION
 
 C<Music::Percussion::Tabla> provides named associations between tabla
 drum sounds and the included soundfont file (which is B<4.1MB>).
+
+To use the soundfont file, with say fluidsynth, add it to the startup
+command, like this (on the mac):
+
+  fluidsynth -a coreaudio -m coremidi -g 2.0 ~/Music/soundfont/Tabla.sf2
 
 Here are my "non-tabla player" descriptions of the sounds. And the
 proper "syllable" names for the items with a C<*> are unknown to me,
@@ -316,8 +341,6 @@ as of yet...
     28  87  low mid
     29  88  ringing mid
   ...
-
-Edit and run the F<eg/bols.pl> example program to hear each of these.
 
 To play patches by number instead of name (e.g. for the C<*> unknown
 bols), do this to add the C<84>th MIDInum entry score:
@@ -374,9 +397,12 @@ constructor attributes of L<MIDI::Drummer::Tiny>.
 
 =head2 strike
 
-  $tabla->strike($bol);
-  $tabla->strike([$bol1, $bol2]);
-  $tabla->strike($bol, $duration);
+  $tabla->strikes($bol);
+  $tabla->strikes([$bol1, $bol2]);
+  $tabla->strikes($bol, $duration);
+
+Add to the strike to the score and also return a MIDI note
+specification C<[$duration, @note_list]> for external handling.
 
 This method handles two types of strikes: single and double.
 
@@ -472,7 +498,7 @@ Gene Boggs <gene.boggs@gmail.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2023-2025 by Gene Boggs.
+This software is Copyright (c) 2023-2026 by Gene Boggs.
 
 This is free software, licensed under:
 

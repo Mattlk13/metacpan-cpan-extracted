@@ -1,37 +1,6 @@
 #ifndef ULIB__TYPE_H
 #define ULIB__TYPE_H
 
-#ifndef PERL_VERSION
-# undef SUBVERSION /* OS/390 */
-# include <patchlevel.h>
-# ifndef SUBVERSION
-#   define SUBVERSION 0
-# endif
-# if !defined(PATCHLEVEL)))
-#   include <could_not_find_Perl_patchlevel.h>
-# endif
-# define PERL_REVISION    5
-# define PERL_VERSION     PATCHLEVEL
-# define PERL_SUBVERSION  SUBVERSION
-#endif
-
-#ifndef PERL_VERSION_DECIMAL
-# define PERL_VERSION_DECIMAL(r,v,s) (r*1000000 + v*1000 + s)
-#endif
-#ifndef PERL_DECIMAL_VERSION
-# define PERL_DECIMAL_VERSION \
-    PERL_VERSION_DECIMAL(PERL_REVISION,PERL_VERSION,PERL_SUBVERSION)
-#endif
-
-#ifndef PERL_VERSION_LT
-# define PERL_VERSION_LT(r,v,s) \
-    (PERL_DECIMAL_VERSION < PERL_VERSION_DECIMAL(r,v,s))
-#endif
-#ifndef PERL_VERSION_EQ
-# define PERL_VERSION_EQ(r,v,s) \
-    (PERL_DECIMAL_VERSION == PERL_VERSION_DECIMAL(r,v,s))
-#endif
-
 
 /* related from SO for gcc:
 * https://stackoverflow.com/questions/1188939/representing-128-bit-numbers-in-c
@@ -209,6 +178,8 @@ typedef struct {
 #define pUCXT pTHX_ my_cxt_t *my_cxtp
 #define aUCXT aTHX_ my_cxtp
 #define UCXT  (*my_cxtp)
+
+#define SMEM UCXT.shared
 
 #endif
 /* ex:set ts=2 sw=2 itab=spaces: */

@@ -83,10 +83,10 @@
    "provides" : {
       "UUID" : {
          "file" : "lib/UUID.pm",
-         "version" : "0.38"
+         "version" : "0.39"
       }
    },
    "release_status" : "stable",
-   "version" : "0.38",
+   "version" : "0.39",
    "x_serialization_backend" : "JSON::PP version 4.16"
 }

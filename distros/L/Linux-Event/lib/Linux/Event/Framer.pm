@@ -3,7 +3,7 @@ use v5.36;
 use strict;
 use warnings;
 
-our $VERSION = '0.111';
+our $VERSION = '0.112';
 
 use Carp qw(croak);
 use Linux::Event::_ByteStream::Descriptor ();
@@ -76,13 +76,22 @@ Linux::Event::Framer - native framing for ordered-byte I/O
 
 =head1 SYNOPSIS
 
+  use Socket qw(AF_UNIX SOCK_STREAM PF_UNSPEC);
+
   package LineSocket;
   use parent 'Linux::Event::IO::Sock::Stream';
   use Linux::Event::Framer 'Delimiter', "\n";
 
-  sub on_message ($stream, $message) {
-      $stream->send($message);
-  }
+  package main;
+  socketpair(my $socket, my $peer, AF_UNIX, SOCK_STREAM, PF_UNSPEC)
+      or die "socketpair: $!";
+
+  my $stream = LineSocket->new(
+      fh => $socket,
+      on_message => sub ($stream, $message) {
+          $stream->send($message);
+      },
+  );
 
 =head1 DESCRIPTION
 
@@ -91,6 +100,11 @@ Linux::Event subclass. Pipes, TTYs, and C<SOCK_STREAM> connections share the
 same framing engine. The declaration is resolved once per concrete subclass;
 there is no per-connection framer object.
 
+Framing is class-level wire policy. Application delivery is independent of how
+that policy is declared: C<on_message> or C<on_messages> may be a class method
+or a constructor-supplied coderef. A constructor callback does not make the
+framer per-instance; it only selects that object's effective application CV.
+
 =head1 BUILT-IN FRAMERS
 
 Supported declarations include C<Delimiter>, C<Fixed>, C<LengthPrefix>,
@@ -98,8 +112,16 @@ C<U32BE>, C<Netstring>, C<Varint>, and C<DecimalLength>. Each framer accepts
 its own framing options; see F<docs/FRAMING.md> and the corresponding framer
 module POD.
 
-Readable classes without a framer use C<on_data>. Framed classes normally use
-C<on_message>, or C<on_messages> when explicit message batching is enabled.
+A readable class without a framer needs an effective C<on_data> callback. A
+framed class normally needs an effective C<on_message> callback, or
+C<on_messages> when explicit message batching is enabled. In each case the
+callback may come from a class method or from the object's constructor.
+
+Constructor callbacks are validated during construction and override a
+same-named method for that object. Input dispatch then invokes one cached
+effective CV directly from native ordered-byte state; it does not choose
+between method and closure for every message. The framer itself remains
+immutable class policy.
 
 =head1 NATIVE CONSUMERS
 
@@ -120,5 +142,10 @@ coroutine or awaitable layers. It is independent of the public Perl class
 names and must not depend on retired implementation packages.
 
 See F<docs/ORDERED-BYTE-CONSUMER-ABI.md>.
+
+=head1 SEE ALSO
+
+F<docs/FRAMING.md>, F<docs/CHOOSING-A-FRAMER.md>,
+F<docs/FIRST-CLASS-STREAM-CALLBACKS.md>.
 
 =cut

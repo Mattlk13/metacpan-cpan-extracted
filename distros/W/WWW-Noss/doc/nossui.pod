@@ -37,6 +37,10 @@ Specify path to directory to use as the L<noss(1)> data directory.
 
 Specify path to the L<noss(1)> feeds file to use.
 
+=item B<-r> I<file>
+
+Specify path to the L<dialog(1)> configuration file to use.
+
 =item B<-h>
 
 Print usage message and exit.

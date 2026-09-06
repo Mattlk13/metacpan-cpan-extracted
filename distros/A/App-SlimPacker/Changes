@@ -1,5 +1,16 @@
 Revision history for App-SlimPacker
 
+0.03  2026-09-05
+    - New minify-only mode: slimpack minify FILE... (or slimpack --minify FILE...)
+      runs just the PPI minification pass, no tracing or bundling
+    - New standalone minify script installed alongside slimpack
+    - minify_file() exported by App::SlimPacker; minify-only output preserves
+      the #! shebang line
+    - New exported process_deps() performs PPI minification and dependency
+      resolution in a single parse; the bundler uses it so each bundled module
+      is parsed exactly once instead of twice (measurably faster pack/bundle)
+    - Documented in README, POD and the new t/minify-cli.t
+
 0.02  2026-09-05
     - Minifier: never rename local/our globals (only my) so fully-qualified
       $PKG::name references stay valid (fixes silent value loss)

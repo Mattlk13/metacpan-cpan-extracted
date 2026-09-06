@@ -32,6 +32,4 @@ $t->rupaktaal($t->eighth) for 1 .. $t->bars;
 $t->ektaal;
 $t->arachartaal;
 
-$t->play_with_timidity;
-# $t->write;
-# $t->timidity_cfg('/Users/you/timidity.cfg');
+$t->write;

@@ -8,7 +8,7 @@ use Punk::Router::Scope;
 use Punk::Context;
 use Punk::Static;
 
-our $VERSION = '0.43';
+our $VERSION = '0.44';
 
 sub compile_extras {
     my ($self) = @_;
@@ -65,7 +65,8 @@ C<< $app->host >> with no argument reads the declared origin back (undef
 when the application never declared one), which is how a plugin defaults
 its own base-URL option; a plugin supporting older Punk should guard with
 C<< $app->can('host') >>.
-C<install_kw> gives a plugin a keyword of its own. C<model_auto>
+C<install_kw> gives a plugin a keyword of its own; C<keyword> and
+C<has_keyword> call, and detect, one another plugin installed. C<model_auto>
 toggles auto-discovery of C<MyApp::Model::*> (on unless models are named
 explicitly). C<caller_class> and C<config_object> give a plugin the
 app's controller namespace and its L<Punk::Config>; C<new> and the
@@ -149,6 +150,29 @@ Installing over a core keyword croaks. Two owners claiming one name croak,
 naming both, as helpers do; the same owner installing twice is a no-op,
 which is what a plugin that installs from both C<import> and C<register>
 needs. Chains. See L<Punk::Plugin/KEYWORDS OF YOUR OWN>.
+
+=head2 keyword($name, @args)
+
+    $app->keyword(sitemap => blog => sub { ... });
+
+Calls a keyword a plugin installed, from code rather than from the
+application's package body. The installed code runs with C<@args> in the
+caller's context and its return is passed through, exactly as the keyword
+in the application class would have done. This is how one plugin consumes
+another's declaration - a blog adding its posts to the sitemap - without
+reaching into the application class by name.
+
+A name nothing installed croaks naming it, because the plugin that
+provides it is not loaded and doing nothing would be a silence. A core DSL
+word croaks too; those are this registrar's own methods.
+
+=head2 has_keyword($name)
+
+The owner of an installed keyword - the class that installed it - or undef
+when nothing did. The way to ask whether this application loaded a plugin
+whose keyword you want to call, rather than sniffing C<%INC>, which says a
+module was loaded somewhere and not that this application registered it.
+Core DSL words answer undef.
 
 =head2 log
 

@@ -35,6 +35,7 @@ BEGIN {
 use File::Spec;
 use File::Temp qw(tempdir);
 use IO::File;
+use Future;
 
 
 #  Load WebDyne modules we need
@@ -68,12 +69,12 @@ async sub sse {
     await $sse_or->start(
         status  => HTTP_OK,
         headers => [
-            ['Content-Type' => 'text/event-stream'],
-            ['Cache-Control' => 'no-cache'],
+            ['content-type' => 'text/event-stream'],
+            ['cache-control' => 'no-cache'],
         ],
     );
     await $sse_or->send_event(event => 'tick', data => join(':', $param_hr->{'one'}, $param_hr->{'two'}));
-    $sse_or->close();
+    await $sse_or->close();
 }
 EOF
     $page_fh->close();
@@ -97,6 +98,27 @@ EOF
         is($event->{'event'}, 'tick', 'SSE event name is correct');
         is($event->{'data'}, 'alpha:bravo', 'SSE handler receives param hash');
     });
+
+    #  A pending transport send must keep the application alive through close.
+    #  Immediately resolved test sends would conceal a missing await above.
+    #
+    my $close_or=Future->new();
+    my @event;
+    my $application_or=$app_cr->(
+        {type => 'sse', method => 'GET', path => '/sse.psp',
+            query_string => 'one=alpha&two=bravo', headers => []},
+        sub { Future->new() },
+        sub {
+            my $event_hr=shift();
+            push @event, $event_hr->{'type'};
+            return $event_hr->{'type'} eq 'sse.close' ? $close_or : Future->done();
+        },
+    );
+    is_deeply(\@event, [qw(sse.start sse.send sse.close)], 'SSE sends start, event and close in order');
+    ok(!$application_or->is_ready(), 'application waits for pending close send');
+    $close_or->done();
+    ok($application_or->is_done(), 'application completes after close send resolves');
+    $application_or->get();
 
     return \1;
 }

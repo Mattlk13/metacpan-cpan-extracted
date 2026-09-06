@@ -4,7 +4,7 @@
       "Robert Rothenberg <perl@rhizomnic.com>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 6.037, CPAN::Meta::Converter version 2.150014",
+   "generated_by" : "Dist::Zilla version 6.038, CPAN::Meta::Converter version 2.150014",
    "keywords" : [
       "crawler",
       "robots",
@@ -85,6 +85,7 @@
             "CHI" : "0.40",
             "Net::DNS" : "1.57",
             "Ref::Util::XS" : "0",
+            "Scalar::Util" : "1.64",
             "TOML::XS" : "0.06",
             "Type::Tiny::XS" : "0"
          },
@@ -99,6 +100,7 @@
             "Net::Patricia" : "0",
             "PerlX::Maybe" : "0",
             "Ref::Util" : "0",
+            "Scalar::Util" : "1.18",
             "Sub::Util" : "1.40",
             "TOML::XS" : "0",
             "Try::Tiny" : "0",
@@ -136,7 +138,7 @@
    "provides" : {
       "Robots::Validate" : {
          "file" : "lib/Robots/Validate.pm",
-         "version" : "v0.4.1"
+         "version" : "v0.4.2"
       }
    },
    "release_status" : "stable",
@@ -150,7 +152,7 @@
          "web" : "https://github.com/robrwo/Robots-Validate"
       }
    },
-   "version" : "v0.4.1",
+   "version" : "v0.4.2",
    "x_authority" : "cpan:RRWO",
    "x_generated_by_perl" : "v5.42.1",
    "x_serialization_backend" : "Cpanel::JSON::XS version 4.42",

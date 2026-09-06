@@ -3,7 +3,7 @@
 require 5.010;
 use strict;
 package Stats::LikeR;
-our $VERSION = 0.315;
+our $VERSION = 0.3151;
 require XSLoader;
 use autodie ':default';
 use warnings FATAL => 'all';
@@ -5118,7 +5118,7 @@ Stats::LikeR - Get basic statistical functions, like in R, but with Perl using X
 
 =head1 VERSION
 
-version 0.315
+version 0.3151
 
 =head1 Synopsis
 

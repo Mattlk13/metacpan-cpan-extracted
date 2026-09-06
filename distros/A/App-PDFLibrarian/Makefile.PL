@@ -57,6 +57,7 @@ my %WriteMakefileArgs = (
     "Carp::Assert" => "0.22",
     "Clipboard" => "0.28",
     "Config::IniFiles" => "3.000003",
+    "Encode::Detect" => "1.01",
     "File::BaseDir" => "0.09",
     "File::MimeInfo" => "0.34",
     "File::ShareDir" => "1.00",
@@ -74,7 +75,7 @@ my %WriteMakefileArgs = (
     "XML::LibXML" => "2.0134",
     "XML::LibXSLT" => "2.002001"
   },
-  "VERSION" => "6.2.4",
+  "VERSION" => "6.3.1",
   "test" => {
     "TESTS" => ""
   }
@@ -85,6 +86,7 @@ my %FallbackPrereqs = (
   "Carp::Assert" => "0.22",
   "Clipboard" => "0.28",
   "Config::IniFiles" => "3.000003",
+  "Encode::Detect" => "1.01",
   "File::BaseDir" => "0.09",
   "File::MimeInfo" => "0.34",
   "File::ShareDir" => "1.00",

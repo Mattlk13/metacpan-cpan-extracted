@@ -1,0 +1,13 @@
+<header class="masthead">
+  <p class="wordmark" aria-label="Punk"><b>P</b><b>U</b><b>N</b><b>K</b></p>
+  <h1>{% post.title %}</h1>
+  <p class="sticker">{% post.published %}</p>
+</header>
+
+<section>
+  {% raw post.body %}
+</section>
+
+<p class="foot">
+  <a href="{% url.home %}">&larr; all posts</a>
+</p>

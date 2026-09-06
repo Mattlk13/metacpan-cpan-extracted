@@ -1,5 +1,16 @@
 Revision history for Punk
 
+0.45    2026-09-06
+        - A model class may now be subclassed: `package MyApp::Model::Thing;
+          our @ISA = ('Punk::Model::Thing');` inherits the parent's table and
+          fields, and `use Punk::Model` in the subclass lets it add a field,
+          redeclare one to change its spec, or name its own table.
+
+0.44    2026-09-05
+        - ADDS: $app->keyword($name => @args) and $app->has_keyword($name) -
+          call a keyword another plugin installed, from code, in the
+          caller's context
+
 0.43    2026-09-03
         - SECURITY: a websocket upgrade is refused with 403 unless its
           Origin is one the application answers as 

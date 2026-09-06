@@ -64,6 +64,7 @@ do { my $x = {
                                         'CHI' => '0.40',
                                         'Net::DNS' => '1.57',
                                         'Ref::Util::XS' => '0',
+                                        'Scalar::Util' => '1.64',
                                         'TOML::XS' => '0.06',
                                         'Type::Tiny::XS' => '0'
                                       },
@@ -78,6 +79,7 @@ do { my $x = {
                                       'Net::Patricia' => '0',
                                       'PerlX::Maybe' => '0',
                                       'Ref::Util' => '0',
+                                      'Scalar::Util' => '1.18',
                                       'Sub::Util' => '1.40',
                                       'TOML::XS' => '0',
                                       'Try::Tiny' => '0',

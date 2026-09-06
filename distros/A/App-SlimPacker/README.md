@@ -21,11 +21,13 @@ project-agnostic: no search paths or class layouts are baked in.
 
 | File | Purpose |
 | --- | --- |
-| `lib/App/SlimPacker.pm` | The minifier (`process`, `name_gen`, `needs_space`) and bundling helpers |
+| `lib/App/SlimPacker.pm` | The minifier (`process`, `minify_file`, `name_gen`, `needs_space`) and bundling helpers |
 | `bin/slimpack` | CLI bundler that assembles the final script |
+| `bin/minify` | Standalone minify-only front-end (same minification pass, no bundling) |
 | `t/minify.t` | Tests for the minifier (whitespace rules, variable renaming) |
 | `t/deps.t` | Tests for dependency finding (`module_deps`, plugin inlining, `perl_switches`) |
 | `t/bundle.t` | End-to-end tests for the `bundle` subcommand |
+| `t/minify-cli.t` | Tests for minify-only mode (`slimpack minify`, `--minify`, `bin/minify`) |
 | `t/cli.t` | Tests for subcommand dispatch (`pack`, `trace`, `packlists-for`, `tree`, `bundle`) |
 
 ## Installation
@@ -34,7 +36,7 @@ project-agnostic: no search paths or class layouts are baked in.
 perl Makefile.PL
 make
 make test
-make install        # installs bin/slimpack to your perl's bin dir
+make install        # installs bin/slimpack and bin/minify to your perl's bin dir
 ```
 
 Requires `PPI`, `App::FatPacker` and `Module::CoreList` (none are core modules).
@@ -94,6 +96,29 @@ slimpack -o myapp -M List::Util=sum -e 'print sum(1..100)'
 slimpack -o myapp -E 'say reverse qw(b a c)'
 slimpack -o myapp -M strict bin/myapp          # -M also applies to scripts
 ```
+
+### Minify only
+
+`slimpack` can run just the minification pass, without tracing or bundling —
+useful for stamping comments/POD/whitespace out of existing scripts:
+
+```sh
+slimpack minify script.pl            # minified script to STDOUT
+slimpack --minify script.pl          # same, as a flag
+slimpack minify -o out.pl script.pl  # write to a file
+slimpack minify --no-rename script.pl
+```
+
+A standalone `minify` script with the same options is installed alongside
+`slimpack`:
+
+```sh
+minify [ -o out.pl ] [ --no-rename ] script.pl ...
+```
+
+Each file is read, run through `App::SlimPacker::process()`, and printed; the
+`#!` shebang line is preserved so the output stays runnable. `-o` needs exactly
+one input file; otherwise results go to STDOUT.
 
 ### Module::Pluggable inlining
 

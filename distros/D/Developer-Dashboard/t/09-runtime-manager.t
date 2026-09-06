@@ -282,7 +282,7 @@ my $pid;
         \@spawned,
         [
             'C:\\Strawberry\\perl\\bin\\perl.exe',
-            $manager->_dashboard_core_helper_path,
+            $manager->_dashboard_core_helper_path('web-foreground'),
             'web-foreground',
             '--host',
             '0.0.0.0',
@@ -333,7 +333,7 @@ my $pid;
         return 0;
     };
     is(
-        $manager->_dashboard_core_helper_path,
+        $manager->_dashboard_core_helper_path('web-foreground'),
         $shipped,
         '_dashboard_core_helper_path falls back to the shipped dist helper when the staged helper lacks the requested internal command',
     );
@@ -354,7 +354,7 @@ my $pid;
         return 0;
     };
     is(
-        $manager->_dashboard_core_helper_path,
+        $manager->_dashboard_core_helper_path('web-foreground'),
         $staged,
         '_dashboard_core_helper_path keeps the staged helper when it already contains the requested internal command',
     );
@@ -370,7 +370,7 @@ my $pid;
     };
     local *Developer::Dashboard::RuntimeManager::_helper_file_supports_internal_command = sub { return 0 };
     is(
-        $manager->_dashboard_core_helper_path,
+        $manager->_dashboard_core_helper_path('web-foreground'),
         $staged,
         '_dashboard_core_helper_path falls back to the staged helper path when neither staged nor shipped helpers advertise the requested internal command',
     );
@@ -406,7 +406,7 @@ my $pid;
     };
     local *Developer::Dashboard::RuntimeManager::_helper_file_supports_internal_command = sub { return 0 };
     is(
-        $manager->_dashboard_core_helper_path,
+        $manager->_dashboard_core_helper_path('web-foreground'),
         $staged,
         '_dashboard_core_helper_path survives missing dist share directories and falls back to the staged helper path',
     );
@@ -2037,6 +2037,11 @@ END {
 {
     local $Developer::Dashboard::Platform::OS_NAME = 'MSWin32';
     no warnings 'redefine';
+    # DD-753: RuntimeManager resolves the PowerShell executable now instead of
+    # hardcoding it. Forcing OS_NAME makes is_windows true, but command_in_path
+    # still finds nothing on this host and C:\Windows does not exist, so the
+    # resolver returns '' and the branch is skipped. Stub it, as t/100 does.
+    local *Developer::Dashboard::RuntimeManager::_powershell_command = sub { return 'pwsh' };
     local *Developer::Dashboard::RuntimeManager::capture = sub (&) {
         return (
             "2372\n5868\n2372\n",
@@ -2054,6 +2059,11 @@ END {
 {
     local $Developer::Dashboard::Platform::OS_NAME = 'MSWin32';
     no warnings 'redefine';
+    # DD-753: RuntimeManager resolves the PowerShell executable now instead of
+    # hardcoding it. Forcing OS_NAME makes is_windows true, but command_in_path
+    # still finds nothing on this host and C:\Windows does not exist, so the
+    # resolver returns '' and the branch is skipped. Stub it, as t/100 does.
+    local *Developer::Dashboard::RuntimeManager::_powershell_command = sub { return 'pwsh' };
     local *Developer::Dashboard::RuntimeManager::capture = sub (&) {
         return (
             '',
@@ -3514,6 +3524,11 @@ SCRIPT
 {
     local $Developer::Dashboard::Platform::OS_NAME = 'MSWin32';
     no warnings 'redefine';
+    # DD-753: RuntimeManager resolves the PowerShell executable now instead of
+    # hardcoding it. Forcing OS_NAME makes is_windows true, but command_in_path
+    # still finds nothing on this host and C:\Windows does not exist, so the
+    # resolver returns '' and the branch is skipped. Stub it, as t/100 does.
+    local *Developer::Dashboard::RuntimeManager::_powershell_command = sub { return 'pwsh' };
     local *Developer::Dashboard::RuntimeManager::capture = sub (&) {
         return ( '', 'ERROR: The process "3996" not found.', 128 );
     };
@@ -3527,6 +3542,11 @@ SCRIPT
 {
     local $Developer::Dashboard::Platform::OS_NAME = 'MSWin32';
     no warnings 'redefine';
+    # DD-753: RuntimeManager resolves the PowerShell executable now instead of
+    # hardcoding it. Forcing OS_NAME makes is_windows true, but command_in_path
+    # still finds nothing on this host and C:\Windows does not exist, so the
+    # resolver returns '' and the branch is skipped. Stub it, as t/100 does.
+    local *Developer::Dashboard::RuntimeManager::_powershell_command = sub { return 'pwsh' };
     local *Developer::Dashboard::RuntimeManager::capture = sub (&) {
         return ( "taskkill: command not found\n", '', 127 );
     };
@@ -3540,6 +3560,11 @@ SCRIPT
 {
     local $Developer::Dashboard::Platform::OS_NAME = 'MSWin32';
     no warnings 'redefine';
+    # DD-753: RuntimeManager resolves the PowerShell executable now instead of
+    # hardcoding it. Forcing OS_NAME makes is_windows true, but command_in_path
+    # still finds nothing on this host and C:\Windows does not exist, so the
+    # resolver returns '' and the branch is skipped. Stub it, as t/100 does.
+    local *Developer::Dashboard::RuntimeManager::_powershell_command = sub { return 'pwsh' };
     local *Developer::Dashboard::RuntimeManager::capture = sub (&) {
         return ( '', 'taskkill hard failure', 5 );
     };

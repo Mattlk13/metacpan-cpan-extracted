@@ -1,3 +1,4 @@
+bin/minify
 bin/slimpack
 Changes
 lib/App/SlimPacker.pm
@@ -8,6 +9,7 @@ README.md
 t/bundle.t
 t/cli.t
 t/deps.t
+t/minify-cli.t
 t/minify.t
 META.yml                                 Module YAML meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)

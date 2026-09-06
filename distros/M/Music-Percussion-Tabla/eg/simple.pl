@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 
+use Data::Dumper::Compact qw(ddc);
 use Music::Percussion::Tabla ();
 
 my $t = Music::Percussion::Tabla->new(
@@ -10,15 +11,17 @@ my $t = Music::Percussion::Tabla->new(
   bpm       => 320,
 );
 
+my @specs;
+
 for (1 .. $t->bars) {
-  $t->strike(['ta', 'ke']);
-  $t->strike('ge');
-  $t->strike('ke');
-  $t->strike('ta');
-  $t->strike(['ge', 'ke']);
-  $t->strike('dha');
+  push @specs, $t->strike(['ta', 'ke']);
+  push @specs, $t->strike('ge');
+  push @specs, $t->strike('ke');
+  push @specs, $t->strike('ta');
+  push @specs, $t->strike(['ge', 'ke']);
+  push @specs, $t->strike('dha');
 }
 
-# $t->play_with_timidity;
+print ddc \@specs;
+
 $t->write;
-# $t->timidity_cfg('/Users/you/timidity.cfg');

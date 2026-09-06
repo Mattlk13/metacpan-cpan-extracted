@@ -2,7 +2,7 @@ package WWW::Noss::GroupConfig;
 use 5.016;
 use strict;
 use warnings;
-our $VERSION = '2.03';
+our $VERSION = '2.04';
 
 use parent 'WWW::Noss::BaseConfig';
 
@@ -159,6 +159,8 @@ available:
 =item default_update
 
 =item hidden
+
+=item open
 
 =back
 

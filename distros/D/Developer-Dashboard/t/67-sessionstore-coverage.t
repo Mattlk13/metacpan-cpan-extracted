@@ -105,22 +105,26 @@ my $write_session = sub {
     return $file;
 };
 
-# --- from_cookie: empty expiry short-circuits the expiry check, and no
-#     request remote_addr short-circuits the binding check ---------------
-{
+# --- from_cookie: DD-764 - a missing/empty/zero expiry fails CLOSED, the
+#     same way a malformed one already does, rather than being treated as
+#     "never expires". _iso8601_to_epoch returns 0 for all three shapes, so
+#     dropping the truthiness guard on $session->{expires_at} is what makes
+#     absence compare as long-expired instead of short-circuiting past the
+#     comparison entirely. ---------------------------------------------
+for my $case ( [ 'cover-empty-expiry', '' ], [ 'cover-zero-expiry', '0' ] ) {
+    my ( $id, $expires_at ) = @$case;
     $write_session->(
-        'cover-empty-expiry',
+        $id,
         {
-            session_id  => 'cover-empty-expiry',
-            username    => 'empty-expiry-user',
+            session_id  => $id,
+            username    => "$id-user",
             role        => 'helper',
             remote_addr => '10.0.0.1',
-            expires_at  => '',
+            expires_at  => $expires_at,
         }
     );
-    my $session = $store->from_cookie('dashboard_session=cover-empty-expiry');
-    is( ref $session, 'HASH', 'from_cookie returns a session whose empty expiry skips the expiry comparison' );
-    is( $session->{username}, 'empty-expiry-user', 'from_cookie loads the crafted empty-expiry session record' );
+    my $session = $store->from_cookie("dashboard_session=$id");
+    is( $session, undef, "from_cookie rejects a session whose expires_at is '$expires_at' as expired, not eternal" );
 }
 
 # --- from_cookie: a request remote_addr with no stored remote_addr key
@@ -138,6 +142,30 @@ my $write_session = sub {
     my $session = $store->from_cookie( 'dashboard_session=cover-no-remote', remote_addr => '1.2.3.4' );
     is( ref $session, 'HASH', 'from_cookie returns a session that stores no remote_addr even when a request address is supplied' );
     is( $session->{username}, 'no-remote-user', 'from_cookie loads the crafted no-remote-addr session record' );
+}
+
+# --- from_cookie: a stored remote_addr with NO request remote_addr supplied
+#     at all also leaves the binding check inert - this is the "defined
+#     $args{remote_addr}" side of the guard, distinct from the stored-side
+#     case immediately above. DD-764's own fix uncovered this arm: before,
+#     a session with no expires_at was falsy at the truthiness guard and
+#     fell through to this line; now it is deleted and returned early, so
+#     the only path that used to reach here with no expires_at is gone.
+#     Reach the same arm directly instead. ---------------------------
+{
+    $write_session->(
+        'cover-no-request-addr',
+        {
+            session_id  => 'cover-no-request-addr',
+            username    => 'no-request-addr-user',
+            role        => 'helper',
+            remote_addr => '10.0.0.1',
+            expires_at  => '2999-01-01T00:00:00Z',
+        }
+    );
+    my $session = $store->from_cookie('dashboard_session=cover-no-request-addr');
+    is( ref $session, 'HASH', 'from_cookie skips remote-address binding when the caller supplies no remote_addr at all' );
+    is( $session->{username}, 'no-request-addr-user', 'from_cookie loads the crafted no-request-addr session record' );
 }
 
 # --- from_cookie: a stored empty remote_addr disables address binding ---
@@ -162,9 +190,17 @@ my $write_session = sub {
     my $record = $store->create( username => 'openfail-user', remote_addr => '127.0.0.1' );
     my $file   = File::Spec->catfile( $root, "$record->{session_id}.json" );
     ok( -f $file, 'created session file exists before the read-failure probe' );
-    chmod 0000, $file or die "Unable to chmod $file: $!";
-    my $err = eval { $store->get( $record->{session_id} ); 1 } ? '' : $@;
-    like( $err, qr/Unable to read/, 'get dies when a present session file cannot be opened for reading' );
+  SKIP: {
+        chmod 0000, $file or skip 'chmod not honored on this filesystem', 1;
+        if ( open my $probe, '<', $file ) {
+            close $probe or die "Unable to close probe on $file: $!";
+            skip 'this process can read a mode-0000 session file, so the open failure cannot occur', 1;
+        }
+
+        my $err = eval { $store->get( $record->{session_id} ); 1 } ? '' : $@;
+        like( $err, qr/Unable to read/, 'get dies when a present session file cannot be opened for reading' );
+    }
+
     chmod 0600, $file or die "Unable to restore mode on $file: $!";
 }
 
@@ -277,26 +313,57 @@ SKIP: {
     open my $fh, '>:raw', $file or die "Unable to write $file: $!";
     print {$fh} json_encode( { session_id => 'unreadable', expires_at => '2000-01-01T00:00:00Z' } );
     close $fh;
-    chmod 0000, $file or die "Unable to chmod $file: $!";
+  SKIP: {
+        chmod 0000, $file or skip 'chmod not honored on this filesystem', 1;
+        if ( open my $probe, '<', $file ) {
+            close $probe or die "Unable to close probe on $file: $!";
+            skip 'this process can read a mode-0000 session file, so the skip-on-read-failure path cannot occur', 1;
+        }
 
-    no warnings qw(redefine once);
-    local *Developer::Dashboard::PathRegistry::sessions_root = sub { return $dir };
-    is( $store->sweep_expired, 0, 'sweep_expired skips a session file it cannot open for reading' );
+        no warnings qw(redefine once);
+        local *Developer::Dashboard::PathRegistry::sessions_root = sub { return $dir };
+        is( $store->sweep_expired, 0, 'sweep_expired skips a session file it cannot open for reading' );
+    }
+
     chmod 0600, $file or die "Unable to restore mode on $file: $!";
 }
 
-# --- sweep_expired: a record with an empty expiry is left untouched -----
-{
-    my $dir = File::Spec->catdir( $home, 'sweep-empty-expiry' );
+# --- sweep_expired: DD-764 - a record with a missing, empty, or "0" expiry
+#     is COLLECTED, not left untouched. An absent expiry used to be treated
+#     as "never expires" and skipped by the same guard that (correctly)
+#     still protects a record whose expiry is a genuinely future timestamp
+#     below, which sweep_expired must still leave alone. -----------------
+for my $case ( [ 'blank', '' ], [ 'zero', '0' ], [ 'missing', undef ] ) {
+    my ( $name, $expires_at ) = @$case;
+    my $dir = File::Spec->catdir( $home, "sweep-$name-expiry" );
     make_path($dir);
-    my $file = File::Spec->catfile( $dir, 'blank.json' );
+    my $file = File::Spec->catfile( $dir, "$name.json" );
+    my %record = ( session_id => $name );
+    $record{expires_at} = $expires_at if defined $expires_at;
     open my $fh, '>:raw', $file or die "Unable to write $file: $!";
-    print {$fh} json_encode( { session_id => 'blank', expires_at => '' } );
+    print {$fh} json_encode( \%record );
     close $fh;
 
     no warnings qw(redefine once);
     local *Developer::Dashboard::PathRegistry::sessions_root = sub { return $dir };
-    is( $store->sweep_expired, 0, 'sweep_expired leaves a record whose expiry is the empty string untouched' );
+    is( $store->sweep_expired, 1, "sweep_expired collects a record whose expiry is " . ( defined $expires_at ? "'$expires_at'" : 'absent' ) );
+    ok( !-e $file, "and the file is actually removed ($name)" );
+}
+
+# --- sweep_expired: a record with a genuinely future expiry is still left
+#     untouched - the regression guard for the fix above. ----------------
+{
+    my $dir = File::Spec->catdir( $home, 'sweep-future-expiry' );
+    make_path($dir);
+    my $file = File::Spec->catfile( $dir, 'future.json' );
+    open my $fh, '>:raw', $file or die "Unable to write $file: $!";
+    print {$fh} json_encode( { session_id => 'future', expires_at => '2999-01-01T00:00:00Z' } );
+    close $fh;
+
+    no warnings qw(redefine once);
+    local *Developer::Dashboard::PathRegistry::sessions_root = sub { return $dir };
+    is( $store->sweep_expired, 0, 'sweep_expired leaves a record with a genuinely future expiry untouched' );
+    ok( -f $file, 'and the file is still there' );
 }
 
 # --- sweep_expired: dry_run counts an expired file without unlinking it -
@@ -326,16 +393,27 @@ SKIP: {
     print {$fh} json_encode( { session_id => 'expired', expires_at => '2000-01-01T00:00:00Z' } );
     close $fh;
     chmod 0600, $file or die "Unable to chmod $file: $!";
-    chmod 0500, $dir  or die "Unable to chmod $dir: $!";
+  SKIP: {
+        chmod 0500, $dir or skip 'chmod not honored on this filesystem', 1;
 
-    my $removed;
-    {
-        no warnings qw(redefine once);
-        local *Developer::Dashboard::PathRegistry::sessions_root = sub { return $dir };
-        $removed = $store->sweep_expired;
+        # An unlink needs write on the DIRECTORY, so probe by trying to create
+        # a file in it - -w is mode-bit arithmetic and lies for uid 0.
+        my $wprobe = File::Spec->catfile( $dir, '.unlink-probe' );
+        my $pfh;
+        my $can_write = open( $pfh, '>', $wprobe ) ? do { close $pfh; unlink $wprobe; 1 } : 0;
+
+        my $removed;
+        if ( !$can_write ) {
+            no warnings qw(redefine once);
+            local *Developer::Dashboard::PathRegistry::sessions_root = sub { return $dir };
+            $removed = $store->sweep_expired;
+        }
+        chmod 0700, $dir or die "Unable to restore mode on $dir: $!";
+
+        skip 'this process can write into a mode-0500 directory, so the unlink failure cannot occur', 1
+          if $can_write;
+        is( $removed, 0, 'sweep_expired reports zero removals when an expired file cannot be unlinked' );
     }
-    is( $removed, 0, 'sweep_expired reports zero removals when an expired file cannot be unlinked' );
-    chmod 0700, $dir or die "Unable to restore mode on $dir: $!";
 }
 
 done_testing;

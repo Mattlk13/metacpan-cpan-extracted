@@ -4,7 +4,7 @@ use 5.010;
 use strict;
 use warnings;
 
-our $VERSION = '0.43';
+our $VERSION = '0.44';
 
 sub new { bless {}, $_[0] }
 
@@ -144,6 +144,15 @@ C<register> runs at runtime, so a keyword installed there is only usable
 in its parenthesised form (C<task(...)>) on later lines. These are
 ordinary compile-time-visible subs, not calls lifted into the C<BEGIN>
 phase: an argument is evaluated when the line runs, as usual.
+
+A plugin that wants to use a keyword I<another> plugin installed - a blog
+adding a section to the sitemap - does not call it through the
+application class. It asks C<< $app->has_keyword('sitemap') >>, which
+answers the installing class or undef, and calls
+C<< $app->keyword(sitemap => name => sub { ... }) >>, which runs the
+installed code with those arguments in the caller's context. The right
+moment is usually an C<on_compile> callback, where every C<plugin> line has
+run whatever order the application wrote them in.
 
 =head1 METHODS
 

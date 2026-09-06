@@ -1,7 +1,7 @@
 #
 #  This file is part of WebDyne.
 #
-#  This software is copyright (c) 2026 by Andrew Speer <andrew.speer.com.au>.
+#  This software is copyright (c) 2026 by Andrew Speer <andrew.speer@isolutions.com.au>.
 #
 #  This is free software; you can redistribute it and/or modify it under
 #  the same terms as the Perl 5 programming language system itself.
@@ -32,7 +32,6 @@ use Data::Dumper;
 use HTTP::Headers::Fast;
 use Future::AsyncAwait;
 use PAGI::Request;
-use File::Temp qw(tempfile);
 
 
 #  WebDyne modules
@@ -46,7 +45,7 @@ use WebDyne::Request::Fake;
 
 #  Version information
 #
-$VERSION='3.024';
+$VERSION='3.026';
 
 
 #  Debug load
@@ -90,7 +89,7 @@ sub init {
         client_address      => sub { shift()->{'req'}->client()->[0] },
         content             => \&body,
         content_encoding    => undef,
-        content_length      => undef,
+        content_length      => \&content_length,
         content_type        => undef,,
         cookies             => 'cookies',
         cookie              => 'cookies',
@@ -135,7 +134,7 @@ sub init {
         notes               => undef,
         origin              => undef,
         output_filters      => undef,
-        path_info           => 'path',
+        path_info           => sub { scope_path(shift()->{'scope'}) },
         path_parameters     => undef,
         path                => 'path',
         pool                => undef,
@@ -159,7 +158,7 @@ sub init {
         route               => undef,
         run                 => undef,
         scheme              => 'scheme',
-        script_name         => undef,
+        script_name         => sub { shift()->{'scope'}{'root_path'} || '' },
         secure              => \&secure,
         sendfile            => undef,
         send_http_header    => undef,
@@ -222,7 +221,7 @@ sub new {
 
             #  Get from URI and location
             #
-            my $uri=$r{'uri'} || $r{'req'}->path();
+            my $uri=$r{'uri'} || scope_path($r{'scope'});
             debug("uri: $uri");
             my @uri_part=grep { length($_) } split(m{/+}, $uri);
             if (grep { $_ eq '..' } @uri_part) {
@@ -291,6 +290,22 @@ sub new {
 }
 
 
+sub scope_path {
+
+    my $scope_hr=shift();
+    my $path=$scope_hr->{'path'} || '';
+    my $root=$scope_hr->{'root_path'} || '';
+
+    #  Strip the mount prefix only at a path boundary, so /app does not
+    #  match /apple. Preserve the original scope for downstream consumers.
+    #
+    $root=~s{/+$}{};
+    $path=~s{^\Q$root\E(?=/|$)}{} if length($root);
+    return $path;
+
+}
+
+
 sub env {
 
     return shift()->{'scope'}
@@ -331,55 +346,58 @@ sub server_port {
 }
 
 
+sub content_length {
+
+    my $self=shift();
+    my $length=$self->{'req'}->content_length();
+    return $length if defined($length);
+
+    #  Supply the buffered byte length for synchronous CGI parsing when
+    #  the request did not declare Content-Length.
+    #
+    my $scope_hr=$self->{'scope'};
+    if (exists $scope_hr->{'webdyne.pagi.multipart_body'}) {
+        return length(${$scope_hr->{'webdyne.pagi.multipart_body'}});
+    }
+    if ($scope_hr->{'pagi.request.body.read'}) {
+        return length($scope_hr->{'pagi.request.body'});
+    }
+
+    return undef;
+
+}
+
+
 sub body {
 
-    my $r=shift();
+    my $self=shift();
+    my $scope_hr=$self->{'scope'};
 
-    return $r->{'scope'}{'pagi.request.body'}
-        if $r->{'scope'}{'pagi.request.body.read'};
-
-    my $body;
-    if (my $body_or=$r->{'req'}->body()) {
-        $body=$body_or->get;
+    if (exists $scope_hr->{'webdyne.pagi.multipart_body'}) {
+        return ${$scope_hr->{'webdyne.pagi.multipart_body'}};
     }
-    
+    if ($scope_hr->{'pagi.request.body.read'}) {
+        return $scope_hr->{'pagi.request.body'};
+    }
+
+    return err('request body is not buffered; await req()->body() before synchronous access');
+
 }
+
 
 sub body_handle {
 
-    #  Try to munge streamed IO into file handle
-    #
-    my $r=shift();
-    debug($r);
+    my $self=shift();
+    my $body=$self->body();
+    return unless defined($body);
 
-    #  Multipart bodies used by synchronous CGI parsing are staged by the
-    #  async PAGI handler before WebDyne dispatch begins.
+    #  Each handle reads the completed bytes from the beginning. No temporary
+    #  file or private server event-loop access is needed for synchronous IO.
     #
-    if (exists $r->{'scope'}{'webdyne.pagi.multipart_body'}) {
-        my $body_sr=$r->{'scope'}{'webdyne.pagi.multipart_body'};
-        open(my $fh, '<', $body_sr) ||
-            return err('unable to open staged PAGI multipart body: %s', $!);
-        binmode($fh);
-        return $fh;
-    }
-
-    local $SIG{__DIE__};
-    my ($fh, $fn) = tempfile();
-    if (my $stream_or=eval{ $r->{'req'}->body_stream() }) {
-        
-        my $future_or=$stream_or->stream_to_file($fn);
-        my $loop =
-            $r->{'scope'}{'pagi.connection'}
-              {'_connection'}
-              {'idle_timer'}
-              {'IO_Async_Notifier__loop'};
-        debug("loop: $loop, awaiting end");
-        $loop->await($future_or) if $loop;
-        debug("loop completed on fn: $fn, fh: $fh, size: %s", (-s $fn));
-        seek($fh,0,0);
-    }
-    eval {} if $@;
-    return $fh;
+    open(my $body_fh, '<', \$body) ||
+        return err('unable to open buffered PAGI body: %s', $!);
+    binmode($body_fh);
+    return $body_fh;
 
 }
 
@@ -527,7 +545,7 @@ Andrew Speer <andrew.speer@isolutions.com.au>
 
 This file is part of WebDyne.
 
-This software is copyright (c) 2026 by Andrew Speer <andrew.speer.com.au>.
+This software is copyright (c) 2026 by Andrew Speer <andrew.speer@isolutions.com.au>.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

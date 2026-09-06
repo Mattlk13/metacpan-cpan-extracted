@@ -259,7 +259,12 @@ t/164-page-resolution-failure-contract.t
 t/164-stream-drain-eintr.t
 t/165-page-resolution-report.t
 t/166-dashboard-d2-handle.t
+t/167-collector-start-loop-rejects-empty-command.t
+t/168-permission-assertion-guards.t
+t/169-gate-target-resolution.t
 t/17-web-server-ssl.t
+t/170-optional-tooling-skips.t
+t/171-dependabot-grouping.t
 t/18-web-service-config.t
 t/19-skill-system.t
 t/20-skill-web-routes.t

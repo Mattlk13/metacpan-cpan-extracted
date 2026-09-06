@@ -3,7 +3,7 @@ use v5.36;
 use strict;
 use warnings;
 
-our $VERSION = '0.111';
+our $VERSION = '0.112';
 
 use Carp qw(croak);
 use Scalar::Util qw(blessed);
@@ -65,6 +65,10 @@ class.
 Public resource objects may be attached during construction with
 C<loop =E<gt> $loop>, or constructed detached and passed to C<add>. C<add>
 invokes the object's attachment implementation and returns that same object.
+
+Ordered-byte resources may receive their application callbacks as subclass
+methods or constructor coderefs. This does not change Loop attachment or
+ownership; see F<docs/FIRST-CLASS-STREAM-CALLBACKS.md>.
 
 The public resource leaves are L<Linux::Event::IO::Pipe>,
 L<Linux::Event::IO::TTY>, L<Linux::Event::IO::Sock::Stream>,
@@ -270,11 +274,28 @@ collection without resetting existing statistics. Statistics remain readable
 while profiling is disabled. Profiling changes the measured workload, so it
 should be disabled for normal benchmarks.
 
-C<event_capacity> and C<set_event_capacity> inspect or change the reusable
-event array. C<callback_scope_limit> and C<set_callback_scope_limit> control
-bounded Perl temporary scopes. C<enable_watcher_reclaim> exposes an
-experimental native memory/throughput tradeoff. The measured defaults should
-normally remain unchanged.
+C<event_capacity> returns the reusable epoll event-array capacity, default
+8,192. C<set_event_capacity($capacity)> accepts an integer from 1 through
+1,048,576 while the Loop is neither running nor dispatching. A larger value can
+return more ready registrations from one C<epoll_wait>; it also allocates a
+larger reusable array.
+
+C<callback_scope_limit> returns the maximum callbacks sharing one bounded Perl
+temporary scope, default 128. C<set_callback_scope_limit($limit)> accepts an
+integer from 0 through 1,048,576. Zero uses one scope for the whole dispatch
+batch; a positive value rotates the scope after that many callbacks.
+
+C<enable_watcher_reclaim($boolean = 1)> toggles immediate watcher-structure
+recycling after dispatch. It defaults off and exposes an experimental native
+memory/throughput tradeoff. The measured defaults should normally remain
+unchanged unless application-specific benchmarks justify tuning them.
+
+Loop tuning uses instance methods rather than subclass policy:
+
+  my $loop = Linux::Event::Loop->new;
+  $loop->set_event_capacity(16_384);
+  $loop->set_callback_scope_limit(256);
+  $loop->enable_watcher_reclaim(1); # experimental
 
 =head1 INTERPRETER OWNERSHIP
 

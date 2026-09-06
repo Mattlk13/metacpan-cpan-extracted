@@ -30,7 +30,6 @@ the [Building](#Building) section below.
 * `DBI`
 * `DBD::SQLite`
 * `JSON`
-* `Parallel::ForkManager`
 * `XML::LibXML`
 * `curl` (>= `7.68.0`)
 * `lynx`
